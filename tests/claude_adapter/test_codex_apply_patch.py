@@ -148,6 +148,10 @@ task_ids: [248]
                 "schema_version": "1.0.0",
                 "status": "in-progress",
                 "task": {"id": "248", "slug": "codex-hook-adapter", "status": "in-progress"},
+                "paths": {
+                    "session": (Path("sessions") / session_rel).as_posix(),
+                    "plan": (Path("plans") / plan_rel).as_posix(),
+                },
             }
         ),
     )

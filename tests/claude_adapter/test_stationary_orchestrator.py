@@ -309,9 +309,19 @@ def test_posttool_tracking_belongs_to_target_and_log_is_reachable(tmp_path):
     from test_pretooluse_gates import POSTTOOLUSE
 
     canonical, target, _ = stationary_fixture(tmp_path)
+    # Logging authority must bind the real fixture pointers, not merely a Bead ID.
     write(
         target / ".aegis/state/current-work.json",
-        '{"schema_version":"1.0.0","mode":"bead","status":"in-progress","task":{"id":"ga-one","slug":"beads-first-guidance","source":"gas-city-bead","status":"in-progress"}}',
+        json.dumps({
+            "schema_version": "1.0.0", "mode": "bead", "status": "in-progress",
+            "task": {"id": "ga-one", "slug": "beads-first-guidance",
+                     "source": "gas-city-bead", "status": "in-progress"},
+            "branch": {"current": "codex/ga-one-beads-first-guidance"},
+            "paths": {
+                "session": (target / "sessions/current").resolve().relative_to(target).as_posix(),
+                "plan": (target / "plans/current").resolve().relative_to(target).as_posix(),
+            },
+        }),
     )
     request = event(canonical, command(canonical, target))
     preflight = run_gate(PRETOOLUSE, canonical, request)
