@@ -192,6 +192,10 @@ def write_aegis_current_work(repo: Path, *, task_id: int = 103, taskmaster_requi
             {
                 "schema_version": "1.0.0",
                 "status": "in-progress",
+                "paths": {
+                    name: (repo / f"{name}s/current").resolve().relative_to(repo).as_posix()
+                    for name in ("session", "plan")
+                },
                 "task": {
                     "id": str(task_id),
                     "slug": "claude-runtime-adapter",

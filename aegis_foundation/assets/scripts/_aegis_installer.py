@@ -32,6 +32,12 @@ if _REPO_ROOT.as_posix() not in sys.path:
 
 from aegis_foundation import managed_update as _managed_update  # noqa: E402
 from aegis_foundation import observation_audit as _observation_audit  # noqa: E402
+from aegis_foundation.gate.session_authority import (  # noqa: E402
+    SessionAuthorityError,
+    assert_no_pending_continuation,
+    verify_session_authority,
+)
+from aegis_foundation.gate.session_transition import serialized_session_writer  # noqa: E402
 from aegis_foundation.gate.hooks.contracts import (  # noqa: E402
     CLAUDE_PRETOOLUSE_MATCHER,
     CODEX_PRETOOLUSE_MATCHER,
@@ -9626,6 +9632,7 @@ def _next_action_after_log(
     )
 
 
+@serialized_session_writer
 def log_work(
     target_dir: str | Path,
     *,
@@ -9641,7 +9648,15 @@ def log_work(
     """Append S:W:H:E progress entries, update workflow surfaces, and clear pending tracking."""
 
     target_root = _resolve_target_root(target_dir)
+    try:
+        assert_no_pending_continuation(target_root)
+    except SessionAuthorityError as exc:
+        raise AegisError(str(exc)) from exc
     current_work = _current_work_payload(target_root)
+    try:
+        verify_session_authority(target_root, current_work)
+    except SessionAuthorityError as exc:
+        raise AegisError(str(exc)) from exc
     task = current_work.get("task") if isinstance(current_work.get("task"), dict) else {}
     paths = current_work.get("paths") if isinstance(current_work.get("paths"), dict) else {}
     task_id = str(task.get("id") or "").strip()

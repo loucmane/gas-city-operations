@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 from .models import BLOCKED, READY, Check
+from .session_authority import SessionAuthorityError, assert_no_pending_continuation, verify_session_authority
+from .session_transition import session_lock
 from .state import (
     aegis_integration_required,
     aegis_work_mode,
@@ -478,6 +480,11 @@ def build_checks(root: Path) -> tuple[str | None, list[Check]]:
         return None, checks
 
     aegis_work_path = root / ".aegis" / "state" / "current-work.json"
+    try:
+        assert_no_pending_continuation(root)
+    except SessionAuthorityError as exc:
+        checks.append(Check(BLOCKED, f"session authority mismatch: {exc}"))
+        return None, checks
     aegis_work: object | None = None
     ignore_current_work_for_readiness = False
     if aegis_work_path.is_file():
@@ -522,6 +529,12 @@ def build_checks(root: Path) -> tuple[str | None, list[Check]]:
                         f"branch bead is {branch_bead_id!r}, expected current-work bead {bead_id}",
                     )
                 )
+                return bead_id, checks
+            try:
+                with session_lock(root, shared=True):
+                    verify_session_authority(root, aegis_work)
+            except (SessionAuthorityError, OSError, ValueError) as exc:
+                checks.append(Check(BLOCKED, f"session authority mismatch: {exc}"))
                 return bead_id, checks
             work_id, bead_checks = build_bead_source_checks(root, branch, bead_id)
             bead_checks.insert(1, Check(READY, f"Aegis current work bead {bead_id} is in-progress"))
@@ -619,6 +632,12 @@ def build_checks(root: Path) -> tuple[str | None, list[Check]]:
                     )
                 )
             else:
+                try:
+                    with session_lock(root, shared=True):
+                        verify_session_authority(root, aegis_work)
+                except (SessionAuthorityError, OSError, ValueError) as exc:
+                    checks.append(Check(BLOCKED, f"session authority mismatch: {exc}"))
+                    return task_id, checks
                 checks.append(Check(READY, f"Aegis current work Task {task_id} is in-progress"))
                 check_taskmaster_task(
                     root,

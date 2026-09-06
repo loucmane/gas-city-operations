@@ -31,6 +31,11 @@ if str(REPO_ROOT) not in sys.path:
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 from aegis_foundation import mcp_registration
+from aegis_foundation.gate.session_authority import (
+    SessionAuthorityError, assert_no_pending_continuation, contained_path,
+    verify_session_authority,
+)
+from aegis_foundation.gate.session_transition import SessionTransition, session_lock
 from _repo_structure import DEFAULT_REPO_STRUCTURE, RepoStructure, load_repo_structure
 from _aegis_installer import (
     AEGIS_LOG_SURFACES,
@@ -265,7 +270,6 @@ def _replace_line_with_prefix(lines: List[str], prefix: str, new_line: str) -> b
 def _next_session_id(now: datetime) -> str:
     date_prefix = now.strftime("%Y-%m-%d")
     session_dir = SESSIONS_DIR / now.strftime("%Y") / now.strftime("%m")
-    session_dir.mkdir(parents=True, exist_ok=True)
     pattern = re.compile(rf"^{re.escape(date_prefix)}-(\d{{3}})-")
     max_suffix = 0
     for candidate in session_dir.glob(f"{date_prefix}-*.md"):
@@ -2078,6 +2082,12 @@ def _resolve_bead_continuation_plan(bead_id: str, explicit: Optional[str] = None
 
 
 def _handle_bead_sessions_continue(args: argparse.Namespace) -> None:
+    # Include authority reads and all rendering in the same lock as the writes.
+    with session_lock(REPO_ROOT):
+        _handle_bead_sessions_continue_locked(args)
+
+
+def _handle_bead_sessions_continue_locked(args: argparse.Namespace) -> None:
     now = datetime.now().astimezone()
     bead_id = args.bead
     _validate_bead_id(bead_id)
@@ -2093,6 +2103,22 @@ def _handle_bead_sessions_continue(args: argparse.Namespace) -> None:
     branch = _source_checkout_branch() or f"codex/{bead_id}-{slug}"
     _validate_branch_for_bead(branch, bead_id)
     plan_path = _resolve_bead_continuation_plan(bead_id, args.plan)
+
+    current_path = contained_path(REPO_ROOT, ".aegis/state/current-work.json", "current work")
+    assert_no_pending_continuation(REPO_ROOT)
+    current_work = None
+    if current_path.exists() and not completed_source:
+        current_work = json.loads(current_path.read_text(encoding="utf-8"))
+        old_session, old_plan = verify_session_authority(REPO_ROOT, current_work)
+        if (current_work.get("mode") != "bead"
+                or current_work.get("task", {}).get("id") != bead_id
+                or current_work.get("branch", {}).get("current") != branch
+                or old_plan != plan_path
+                or current_work["paths"].get("work_tracking") != work_folder.relative_to(REPO_ROOT).as_posix()):
+            raise TaskError("session continuation contradicts current-work Bead, branch or plan")
+        if old_session.name.startswith(now.strftime("%Y-%m-%d") + "-"):
+            print(f"Current daily session already matches: {old_session.relative_to(REPO_ROOT)}")
+            return
 
     session_id = _next_session_id(now)
     session_dir = SESSIONS_DIR / now.strftime("%Y") / now.strftime("%m")
@@ -2118,11 +2144,6 @@ def _handle_bead_sessions_continue(args: argparse.Namespace) -> None:
         print(f"Would reuse work-tracking folder {work_folder.relative_to(REPO_ROOT).as_posix()}")
         return
 
-    session_dir.mkdir(parents=True, exist_ok=True)
-    _write_file_lines(session_path, session_lines)
-    _symlink_to(SESSIONS_DIR / "current", session_path)
-    _symlink_to(PLAN_CURRENT, plan_path)
-    _write_session_state(session_path.name, now)
     tracker_lines = _load_file_lines(tracker_path)
     for entry in _build_bead_continuation_tracker_entries(
         now=now,
@@ -2135,19 +2156,54 @@ def _handle_bead_sessions_continue(args: argparse.Namespace) -> None:
         tracker_lines = _insert_progress_entry(
             tracker_lines, PROGRESS_HEADING_TRACKER, entry
         )
-    _write_file_lines(tracker_path, tracker_lines)
-    handle_plan_sync(
-        argparse.Namespace(
-            plan=plan_relative,
-            tracker=tracker_relative,
-            dry_run=False,
-        )
-    )
+    session_state = json.loads(SESSION_STATE_PATH.read_text()) if SESSION_STATE_PATH.exists() else {}
+    if not isinstance(session_state, dict):
+        raise TaskError("session state must be a JSON object")
+    session_state.setdefault("paused", [])
+    session_state.update(current=session_path.name, updated_at=now.isoformat(timespec="seconds"))
+    targets = [session_path, SESSIONS_DIR / "current", PLAN_CURRENT,
+               SESSION_STATE_PATH, tracker_path, PLAN_SYNC_LOG]
+    if current_work is not None:
+        current_work = copy.deepcopy(current_work)
+        current_work["paths"]["session"] = session_relative
+        current_work["updated_at"] = now.isoformat(timespec="seconds")
+        recovery = current_work.get("recovery")
+        if isinstance(recovery, dict) and recovery.get("kind") == "tracked-source-lifecycle":
+            core = {k: v for k, v in current_work.items()
+                    if k not in {"created_at", "updated_at", "recovery"}}
+            recovery["fingerprint"] = hashlib.sha256(
+                json.dumps(core, sort_keys=True, separators=(",", ":")).encode()
+            ).hexdigest()
+        targets.append(current_path)
+    with SessionTransition(REPO_ROOT, bead_id, targets, lock_held=True) as transaction:
+        transaction.write(session_path, ("\n".join(session_lines) + "\n").encode())
+        transaction.link(SESSIONS_DIR / "current", session_path)
+        transaction.link(PLAN_CURRENT, plan_path)
+        transaction.write(SESSION_STATE_PATH, (json.dumps(session_state, indent=2) + "\n").encode())
+        transaction.write(tracker_path, ("\n".join(tracker_lines) + "\n").encode())
+        if current_work is not None:
+            transaction.write(current_path, (json.dumps(current_work, indent=2) + "\n").encode())
+            verify_session_authority(REPO_ROOT, current_work, during_transition=True)
+        handle_plan_sync(argparse.Namespace(
+            plan=plan_relative, tracker=tracker_relative, dry_run=False,
+            _session_transaction=transaction,
+        ))
     print(f"Created continuation session: {session_relative}")
     state_label = "completed source archive" if completed_source else "work-tracking folder"
     print(f"Reused {state_label}: {work_folder.relative_to(REPO_ROOT).as_posix()}")
     print(f"Reused plan: {plan_relative}")
     print(f"Repointed {SESSIONS_CURRENT_REL}, {PLANS_CURRENT_REL}, and {SESSION_STATE_REL}")
+
+
+def handle_sessions_reconcile_current(args: argparse.Namespace) -> None:
+    from aegis_foundation.gate.session_reconciliation import reconcile_source_session
+    if args.dry_run and args.expect_plan_id:
+        raise TaskError("choose read-only planning or exact-plan apply, not both")
+    try:
+        result = reconcile_source_session(REPO_ROOT, args.bead, expect_plan_id=args.expect_plan_id)
+    except (OSError, ValueError, KeyError, TypeError, ImportError) as exc:
+        raise TaskError(f"session reconciliation refused: {exc}") from exc
+    print(json.dumps(result, indent=2, sort_keys=True))
 
 
 def handle_sessions_continue(args: argparse.Namespace) -> None:
@@ -2400,7 +2456,11 @@ def handle_plan_sync(args: argparse.Namespace) -> None:
         return
 
     entries.append(entry)
-    _write_plan_sync_entries(entries)
+    transaction = getattr(args, "_session_transaction", None)
+    if transaction is None:
+        _write_plan_sync_entries(entries)
+    else:
+        transaction.write(PLAN_SYNC_LOG, (json.dumps(entries, indent=2) + "\n").encode())
     print(f"Plan sync recorded for {rel_plan}")
 def _parse_front_matter(path: Path) -> Dict[str, str]:
     text = path.read_text(encoding="utf-8")
@@ -19058,6 +19118,13 @@ def build_parser() -> argparse.ArgumentParser:
     sessions_continue.add_argument("--plan", help="Existing plan file to reuse")
     sessions_continue.add_argument("--task-source", help="Human-readable source line for the session metadata")
     sessions_continue.set_defaults(func=handle_sessions_continue)
+
+    sessions_reconcile = sessions_sub.add_parser(
+        "reconcile-current", help="Plan a stale source-session binding repair; apply only with its exact digest",
+    )
+    sessions_reconcile.add_argument("--bead", required=True, help="Existing primary source Bead")
+    sessions_reconcile.add_argument("--expect-plan-id", help="Apply only this exact current reconciliation plan")
+    sessions_reconcile.set_defaults(func=handle_sessions_reconcile_current)
 
     work_parser = subparsers.add_parser("work-tracking", help="Work-tracking document operations")
     work_sub = work_parser.add_subparsers(dest="subcommand", required=True)

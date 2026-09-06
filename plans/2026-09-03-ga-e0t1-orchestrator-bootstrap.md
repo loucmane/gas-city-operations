@@ -3,7 +3,7 @@ session_id: 2026-09-03-001
 work_context: ga-e0t1-orchestrator-bootstrap
 handler_target: .
 bead_ids: [ga-e0t1]
-attached_bead_ids: [ga-t469, ga-fjoi, ga-fc6p, ga-e0t1.5]
+attached_bead_ids: [ga-t469, ga-fjoi, ga-fc6p, ga-e0t1.5, ga-e0t1.6, ga-e0t1.8]
 branch_policy: codex/ga-e0t1-orchestrator-bootstrap
 evidence_summary:
   - docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE
