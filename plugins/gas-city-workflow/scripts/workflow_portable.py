@@ -8,6 +8,7 @@ from pathlib import Path
 
 from workflow_common import CommandRunner, WorkflowError, plan_bead_ids, workflow_runtime_root
 from workflow_ownership import check_active_ownership
+from _repo_structure import load_repo_structure
 
 
 def uses_portable_scaffold(root: Path) -> bool:
@@ -47,10 +48,10 @@ def run_portable_readiness(runner: CommandRunner, root: Path) -> str:
         raise WorkflowError("portable readiness requires the modern Beads evidence profile")
     if plan_bead_ids(root) != [spec.bead_id]:
         raise WorkflowError("portable plan must name exactly the journal primary Bead")
-    for name in ("sessions/current", "plans/current"):
-        link = root / name
+    layout = load_repo_structure(root)
+    for link in (layout.current_session_link, layout.current_plan_link):
         if not link.is_symlink() or not link.resolve().is_relative_to(root.resolve()):
-            raise WorkflowError(f"portable {name} must be a target-local symlink")
+            raise WorkflowError(f"portable {link.relative_to(root)} must be a target-local symlink")
     try:
         assert_no_pending_continuation(root)
         _, checks = build_bead_source_checks(root, spec.branch, spec.bead_id)

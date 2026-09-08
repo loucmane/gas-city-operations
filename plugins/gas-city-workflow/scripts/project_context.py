@@ -16,6 +16,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from root_policy import RootPolicyError, require_active_root  # noqa: E402
+from _repo_structure import load_repo_structure  # noqa: E402
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_REGISTRY = PLUGIN_ROOT / "config" / "projects.json"
@@ -328,7 +329,11 @@ def build_context(root: Path, registry_path: Path) -> dict[str, Any]:
     if branch_code != 0 or head_code != 0 or status_code != 0:
         raise ContextError("could not read Git branch, head, or worktree status")
     remote_repository, remote_status = _remote_repository(root, str(project["repository"]))
-    active_root = root / "docs" / "ai" / "work-tracking" / "active"
+    try:
+        layout = load_repo_structure(root)
+    except (OSError, ValueError) as exc:
+        raise ContextError(f"invalid repository evidence layout: {exc}") from exc
+    active_root = layout.work_tracking_active_root
     active = (
         sorted(
             path.name
@@ -370,8 +375,8 @@ def build_context(root: Path, registry_path: Path) -> dict[str, Any]:
             "rig": rig,
             "readiness_entrypoint": readiness,
             "lifecycle_entrypoint": lifecycle,
-            "plan_current": _pointer_target(root, "plans/current"),
-            "session_current": _pointer_target(root, "sessions/current"),
+            "plan_current": _pointer_target(root, layout.current_plan_link.relative_to(root).as_posix()),
+            "session_current": _pointer_target(root, layout.current_session_link.relative_to(root).as_posix()),
             "active_trackers": active,
             "commands": {
                 "ready": [GC, "--city", CITY, "--rig", rig, "bd", "ready"],

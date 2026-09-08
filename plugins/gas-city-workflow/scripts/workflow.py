@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 from project_context import DEFAULT_REGISTRY, build_context
+from _repo_structure import load_repo_structure
 from workflow_attach import attach
 from workflow_begin import begin, resume, run_profile_readiness
 from workflow_common import (
@@ -47,7 +48,7 @@ def _is_lightweight_legacy(context: dict[str, Any]) -> bool:
 
 
 def _active_folder_name(root: Path, bead_id: str) -> str:
-    active_root = root / "docs" / "ai" / "work-tracking" / "active"
+    active_root = load_repo_structure(root).work_tracking_active_root
     matches = sorted(
         path.name
         for path in active_root.glob("*-ACTIVE")

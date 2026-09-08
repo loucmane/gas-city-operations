@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from project_context import DEFAULT_REGISTRY, build_context
+from _repo_structure import load_repo_structure
 from workflow_common import (
     CommandRunner,
     WorkflowError,
@@ -48,7 +49,7 @@ def _atomic_write_text(path: Path, text: str) -> None:
 
 
 def _current_plan(root: Path) -> Path:
-    link = root / "plans" / "current"
+    link = load_repo_structure(root).current_plan_link
     if not link.is_symlink():
         raise WorkflowError("plans/current is not a symlink")
     try:
@@ -65,7 +66,7 @@ def _current_plan(root: Path) -> Path:
 
 
 def _active_tracker(root: Path, primary_bead: str) -> Path:
-    active = root / "docs" / "ai" / "work-tracking" / "active"
+    active = load_repo_structure(root).work_tracking_active_root
     matches = sorted(
         item
         for item in active.glob("*-ACTIVE")

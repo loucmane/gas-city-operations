@@ -27,10 +27,15 @@ class PortableRunner(FixtureRunner):
         return CommandRunner.run(self, argv, cwd=cwd, env=env, check=check)
 
 
-def portable_project(tmp_path):
+def portable_project(tmp_path, *, layout=None):
     root = tmp_path / "consumer"
     root.mkdir()
     (root / "AGENTS.md").write_text("# Consumer\nBeads is authoritative.\n")
+    if layout is not None:
+        (root / ".codex").mkdir()
+        (root / ".codex/config.toml").write_text(
+            "[repo_structure]\n" + "\n".join(f'{key} = "{value}"' for key, value in layout.items()) + "\n"
+        )
     (root / ".gas-city-workflow.json").write_text(json.dumps({
         "schema": "gas-city-workflow.project.v1",
         "id": "consumer",
@@ -82,6 +87,61 @@ def test_portable_begin_resume_verify_and_log_use_real_bead_scaffold(tmp_path):
     assert _finish(root, runner, apply=False)["backend"] == "portable-source-archive"
     assert active.exists()
     assert all("--claim" not in call for call in runner.calls)
+
+
+def test_portable_lifecycle_uses_one_configured_internal_evidence_layout(tmp_path):
+    """Real wizard/readiness/log/archive preview; only Beads transport is synthetic."""
+    from project_context import build_context
+
+    canonical, registry = portable_project(tmp_path, layout={
+        "sessions_root": "engdocs/workflow/sessions",
+        "plans_root": "engdocs/workflow/plans",
+        "work_tracking_root": "engdocs/workflow/work-tracking",
+        "plan_state_dir": "engdocs/workflow/plan-state",
+    })
+    runner = PortableRunner(_bead())
+    result = begin(canonical, "ga-test", slug="portable", goals=["Preserve public documentation"],
+                   registry=registry, runner=runner)
+    root = Path(result["spec"]["worktree"])
+    assert result["status"] == "ready"
+    assert not (root / "sessions").exists()
+    assert not (root / "docs").exists()
+    assert not (root / ".taskmaster").exists()
+    capsule = build_context(root, registry)
+    assert capsule["workflow"]["session_current"].startswith("engdocs/workflow/sessions/")
+    assert capsule["workflow"]["plan_current"].startswith("engdocs/workflow/plans/")
+    assert len(capsule["workflow"]["active_trackers"]) == 1
+    assert resume(root, "ga-test", slug=None, goals=[], registry=registry, runner=runner)["status"] == "ready"
+    assert _verify(root, runner)["status"] == "passed"
+    assert log(root, "AGENTS.md", "Internal layout proof", runner)["status"] == "applied"
+    assert "Internal layout proof" in (root / "engdocs/workflow/sessions/current").read_text()
+    active = next((root / "engdocs/workflow/work-tracking/active").glob("*-ACTIVE"))
+    assert "Internal layout proof" in (active / "IMPLEMENTATION.md").read_text()
+    assert log(root, "AGENTS.md", "Internal layout proof", runner)["idempotent"]
+    assert _checkpoint(root, runner)["status"] == "ready"
+    assert _verify(root, runner)["status"] == "passed"
+    assert _finish(root, runner, apply=False)["backend"] == "portable-source-archive"
+    assert not (root / "docs").exists() and not (root / "sessions").exists()
+
+    # A valid-looking legacy pointer must not hide drift in the configured authority.
+    state = root / "engdocs/workflow/sessions/state.json"
+    payload = json.loads(state.read_text())
+    payload["current"] = "different-bead.md"
+    state.write_text(json.dumps(payload))
+    (root / "sessions").mkdir()
+    (root / "sessions/current").symlink_to(root / "engdocs/workflow/sessions/current")
+    with pytest.raises(WorkflowError, match="current"):
+        run_readiness(runner, root)
+
+
+def test_invalid_layout_refuses_before_worktree_or_ownership_mutation(tmp_path):
+    canonical, registry = portable_project(tmp_path, layout={"sessions_root": "../outside"})
+    runner = PortableRunner(_bead())
+    from project_context import ContextError
+    with pytest.raises(ContextError, match="layout"):
+        begin(canonical, "ga-test", slug="portable", goals=[], registry=registry, runner=runner)
+    assert not (tmp_path / "consumer-worktrees").exists()
+    assert not any("update" in call for call in runner.calls)
 
 
 @pytest.mark.parametrize("fault", ["branch", "session", "plan", "tracker", "owner", "native", "pending"])
