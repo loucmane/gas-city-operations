@@ -35,6 +35,32 @@ common directory at `.git/gas-city-workflow/transactions/<bead>.json`, outside i
 worktrees. It binds the exact project, rig, branch, worktree, and starting commit and advances only
 through `planned → worktree-created → scaffolded → claimed → ready`.
 
+### Source projects without an installed Aegis runtime
+
+The modern `beads-with-aegis-evidence` profile also supports uninstalled consumers.
+Their workflow CLI uses the shared Operations Beads scaffold validator, not the
+legacy numeric-task fallback. It requires the same exact Git/project identity,
+live external ownership, primary plan identity, target-local session/plan pointers,
+session-state parity, one ACTIVE tracker, and plan/tracker status parity. This
+does not install Aegis, change profiles, or grant tool or worker permissions.
+A present adapter, foundation manifest, current-work envelope, or native pending
+tracking file always retains the existing adapter path, including when broken.
+
+`verify` and `finish` use the existing target-aware plan-sync/archive commands.
+Portable `log --evidence <relative-file> --note <single-line-note>` binds one existing
+non-symlink file and its digest, and appends to the current daily session and six
+tracker surfaces under the existing session lock/write-ahead transaction. Exact
+replay is a no-op; partial replay, stale daily sessions, native pending IDs and
+path escapes refuse. Byte/mode rollback and failed transaction evidence are
+preserved. It does not manufacture a current-work envelope or consume native
+pending events. Continue the daily session through the supported session lifecycle
+before logging after rollover.
+
+Gas City Core's central registry binds `refs/remotes/origin/main` and the existing
+`/home/loucmane/gascity-core-worktrees` root explicitly; its parked canonical branch
+is not the default source-work base. Recovery completes the existing journal and
+ownership binding, never creates a replacement worktree or repeats ownership.
+
 - `begin` creates or safely adopts the exact derived worktree and starts the evidence workflow.
 - `resume` derives the active bead from `sessions/state.json` when `--bead` is omitted and verifies
   or completes the same transaction.

@@ -255,6 +255,15 @@ def log(
         raise WorkflowError("invalid pending event identity")
     check_active_ownership(runner, root)
     runtime = workflow_runtime_root()
+    from workflow_portable import uses_portable_scaffold
+
+    if uses_portable_scaffold(root):
+        if pending_id is not None:
+            raise WorkflowError("portable source logging cannot consume native pending events")
+        from workflow_portable_log import log_portable_evidence
+
+        details = log_portable_evidence(root, str(evidence), note, runner)
+        return result_payload("log", "applied", target=str(root), **details)
     if pending_id is not None:
         command = [
             sys.executable,
