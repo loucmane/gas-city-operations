@@ -36,6 +36,7 @@ from workflow_common import (
 )
 from workflow_ownership import check_active_ownership
 from workflow_lock import workflow_lock
+from workflow_portable import uses_portable_scaffold
 
 
 def _is_lightweight_legacy(context: dict[str, Any]) -> bool:
@@ -66,7 +67,7 @@ def _sync_plan(
     if source_task.is_file():
         runner.run([sys.executable, str(source_task), "plan", "sync"], cwd=root)
         return True
-    if _is_lightweight_legacy(context):
+    if _is_lightweight_legacy(context) or uses_portable_scaffold(root):
         runtime = workflow_runtime_root()
         bead_id = active_bead_id(root)
         runner.run(
@@ -136,6 +137,8 @@ def _verify(
     source_task = root / "scripts" / "codex-task"
     if _is_lightweight_legacy(context):
         checks.append("lightweight-bead-scaffold")
+    elif uses_portable_scaffold(root):
+        checks.append("portable-bead-scaffold")
     elif source_task.is_file() and not (root / ".aegis" / "foundation-manifest.json").is_file():
         runner.run(
             [sys.executable, str(source_task), "work-tracking", "audit"],
@@ -211,7 +214,7 @@ def _finish(root: Path, runner: CommandRunner, *, apply: bool) -> dict[str, Any]
     if source_task.is_file():
         argv = [sys.executable, str(source_task), "work-tracking", "archive"]
         backend = "source-archive"
-    elif _is_lightweight_legacy(context):
+    elif _is_lightweight_legacy(context) or uses_portable_scaffold(root):
         canonical_task = workflow_runtime_root() / "scripts" / "codex-task"
         argv = [
             sys.executable,
@@ -225,7 +228,11 @@ def _finish(root: Path, runner: CommandRunner, *, apply: bool) -> dict[str, Any]
         ]
         if not apply:
             argv.insert(2, "--dry-run")
-        backend = "lightweight-source-archive"
+        backend = (
+            "lightweight-source-archive"
+            if _is_lightweight_legacy(context)
+            else "portable-source-archive"
+        )
     else:
         canonical_task = workflow_runtime_root() / "scripts" / "codex-task"
         argv = [

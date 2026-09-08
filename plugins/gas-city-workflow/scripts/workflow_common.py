@@ -439,5 +439,9 @@ def readiness_command(root: Path) -> tuple[list[str], Path, dict[str, str] | Non
 
 
 def run_readiness(runner: CommandRunner, root: Path) -> str:
+    from workflow_portable import run_portable_readiness, uses_portable_scaffold
+
+    if uses_portable_scaffold(root):
+        return run_portable_readiness(runner, root)
     argv, cwd, env = readiness_command(root)
     return runner.run(argv, cwd=cwd, env=env).stdout

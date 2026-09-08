@@ -598,14 +598,41 @@ def _find_latest_prior_session() -> Optional[Path]:
     return max(candidates)
 
 
-SESSION_TASK_PATTERN = re.compile(r"task[-_]?(\d+)", re.IGNORECASE)
+SESSION_TASK_PATTERN = re.compile(
+    r"\d{4}-\d{2}-\d{2}-\d{3}-task[-_]?(\d+)(?:[-_.].*)?\.md", re.IGNORECASE
+)
+SESSION_BEAD_FIELD = re.compile(r"^\*\*Bead\*\*:[ \t]*(.*)$", re.MULTILINE)
+SESSION_BEAD_VALUE = re.compile(r"`([a-z][a-z0-9]*-[a-z0-9][a-z0-9-]*(?:\.[1-9][0-9]*)*)`[ \t]*")
 
 
 def _session_task_id(path: Path) -> Optional[str]:
-    match = SESSION_TASK_PATTERN.search(path.name)
-    if match:
-        return match.group(1)
-    return None
+    """Bind Beads to both the scaffold declaration and filename; retain legacy IDs."""
+    if path.is_symlink():
+        return None
+    legacy_match = SESSION_TASK_PATTERN.fullmatch(path.name)
+    try:
+        if path.exists() and not path.is_file():
+            return None
+        text = path.read_text(encoding='utf-8')
+    except FileNotFoundError:
+        text = ''  # Historical numeric IDs were recognized from filenames alone.
+    except (OSError, UnicodeError):
+        # Only an actual historical numeric scaffold may use filename identity.
+        return legacy_match.group(1) if legacy_match else None
+    declarations = SESSION_BEAD_FIELD.findall(text)
+    if declarations:
+        if len(declarations) != 1:
+            return None
+        declaration = SESSION_BEAD_VALUE.fullmatch(declarations[0])
+        if declaration is None:
+            return None
+        bead_id = declaration.group(1)
+        filename = rf"\d{{4}}-\d{{2}}-\d{{2}}-\d{{3}}-{re.escape(bead_id)}(?:-.+)?\.md"
+        if re.fullmatch(filename, path.name) is None:
+            return None
+        return f'bead:{bead_id}'
+    # Missing Bead declarations must never fall back to a task-like substring.
+    return legacy_match.group(1) if legacy_match else None
 
 
 def _current_session_task_id() -> Optional[str]:

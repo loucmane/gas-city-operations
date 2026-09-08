@@ -181,11 +181,19 @@ That audit trail complements the bead; it does not replace or duplicate the work
 - `python3 scripts/codex-task taskmaster health` is read-only and may be used only when
   maintaining legacy compatibility or migrating the old graph.
 
-The Claude/Aegis strict adapter still contains Taskmaster-backed readiness checks. Until that
-implementation is migrated and tested, treat it as an explicit legacy compatibility boundary:
-do not edit Taskmaster merely to make a new bead-based task appear valid, and do not claim the
-adapter is beads-native. Track the adapter migration as bead work and change documentation,
-runtime checks, fixtures, and tests together.
+The Claude/Aegis strict adapter supports Beads-native source readiness; numeric Taskmaster
+checks remain an explicit historical compatibility path. New Bead work must not read or
+mutate Taskmaster to pass readiness. Report any remaining numeric-only assumptions as a
+Bead repair, with runtime checks, packaged copies, fixtures, and tests changed together.
+
+The multi-day session guard binds Bead identity to one exact `**Bead**` declaration and
+the scaffolded filename. Its existing same-work exception still requires each historical
+daily session to be marked `SESSION COMPLETE`; that records the daily period's closure,
+not Bead completion or permission to rewrite history. Incomplete or unrelated sessions
+and ambiguous identity cannot use this same-work exception. The separate existing
+latest-prior-day closeout and archive-reference-only exceptions are unchanged, as is
+wrong-day entry validation. Numeric filename recognition is retained only for the
+historical Taskmaster session format.
 
 ## Reboot and Live-Infrastructure Work
 
