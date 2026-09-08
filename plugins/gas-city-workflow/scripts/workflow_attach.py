@@ -154,11 +154,14 @@ def attach(
         raise WorkflowError("current plan primary bead readback mismatch")
     if _attached_bead_ids(plan.read_text(encoding="utf-8")) != attached_beads:
         raise WorkflowError("current plan attached bead readback mismatch")
+    # Portable readiness checks plan/journal parity. Persist the already-verified
+    # membership first; the enclosing coordination intent stays pending until
+    # readiness and fresh ownership checks pass. Never replay Bead writes on failure.
+    state["attached_bead_ids"] = attached_beads
+    atomic_write_json(path, state)
     readiness = run_readiness(runner, root)
     if "STATE: READY" not in readiness:
         raise WorkflowError("readiness succeeded without a READY state")
-    state["attached_bead_ids"] = attached_beads
-    atomic_write_json(path, state)
     check_active_ownership(runner, root, registry=registry)
     journal = record_lifecycle_event(
         runner,
