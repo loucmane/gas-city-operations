@@ -83,6 +83,31 @@ ownership binding, never creates a replacement worktree or repeats ownership.
   and executable helpers must match reviewed canonical source before automatic approval;
   changing workflow-runtime code remains in the explicit implementation/review lane.
 
+### Exact pending attachment reconciliation
+
+Attachment publishes already-verified ownership membership into its journal before
+portable readiness checks plan/journal parity. A failed readiness check still leaves
+the coordination intent pending; it is not a successful transaction or permission to
+repeat the Bead write.
+
+`reconcile-attachment` is a separately authorized, late-stage recovery: the one
+recorded blocking edge, external ownership, plan and tracker must already be correct.
+It requires `--root`, `--request-sha256`, `--expect-journal-sha256`,
+`--expect-plan-sha256` and `--expect-tracker-sha256`. It never changes Beads, the plan
+or tracker, and grants no native permission. It verifies the same-store request,
+typed graph, exact recorded Bead fields, owner and registered worktree, preserves
+a byte/mode/owner-exact journal backup, then completes only journal membership and
+the original coordination intent after real readiness and repeated live readback.
+Exact completed replay is checked and performs no writes.
+
+This is not general recovery for an early or ambiguous partial. Other pending
+transactions, stale pins, ownership/graph drift and unknown journal images refuse.
+On technical failure, only its exact known staged journal may be restored from
+the pinned preimage; an unexplained image is preserved and rollback refused.
+Process termination between writes requires fresh diagnosis, not automatic replay.
+The ordinary per-repository coordinator lock applies; there is no distributed
+Beads transaction or cross-controller compare-and-swap guarantee.
+
 The journal is evidence, not authority. A partial or contradictory filesystem, Git, bead, or
 scaffold state blocks instead of being guessed away. Existing unscaffolded worktrees can only be
 fast-forwarded when clean and ancestor-related; once scaffolded, their task branch is never moved

@@ -329,6 +329,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     adopt.add_argument("--root", required=True)
     adopt.add_argument("--expect-bead-sha256", required=True)
     adopt.add_argument("--repair-legacy-wire", action="store_true")
+    reconcile = subparsers.add_parser("reconcile-attachment", allow_abbrev=False)
+    reconcile.add_argument("--root", required=True)
+    for field in ("request-sha256", "expect-journal-sha256", "expect-plan-sha256", "expect-tracker-sha256"):
+        reconcile.add_argument("--" + field, required=True)
     return parser.parse_args(argv)
 
 
@@ -380,6 +384,13 @@ def _dispatch(args, runner: CommandRunner, root: Path) -> dict[str, Any]:
 
         payload = adopt_external(
             root, args.expect_bead_sha256, runner, repair_legacy_wire=args.repair_legacy_wire
+        )
+    elif args.command == "reconcile-attachment":
+        from workflow_attachment_reconcile import reconcile_attachment
+
+        payload = reconcile_attachment(
+            root, args.request_sha256, args.expect_journal_sha256,
+            args.expect_plan_sha256, args.expect_tracker_sha256, runner,
         )
     else:
         payload = _finish(root, runner, apply=args.apply)
