@@ -15,6 +15,7 @@ from pathlib import Path
 from workflow_common import CommandRunner, WorkflowError
 from workflow_ownership import check_active_ownership
 from workflow_portable import load_shared_runtime, run_portable_readiness
+from _repo_structure import load_repo_structure
 
 
 def log_portable_evidence(root: Path, evidence: str, note: str, runner: CommandRunner) -> dict:
@@ -34,7 +35,8 @@ def log_portable_evidence(root: Path, evidence: str, note: str, runner: CommandR
         artifact = contained_path(root, evidence, "portable evidence")
         if not artifact.is_file():
             raise WorkflowError("portable evidence must name an existing target-local file")
-        session = (root / "sessions/current").resolve(strict=True)
+        layout = load_repo_structure(root)
+        session = layout.current_session_link.resolve(strict=True)
         # Validate physical ancestors too: a contained symlink is not a write grant.
         contained_path(root, session.relative_to(root).as_posix(), "portable session")
         front_matter = session.read_text().split("---", 2)
@@ -44,7 +46,7 @@ def log_portable_evidence(root: Path, evidence: str, note: str, runner: CommandR
         now = datetime.now().astimezone()
         if dates != [now.date().isoformat()]:
             raise WorkflowError("portable logging requires the current daily session; continue it first")
-        active = next((root / "docs/ai/work-tracking/active").glob("*-ACTIVE"))
+        active = next(layout.work_tracking_active_root.glob("*-ACTIVE"))
         paths = [session] + [active / name for name in (
             "TRACKER.md", "IMPLEMENTATION.md", "CHANGELOG.md", "FINDINGS.md", "DECISIONS.md", "HANDOFF.md"
         )]

@@ -96,6 +96,14 @@ def test_public_gate_readiness_command_matches_compatibility_command() -> None:
     assert canonical.stdout == legacy.stdout
 
 
+def test_bead_scaffold_extraction_preserves_public_entrypoint() -> None:
+    from aegis_foundation.gate.bead_scaffold import build_bead_source_checks
+    from aegis_foundation.gate import workflow
+
+    assert workflow.build_bead_source_checks is build_bead_source_checks
+    assert "aegis_foundation.assets" not in (GATE_ROOT / "bead_scaffold.py").read_text()
+
+
 def test_generic_installer_does_not_opt_consumers_into_orchestrator_permissions(
     tmp_path: Path,
 ) -> None:

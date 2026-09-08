@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from project_context import DEFAULT_REGISTRY, build_context
+from _repo_structure import load_repo_structure
 
 WORKFLOW_SCHEMA = "gas-city-workflow.transition.v1"
 RESULT_SCHEMA = "gas-city-workflow.result.v1"
@@ -259,7 +260,7 @@ def journal_path(runner: CommandRunner, spec: BeginSpec) -> Path:
 
 
 def plan_bead_ids(root: Path) -> list[str]:
-    plan = root / "plans" / "current"
+    plan = load_repo_structure(root).current_plan_link
     if not plan.is_symlink():
         raise WorkflowError("active session does not contain a valid bead id")
     try:
@@ -280,7 +281,7 @@ def plan_bead_ids(root: Path) -> list[str]:
 
 
 def active_bead_id(root: Path) -> str:
-    state = root / "sessions" / "state.json"
+    state = load_repo_structure(root).session_state_path
     if not state.is_file() or state.is_symlink():
         raise WorkflowError("sessions/state.json does not identify active work")
     try:

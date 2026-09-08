@@ -165,6 +165,39 @@ Aegis projects continue to use `aegis kickoff`.
 
 ## Workspace placement
 
+### Repository-local evidence layout
+
+The existing `.codex/config.toml` `[repo_structure]` table is the single layout
+contract for portable Beads source workflows. Configure it in reviewed repository
+source **before** kickoff when public documentation has a separate publication policy:
+
+```toml
+[repo_structure]
+sessions_root = "engdocs/workflow/sessions"
+plans_root = "engdocs/workflow/plans"
+plan_state_dir = "engdocs/workflow/plan-state"
+work_tracking_root = "engdocs/workflow/work-tracking"
+```
+
+Kickoff, project context, active-work/ownership lookup, dependency attachment,
+portable readiness, evidence logging, plan sync and archive selection use the same
+resolver. Default paths remain unchanged when no overrides exist. The script,
+packaged Aegis asset, self-contained gate and standalone workflow-plugin mirrors are byte-parity tested;
+there is no second registry layout or provider-specific override.
+
+All configured roots must be strings naming normalized worktree-relative directories.
+Absolute paths, empty/dot/parent components, `.git` components, symlink indirection,
+non-directory roots, malformed tables and unknown layout keys refuse. Changing a
+layout grants no write permission, Bead ownership, worker capability or lifecycle
+authority, and cannot substitute a legacy pointer for the configured authority.
+
+This is not an implicit migration. Do not change the layout under an active scaffold
+and then recreate or discard evidence to regain READY. Existing scaffold relocation
+requires a separately reviewed exact-inventory transaction, preserved originals and
+pointer/journal history, rollback and idempotence proof. Until that migration passes,
+retain the existing layout and mark the affected workflow HOLD. Do not add public-doc
+exemptions, weaken tests, or generate Taskmaster records as a workaround.
+
 The Git common directory is the source of truth for the canonical checkout. By default, linked worktrees must be direct children of a sibling `<canonical-name>-worktrees` directory. For example, `/home/loucmane/gas-city-ops` uses `/home/loucmane/gas-city-ops-worktrees`.
 
 The central registry may declare an absolute `worktree_root` only for projects whose established layout cannot use that convention. The context capsule blocks arbitrary and legacy worktree locations before source readiness. Do not select a worktree root from remembered paths, available sandbox roots, or caller-provided convenience paths.

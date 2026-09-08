@@ -10,6 +10,7 @@ from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 from project_context import DEFAULT_REGISTRY, build_context
+from _repo_structure import load_repo_structure
 from workflow_common import (
     PHASES,
     BeginSpec,
@@ -161,7 +162,7 @@ def _ensure_worktree(
 
 
 def _active_dirs(root: Path) -> list[Path]:
-    active_root = root / "docs" / "ai" / "work-tracking" / "active"
+    active_root = load_repo_structure(root).work_tracking_active_root
     if not active_root.is_dir():
         return []
     return sorted(
@@ -197,11 +198,12 @@ def _preserved_legacy_tracker(
 
 
 def _scaffold_state(runner: CommandRunner, root: Path, spec: BeginSpec) -> str:
+    layout = load_repo_structure(root)
     active = _active_dirs(root)
     matching = [item for item in active if f"-{spec.bead_id}-" in item.name]
     unrelated = [item for item in active if item not in matching]
     preserved = all(_preserved_legacy_tracker(runner, root, spec, item) for item in unrelated)
-    session_state = root / "sessions" / "state.json"
+    session_state = layout.session_state_path
     session_bead = None
     if session_state.is_file():
         try:
@@ -212,7 +214,7 @@ def _scaffold_state(runner: CommandRunner, root: Path, spec: BeginSpec) -> str:
         if isinstance(task, dict):
             session_bead = task.get("id")
     if session_bead is None:
-        current_session = root / "sessions" / "current"
+        current_session = layout.current_session_link
         if current_session.is_symlink():
             try:
                 session_text = current_session.resolve(strict=True).read_text(encoding="utf-8")
@@ -220,7 +222,7 @@ def _scaffold_state(runner: CommandRunner, root: Path, spec: BeginSpec) -> str:
                 raise WorkflowError("sessions/current is broken") from exc
             if f"**Bead**: `{spec.bead_id}`" in session_text:
                 session_bead = spec.bead_id
-    plan = root / "plans" / "current"
+    plan = layout.current_plan_link
     plan_text = ""
     if plan.is_symlink():
         try:

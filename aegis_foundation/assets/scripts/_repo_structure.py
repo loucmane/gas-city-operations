@@ -120,23 +120,42 @@ class RepoStructure:
 
 
 def _load_repo_structure_section(config_path: Path) -> Dict[str, str]:
+    if config_path.parent.is_symlink() or config_path.is_symlink():
+        raise ValueError("repository layout configuration must not contain symlinks")
+    if config_path.parent.exists() and not config_path.parent.is_dir():
+        raise ValueError("repository configuration parent must be a directory")
     if not config_path.exists():
         return {}
+    if not config_path.is_file():
+        raise ValueError("repository layout configuration must be a regular file")
     data = tomllib.loads(config_path.read_text(encoding="utf-8"))
     section = data.get("repo_structure", {})
     if not isinstance(section, dict):
-        return {}
-    return {key: str(value) for key, value in section.items() if key in DEFAULT_REPO_STRUCTURE}
+        raise ValueError("repo_structure must be a table")
+    if set(section) - set(DEFAULT_REPO_STRUCTURE):
+        raise ValueError("repo_structure contains unknown roots")
+    if any(not isinstance(value, str) for value in section.values()):
+        raise ValueError("repo_structure roots must be strings")
+    return dict(section)
 
 
 def _resolve_path(repo_root: Path, raw_value: str) -> Path:
-    path = Path(raw_value)
-    if not path.is_absolute():
-        path = repo_root / path
-    return path.resolve()
+    if (not raw_value or Path(raw_value).is_absolute() or "\\" in raw_value
+            or any(char in raw_value for char in ("\x00", "\n", "\r"))
+            or any(part in {"", ".", "..", ".git"} for part in raw_value.split("/"))):
+        raise ValueError("repo_structure roots must be normalized worktree-relative paths")
+    path = repo_root
+    for part in raw_value.split("/"):
+        path = path / part
+        if path.is_symlink():
+            raise ValueError("repo_structure roots must not contain symlinks")
+        if path.exists() and not path.is_dir():
+            raise ValueError("repo_structure roots must be directories")
+    return path
 
 
 def load_repo_structure(repo_root: Path) -> RepoStructure:
+    repo_root = repo_root.resolve()
     config_path = repo_root / ".codex" / "config.toml"
     overrides = _load_repo_structure_section(config_path)
     values = {**DEFAULT_REPO_STRUCTURE, **overrides}

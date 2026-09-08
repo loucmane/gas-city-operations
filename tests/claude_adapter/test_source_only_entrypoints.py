@@ -117,6 +117,7 @@ def test_workflow_cli_isolates_imports_and_fixed_helper_children(tmp_path):
     )
     caches = [
         poison(context, tmp_path / "context-poison"),
+        poison(scripts / "_repo_structure.py", tmp_path / "layout-poison"),
         poison(helper, tmp_path / "child-poison"),
     ]
     result = subprocess.run(
@@ -135,6 +136,7 @@ def test_workflow_cli_isolates_imports_and_fixed_helper_children(tmp_path):
         "child_rc": 0,
     }
     assert not (tmp_path / "context-poison").exists()
+    assert not (tmp_path / "layout-poison").exists()
     assert not (tmp_path / "child-poison").exists()
     for cache, before in caches:
         assert cache.read_bytes() == before

@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from project_context import DEFAULT_REGISTRY, build_context
+from _repo_structure import load_repo_structure
 from workflow_common import (
     BeginSpec,
     CommandRunner,
@@ -258,7 +259,7 @@ def check_active_ownership(
     if len(attached) != len(set(attached)) or spec.bead_id in attached:
         raise WorkflowError("duplicate attached ownership identity")
     # Source closeout can archive pointers. Before that, the active plan must agree.
-    plan_link = root / "plans" / "current"
+    plan_link = load_repo_structure(root).current_plan_link
     if plan_link.exists():
         plan = plan_link.resolve()
         if not plan.is_relative_to(root.resolve()):
