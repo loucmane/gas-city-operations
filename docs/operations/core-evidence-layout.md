@@ -18,6 +18,13 @@ command. Preserve the old planning inventory; explain and review its resulting
 bookkeeping delta in a new inventory. Never apply an obsolete September-8
 snapshot after changing the daily session.
 
+For an uninstalled consumer, use the shared runtime's explicit Beads target:
+`python3 <source>/scripts/codex-task sessions continue --bead ga-ecwh
+--target-dir <exact-Core-root> --slug typed-worker-receipts`.
+The existing target resolver, branch/session checks, lock and transaction still
+apply. Omitting the target operates on the helper's own repository. Cross-project
+numeric Taskmaster continuation refuses; this option grants no native permission.
+
 Actual project identity, ownership, readiness, branch, HEAD, index, ownership
 journal, tracked diff and reviewed inventories must agree. All four project rigs
 remain suspended, native sessions empty, and the actual
