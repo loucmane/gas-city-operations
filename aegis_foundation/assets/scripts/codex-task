@@ -2211,6 +2211,11 @@ def handle_sessions_continue(args: argparse.Namespace) -> None:
     task_id = getattr(args, "task", None)
     if bead_id and task_id:
         raise TaskError("Choose exactly one work identity: --task or --bead")
+    target_dir = getattr(args, "target_dir", None)
+    if target_dir not in {None, ""}:
+        if not bead_id:
+            raise TaskError("Cross-project session continuation requires --bead")
+        _configure_workflow_target(target_dir)
     if bead_id:
         _handle_bead_sessions_continue(args)
         return
@@ -19117,6 +19122,9 @@ def build_parser() -> argparse.ArgumentParser:
     sessions_continue.add_argument("--folder", help="Existing ACTIVE work-tracking folder name")
     sessions_continue.add_argument("--plan", help="Existing plan file to reuse")
     sessions_continue.add_argument("--task-source", help="Human-readable source line for the session metadata")
+    sessions_continue.add_argument(
+        "--target-dir", help="Exact Git worktree root for Beads continuation using the shared runtime"
+    )
     sessions_continue.set_defaults(func=handle_sessions_continue)
 
     sessions_reconcile = sessions_sub.add_parser(
