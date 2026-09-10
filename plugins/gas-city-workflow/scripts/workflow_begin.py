@@ -34,6 +34,7 @@ from workflow_ownership import (
     require_external_candidate,
     owner_binding,
 )
+from workflow_preflight import preflight_inherited_context
 
 
 def _phase_at_least(journal: Mapping[str, Any], phase: str) -> bool:
@@ -378,6 +379,8 @@ def begin(
     if journal is None:
         journal = initialize_journal(spec)
     else:
+        if "context_recovery" in journal:
+            raise WorkflowError("standalone context was retired; continue its bound parent instead")
         stored_base = journal.get("spec", {}).get("base_commit")
         if not isinstance(stored_base, str) or not stored_base:
             raise WorkflowError("transition journal base commit is invalid")
@@ -390,6 +393,8 @@ def begin(
         raise WorkflowError("legacy ownership requires explicit exact-digest reconciliation")
     elif bead.get("status") != "open" and not ownership:
         raise WorkflowError("in_progress work without external ownership cannot be adopted")
+    if not _phase_at_least(journal, "scaffolded"):
+        preflight_inherited_context(runner, spec)
     if dry_run:
         return result_payload(
             "begin",

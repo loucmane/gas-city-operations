@@ -108,6 +108,9 @@ def coordinate(
     before = load_bead(runner, context, bead_id)
     blocker_before = None
     if blocker:
+        from workflow_context_recovery import require_reconciled_standalone
+
+        require_reconciled_standalone(runner, spec, context, blocker)
         blocker_before = load_bead(runner, context, blocker)
         require_external_candidate(blocker_before)
         if blocker_before.get("status") != "open" or blocker_before.get("metadata", {}).get(
