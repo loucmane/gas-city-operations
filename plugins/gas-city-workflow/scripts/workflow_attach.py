@@ -91,8 +91,7 @@ def _attached_bead_ids(text: str) -> list[str]:
     return [item.strip() for item in matches[0].split(",") if item.strip()]
 
 
-def _attach_to_plan(plan: Path, primary_bead: str, bead_id: str) -> list[str]:
-    text = plan.read_text(encoding="utf-8")
+def _render_plan_attachment(text: str, primary_bead: str, bead_id: str) -> tuple[str, list[str]]:
     matches = list(re.finditer(r"^bead_ids:\s*\[([^\]]+)\]\s*$", text, re.MULTILINE))
     if len(matches) != 1:
         raise WorkflowError("current plan does not identify one bead list")
@@ -110,17 +109,28 @@ def _attach_to_plan(plan: Path, primary_bead: str, bead_id: str) -> list[str]:
         text = re.sub(r"^attached_bead_ids:\s*\[[^\]]*\]\s*\n?", "", text, flags=re.MULTILINE)
         matches = list(re.finditer(r"^bead_ids:\s*\[([^\]]+)\]\s*$", text, re.MULTILINE))
     updated = text[: matches[0].start()] + replacement + text[matches[0].end() :]
+    return updated, attached
+
+
+def _attach_to_plan(plan: Path, primary_bead: str, bead_id: str) -> list[str]:
+    updated, attached = _render_plan_attachment(plan.read_text(encoding="utf-8"), primary_bead, bead_id)
     _atomic_write_text(plan, updated)
     return attached
 
 
-def _attach_to_tracker(tracker: Path, bead_id: str, title: str) -> None:
-    text = tracker.read_text(encoding="utf-8")
+def _render_tracker_attachment(text: str, bead_id: str, title: str) -> str:
     marker = f"- `{bead_id}` — {title}"
     if marker in text:
-        return
+        return text
     section = "\n## Attached Blocking Beads\n\n" + marker + "\n"
-    _atomic_write_text(tracker, text.rstrip() + "\n" + section)
+    return text.rstrip() + "\n" + section
+
+
+def _attach_to_tracker(tracker: Path, bead_id: str, title: str) -> None:
+    text = tracker.read_text(encoding="utf-8")
+    updated = _render_tracker_attachment(text, bead_id, title)
+    if updated != text:
+        _atomic_write_text(tracker, updated)
 
 
 def attach(

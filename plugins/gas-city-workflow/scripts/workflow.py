@@ -333,6 +333,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     reconcile.add_argument("--root", required=True)
     for field in ("request-sha256", "expect-journal-sha256", "expect-plan-sha256", "expect-tracker-sha256"):
         reconcile.add_argument("--" + field, required=True)
+    context_recovery = subparsers.add_parser("reconcile-context", allow_abbrev=False)
+    context_recovery.add_argument("--root", required=True)
+    context_recovery.add_argument("--bead", required=True)
+    context_recovery.add_argument("--expect-plan-sha256")
     return parser.parse_args(argv)
 
 
@@ -392,6 +396,10 @@ def _dispatch(args, runner: CommandRunner, root: Path) -> dict[str, Any]:
             root, args.request_sha256, args.expect_journal_sha256,
             args.expect_plan_sha256, args.expect_tracker_sha256, runner,
         )
+    elif args.command == "reconcile-context":
+        from workflow_context_recovery import reconcile_context
+
+        payload = reconcile_context(root, args.bead, args.expect_plan_sha256, runner)
     else:
         payload = _finish(root, runner, apply=args.apply)
     return payload

@@ -154,6 +154,9 @@ def ensure_external_owner(
     """
     bead_id = bead_id or spec.bead_id
     require_workspace(runner, spec, context)
+    from workflow_context_recovery import require_reconciled_standalone
+
+    require_reconciled_standalone(runner, spec, context, bead_id)
     bead = load_bead(runner, context, bead_id)
     require_external_candidate(bead)
     binding = owner_binding(spec, context)
@@ -276,6 +279,9 @@ def check_active_ownership(
         raise WorkflowError("ownership current plan is missing")
     ids = [spec.bead_id, *attached]
     for bead_id in ids:
+        from workflow_context_recovery import require_reconciled_standalone
+
+        require_reconciled_standalone(runner, spec, context, bead_id)
         record = records.get(bead_id, {})
         if record.get("state") != "verified" or record.get("binding") != binding:
             raise WorkflowError("external ownership not verified in journal; reconcile explicitly")

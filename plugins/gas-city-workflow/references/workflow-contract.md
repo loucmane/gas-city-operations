@@ -108,6 +108,41 @@ Process termination between writes requires fresh diagnosis, not automatic repla
 The ordinary per-repository coordinator lock applies; there is no distributed
 Beads transaction or cross-controller compare-and-swap guarantee.
 
+### Inherited-context preflight and reconciliation
+
+Modern `begin`, including dry-run, inspects the selected immutable base commit's
+configured evidence layout before creating a branch, worktree or transaction.
+An inherited unrelated ACTIVE context refuses; use the unfinished parent's
+dependency workflow rather than allocating a second source context. Frozen
+legacy behavior and the later exact scaffold/ownership checks remain unchanged.
+
+For an older attempt that stopped at `worktree-created`, a separately authorized
+coordinator may preview `workflow.py reconcile-context --root <parent-worktree>
+--bead <unowned-child>`. Review its complete plan and SHA-256 before applying the
+same command with `--expect-plan-sha256 <reviewed-digest>`. This is not an automatic
+approval exemption or permission to run modified runtime source.
+
+The child must be open, unassigned and unowned, with an untouched two-phase
+journal, a clean registered worktree at the exact recorded base, and precisely
+the unfinished parent's inherited ACTIVE context. The parent must be READY,
+externally owned in the same project/store, and ancestor-related. The plan binds
+both journals, worktrees, Beads, evidence, pointers, registry and helper sources.
+No branch/ref move, source scaffold, worker, platform or cache operation occurs.
+
+Apply preserves byte/mode/owner-exact original journal snapshots and creates an
+append-forward recovery record. It marks only the abandoned unowned context as
+retired, then uses ordinary coordinated dependency attachment to bind the child
+to the existing parent. The parent remains unfinished; its plan, tracker and
+journal record the attached work. Normal attachment refuses an unreconciled
+standalone journal, and a retired child cannot resume as a second coordinator.
+
+Immediate exact replay is read-only. A stop before any Bead transaction can
+resume only from the pinned originals or exact retirement image. Unknown or
+partially executed coordination refuses without repeating mutations; preserve
+the pending record for separate diagnosis. Legitimate later source/evidence or
+Bead changes invalidate replay and do not authorize refreshing its pins. The
+repository lock and fresh readbacks are not a distributed Beads reservation.
+
 The journal is evidence, not authority. A partial or contradictory filesystem, Git, bead, or
 scaffold state blocks instead of being guessed away. Existing unscaffolded worktrees can only be
 fast-forwarded when clean and ancestor-related; once scaffolded, their task branch is never moved
