@@ -417,6 +417,149 @@ def test_local_coordinator_bash_is_not_reclassified_as_delegation(
     assert result == 0
 
 
+REVIEWER_REL = ".claude/agents/aegis-reviewer.md"
+
+
+def _reviewer_definition(tools: str = "Read, Grep, Glob") -> str:
+    return (
+        "---\nname: aegis-reviewer\n"
+        "description: Read-only independent reviewer for one frozen Gas City Bead candidate.\n"
+        f"tools: {tools}\nmodel: opus\n---\n\nReview the candidate and report a verdict.\n"
+    )
+
+
+def _reviewer_repo(tmp_path: Path, *, tools: str = "Read, Grep, Glob", commit: bool = True) -> tuple[Path, str]:
+    repo = _repo(tmp_path)
+    definition = repo / REVIEWER_REL
+    definition.parent.mkdir(parents=True, exist_ok=True)
+    definition.write_text(_reviewer_definition(tools), encoding="utf-8")
+    if commit:
+        assert _git(repo, "add", ".").returncode == 0
+        assert _git(repo, "commit", "-q", "-m", "reviewer").returncode == 0
+    candidate = _git(repo, "rev-parse", "HEAD").stdout.strip()
+    return repo, candidate
+
+
+def _review_event(candidate: str, **extra: object) -> dict[str, object]:
+    tool_input: dict[str, object] = {
+        "description": "Independent review",
+        "prompt": f"Review candidate={candidate} against the acceptance criteria and report a verdict.",
+        "subagent_type": "aegis-reviewer",
+    }
+    tool_input.update(extra)
+    return _event("Agent", tool_input)
+
+
+def _decisions(repo: Path) -> list[dict[str, object]]:
+    path = repo / ".aegis/reports/gate-decisions.jsonl"
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def test_read_only_reviewer_delegation_is_allowed_and_audited(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """ga-fsfg: a tracked read-only reviewer agent may review one bound candidate commit."""
+
+    repo, candidate = _reviewer_repo(tmp_path)
+    event = _review_event(candidate)
+
+    assert _run(monkeypatch, repo, event, adapter="claude") == 0
+
+    record = _decisions(repo)[-1]
+    assert record["verdict"] == "allow"
+    assert record["reason"] == "read_only_reviewer_delegation"
+    assert record["payload_digest"] == _request_digest(event)
+
+
+def test_read_only_reviewer_delegation_survives_advisory_but_stays_bound(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    repo, candidate = _reviewer_repo(tmp_path)
+    (repo / ".aegis/state").mkdir(parents=True, exist_ok=True)
+    (repo / ".aegis/state/enforcement.json").write_text(
+        json.dumps({"mode": "advisory", "set_by": "test", "reason": "test"}), encoding="utf-8"
+    )
+
+    assert _run(monkeypatch, repo, _review_event(candidate), adapter="claude") == 0
+    assert _run(monkeypatch, repo, _review_event("0" * 40), adapter="claude") == 2
+    assert _run(monkeypatch, repo, _review_event(candidate, subagent_type="general-purpose"), adapter="claude") == 2
+
+
+@pytest.mark.parametrize(
+    "variant",
+    [
+        "untracked-definition",
+        "dirty-definition",
+        "bash-tool",
+        "no-tools-line",
+        "wrong-name",
+        "unknown-candidate",
+        "no-candidate",
+        "two-candidates",
+        "worktree-isolation",
+        "task-tool",
+        "other-agent-type",
+    ],
+)
+def test_reviewer_delegation_refuses_anything_beyond_the_closed_grammar(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, variant: str
+) -> None:
+    if variant == "untracked-definition":
+        repo, candidate = _reviewer_repo(tmp_path, commit=False)
+        event = _review_event(candidate)
+    elif variant == "dirty-definition":
+        repo, candidate = _reviewer_repo(tmp_path)
+        (repo / REVIEWER_REL).write_text(_reviewer_definition() + "\nExtra.\n", encoding="utf-8")
+        event = _review_event(candidate)
+    elif variant == "bash-tool":
+        repo, candidate = _reviewer_repo(tmp_path, tools="Read, Grep, Glob, Bash")
+        event = _review_event(candidate)
+    elif variant == "no-tools-line":
+        repo, candidate = _reviewer_repo(tmp_path)
+        (repo / REVIEWER_REL).write_text(
+            "---\nname: aegis-reviewer\ndescription: reviewer\nmodel: opus\n---\n\nReview.\n",
+            encoding="utf-8",
+        )
+        assert _git(repo, "commit", "-qam", "drop tools").returncode == 0
+        candidate = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        event = _review_event(candidate)
+    elif variant == "wrong-name":
+        repo, candidate = _reviewer_repo(tmp_path)
+        (repo / REVIEWER_REL).write_text(
+            _reviewer_definition().replace("name: aegis-reviewer", "name: other-reviewer"),
+            encoding="utf-8",
+        )
+        assert _git(repo, "commit", "-qam", "rename").returncode == 0
+        candidate = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        event = _review_event(candidate)
+    elif variant == "unknown-candidate":
+        repo, _ = _reviewer_repo(tmp_path)
+        event = _review_event("f" * 40)
+    elif variant == "no-candidate":
+        repo, _ = _reviewer_repo(tmp_path)
+        event = _review_event("", prompt="Review the latest work and report.")
+    elif variant == "two-candidates":
+        repo, candidate = _reviewer_repo(tmp_path)
+        event = _review_event(
+            candidate, prompt=f"Review candidate={candidate} and candidate={'0' * 40}."
+        )
+    elif variant == "worktree-isolation":
+        repo, candidate = _reviewer_repo(tmp_path)
+        event = _review_event(candidate, isolation="worktree")
+    elif variant == "task-tool":
+        repo, candidate = _reviewer_repo(tmp_path)
+        event = _review_event(candidate)
+        event["tool_name"] = "Task"
+    else:
+        repo, candidate = _reviewer_repo(tmp_path)
+        event = _review_event(candidate, subagent_type="task-executor")
+
+    assert _run(monkeypatch, repo, event, adapter="claude") == 2
+    assert all(record["verdict"] != "allow" for record in _decisions(repo))
+
+
 def test_exception_schema_matches_runtime_contract() -> None:
     root = Path(__file__).resolve().parents[2]
     source = json.loads(
@@ -453,6 +596,7 @@ def test_managed_agent_catalog_is_beads_native() -> None:
         ".claude/agents/task-orchestrator.md",
         ".claude/agents/task-executor.md",
         ".claude/agents/task-checker.md",
+        ".claude/agents/aegis-reviewer.md",
     ):
         text = (root / relative).read_text(encoding="utf-8")
         assert "Gas City Bead" in text

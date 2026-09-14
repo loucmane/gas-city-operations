@@ -122,6 +122,12 @@ failure is a stop condition, never permission to fall back to a provider-native 
 exception is an exact request record whose tracked bytes also exist on its declared remote review
 ref; caller, session, and agent identity never authorize it.
 
+A read-only reviewer is not a worker. The `aegis-reviewer` agent, whose tracked and clean
+definition in `.claude/agents/` may declare only Read, Grep and Glob, may be delegated one
+review of exactly one `candidate=<commit>` that exists in the repository, with no isolation or
+other options. The gate records the request digest; the orchestrator records the verdict on the
+Bead. Any other agent type, tool set, option or candidate binding stays blocked.
+
 ## Required Workflow State
 Claude mutations require all of these to align:
 - current branch contains the active bead ID or compatibility Taskmaster task ID;

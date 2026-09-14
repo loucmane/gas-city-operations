@@ -51,6 +51,18 @@ CODEX_DELEGATION_TOOLS = frozenset(
 )
 PROVIDER_NATIVE_DELEGATION_TOOLS = CLAUDE_DELEGATION_TOOLS | CODEX_DELEGATION_TOOLS
 
+# ga-fsfg: a read-only reviewer is not a worker. One tracked agent definition that may
+# hold only Read, Grep and Glob can be delegated to review exactly one candidate
+# commit; every other provider-native delegation stays under Gas City routing.
+REVIEWER_AGENT_TYPES = frozenset({"aegis-reviewer"})
+REVIEWER_AGENTS_REL = Path(".claude/agents")
+REVIEWER_TOOLS = frozenset({"Read", "Grep", "Glob"})
+REVIEWER_INPUT_KEYS = frozenset({"description", "prompt", "subagent_type", "model"})
+REVIEWER_PROMPT_BOUND = 65536
+REVIEWER_REASON = "native_delegation_reviewer_invalid"
+CANDIDATE_TOKEN = re.compile(r"(?<![0-9A-Za-z=_-])candidate=([0-9a-f]{40})(?![0-9A-Za-z])")
+FRONTMATTER_FIELD = re.compile(r"^([a-z_]+):[ \t]*(.*?)[ \t]*$")
+
 
 class DelegationPolicyError(RuntimeError):
     """A delegation policy decision could not be made safely."""
@@ -603,6 +615,74 @@ def _exception_records(project: ManagedProject) -> list[dict[str, str]] | None:
     return validated
 
 
+def _reviewer_frontmatter(raw: bytes) -> dict[str, str]:
+    try:
+        text = raw.decode("utf-8")
+    except UnicodeDecodeError as exc:
+        raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition is not UTF-8") from exc
+    if not text.startswith("---\n"):
+        raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition lacks frontmatter")
+    end = text.find("\n---", 4)
+    if end < 0:
+        raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition frontmatter is unterminated")
+    fields: dict[str, str] = {}
+    for line in text[4:end].splitlines():
+        match = FRONTMATTER_FIELD.match(line)
+        if match is None or match.group(1) in fields:
+            raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition frontmatter is malformed")
+        fields[match.group(1)] = match.group(2)
+    return fields
+
+
+def _reviewer_delegation(
+    project: ManagedProject, payload: Payload, normalized_tool: str, adapter: str
+) -> bool:
+    """Allow one read-only reviewer sub-agent bound to one existing candidate commit.
+
+    Closed grammar: the Claude `Agent` tool, an allowlisted agent type whose tracked
+    and clean definition declares only Read, Grep and Glob, no isolation or other
+    options, and a prompt naming exactly one commit present in the repository.
+    Everything else is a worker request and stays under Gas City routing.
+    """
+
+    tool_input = payload.tool_input if isinstance(payload.tool_input, dict) else {}
+    agent_type = tool_input.get("subagent_type")
+    if adapter != "claude" or normalized_tool != "agent" or agent_type not in REVIEWER_AGENT_TYPES:
+        return False
+    extra = sorted(set(tool_input) - REVIEWER_INPUT_KEYS)
+    if extra:
+        raise DelegationPolicyError(
+            REVIEWER_REASON, f"reviewer delegation carries unsupported options: {extra}"
+        )
+    prompt = tool_input.get("prompt")
+    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > REVIEWER_PROMPT_BOUND:
+        raise DelegationPolicyError(REVIEWER_REASON, "reviewer prompt is missing, empty or oversized")
+    candidates = CANDIDATE_TOKEN.findall(prompt)
+    if len(candidates) != 1:
+        raise DelegationPolicyError(
+            REVIEWER_REASON, "reviewer delegation must name exactly one candidate commit"
+        )
+    exists = _git(project.worktree_root, "cat-file", "-e", f"{candidates[0]}^{{commit}}")
+    if exists.returncode != 0:
+        raise DelegationPolicyError(
+            REVIEWER_REASON, "reviewer candidate commit is not present in the repository"
+        )
+    definition = project.worktree_root / REVIEWER_AGENTS_REL / f"{agent_type}.md"
+    raw = _head_bound_bytes(
+        project.worktree_root, definition, "reviewer agent definition", reason=REVIEWER_REASON
+    )
+    fields = _reviewer_frontmatter(raw)
+    if fields.get("name") != agent_type:
+        raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition name mismatch")
+    declared = fields.get("tools")
+    if declared is None:
+        raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition must declare its tools")
+    tools = {item.strip() for item in declared.split(",") if item.strip()}
+    if not tools or not tools <= REVIEWER_TOOLS:
+        raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition is not read-only")
+    return True
+
+
 def evaluate_native_delegation(root: Path, payload: Payload) -> DelegationVerdict | None:
     normalized_tool = normalize_delegation_tool(payload.tool_name)
     if normalized_tool not in PROVIDER_NATIVE_DELEGATION_TOOLS:
@@ -619,6 +699,16 @@ def evaluate_native_delegation(root: Path, payload: Payload) -> DelegationVerdic
             normalized_tool=normalized_tool,
             adapter=adapter,
             project=None,
+        )
+    if _reviewer_delegation(project, payload, normalized_tool, adapter):
+        return DelegationVerdict(
+            managed=True,
+            allowed=True,
+            reason="read_only_reviewer_delegation",
+            request_sha256=request_sha256,
+            normalized_tool=normalized_tool,
+            adapter=adapter,
+            project=project,
         )
     records = _exception_records(project)
     if records is not None:

@@ -52,6 +52,25 @@ closed grammar with its own regression corpus.
   through `aegis log`. The stationary seat runs `discharge` for a registered target
   with the same exact-id semantics as `log --pending-id`.
 
+## Read-only reviewer delegation (ga-fsfg)
+
+Independent review used to require a human-run reviewer because the managed-project
+delegation rule blocked every `Agent` request. The rule now distinguishes a reviewer
+from a worker with a closed grammar:
+
+- the Claude `Agent` tool with `subagent_type` in the allowlist (`aegis-reviewer`);
+- the agent definition `.claude/agents/<type>.md` tracked at HEAD, byte-identical to the
+  working tree, named for its type, and declaring `tools:` as a non-empty subset of
+  Read, Grep and Glob, so the reviewer cannot edit, run, route or delegate even in
+  advisory mode;
+- a prompt naming exactly one `candidate=<40-hex>` commit that exists in the
+  repository, bounded in size, and no `isolation` or other options.
+
+The gate appends an `allow` decision carrying the request digest; the orchestrator
+records the returned verdict on the Bead with the candidate binding. Malformed
+reviewer requests fail closed as `native_delegation_reviewer_invalid`. Worker
+delegation, other agent types and the Codex delegation tools are unchanged.
+
 Only after the applicable strict gate checks succeed, the bridge records a
 payload-digest decision and emits Claude's `hookSpecificOutput.permissionDecision`
 as `allow`. It does **not** return early from the existing gate. Observation,
