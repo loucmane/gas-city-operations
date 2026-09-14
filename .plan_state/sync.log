@@ -3370,5 +3370,11 @@
     "plan_hash": "88a667db9c8c2008b7862bf11f1b8413e241973133ed77450a6cb8bcd23199de",
     "tracker_hash": "fb33556f9284eeddb21950220cb77c463550ea410105f9183d19b44ab65591d9",
     "synced_at": "2026-09-14T23:11:43.609281+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "88a667db9c8c2008b7862bf11f1b8413e241973133ed77450a6cb8bcd23199de",
+    "tracker_hash": "fb33556f9284eeddb21950220cb77c463550ea410105f9183d19b44ab65591d9",
+    "synced_at": "2026-09-14T23:22:28.766008+02:00"
   }
 ]
