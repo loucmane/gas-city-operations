@@ -340,6 +340,73 @@ READ_ONLY_GIT_SUBCOMMANDS = {
 }
 
 
+# ga-fsfg R1: remote observation a BLOCKED seat may perform. A refspec-free
+# `git fetch` touches only remote-tracking refs, and the listed `gh` reads never
+# open a browser. `gh api`, `gh pr create|merge`, and refspec fetches stay
+# hookable mutations.
+READ_ONLY_GIT_FETCH_FLAGS = {
+    "--all",
+    "--dry-run",
+    "--no-tags",
+    "--prune",
+    "--quiet",
+    "--tags",
+    "--verbose",
+    "-p",
+    "-q",
+    "-t",
+    "-v",
+}
+
+
+# A `git ls-remote` may list only a configured remote by name and plain ref
+# patterns. `--upload-pack`, server options, paths, URLs and `ext::` helpers can
+# run a program before readiness, so they stay hookable mutations.
+READ_ONLY_GIT_LS_REMOTE_FLAGS = {
+    "--branches",
+    "--exit-code",
+    "--get-url",
+    "--heads",
+    "--quiet",
+    "--refs",
+    "--symref",
+    "--tags",
+    "-b",
+    "-h",
+    "-q",
+    "-t",
+}
+GIT_REMOTE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
+GIT_REF_PATTERN_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_./*-]*$")
+GIT_LS_REMOTE_POSITIONAL_BOUND = 4
+
+
+READ_ONLY_GH_SUBCOMMANDS = {
+    ("auth", "status"),
+    ("issue", "list"),
+    ("issue", "view"),
+    ("pr", "checks"),
+    ("pr", "diff"),
+    ("pr", "list"),
+    ("pr", "status"),
+    ("pr", "view"),
+    ("release", "list"),
+    ("release", "view"),
+    ("repo", "view"),
+    ("run", "list"),
+    ("run", "view"),
+    ("run", "watch"),
+}
+
+
+GH_INTERACTIVE_FLAGS = {"--web", "-w"}
+GH_INTERACTIVE_FLAG_PREFIX = "--web="
+GH_SHORT_CLUSTER_RE = re.compile(r"^-[A-Za-z]+$")
+# `gh auth status` may never print the account token into the transcript.
+GH_AUTH_SECRET_FLAGS = {"--show-token", "-t"}
+GH_AUTH_SECRET_FLAG_PREFIX = "--show-token="
+
+
 READ_ONLY_TASKMASTER_SUBCOMMANDS = {
     "complexity-report",
     "list",

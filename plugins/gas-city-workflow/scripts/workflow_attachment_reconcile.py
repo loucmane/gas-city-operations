@@ -24,6 +24,7 @@ from workflow_ownership import (
     bead_digest, canonical_json, check_active_ownership, owner_binding,
     require_binding, require_workspace,
 )
+from workflow_snapshots import resolve_snapshot, store_snapshot
 
 
 def _sha(data):
@@ -101,7 +102,7 @@ def _edges(bead):
     return set(edges)
 
 
-def _beads(runner, context, spec, journal, intent, blocker):
+def _beads(runner, context, spec, journal, intent, blocker, path):
     binding = owner_binding(spec, context)
     records = journal["external_ownership"]
     for bead_id in (spec.bead_id, blocker):
@@ -111,14 +112,17 @@ def _beads(runner, context, spec, journal, intent, blocker):
     child = load_bead(runner, context, blocker)
     require_binding(primary, binding)
     require_binding(child, binding)
-    before = intent["before"]
+    before = resolve_snapshot(path, intent["before"])
+    blocker_before = resolve_snapshot(path, intent["blocker_before"])
     child_record = records[blocker]
+    child_before = resolve_snapshot(path, child_record["before"])
+    child_after = resolve_snapshot(path, child_record["after"])
     if (_body(primary) != _body(before)
-            or _body(child_record["before"]) != _body(intent["blocker_before"])
-            or _body(child) != _body(child_record["after"])):
+            or _body(child_before) != _body(blocker_before)
+            or _body(child) != _body(child_after)):
         raise WorkflowError("attachment Bead fields drifted from the recorded transaction")
     if (_edges(primary) != _edges(before) | {(blocker, "blocks")}
-            or _edges(child) != _edges(child_record["after"])):
+            or _edges(child) != _edges(child_after)):
         raise WorkflowError("attachment dependency graph drifted")
     return primary
 
@@ -166,8 +170,8 @@ def reconcile_attachment(
     expected = attached if blocker in attached else [*attached, blocker]
     if plan_bead_ids(root) != [spec.bead_id] or _attached_bead_ids(plan_image[0].decode()) != expected:
         raise WorkflowError("plan is not the exact one-Bead attachment postimage")
-    primary = _beads(runner, context, spec, journal, intent, blocker)
-    title = journal["external_ownership"][blocker]["after"]["title"]
+    primary = _beads(runner, context, spec, journal, intent, blocker, path)
+    title = resolve_snapshot(path, journal["external_ownership"][blocker]["after"])["title"]
     if tracker_image[0].decode().splitlines().count(f"- `{blocker}` — {title}") != 1:
         raise WorkflowError("tracker is not the exact attachment postimage")
     backup = path.with_name(f"{path.stem}.attachment-{request_sha256}-{expected_journal_sha256}.before.json")
@@ -180,7 +184,7 @@ def reconcile_attachment(
         check_active_ownership(runner, root, registry=registry)
         if "STATE: READY" not in run_readiness(runner, root):
             raise WorkflowError("attachment recovery replay is not ready")
-        _beads(runner, context, spec, journal, intent, blocker)
+        _beads(runner, context, spec, journal, intent, blocker, path)
         if _image(path) != before_image or _image(plan) != plan_image or _image(tracker) != tracker_image:
             raise WorkflowError("attachment recovery replay changed inputs")
         return result_payload("reconcile-attachment", "unchanged", request_sha256=request_sha256)
@@ -197,12 +201,12 @@ def reconcile_attachment(
         check_active_ownership(runner, root, registry=registry)
         if "STATE: READY" not in run_readiness(runner, root):
             raise WorkflowError("attachment reconciliation is not ready")
-        primary = _beads(runner, context, spec, journal, intent, blocker)
+        primary = _beads(runner, context, spec, journal, intent, blocker, path)
         if _image(plan) != plan_image or _image(tracker) != tracker_image or _image(path) != staged_image:
             raise WorkflowError("attachment inputs changed during reconciliation")
-        intent.update(state="verified", result_bead=spec.bead_id, after=primary,
-                      before_sha256=bead_digest(intent["before"]), after_sha256=bead_digest(primary),
-                      attachment_recovery=pins)
+        intent.update(state="verified", result_bead=spec.bead_id, after=store_snapshot(path, primary),
+                      before_sha256=bead_digest(resolve_snapshot(path, intent["before"])),
+                      after_sha256=bead_digest(primary), attachment_recovery=pins)
         final_image = ((json.dumps(journal, indent=2, sort_keys=True) + "\n").encode(), *before_image[1:])
         _write_image(path, final_image)
         if _image(path) != final_image:

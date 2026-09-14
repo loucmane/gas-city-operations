@@ -31,6 +31,67 @@ PROFILE = Path(".claude/orchestrator-command-profile.json")
 SCHEMA = "aegis.claude-orchestrator-command-profile.v1"
 COMMANDS = frozenset({"project-context", "beads-read", "workflow-begin", "workflow-coordinate"})
 KEYS = {"schema", "project_id", "canonical_root", "worktree_root", "city", "rig", "commands"}
+# ga-fsfg R2: optional registered projects whose direct-child worktrees the seat may
+# coordinate. Each record must agree with the tracked canonical registry.
+OPTIONAL_KEYS = {"registered_projects"}
+# An advisory seat coordinating a strict target leaves this record on the target.
+ADVISORY_COORDINATION_REASON = "advisory_coordination_no_native_approval"
+REGISTERED_KEYS = {"id", "repository", "canonical_root", "worktree_root", "rig"}
+MAX_REGISTERED = 16
+
+
+def _validate_registered(
+    entries: Any, canonical: Path, worktrees: Path
+) -> list[dict[str, str]]:
+    from .delegation import ID_PATTERN, REGISTRY_REL, REPOSITORY_PATTERN, _load_registry_path
+
+    if not isinstance(entries, list) or len(entries) > MAX_REGISTERED:
+        raise ValueError("invalid registered project list")
+    registry, _raw = _load_registry_path(canonical / REGISTRY_REL)
+    by_id = {item["id"]: item for item in registry}
+    seen_ids: set[str] = set()
+    seen_roots: set[Path] = set()
+    validated: list[dict[str, str]] = []
+    for entry in entries:
+        if (
+            not isinstance(entry, dict)
+            or set(entry) != REGISTERED_KEYS
+            or not all(isinstance(item, str) and item for item in entry.values())
+        ):
+            raise ValueError("invalid registered project record")
+        if (
+            not ID_PATTERN.fullmatch(entry["id"])
+            or not ID_PATTERN.fullmatch(entry["rig"])
+            or not REPOSITORY_PATTERN.fullmatch(entry["repository"])
+        ):
+            raise ValueError("invalid registered project identity")
+        croot = Path(entry["canonical_root"])
+        wroot = Path(entry["worktree_root"])
+        if (
+            not croot.is_absolute()
+            or croot.resolve() != croot
+            or not wroot.is_absolute()
+            or wroot.resolve() != wroot
+            or croot == canonical
+            or wroot == worktrees
+            or wroot == croot
+        ):
+            raise ValueError("registered project roots are invalid")
+        if entry["id"] in seen_ids or wroot in seen_roots:
+            raise ValueError("duplicate registered project")
+        seen_ids.add(entry["id"])
+        seen_roots.add(wroot)
+        item = by_id.get(entry["id"])
+        if (
+            item is None
+            or item.get("root") != entry["canonical_root"]
+            or item.get("worktree_root") != entry["worktree_root"]
+            or item.get("rig") != entry["rig"]
+            or item.get("repository") != entry["repository"]
+        ):
+            raise ValueError("registered project disagrees with the canonical registry")
+        validated.append(dict(entry))
+    return validated
 
 
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -55,7 +116,11 @@ def _profile(root: Path) -> dict[str, Any] | None:
         return None
     raw = _bound_bytes(root, PROFILE)
     value = json.loads(raw, object_pairs_hook=_unique_object)
-    if not isinstance(value, dict) or set(value) != KEYS or value["schema"] != SCHEMA:
+    if (
+        not isinstance(value, dict)
+        or set(value) - OPTIONAL_KEYS != KEYS
+        or value["schema"] != SCHEMA
+    ):
         raise ValueError("invalid command-profile schema")
     if not all(isinstance(value[key], str) and value[key] for key in KEYS - {"commands"}):
         raise ValueError("invalid command-profile identity")
@@ -94,6 +159,10 @@ def _profile(root: Path) -> dict[str, Any] | None:
     )
     if descriptor.get("rig") != value["rig"]:
         raise ValueError("command-profile rig differs from the managed descriptor")
+    if "registered_projects" in value:
+        value["registered_projects"] = _validate_registered(
+            value["registered_projects"], canonical, worktrees
+        )
     return value
 
 
@@ -141,8 +210,21 @@ def native_permission(root: Path, payload: Payload) -> str | None:
     # Only the explicitly validated workflow target receives task readiness/evidence.
     if payload.cwd and Path(payload.cwd) != root:
         from .coordination import KIND, target_for
+        from .decisions import advisory_enabled, append_gate_decision
 
-        if target_for(Path(payload.cwd), payload) == root:
+        seat = Path(payload.cwd)
+        if target_for(seat, payload) == root:
+            if advisory_enabled(seat):
+                # An advisory seat is validated and audited on the target but never
+                # handed a native approval; Claude's ordinary permissions decide.
+                append_gate_decision(
+                    root,
+                    hook="pretooluse",
+                    payload=payload,
+                    verdict="allow",
+                    reason=ADVISORY_COORDINATION_REASON,
+                )
+                return None
             return KIND
         return None
     profile_path = root / PROFILE

@@ -67,6 +67,7 @@ from .evidence import (
     payload_is_aegis_repair_apply,
     payload_is_aegis_runtime_update,
     payload_is_aegis_uninstall_apply,
+    payload_is_exact_delivery_discharge,
     payload_is_mutation,
     payload_is_observation_allowed,
     payload_is_post_closeout_delivery,
@@ -284,13 +285,18 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
 
     # No global cwd switch and no arbitrary --root exemption: only the exact
     # opt-in canonical workflow entrypoint may select a journal-bound task.
-    from .coordination import request as coordination_request, target_for
+    from .coordination import (
+        registered_target_readiness,
+        request as coordination_request,
+        target_for,
+    )
 
     coordination_log = False
+    seat = root
     try:
         target = target_for(root, payload)
         if target is not None:
-            coordination_log = coordination_request(root, payload)[0] == "log"
+            coordination_log = coordination_request(root, payload)[0] in {"log", "discharge"}
             root = target
     except Exception as exc:  # An invalid target must not fall through advisory/override.
         return gate_hard_block(
@@ -322,7 +328,19 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
     if payload_is_read_only(payload):
         return gate_allow_or_record(root, payload, reason="read_only")
     is_mutation = payload_is_mutation(payload)
-    readiness = run_readiness(root)
+    readiness = None
+    if root != seat:
+        try:
+            readiness = registered_target_readiness(seat, root)
+        except Exception as exc:  # noqa: BLE001 - a registered target that cannot be read is invalid.
+            return gate_hard_block(
+                root,
+                payload,
+                f"BLOCKED: coordination target invalid: {exc}",
+                reason="coordination_target_invalid",
+            )
+    if readiness is None:
+        readiness = run_readiness(root)
     post_closeout_taskmaster_completion = payload_is_post_closeout_taskmaster_completion(
         root, payload
     )
@@ -383,6 +401,7 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
         and is_mutation
         and not payload_is_aegis_log(payload)
         and not coordination_log
+        and not payload_is_exact_delivery_discharge(payload, pending_events)
     ):
         return gate_block_or_record(
             root,

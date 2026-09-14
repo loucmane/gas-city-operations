@@ -67,8 +67,9 @@ plan-mode mutation, signing or lifecycle authority follows from this profile.
 With the explicit `workflow-coordinate` profile opt-in, keep the conversation at
 the canonical project. Do not change `CLAUDE_PROJECT_DIR`, use `cd` to evade a gate,
 or reopen the client for each task. Name the registered linked worktree on each
-canonical `workflow.py` command. `attach`, `checkpoint`, `verify`, `coordinate` and
-`log` validate that target; other commands retain their existing boundaries.
+canonical `workflow.py` command. `attach`, `checkpoint`, `verify`, `coordinate`, `log`,
+`discharge`, `compact-journal` and `publish` validate that target; other commands retain
+their existing boundaries.
 
 Use the canonical runtime path, literal arguments, and one operation per call:
 
@@ -78,7 +79,24 @@ python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.p
 python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py coordinate --root /absolute/registered/task-worktree --bead ga-primary --action depend --blocker ga-prerequisite
 python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py log --root /absolute/registered/task-worktree --evidence 'path/to/proof' --note 'Completed the bounded operation'
 python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py log --root /absolute/registered/task-worktree --pending-id 0123456789ab --note 'Recorded the pending mutation evidence'
+python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py discharge --root /absolute/registered/task-worktree --pending-id 0123456789ab --note 'Recorded the signed commit into the journal'
+python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py compact-journal --root /absolute/registered/task-worktree
 ```
+
+The profile's `registered_projects` records make direct children of another
+registered project's worktree root valid targets too, starting with the gascity Core
+rig under `/home/loucmane/gascity-core-worktrees`; their readiness comes from the
+portable Bead-scaffold checks and their identity from the seat's tracked registry.
+`discharge` resolves one delivery-class pending event (a commit, push or PR
+operation) into the workflow journal without rewriting tracked S:W:H:E files;
+every other mutation still needs `log`. `compact-journal` moves verified Bead
+snapshots beside the journal and is the only verb accepted for a journal over the
+1 MiB coordination bound. Remote observation (`gh pr view|list|checks|diff|status`,
+`gh run list|view|watch`, `gh issue view|list`, `gh repo view`, `gh release list|view`,
+`gh auth status`, refspec-free `git fetch`, and `git ls-remote` naming a configured
+remote with plain ref patterns) is read-only inspection and needs no readiness.
+`--web` in any form, `--show-token`, `gh api`, and any `git ls-remote` flag, path, URL
+or helper that could run a program stay hookable mutations.
 
 Replace example identities with the actual registered worktree and owned Bead.
 `create` produces one unassigned, unrouted P2 task with a **nonblocking parent-child**
@@ -110,6 +128,14 @@ delegation. Delegated work must have a Bead and a reviewed `gc sling` route. A r
 failure is a stop condition, never permission to fall back to a provider-native worker. The only
 exception is an exact request record whose tracked bytes also exist on its declared remote review
 ref; caller, session, and agent identity never authorize it.
+
+A read-only reviewer is not a worker. The `aegis-reviewer` agent, whose tracked and clean
+definition in `.claude/agents/` may declare only Read, Grep and Glob and only the name,
+description, tools, model and color fields, may be delegated one review of exactly one
+`candidate=<commit>` that exists in the repository, with no isolation, model or other
+options. The gate records the request digest; the orchestrator records the verdict on the
+Bead. Any other agent type, tool set, frontmatter field, option or candidate binding stays
+blocked.
 
 ## Required Workflow State
 Claude mutations require all of these to align:

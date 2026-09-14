@@ -319,6 +319,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     log_source.add_argument("--evidence")
     log_source.add_argument("--pending-id")
     log_command.add_argument("--note", required=True)
+    discharge_command = subparsers.add_parser("discharge", allow_abbrev=False)
+    discharge_command.add_argument("--root", required=True)
+    discharge_command.add_argument("--pending-id", required=True)
+    discharge_command.add_argument("--note", required=True)
+    compact_command = subparsers.add_parser("compact-journal", allow_abbrev=False)
+    compact_command.add_argument("--root", required=True)
     for name in ("checkpoint", "verify", "publish"):
         command = subparsers.add_parser(name)
         command.add_argument("--root", default=".")
@@ -377,6 +383,14 @@ def _dispatch(args, runner: CommandRunner, root: Path) -> dict[str, Any]:
         from workflow_coordinate import log
 
         payload = log(root, args.evidence, args.note, runner, pending_id=args.pending_id)
+    elif args.command == "discharge":
+        from workflow_discharge import discharge
+
+        payload = discharge(root, args.pending_id, args.note, runner)
+    elif args.command == "compact-journal":
+        from workflow_coordinate import compact_journal
+
+        payload = compact_journal(root, runner)
     elif args.command == "checkpoint":
         payload = _checkpoint(root, runner)
     elif args.command == "verify":

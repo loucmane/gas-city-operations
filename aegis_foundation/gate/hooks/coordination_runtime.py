@@ -172,3 +172,30 @@ def reviewed_runtime(target: Path, canonical: Path) -> None:
     algorithm, manifest = _manifest(canonical)
     _verify(canonical, algorithm, manifest)
     _verify(target, algorithm, manifest)
+
+
+FOREIGN_RUNTIME_SHADOWS = (
+    *INSTALLED,
+    "aegis_foundation",
+    "plugins/gas-city-workflow",
+    ".claude/scripts",
+    "sitecustomize.py",
+    "usercustomize.py",
+)
+
+
+def reviewed_registered_target(target: Path, canonical: Path) -> None:
+    """A registered foreign target never supplies runtime (ga-fsfg R2).
+
+    The canonical executor is verified exactly as for an Operations target; the
+    foreign worktree must carry no Operations runtime tree, installed runtime or
+    Python startup hook that could shadow it.
+    """
+
+    _source_only_loading()
+    algorithm, manifest = _manifest(canonical)
+    _verify(canonical, algorithm, manifest)
+    for relative in FOREIGN_RUNTIME_SHADOWS:
+        path = target / relative
+        if path.exists() or path.is_symlink():
+            raise ValueError("registered target must not carry an Operations runtime tree")

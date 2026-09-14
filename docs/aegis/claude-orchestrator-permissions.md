@@ -17,11 +17,97 @@ Operations enables four command classes, using closed grammars:
 - `workflow-begin`: the unchanged canonical `workflow.py begin`, targeting the
   canonical checkout, with its existing Bead/slug/goal/dry-run grammar. Internal
   project, Bead, worktree, ownership, journal and readiness checks remain in force.
-- `workflow-coordinate`: canonical `workflow.py attach/checkpoint/verify/coordinate/log`,
-  targeting one explicit registered linked worktree with verified journal/ownership.
-  See the stationary-orchestration examples in `CLAUDE.md`. Its narrow ledger
-  actions are note append, unassigned/unrouted P2 child creation, and dependency plus
-  transactional attach. It does not approve raw Beads mutations or cross-rig work.
+- `workflow-coordinate`: canonical `workflow.py attach/checkpoint/verify/coordinate/log/
+  discharge/compact-journal/publish`, targeting one explicit registered linked worktree
+  with verified journal/ownership. See the stationary-orchestration examples in `CLAUDE.md`.
+  Its narrow ledger actions are note append, unassigned/unrouted P2 child creation, and
+  dependency plus transactional attach. It does not approve raw Beads mutations or
+  cross-rig work.
+
+## Remote observation and journal-bound discharge (ga-fsfg R1)
+
+Three defects kept a hooked seat from finishing delivery on its own. Each fix is a
+closed grammar with its own regression corpus.
+
+- **Remote reads are inspection.** `gh pr view|list|checks|diff|status`, `gh run
+  list|view|watch`, `gh issue view|list`, `gh repo view`, `gh release list|view`,
+  `gh auth status`, a refspec-free `git fetch` and a `git ls-remote` naming a
+  configured remote with plain ref patterns are classified read-only, so a BLOCKED
+  seat can watch CI and remote refs. `--web` in any spelling (`--web=...`, a short
+  cluster such as `-wq`), `--show-token`, `gh api`, `gh pr create|merge|comment`,
+  reruns, any fetch carrying a refspec or non-listed flag, and any `ls-remote` flag,
+  path, URL or `ext::` helper that could run a program (`--upload-pack`, `-u`,
+  `--exec`, `-o`/`--server-option`) stay hookable mutations.
+- **Journals stay bounded.** Coordination records reference Bead snapshots by content
+  digest (`{"$snapshot": sha256}`) stored beside the journal in
+  `<bead>.snapshots/`; every reader resolves through `workflow_snapshots.py`, so legacy
+  inline records keep working. `workflow.py compact-journal --root <worktree>` moves
+  verified inline snapshots out-of-line idempotently and records a lifecycle event. It
+  is the one verb the gate accepts for a journal over the 1 MiB bound; every other verb
+  keeps the bound.
+- **Delivery-class events discharge into the journal.** `git commit`, `git push` and
+  `gh pr create|ready|merge` enqueue pending events tagged `kind: delivery`.
+  `workflow.py discharge --root <worktree> --pending-id <12-hex> --note <text>` records
+  head, tree, handler and evidence into the journal and removes exactly that event
+  without touching tracked S:W:H:E files, so a commit no longer re-dirties the tree
+  it just cleaned. PreToolUse exempts only an exact single-id discharge naming one
+  delivery-class event; PostToolUse fails closed if the event is still queued and
+  never enqueues the discharge itself. Edits and every other mutation still log
+  through `aegis log`. The stationary seat runs `discharge` for a registered target
+  with the same exact-id semantics as `log --pending-id`.
+
+## Registered projects (ga-fsfg R2)
+
+The profile may carry `registered_projects`: up to sixteen records of `id`,
+`repository`, `canonical_root`, `worktree_root` and `rig`. Each record must agree
+field for field with the tracked canonical registry
+`plugins/gas-city-workflow/config/projects.json`, use absolute symlink-free roots,
+and name roots distinct from the seat's own. A direct child of a registered
+`worktree_root` is then a valid stationary target for `attach`, `checkpoint`,
+`verify`, `coordinate`, `log`, `discharge`, `compact-journal` and `publish`.
+
+A registered target carries no Operations policy or runtime of its own, so the
+checks differ from an Operations worktree in three ways and nowhere else:
+
+- identity comes from the seat's tracked profile and registry, and the target's
+  journal spec must match the registered `id`, `rig`, `canonical_root` and
+  `worktree_root`; the ownership binding is derived from that spec, the shared
+  city and the registered canonical root, exactly as the plugin wrote it;
+- the canonical executor is verified as before, and the target must carry no
+  Operations runtime tree, installed runtime or Python startup hook that could
+  shadow it;
+- readiness uses the portable Bead-scaffold checks the plugin applies to
+  registered projects, resolved through the target's own repository layout,
+  because the generic readiness recognizes Bead identity only inside an Aegis
+  source checkout.
+
+Advisory enforcement at the seat or the target no longer refuses coordination.
+The request is validated the same way and the target keeps the audit record: an
+advisory target records its ordinary advisory allow, and an advisory seat
+coordinating a strict target records `advisory_coordination_no_native_approval`
+on that target. The seat receives no native approval either way, so Claude's
+ordinary permissions decide. Observation state still refuses.
+
+## Read-only reviewer delegation (ga-fsfg)
+
+Independent review used to require a human-run reviewer because the managed-project
+delegation rule blocked every `Agent` request. The rule now distinguishes a reviewer
+from a worker with a closed grammar:
+
+- the Claude `Agent` tool with `subagent_type` in the allowlist (`aegis-reviewer`);
+- the agent definition `.claude/agents/<type>.md` tracked at HEAD, byte-identical to the
+  working tree, named for its type, carrying only the `name`, `description`, `tools`,
+  `model` and `color` frontmatter fields (no `hooks`, `permissionMode`, `mcpServers`
+  or `memory`), and declaring `tools:` as a non-empty subset of Read, Grep and Glob,
+  so the reviewer cannot edit, run, route or delegate even in advisory mode;
+- a prompt naming exactly one `candidate=<40-hex>` commit that exists in the
+  repository, bounded in size, and no `isolation`, `model` or other options; the
+  model comes from the tracked definition alone.
+
+The gate appends an `allow` decision carrying the request digest; the orchestrator
+records the returned verdict on the Bead with the candidate binding. Malformed
+reviewer requests fail closed as `native_delegation_reviewer_invalid`. Worker
+delegation, other agent types and the Codex delegation tools are unchanged.
 
 Only after the applicable strict gate checks succeed, the bridge records a
 payload-digest decision and emits Claude's `hookSpecificOutput.permissionDecision`

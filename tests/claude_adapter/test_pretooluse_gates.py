@@ -412,6 +412,110 @@ def test_pretooluse_allows_known_read_only_bash_before_readiness(
     assert result.stderr == ""
 
 
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git fetch origin",
+        "git fetch --prune origin",
+        "git fetch -q --tags origin",
+        "git -C /tmp/elsewhere fetch origin",
+        "git ls-remote origin refs/heads/main",
+        "git ls-remote --heads origin",
+        "git ls-remote --tags --refs origin",
+        "git ls-remote --symref origin HEAD",
+        "git ls-remote -q --exit-code origin refs/heads/main refs/tags/v1",
+        "git ls-remote",
+        "gh pr view 44 -R loucmane/gascity --json state,mergeable",
+        "gh release list -R loucmane/gascity --limit 3",
+        "gh release view v1 -R loucmane/gascity --json tagName",
+        "gh auth status -h github.com",
+        "gh auth status --hostname github.com --active",
+        "gh pr list --repo loucmane/gascity --state open --json number",
+        "gh pr checks 44 -R loucmane/gascity --watch --interval 30",
+        "gh pr diff 44 -R loucmane/gascity",
+        "gh pr status",
+        "gh run list -R loucmane/gascity --branch main --limit 3 --json conclusion",
+        "gh run view 1 -R loucmane/gascity --log-failed",
+        "gh run watch 1 -R loucmane/gascity",
+        "gh auth status",
+        "gh repo view loucmane/gascity --json defaultBranchRef",
+        "gh pr checks 44 -R loucmane/gascity 2>&1 | grep -v pass",
+    ],
+)
+def test_pretooluse_allows_remote_read_only_observation_before_readiness(
+    tmp_path: Path, command: str
+) -> None:
+    """ga-fsfg R1: a BLOCKED seat may observe remote PR, CI and ref state."""
+
+    repo = make_repo(tmp_path, ready=False)
+
+    result = run_gate(PRETOOLUSE, repo, payload("Bash", command=command))
+
+    assert result.returncode == 0, result.stderr
+    assert result.stderr == ""
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "gh pr create -R loucmane/gascity --base main --head codex/x --title t --body b",
+        "gh pr merge 44 -R loucmane/gascity --merge",
+        "gh pr ready 44",
+        "gh pr comment 44 --body hello",
+        "gh pr edit 44 --title renamed",
+        "gh pr view 44 --web",
+        "gh pr checks 44 -w",
+        "gh pr view 44 --web=true",
+        "gh release view v1 --web=1",
+        "gh pr view 44 -wq .state",
+        "gh auth status --show-token",
+        "gh auth status -t",
+        "gh auth status --show-token=true",
+        "gh auth status -ht github.com",
+        "gh run rerun 1 --failed",
+        "gh run cancel 1",
+        "gh run download 1",
+        "gh api repos/loucmane/gascity/pulls/44",
+        "gh repo clone loucmane/gascity",
+        "gh auth login",
+        "git fetch origin main:main",
+        "git fetch --update-head-ok origin",
+        "git fetch origin +refs/heads/*:refs/remotes/origin/*",
+        "git fetch --force origin",
+        "git fetch --depth=1 origin",
+        "git fetch origin main other",
+        "git pull --ff-only origin main",
+        "git ls-remote --exit-code origin main && git merge origin/main",
+        "git ls-remote --upload-pack=/bin/echo /tmp/elsewhere",
+        "git ls-remote --upload-pack /bin/echo origin",
+        "git ls-remote -u /bin/echo origin",
+        "git ls-remote --exec=/bin/echo origin",
+        "git ls-remote -o trace=1 origin",
+        "git ls-remote --server-option=trace=1 origin",
+        "git ls-remote ext::sh -c id",
+        "git ls-remote /tmp/elsewhere",
+        "git ls-remote ./elsewhere",
+        "git ls-remote ../elsewhere",
+        "git ls-remote .",
+        "git ls-remote https://example.invalid/repo.git",
+        "git ls-remote origin main:main",
+        "git ls-remote origin -- refs/heads/main",
+        "git ls-remote origin a b c d e",
+    ],
+)
+def test_pretooluse_remote_writes_stay_hookable_mutations_before_readiness(
+    tmp_path: Path, command: str
+) -> None:
+    """ga-fsfg R1: only the closed read grammar is exempt; everything else stays gated."""
+
+    repo = make_repo(tmp_path, ready=False)
+
+    result = run_gate(PRETOOLUSE, repo, payload("Bash", command=command))
+
+    assert result.returncode == 2
+    assert '"permissionDecision": "allow"' not in result.stdout
+
+
 def test_pretooluse_blocks_read_only_aegis_cli_target_outside_project_before_readiness(
     tmp_path: Path,
 ) -> None:

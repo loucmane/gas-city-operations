@@ -194,6 +194,62 @@ def test_no_arbitrary_control_flags(lane, action, fields):
     assert not json.loads(path.read_text()).get("coordination")
 
 
+def test_coordination_snapshots_are_content_addressed_references(lane):
+    """ga-fsfg R1: the journal keeps references; Bead images live beside it."""
+
+    from workflow_snapshots import is_reference, resolve_snapshot, snapshot_dir
+
+    root, registry, runner, path = lane
+    first = coordinate(root, "ga-test", "note", {"text": "Evidence captured"}, runner, registry=registry)
+    assert first["status"] == "applied"
+    record = next(iter(json.loads(path.read_text())["coordination"].values()))
+    assert is_reference(record["before"]) and is_reference(record["after"])
+    assert record["blocker_before"] is None
+    assert resolve_snapshot(path, record["after"])["notes"].endswith("Evidence captured")
+    files = sorted(snapshot_dir(path).glob("*.json"))
+    assert {file.stem for file in files} == {record["before"]["$snapshot"], record["after"]["$snapshot"]}
+    assert all(file.stat().st_mode & 0o077 == 0 for file in files)
+    second = coordinate(root, "ga-test", "note", {"text": "Evidence captured"}, runner, registry=registry)
+    assert second["status"] == "unchanged"
+
+
+def test_compact_journal_moves_verified_inline_snapshots_once(lane):
+    """ga-fsfg R1: legacy inline snapshots compact out-of-line; pending intents stay inline."""
+
+    from workflow_coordinate import compact_journal
+    from workflow_snapshots import is_reference, resolve_record
+
+    root, registry, runner, path = lane
+    coordinate(root, "ga-test", "note", {"text": "Evidence captured"}, runner, registry=registry)
+    journal = json.loads(path.read_text())
+    key, record = next(iter(journal["coordination"].items()))
+    journal["coordination"][key] = resolve_record(path, record)
+    pending_key = "f" * 64
+    journal["coordination"][pending_key] = {
+        "state": "pending",
+        "request": {"bead_id": "ga-test", "action": "note", "fields": {"text": "later"}},
+        "before": {"id": "ga-test", "notes": "inline preimage"},
+        "blocker_before": None,
+    }
+    path.write_text(json.dumps(journal, indent=2, sort_keys=True) + "\n")
+    before_size = path.stat().st_size
+
+    first = compact_journal(root, runner, registry=registry)
+
+    assert first["status"] == "compacted" and first["snapshots"] == 2
+    compacted = json.loads(path.read_text())
+    verified = compacted["coordination"][key]
+    assert is_reference(verified["before"]) and is_reference(verified["after"])
+    assert verified["after_sha256"] == record["after_sha256"]
+    assert compacted["coordination"][pending_key]["before"] == {"id": "ga-test", "notes": "inline preimage"}
+    assert compacted["events"][-1]["action"] == "compact-journal"
+    assert compacted["events"][-1]["snapshots"] == 2
+    assert path.stat().st_size < before_size
+    second = compact_journal(root, runner, registry=registry)
+    assert second["status"] == "unchanged"
+    assert len(json.loads(path.read_text())["events"]) == 1
+
+
 def test_pending_id_log_uses_canonical_aegis_cli(lane):
     root, _, runner, _ = lane
     pending_id = "0123456789ab"

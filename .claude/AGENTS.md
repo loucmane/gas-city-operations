@@ -17,6 +17,7 @@ Claude is allowed to reason before readiness, but hookable persistent mutation r
 | `task-orchestrator` | Coordinate Gas City Bead selection and reviewed routing | Run readiness; inspect the Bead, active session, plan, and tracker. |
 | `task-executor` | Implement one scoped Gas City Bead | Run readiness; confirm the rig-scoped Bead and active tracker. |
 | `task-checker` | Verify Bead completion and audit trail | Run readiness; run guard, tests, and plan sync. |
+| `aegis-reviewer` | Independent read-only review of one frozen Gas City Bead candidate (Read, Grep, Glob only) | Read the bound patch and manifest; return `VERDICT: SOURCE_PASS` or `HOLD` with cited findings. |
 
 Managed-project executors receive a reviewed Gas City route rather than provider-native sub-agent creation. Every executor brief must include Bead ID and rig, branch, active work-tracking folder, current plan, and the requirement to stop on `BLOCKED` readiness.
 
