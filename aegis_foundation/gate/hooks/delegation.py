@@ -57,7 +57,8 @@ PROVIDER_NATIVE_DELEGATION_TOOLS = CLAUDE_DELEGATION_TOOLS | CODEX_DELEGATION_TO
 REVIEWER_AGENT_TYPES = frozenset({"aegis-reviewer"})
 REVIEWER_AGENTS_REL = Path(".claude/agents")
 REVIEWER_TOOLS = frozenset({"Read", "Grep", "Glob"})
-REVIEWER_INPUT_KEYS = frozenset({"description", "prompt", "subagent_type", "model"})
+REVIEWER_INPUT_KEYS = frozenset({"description", "prompt", "subagent_type"})
+REVIEWER_FRONTMATTER_KEYS = frozenset({"name", "description", "tools", "model", "color"})
 REVIEWER_PROMPT_BOUND = 65536
 REVIEWER_REASON = "native_delegation_reviewer_invalid"
 CANDIDATE_TOKEN = re.compile(r"(?<![0-9A-Za-z=_-])candidate=([0-9a-f]{40})(?![0-9A-Za-z])")
@@ -631,6 +632,12 @@ def _reviewer_frontmatter(raw: bytes) -> dict[str, str]:
         if match is None or match.group(1) in fields:
             raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition frontmatter is malformed")
         fields[match.group(1)] = match.group(2)
+    unsupported = sorted(set(fields) - REVIEWER_FRONTMATTER_KEYS)
+    if unsupported:
+        raise DelegationPolicyError(
+            REVIEWER_REASON,
+            f"reviewer agent definition carries unsupported frontmatter: {unsupported}",
+        )
     return fields
 
 

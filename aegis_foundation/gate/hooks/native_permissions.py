@@ -34,6 +34,8 @@ KEYS = {"schema", "project_id", "canonical_root", "worktree_root", "city", "rig"
 # ga-fsfg R2: optional registered projects whose direct-child worktrees the seat may
 # coordinate. Each record must agree with the tracked canonical registry.
 OPTIONAL_KEYS = {"registered_projects"}
+# An advisory seat coordinating a strict target leaves this record on the target.
+ADVISORY_COORDINATION_REASON = "advisory_coordination_no_native_approval"
 REGISTERED_KEYS = {"id", "repository", "canonical_root", "worktree_root", "rig"}
 MAX_REGISTERED = 16
 
@@ -208,13 +210,22 @@ def native_permission(root: Path, payload: Payload) -> str | None:
     # Only the explicitly validated workflow target receives task readiness/evidence.
     if payload.cwd and Path(payload.cwd) != root:
         from .coordination import KIND, target_for
-        from .decisions import advisory_enabled
+        from .decisions import advisory_enabled, append_gate_decision
 
         seat = Path(payload.cwd)
         if target_for(seat, payload) == root:
-            # An advisory seat is validated and audited but never handed a native
-            # approval; Claude's ordinary permissions decide instead.
-            return None if advisory_enabled(seat) else KIND
+            if advisory_enabled(seat):
+                # An advisory seat is validated and audited on the target but never
+                # handed a native approval; Claude's ordinary permissions decide.
+                append_gate_decision(
+                    root,
+                    hook="pretooluse",
+                    payload=payload,
+                    verdict="allow",
+                    reason=ADVISORY_COORDINATION_REASON,
+                )
+                return None
+            return KIND
         return None
     profile_path = root / PROFILE
     if not profile_path.exists() and not profile_path.is_symlink():

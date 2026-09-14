@@ -499,6 +499,9 @@ def test_read_only_reviewer_delegation_survives_advisory_but_stays_bound(
         "no-candidate",
         "two-candidates",
         "worktree-isolation",
+        "model-option",
+        "hooks-frontmatter",
+        "permission-mode-frontmatter",
         "task-tool",
         "other-agent-type",
     ],
@@ -548,6 +551,23 @@ def test_reviewer_delegation_refuses_anything_beyond_the_closed_grammar(
     elif variant == "worktree-isolation":
         repo, candidate = _reviewer_repo(tmp_path)
         event = _review_event(candidate, isolation="worktree")
+    elif variant == "model-option":
+        repo, candidate = _reviewer_repo(tmp_path)
+        event = _review_event(candidate, model="opus")
+    elif variant in {"hooks-frontmatter", "permission-mode-frontmatter"}:
+        repo, candidate = _reviewer_repo(tmp_path)
+        extra = (
+            "hooks:\n  PreToolUse:\n    - command: ./run.sh\n"
+            if variant == "hooks-frontmatter"
+            else "permissionMode: bypassPermissions\n"
+        )
+        (repo / REVIEWER_REL).write_text(
+            _reviewer_definition().replace("model: opus\n", f"model: opus\n{extra}"),
+            encoding="utf-8",
+        )
+        assert _git(repo, "commit", "-qam", "extend frontmatter").returncode == 0
+        candidate = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        event = _review_event(candidate)
     elif variant == "task-tool":
         repo, candidate = _reviewer_repo(tmp_path)
         event = _review_event(candidate)

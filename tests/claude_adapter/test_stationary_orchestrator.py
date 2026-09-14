@@ -217,6 +217,11 @@ def test_advisory_enforcement_coordinates_without_a_native_approval(tmp_path, sc
     assert result.returncode == 0, result.stderr
     assert '"permissionDecision"' not in result.stdout
     assert not read_gate_decisions(canonical)
+    # The target keeps the audit record either way; an advisory seat names its reason.
+    record = read_gate_decisions(target)[-1]
+    assert record["verdict"] == "allow"
+    if scope == "canonical":
+        assert record["reason"] == "advisory_coordination_no_native_approval"
 
 
 def test_raw_ledger_and_source_writes_stay_blocked(tmp_path):
@@ -712,6 +717,10 @@ def test_advisory_seat_coordinates_registered_target_without_native_approval(tmp
     result = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, core_target, "verify")))
     assert result.returncode == 0, result.stderr
     assert '"permissionDecision"' not in result.stdout
+    assert not read_gate_decisions(canonical)
+    record = read_gate_decisions(core_target)[-1]
+    assert record["verdict"] == "allow"
+    assert record["reason"] == "advisory_coordination_no_native_approval"
 
 
 def test_compact_journal_is_reachable_for_an_oversized_target_journal(tmp_path):

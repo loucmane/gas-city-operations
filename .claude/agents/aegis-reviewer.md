@@ -2,7 +2,7 @@
 name: aegis-reviewer
 description: Read-only independent reviewer for one frozen Gas City Bead candidate. Reads the repository and reports a SOURCE_PASS or HOLD verdict; never edits, runs, routes or delegates.
 tools: Read, Grep, Glob
-model: opus
+model: fable
 color: cyan
 ---
 

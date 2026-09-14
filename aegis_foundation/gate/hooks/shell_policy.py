@@ -10,13 +10,21 @@ from .contracts import (
     AEGIS_LOCAL_BIN_REL,
     CODEX_TASK_LOGGING_SUBCOMMANDS,
     FILE_MUTATION_TOOLS,
+    GH_AUTH_SECRET_FLAG_PREFIX,
+    GH_AUTH_SECRET_FLAGS,
+    GH_INTERACTIVE_FLAG_PREFIX,
     GH_INTERACTIVE_FLAGS,
+    GH_SHORT_CLUSTER_RE,
+    GIT_LS_REMOTE_POSITIONAL_BOUND,
+    GIT_REF_PATTERN_RE,
+    GIT_REMOTE_NAME_RE,
     LOCALHOST_URL_RE,
     PYTHON_WRITE_RE,
     Payload,
     READ_ONLY_AEGIS_SUBCOMMANDS,
     READ_ONLY_GH_SUBCOMMANDS,
     READ_ONLY_GIT_FETCH_FLAGS,
+    READ_ONLY_GIT_LS_REMOTE_FLAGS,
     READ_ONLY_GIT_SUBCOMMANDS,
     READ_ONLY_NPM_SCRIPTS,
     READ_ONLY_SIMPLE_COMMANDS,
@@ -85,6 +93,8 @@ def read_only_git_segment(tokens: list[str]) -> bool:
         return "--show-current" in remainder[1:]
     if remainder[0] == "fetch":
         return read_only_git_fetch(remainder[1:])
+    if remainder[0] == "ls-remote":
+        return read_only_git_ls_remote(remainder[1:])
     return remainder[0] in READ_ONLY_GIT_SUBCOMMANDS
 
 
@@ -103,12 +113,47 @@ def read_only_git_fetch(args: list[str]) -> bool:
     return not any(":" in value or value.startswith("+") for value in positionals)
 
 
+def read_only_git_ls_remote(args: list[str]) -> bool:
+    """Only a plain listing of a configured remote is observation.
+
+    Closed grammar: listed flags, a remote named like a configured remote (never a
+    path, URL or `ext::` helper) and plain ref patterns. `--upload-pack`, server
+    options and every unlisted flag run or steer a program, so they stay hookable
+    mutations.
+    """
+
+    positionals: list[str] = []
+    for token in args:
+        if token.startswith("-"):
+            if token not in READ_ONLY_GIT_LS_REMOTE_FLAGS:
+                return False
+        else:
+            positionals.append(token)
+    if len(positionals) > GIT_LS_REMOTE_POSITIONAL_BOUND:
+        return False
+    if positionals and not GIT_REMOTE_NAME_RE.fullmatch(positionals[0]):
+        return False
+    return all(GIT_REF_PATTERN_RE.fullmatch(pattern) for pattern in positionals[1:])
+
+
 def read_only_gh_segment(tokens: list[str]) -> bool:
-    """Closed `gh` read grammar: listed noun/verb pairs, never a browser, never `gh api`."""
+    """Closed `gh` read grammar: listed noun/verb pairs, never a browser or a token."""
 
     if len(tokens) < 3 or (tokens[1], tokens[2]) not in READ_ONLY_GH_SUBCOMMANDS:
         return False
-    return not any(token in GH_INTERACTIVE_FLAGS for token in tokens[3:])
+    for token in tokens[3:]:
+        if token in GH_INTERACTIVE_FLAGS or token.startswith(GH_INTERACTIVE_FLAG_PREFIX):
+            return False
+        cluster = GH_SHORT_CLUSTER_RE.fullmatch(token) is not None
+        if cluster and "w" in token:
+            return False
+        if tokens[1] == "auth" and (
+            token in GH_AUTH_SECRET_FLAGS
+            or token.startswith(GH_AUTH_SECRET_FLAG_PREFIX)
+            or (cluster and "t" in token)
+        ):
+            return False
+    return True
 
 
 # ga-fsfg R1: delivery-class mutations leave their evidence in Git or GitHub. Their

@@ -18,8 +18,8 @@ Operations enables four command classes, using closed grammars:
   canonical checkout, with its existing Bead/slug/goal/dry-run grammar. Internal
   project, Bead, worktree, ownership, journal and readiness checks remain in force.
 - `workflow-coordinate`: canonical `workflow.py attach/checkpoint/verify/coordinate/log/
-  discharge/compact-journal`, targeting one explicit registered linked worktree with
-  verified journal/ownership. See the stationary-orchestration examples in `CLAUDE.md`.
+  discharge/compact-journal/publish`, targeting one explicit registered linked worktree
+  with verified journal/ownership. See the stationary-orchestration examples in `CLAUDE.md`.
   Its narrow ledger actions are note append, unassigned/unrouted P2 child creation, and
   dependency plus transactional attach. It does not approve raw Beads mutations or
   cross-rig work.
@@ -30,10 +30,14 @@ Three defects kept a hooked seat from finishing delivery on its own. Each fix is
 closed grammar with its own regression corpus.
 
 - **Remote reads are inspection.** `gh pr view|list|checks|diff|status`, `gh run
-  list|view|watch`, `gh issue view|list`, `gh repo view`, `gh auth status`, a
-  refspec-free `git fetch` and `git ls-remote` are classified read-only, so a BLOCKED
-  seat can watch CI and remote refs. `--web`, `gh api`, `gh pr create|merge|comment`,
-  reruns, and any fetch carrying a refspec or non-listed flag stay hookable mutations.
+  list|view|watch`, `gh issue view|list`, `gh repo view`, `gh release list|view`,
+  `gh auth status`, a refspec-free `git fetch` and a `git ls-remote` naming a
+  configured remote with plain ref patterns are classified read-only, so a BLOCKED
+  seat can watch CI and remote refs. `--web` in any spelling (`--web=...`, a short
+  cluster such as `-wq`), `--show-token`, `gh api`, `gh pr create|merge|comment`,
+  reruns, any fetch carrying a refspec or non-listed flag, and any `ls-remote` flag,
+  path, URL or `ext::` helper that could run a program (`--upload-pack`, `-u`,
+  `--exec`, `-o`/`--server-option`) stay hookable mutations.
 - **Journals stay bounded.** Coordination records reference Bead snapshots by content
   digest (`{"$snapshot": sha256}`) stored beside the journal in
   `<bead>.snapshots/`; every reader resolves through `workflow_snapshots.py`, so legacy
@@ -78,9 +82,11 @@ checks differ from an Operations worktree in three ways and nowhere else:
   source checkout.
 
 Advisory enforcement at the seat or the target no longer refuses coordination.
-The request is validated and audited the same way; the seat simply receives no
-native approval, so Claude's ordinary permissions decide. Observation state still
-refuses.
+The request is validated the same way and the target keeps the audit record: an
+advisory target records its ordinary advisory allow, and an advisory seat
+coordinating a strict target records `advisory_coordination_no_native_approval`
+on that target. The seat receives no native approval either way, so Claude's
+ordinary permissions decide. Observation state still refuses.
 
 ## Read-only reviewer delegation (ga-fsfg)
 
@@ -90,11 +96,13 @@ from a worker with a closed grammar:
 
 - the Claude `Agent` tool with `subagent_type` in the allowlist (`aegis-reviewer`);
 - the agent definition `.claude/agents/<type>.md` tracked at HEAD, byte-identical to the
-  working tree, named for its type, and declaring `tools:` as a non-empty subset of
-  Read, Grep and Glob, so the reviewer cannot edit, run, route or delegate even in
-  advisory mode;
+  working tree, named for its type, carrying only the `name`, `description`, `tools`,
+  `model` and `color` frontmatter fields (no `hooks`, `permissionMode`, `mcpServers`
+  or `memory`), and declaring `tools:` as a non-empty subset of Read, Grep and Glob,
+  so the reviewer cannot edit, run, route or delegate even in advisory mode;
 - a prompt naming exactly one `candidate=<40-hex>` commit that exists in the
-  repository, bounded in size, and no `isolation` or other options.
+  repository, bounded in size, and no `isolation`, `model` or other options; the
+  model comes from the tracked definition alone.
 
 The gate appends an `allow` decision carrying the request digest; the orchestrator
 records the returned verdict on the Bead with the candidate binding. Malformed
