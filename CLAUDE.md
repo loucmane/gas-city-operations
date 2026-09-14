@@ -83,6 +83,10 @@ python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.p
 python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py compact-journal --root /absolute/registered/task-worktree
 ```
 
+The profile's `registered_projects` records make direct children of another
+registered project's worktree root valid targets too, starting with the gascity Core
+rig under `/home/loucmane/gascity-core-worktrees`; their readiness comes from the
+portable Bead-scaffold checks and their identity from the seat's tracked registry.
 `discharge` resolves one delivery-class pending event (a commit, push or PR
 operation) into the workflow journal without rewriting tracked S:W:H:E files;
 every other mutation still needs `log`. `compact-journal` moves verified Bead

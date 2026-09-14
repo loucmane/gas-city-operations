@@ -52,6 +52,36 @@ closed grammar with its own regression corpus.
   through `aegis log`. The stationary seat runs `discharge` for a registered target
   with the same exact-id semantics as `log --pending-id`.
 
+## Registered projects (ga-fsfg R2)
+
+The profile may carry `registered_projects`: up to sixteen records of `id`,
+`repository`, `canonical_root`, `worktree_root` and `rig`. Each record must agree
+field for field with the tracked canonical registry
+`plugins/gas-city-workflow/config/projects.json`, use absolute symlink-free roots,
+and name roots distinct from the seat's own. A direct child of a registered
+`worktree_root` is then a valid stationary target for `attach`, `checkpoint`,
+`verify`, `coordinate`, `log`, `discharge`, `compact-journal` and `publish`.
+
+A registered target carries no Operations policy or runtime of its own, so the
+checks differ from an Operations worktree in three ways and nowhere else:
+
+- identity comes from the seat's tracked profile and registry, and the target's
+  journal spec must match the registered `id`, `rig`, `canonical_root` and
+  `worktree_root`; the ownership binding is derived from that spec, the shared
+  city and the registered canonical root, exactly as the plugin wrote it;
+- the canonical executor is verified as before, and the target must carry no
+  Operations runtime tree, installed runtime or Python startup hook that could
+  shadow it;
+- readiness uses the portable Bead-scaffold checks the plugin applies to
+  registered projects, resolved through the target's own repository layout,
+  because the generic readiness recognizes Bead identity only inside an Aegis
+  source checkout.
+
+Advisory enforcement at the seat or the target no longer refuses coordination.
+The request is validated and audited the same way; the seat simply receives no
+native approval, so Claude's ordinary permissions decide. Observation state still
+refuses.
+
 ## Read-only reviewer delegation (ga-fsfg)
 
 Independent review used to require a human-run reviewer because the managed-project

@@ -14,12 +14,21 @@ import subprocess
 from pathlib import Path
 
 from .contracts import Payload
-from .coordination_runtime import reviewed_runtime
+from .coordination_runtime import reviewed_registered_target, reviewed_runtime
 from .orchestrator import BEAD, SHELL_SYNTAX, WORKFLOW_REL, _options, _python
 from .payloads import bash_command, shlex_tokens, strip_shell_prefixes
 
 VERBS = frozenset(
-    {"attach", "checkpoint", "verify", "coordinate", "log", "discharge", "compact-journal"}
+    {
+        "attach",
+        "checkpoint",
+        "verify",
+        "coordinate",
+        "log",
+        "discharge",
+        "compact-journal",
+        "publish",
+    }
 )
 KIND = "workflow-coordinate"
 PENDING_EVENT_ID = re.compile(r"[0-9a-f]{12}")
@@ -104,11 +113,19 @@ def _git(root: Path, *args: str) -> str:
     return result.stdout.strip()
 
 
-def _journal(target: Path, canonical: Path, profile: dict, verb: str, options: dict) -> None:
-    from .native_permissions import _unique_object
+def registered_entry(profile: dict, target: Path) -> dict | None:
+    """Return the registered-project record whose worktree root holds the target."""
+    for entry in profile.get("registered_projects") or []:
+        if target.parent == Path(entry["worktree_root"]):
+            return entry
+    return None
+
+
+def _current_plan(target: Path) -> tuple[Path, str]:
+    from ..repo_structure import load_repo_structure
 
     # The current plan is an explicit primary identifier, not a global active-seat selector.
-    plan = target / "plans/current"
+    plan = load_repo_structure(target).current_plan_link
     resolved = plan.resolve(strict=True)
     if not plan.is_symlink() or not resolved.is_relative_to(target) or not resolved.is_file():
         raise ValueError("coordination current plan escapes target")
@@ -116,9 +133,24 @@ def _journal(target: Path, canonical: Path, profile: dict, verb: str, options: d
     ids = re.findall(r"^bead_ids:\s*\[([^\]]+)\]\s*$", plan_text, re.MULTILINE)
     if len(ids) != 1 or not BEAD.fullmatch(ids[0]):
         raise ValueError("coordination requires exactly one primary Bead")
-    bead = ids[0]
+    return resolved, ids[0]
+
+
+def _journal(
+    target: Path,
+    canonical: Path,
+    profile: dict,
+    verb: str,
+    options: dict,
+    registered: dict | None = None,
+) -> dict:
+    from .native_permissions import _unique_object
+
+    resolved, bead = _current_plan(target)
+    plan_text = resolved.read_text(encoding="utf-8")
     common = Path(_git(target, "rev-parse", "--path-format=absolute", "--git-common-dir"))
-    if common != canonical / ".git":
+    owner_canonical = Path(registered["canonical_root"]) if registered else canonical
+    if common != owner_canonical / ".git":
         raise ValueError("coordination Git common directory mismatch")
     path = common / "gas-city-workflow/transactions" / f"{bead}.json"
     if path.resolve(strict=True) != path or not path.is_file():
@@ -134,14 +166,24 @@ def _journal(target: Path, canonical: Path, profile: dict, verb: str, options: d
     ):
         raise ValueError("coordination journal is not ready")
     spec = journal["spec"]
-    expected = {
-        "project_id": profile["project_id"],
-        "rig": profile["rig"],
-        "canonical_root": str(canonical),
-        "worktree_root": profile["worktree_root"],
-        "worktree": str(target),
-        "bead_id": bead,
-    }
+    if registered:
+        expected = {
+            "project_id": registered["id"],
+            "rig": registered["rig"],
+            "canonical_root": registered["canonical_root"],
+            "worktree_root": registered["worktree_root"],
+            "worktree": str(target),
+            "bead_id": bead,
+        }
+    else:
+        expected = {
+            "project_id": profile["project_id"],
+            "rig": profile["rig"],
+            "canonical_root": str(canonical),
+            "worktree_root": profile["worktree_root"],
+            "worktree": str(target),
+            "bead_id": bead,
+        }
     if any(spec.get(key) != value for key, value in expected.items()):
         raise ValueError("coordination journal target identity mismatch")
     if (
@@ -175,7 +217,7 @@ def _journal(target: Path, canonical: Path, profile: dict, verb: str, options: d
         "project": spec["project_id"],
         "city": profile["city"],
         "rig": spec["rig"],
-        "canonical_root": str(canonical),
+        "canonical_root": str(owner_canonical),
         "worktree": str(target),
         "branch": spec["branch"],
         "primary_bead": bead,
@@ -190,10 +232,55 @@ def _journal(target: Path, canonical: Path, profile: dict, verb: str, options: d
             raise ValueError("coordination ownership journal is not verified")
     if verb == "coordinate" and options["--bead"][0] not in [bead, *attached]:
         raise ValueError("ledger operation does not name an owned Bead")
+    return spec
+
+
+def registered_target_readiness(
+    seat: Path, target: Path
+) -> subprocess.CompletedProcess[str] | None:
+    """Portable Bead-scaffold readiness for a registered foreign target (ga-fsfg R2).
+
+    The generic readiness recognizes Bead identity only inside an Aegis source
+    checkout, so a registered project such as the Core rig would always read
+    BLOCKED. Reuse the same scaffold checks the plugin applies to portable
+    projects. Returns None when the target is not a registered foreign worktree.
+    """
+
+    from .native_permissions import _profile
+
+    profile = _profile(seat)
+    if profile is None or registered_entry(profile, target) is None:
+        return None
+    argv = ["aegis", "gate", "readiness", "--quick", "--target-dir", str(target)]
+
+    def blocked(detail: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.CompletedProcess(argv, 2, stdout=f"BLOCKED | {detail}\n", stderr="")
+
+    try:
+        from ..models import BLOCKED
+        from ..repo_structure import load_repo_structure
+        from ..session_authority import assert_no_pending_continuation
+        from ..workflow import build_bead_source_checks
+
+        layout = load_repo_structure(target)
+        for link in (layout.current_session_link, layout.current_plan_link):
+            if not link.is_symlink() or not link.resolve().is_relative_to(target.resolve()):
+                raise ValueError(f"{link.relative_to(target)} must be a target-local symlink")
+        _resolved, bead = _current_plan(target)
+        branch = _git(target, "branch", "--show-current")
+        assert_no_pending_continuation(target)
+        _task, checks = build_bead_source_checks(target, branch, bead)
+    except Exception as exc:  # noqa: BLE001 - any inspection failure reads BLOCKED.
+        return blocked(f"portable scaffold inspection failed: {exc}")
+    failures = [check.message for check in checks if check.status == BLOCKED]
+    if failures:
+        return blocked("; ".join(failures))
+    return subprocess.CompletedProcess(
+        argv, 0, stdout=f"READY | task={bead} | profile=portable-beads-source\n", stderr=""
+    )
 
 
 def target_for(root: Path, payload: Payload, *, post_success: bool = False) -> Path | None:
-    from .decisions import advisory_enabled
     from .native_permissions import PROFILE, _bound_bytes, _canonical_runtime, _profile
     from .runtime_state import current_work_is_observation, required_pending_tracking_events
 
@@ -211,27 +298,38 @@ def target_for(root: Path, payload: Payload, *, post_success: bool = False) -> P
         raise ValueError("coordination requires a known non-plan permission mode")
     verb, options = parsed
     target = Path(options["--root"][0])
+    registered = registered_entry(profile, target) if target.is_absolute() else None
+    parents = {Path(profile["worktree_root"])}
+    if registered is not None:
+        parents.add(Path(registered["worktree_root"]))
     if (
         not target.is_absolute()
         or target.resolve(strict=True) != target
-        or target.parent != Path(profile["worktree_root"])
+        or target.parent not in parents
         or target == root
     ):
         raise ValueError("coordination target must be a direct registered linked worktree")
     _canonical_runtime(
         strip_shell_prefixes(shlex_tokens(bash_command(payload))), root, root, WORKFLOW_REL
     )
-    if _profile(target) != profile or _bound_bytes(
-        target, Path(".gas-city-workflow.json")
-    ) != _bound_bytes(root, Path(".gas-city-workflow.json")):
-        raise ValueError("coordination target has divergent project policy")
-    _reviewed_target_runtime(target, root)
-    _journal(target, root, profile, verb, options)
+    if registered is None:
+        if _profile(target) != profile or _bound_bytes(
+            target, Path(".gas-city-workflow.json")
+        ) != _bound_bytes(root, Path(".gas-city-workflow.json")):
+            raise ValueError("coordination target has divergent project policy")
+        _reviewed_target_runtime(target, root)
+    else:
+        # A registered foreign project carries no Operations policy or runtime of
+        # its own: the seat's tracked profile and registry are the policy, and the
+        # canonical executor is the only runtime.
+        reviewed_registered_target(target, root)
+    _journal(target, root, profile, verb, options, registered=registered)
+    # Advisory enforcement no longer refuses coordination: the request is still
+    # validated and audited here, and gate_allow_or_record withholds the native
+    # approval whenever the seat is advisory.
     for governed in (root, target):
-        if advisory_enabled(governed) or current_work_is_observation(governed):
-            raise ValueError(
-                "coordination requires strict non-observation state at seat and target"
-            )
+        if current_work_is_observation(governed):
+            raise ValueError("coordination requires non-observation state at seat and target")
         pending = required_pending_tracking_events(governed)
         if verb in {"log", "discharge"} and governed == target:
             if "--pending-id" in options:

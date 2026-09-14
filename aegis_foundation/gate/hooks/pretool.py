@@ -285,9 +285,14 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
 
     # No global cwd switch and no arbitrary --root exemption: only the exact
     # opt-in canonical workflow entrypoint may select a journal-bound task.
-    from .coordination import request as coordination_request, target_for
+    from .coordination import (
+        registered_target_readiness,
+        request as coordination_request,
+        target_for,
+    )
 
     coordination_log = False
+    seat = root
     try:
         target = target_for(root, payload)
         if target is not None:
@@ -323,7 +328,19 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
     if payload_is_read_only(payload):
         return gate_allow_or_record(root, payload, reason="read_only")
     is_mutation = payload_is_mutation(payload)
-    readiness = run_readiness(root)
+    readiness = None
+    if root != seat:
+        try:
+            readiness = registered_target_readiness(seat, root)
+        except Exception as exc:  # noqa: BLE001 - a registered target that cannot be read is invalid.
+            return gate_hard_block(
+                root,
+                payload,
+                f"BLOCKED: coordination target invalid: {exc}",
+                reason="coordination_target_invalid",
+            )
+    if readiness is None:
+        readiness = run_readiness(root)
     post_closeout_taskmaster_completion = payload_is_post_closeout_taskmaster_completion(
         root, payload
     )
