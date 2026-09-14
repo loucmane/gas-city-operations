@@ -77,6 +77,11 @@ ownership binding, never creates a replacement worktree or repeats ownership.
   task worktree: append a note, create an unassigned/unrouted P2 child, or add one blocking
   dependency and transactionally attach it. It persists intent before the supported API
   mutation; ambiguous results stop without replay. `log` records target-local evidence.
+  Coordination records keep Bead snapshots as content-addressed references beside the
+  journal (`workflow_snapshots.py`); `compact-journal` moves verified inline legacy
+  snapshots out-of-line once and records a lifecycle event. `discharge` resolves one
+  delivery-class pending event (commit, push, PR) into the journal with head, tree,
+  handler and evidence, leaving tracked S:W:H:E files untouched.
   The Operations-only Claude command profile can approve these explicit worktree targets
   from a stationary canonical conversation. It does not approve raw Beads commands, source
   writes, cross-rig access, worker dispatch, signing, or lifecycle changes. Both policy copies

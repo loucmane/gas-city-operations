@@ -306,7 +306,9 @@ def reconcile_context(root, bead_id, expected_plan_sha256=None, runner=None, *, 
         raise WorkflowError("reconciled parent did not pass readiness")
     after = _facts(runner, root, spec, child, context, paths, registry)
     _verify_postimage(plan, after, evidence_images)
-    _verify_parent_journal(plan, json.loads(_safe_image(backups["parent"])[0]), load_journal(parent_path), after)
+    _verify_parent_journal(
+        plan, json.loads(_safe_image(backups["parent"])[0]), load_journal(parent_path), after, parent_path
+    )
     primary, attached = after["beads"]["parent"], after["beads"]["child"]
     require_binding(primary, plan["binding"])
     require_binding(attached, plan["binding"])
@@ -368,7 +370,9 @@ def _verify_postimage(plan, after, images):
         raise WorkflowError("context recovery changed unrelated parent work")
 
 
-def _verify_parent_journal(plan, before, after, facts):
+def _verify_parent_journal(plan, before, after, facts, path):
+    from workflow_snapshots import resolve_record
+
     child_id, parent_id = plan["child"]["bead_id"], plan["parent"]["bead_id"]
     allowed = {"updated_at", "events", "coordination", "external_ownership", "attached_bead_ids"}
     if ({key: value for key, value in before.items() if key not in allowed}
@@ -383,7 +387,7 @@ def _verify_parent_journal(plan, before, after, facts):
                 "result_bead": parent_id, "after": facts["beads"]["parent"],
                 "before_sha256": bead_digest(plan["before"]["beads"]["parent"]),
                 "after_sha256": bead_digest(facts["beads"]["parent"])}
-    if (intent != expected or request_id in before.get("coordination", {})
+    if (resolve_record(path, intent) != expected or request_id in before.get("coordination", {})
             or after["coordination"] != {**before.get("coordination", {}), request_id: intent}):
         raise WorkflowError("context recovery unexpected coordination journal delta")
     ownership = after.get("external_ownership", {}).get(child_id, {})

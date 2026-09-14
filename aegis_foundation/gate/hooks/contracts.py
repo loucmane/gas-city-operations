@@ -334,10 +334,51 @@ READ_ONLY_GIT_SUBCOMMANDS = {
     "grep",
     "log",
     "ls-files",
+    "ls-remote",
     "rev-parse",
     "show",
     "status",
 }
+
+
+# ga-fsfg R1: remote observation a BLOCKED seat may perform. A refspec-free
+# `git fetch` touches only remote-tracking refs, and the listed `gh` reads never
+# open a browser. `gh api`, `gh pr create|merge`, and refspec fetches stay
+# hookable mutations.
+READ_ONLY_GIT_FETCH_FLAGS = {
+    "--all",
+    "--dry-run",
+    "--no-tags",
+    "--prune",
+    "--quiet",
+    "--tags",
+    "--verbose",
+    "-p",
+    "-q",
+    "-t",
+    "-v",
+}
+
+
+READ_ONLY_GH_SUBCOMMANDS = {
+    ("auth", "status"),
+    ("issue", "list"),
+    ("issue", "view"),
+    ("pr", "checks"),
+    ("pr", "diff"),
+    ("pr", "list"),
+    ("pr", "status"),
+    ("pr", "view"),
+    ("release", "list"),
+    ("release", "view"),
+    ("repo", "view"),
+    ("run", "list"),
+    ("run", "view"),
+    ("run", "watch"),
+}
+
+
+GH_INTERACTIVE_FLAGS = {"--web", "-w"}
 
 
 READ_ONLY_TASKMASTER_SUBCOMMANDS = {

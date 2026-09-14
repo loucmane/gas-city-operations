@@ -468,3 +468,78 @@ def test_posttool_target_drift_is_visible_not_silent_success(tmp_path):
     assert "stop and reconcile" in result.stderr
     assert read_gate_decisions(canonical)[-1]["reason"] == "coordination_target_invalid"
     assert not (canonical / ".aegis/state/pending-tracking.json").exists()
+
+
+def test_compact_journal_is_reachable_for_an_oversized_target_journal(tmp_path):
+    """ga-fsfg R1: the compaction repair is the one verb allowed past the size bound."""
+
+    canonical, target, journal = stationary_fixture(tmp_path)
+    data = json.loads(journal.read_text())
+    data["coordination"] = {
+        "a" * 64: {
+            "state": "verified",
+            "request": {"bead_id": "ga-one", "action": "note", "fields": {"text": "x"}},
+            "before": {"id": "ga-one", "notes": "n" * (1024 * 1024 + 64)},
+            "blocker_before": None,
+            "after": {"id": "ga-one"},
+            "result_bead": "ga-one",
+        }
+    }
+    write(journal, json.dumps(data))
+    assert journal.stat().st_size > 1024 * 1024
+
+    blocked = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, target, "checkpoint")))
+    assert blocked.returncode == 2
+    assert "oversized" in blocked.stderr
+
+    allowed = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, target, "compact-journal")))
+    assert allowed.returncode == 0, allowed.stderr
+    assert json.loads(allowed.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+    extra = run_gate(
+        PRETOOLUSE, canonical, event(canonical, command(canonical, target, "compact-journal", " --force"))
+    )
+    assert extra.returncode == 2
+
+
+def test_exact_pending_id_discharge_mirrors_log_target_semantics(tmp_path):
+    """ga-fsfg R1: stationary discharge binds one delivery-class target event."""
+
+    from test_pretooluse_gates import POSTTOOLUSE
+
+    canonical, target, _ = stationary_fixture(tmp_path)
+    pending_id = "0123456789ab"
+
+    def queue(kind):
+        write(
+            target / ".aegis/state/pending-tracking.json",
+            json.dumps(
+                {
+                    "events": [
+                        {
+                            "id": pending_id,
+                            "kind": kind,
+                            "mode": "strict",
+                            "task": {"id": "ga-one", "slug": "beads-first-guidance"},
+                        }
+                    ]
+                }
+            ),
+        )
+
+    request = event(
+        canonical,
+        command(canonical, target, "discharge", f" --pending-id {pending_id} --note recorded"),
+    )
+    queue("mutation")
+    assert run_gate(PRETOOLUSE, canonical, request).returncode == 2
+    queue("delivery")
+    result = run_gate(PRETOOLUSE, canonical, request)
+    assert result.returncode == 0, result.stderr
+    assert json.loads(result.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+    unresolved = run_gate(POSTTOOLUSE, canonical, request)
+    assert unresolved.returncode == 2
+    (target / ".aegis/state/pending-tracking.json").unlink()
+    assert run_gate(POSTTOOLUSE, canonical, request).returncode == 0
+    assert not (canonical / ".aegis/state/pending-tracking.json").exists()
+    assert not (target / ".aegis/state/pending-tracking.json").exists()

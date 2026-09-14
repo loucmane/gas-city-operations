@@ -67,8 +67,9 @@ plan-mode mutation, signing or lifecycle authority follows from this profile.
 With the explicit `workflow-coordinate` profile opt-in, keep the conversation at
 the canonical project. Do not change `CLAUDE_PROJECT_DIR`, use `cd` to evade a gate,
 or reopen the client for each task. Name the registered linked worktree on each
-canonical `workflow.py` command. `attach`, `checkpoint`, `verify`, `coordinate` and
-`log` validate that target; other commands retain their existing boundaries.
+canonical `workflow.py` command. `attach`, `checkpoint`, `verify`, `coordinate`, `log`,
+`discharge` and `compact-journal` validate that target; other commands retain their
+existing boundaries.
 
 Use the canonical runtime path, literal arguments, and one operation per call:
 
@@ -78,7 +79,17 @@ python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.p
 python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py coordinate --root /absolute/registered/task-worktree --bead ga-primary --action depend --blocker ga-prerequisite
 python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py log --root /absolute/registered/task-worktree --evidence 'path/to/proof' --note 'Completed the bounded operation'
 python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py log --root /absolute/registered/task-worktree --pending-id 0123456789ab --note 'Recorded the pending mutation evidence'
+python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py discharge --root /absolute/registered/task-worktree --pending-id 0123456789ab --note 'Recorded the signed commit into the journal'
+python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py compact-journal --root /absolute/registered/task-worktree
 ```
+
+`discharge` resolves one delivery-class pending event (a commit, push or PR
+operation) into the workflow journal without rewriting tracked S:W:H:E files;
+every other mutation still needs `log`. `compact-journal` moves verified Bead
+snapshots beside the journal and is the only verb accepted for a journal over the
+1 MiB coordination bound. Remote observation (`gh pr view|list|checks`, `gh run
+list|view`, refspec-free `git fetch`, `git ls-remote`) is read-only inspection and
+needs no readiness.
 
 Replace example identities with the actual registered worktree and owned Bead.
 `create` produces one unassigned, unrouted P2 task with a **nonblocking parent-child**

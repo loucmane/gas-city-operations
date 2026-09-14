@@ -24,6 +24,7 @@ from workflow_common import (
     load_bead,
     load_journal,
     managed_environment,
+    record_lifecycle_event,
     result_payload,
     run_readiness,
     workflow_runtime_root,
@@ -34,6 +35,7 @@ from workflow_ownership import (
     check_active_ownership,
     require_external_candidate,
 )
+from workflow_snapshots import compact_records, resolve_snapshot, store_snapshot
 
 FIELDS = {"note": {"text"}, "create": {"title", "description", "acceptance"}, "depend": {"blocker"}}
 PENDING_EVENT_ID = re.compile(r"[0-9a-f]{12}")
@@ -94,7 +96,7 @@ def coordinate(
                 "pending/ambiguous coordination intent; explicit reconciliation required"
             )
         current = load_bead(runner, context, previous["result_bead"])
-        if _semantic(current) != _semantic(previous["after"]):
+        if _semantic(current) != _semantic(resolve_snapshot(path, previous["after"])):
             raise WorkflowError("completed coordination result drifted; refuse automatic replay")
         return result_payload(
             "coordinate",
@@ -119,11 +121,13 @@ def coordinate(
             raise WorkflowError("blocker must be open and not already owned or routed")
         if blocker.split("-", 1)[0] != bead_id.split("-", 1)[0]:
             raise WorkflowError("cross-store dependencies require separate registration")
+    # Snapshots are written beside the journal first (append-forward); the journal
+    # keeps content-addressed references so it stays within the stationary bound.
     intent = {
         "state": "pending",
         "request": request,
-        "before": before,
-        "blocker_before": blocker_before,
+        "before": store_snapshot(path, before),
+        "blocker_before": None if blocker_before is None else store_snapshot(path, blocker_before),
     }
     operations[key] = intent
     atomic_write_json(path, journal)
@@ -228,13 +232,61 @@ def coordinate(
     intent.update(
         state="verified",
         result_bead=result_id,
-        after=after,
+        after=store_snapshot(path, after),
         before_sha256=bead_digest(before),
         after_sha256=bead_digest(after),
     )
     atomic_write_json(path, journal)
     return result_payload(
         "coordinate", "applied", bead_id=result_id, request_sha256=key, journal=str(path)
+    )
+
+
+def compact_journal(
+    root: Path,
+    runner: CommandRunner,
+    *,
+    registry: Path = DEFAULT_REGISTRY,
+) -> dict:
+    """Move verified inline Bead snapshots beside the journal; idempotent, append-forward.
+
+    Pending intents keep their inline preimage. The journal shrinks below the
+    stationary gate's bound without deleting evidence: every snapshot remains
+    readable through its content-addressed reference.
+    """
+
+    context = build_context(root, registry)
+    if context["workspace"]["location"] != "linked-worktree":
+        raise WorkflowError("journal compaction requires a registered task worktree")
+    spec = check_active_ownership(runner, root, registry=registry)
+    path = journal_path(runner, spec)
+    journal = load_journal(path)
+    if journal is None:
+        raise WorkflowError("active work has no Gas City workflow transition journal")
+    bytes_before = path.stat().st_size
+    moved = compact_records(path, journal)
+    if not moved:
+        return result_payload(
+            "compact-journal", "unchanged", journal=str(path), snapshots=0, bytes=bytes_before
+        )
+    atomic_write_json(path, journal)
+    bytes_after = path.stat().st_size
+    record_lifecycle_event(
+        runner,
+        root,
+        "compact-journal",
+        "compacted",
+        snapshots=moved,
+        bytes_before=bytes_before,
+        bytes_after=bytes_after,
+    )
+    return result_payload(
+        "compact-journal",
+        "compacted",
+        journal=str(path),
+        snapshots=moved,
+        bytes_before=bytes_before,
+        bytes_after=path.stat().st_size,
     )
 
 

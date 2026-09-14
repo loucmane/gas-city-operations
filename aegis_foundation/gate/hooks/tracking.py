@@ -47,6 +47,8 @@ from .evidence import (
     payload_is_mutation,
     record_pending_tracking_event,
 )
+from .runtime_state import pending_tracking_events
+from .shell_policy import workflow_discharge_pending_id
 
 
 def posttooluse_tracking() -> int:
@@ -59,8 +61,8 @@ def posttooluse_tracking() -> int:
     try:
         target = target_for(root, payload, post_success=True)
         if target is not None:
-            if coordination_request(root, payload)[0] == "log":
-                return 0  # The supported log command already reconciles target evidence.
+            if coordination_request(root, payload)[0] in {"log", "discharge"}:
+                return 0  # The supported command already reconciled target evidence.
             root = target
     except Exception:
         # Never misattribute an ambiguous cross-worktree event to canonical main.
@@ -81,6 +83,22 @@ def posttooluse_tracking() -> int:
             file=sys.stderr,
         )
         return 2
+    discharged = (
+        workflow_discharge_pending_id(bash_command(payload), root)
+        if payload.tool_name == "Bash"
+        else None
+    )
+    if discharged is not None:
+        # ga-fsfg R1: a discharge that exits without resolving its event fails closed;
+        # a successful one is journal-bound evidence and enqueues nothing.
+        if any(str(event.get("id") or "") == discharged for event in pending_tracking_events(root)):
+            print(
+                f"Aegis: discharge exited without resolving pending event {discharged}; "
+                "stop and reconcile the workflow journal before further work.",
+                file=sys.stderr,
+            )
+            return 2
+        return 0
     record_pending_tracking_event(root, payload)
     _maybe_emit_scope_nudge(root, payload)
     return 0

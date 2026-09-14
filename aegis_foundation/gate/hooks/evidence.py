@@ -63,6 +63,7 @@ from .shell_policy import (
     bash_is_aegis_runtime_update,
     bash_is_aegis_uninstall_apply,
     bash_is_aegis_verify,
+    bash_is_delivery_command,
     bash_is_mutation,
     bash_is_observation_tooling,
     bash_is_read_only,
@@ -71,6 +72,7 @@ from .shell_policy import (
     mcp_tool_is_aegis_verify,
     payload_is_codex_task_logging,
     redirect_targets,
+    workflow_discharge_pending_id,
 )
 
 
@@ -576,6 +578,34 @@ def payload_is_post_closeout_delivery(root: Path, payload: Payload) -> bool:
     return bash_is_post_closeout_delivery(bash_command(payload), branch)
 
 
+def payload_is_workflow_discharge(payload: Payload) -> bool:
+    """One literal task-seat `workflow.py discharge --pending-id <id>` (ga-fsfg R1)."""
+
+    return payload.tool_name == "Bash" and (
+        workflow_discharge_pending_id(bash_command(payload)) is not None
+    )
+
+
+def payload_is_exact_delivery_discharge(
+    payload: Payload, pending_events: list[dict[str, Any]]
+) -> bool:
+    """True only when the discharge names exactly one queued delivery-class event."""
+
+    if payload.tool_name != "Bash":
+        return False
+    pending_id = workflow_discharge_pending_id(bash_command(payload))
+    if pending_id is None:
+        return False
+    matches = [event for event in pending_events if str(event.get("id") or "") == pending_id]
+    return len(matches) == 1 and matches[0].get("kind") == "delivery"
+
+
+def pending_event_kind(payload: Payload) -> str:
+    if payload.tool_name == "Bash" and bash_is_delivery_command(bash_command(payload)):
+        return "delivery"
+    return "mutation"
+
+
 def record_pending_tracking_event(root: Path, payload: Payload) -> None:
     work = current_work(root)
     if not work:
@@ -591,8 +621,10 @@ def record_pending_tracking_event(root: Path, payload: Payload) -> None:
         or payload_is_aegis_log(payload)
         or payload_is_aegis_closeout(payload)
         or payload_is_codex_task_logging(payload)
+        or payload_is_workflow_discharge(payload)
     ):
         return
+    kind = pending_event_kind(payload)
     handler = payload_handler(payload)
     patch_metadata: dict[str, Any] | None = None
     patch_parse_error: str | None = None
@@ -631,6 +663,7 @@ def record_pending_tracking_event(root: Path, payload: Payload) -> None:
             ) == patch_metadata.get("patch_digest")
         if same_event:
             event["updated_at"] = now
+            event.setdefault("kind", kind)
             if enforcement_mode(root) == "strict":
                 event["mode"] = "strict"
             if evidence_location:
@@ -644,6 +677,7 @@ def record_pending_tracking_event(root: Path, payload: Payload) -> None:
         "tool": payload.tool_name,
         "handler": handler,
         "evidence": evidence,
+        "kind": kind,
         "task": {
             "id": task_id,
             "slug": slug,

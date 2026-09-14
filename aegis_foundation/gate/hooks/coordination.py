@@ -18,7 +18,9 @@ from .coordination_runtime import reviewed_runtime
 from .orchestrator import BEAD, SHELL_SYNTAX, WORKFLOW_REL, _options, _python
 from .payloads import bash_command, shlex_tokens, strip_shell_prefixes
 
-VERBS = frozenset({"attach", "checkpoint", "verify", "coordinate", "log"})
+VERBS = frozenset(
+    {"attach", "checkpoint", "verify", "coordinate", "log", "discharge", "compact-journal"}
+)
 KIND = "workflow-coordinate"
 PENDING_EVENT_ID = re.compile(r"[0-9a-f]{12}")
 
@@ -58,9 +60,14 @@ def request(root: Path, payload: Payload) -> tuple[str, dict[str, list[str]]] | 
     elif verb == "log":
         values |= {"--evidence", "--note", "--pending-id"}
         required |= {"--note"}
+    elif verb == "discharge":
+        values |= {"--pending-id", "--note"}
+        required |= {"--pending-id", "--note"}
     options = _options(tokens[3:], values=values, switches=set())
     if options is None or not required <= options.keys():
         raise ValueError("unrecognized coordination arguments")
+    if verb == "discharge" and not PENDING_EVENT_ID.fullmatch(options["--pending-id"][0]):
+        raise ValueError("invalid coordination pending event identity")
     if verb == "coordinate":
         shapes = {
             "note": {"--text"},
@@ -114,7 +121,11 @@ def _journal(target: Path, canonical: Path, profile: dict, verb: str, options: d
     if common != canonical / ".git":
         raise ValueError("coordination Git common directory mismatch")
     path = common / "gas-city-workflow/transactions" / f"{bead}.json"
-    if path.resolve(strict=True) != path or not path.is_file() or path.stat().st_size > 1024 * 1024:
+    if path.resolve(strict=True) != path or not path.is_file():
+        raise ValueError("coordination journal is aliased or oversized")
+    # compact-journal is the supported repair for an oversized journal; every other
+    # verb keeps the bound so an unbounded journal cannot be coordinated blindly.
+    if verb != "compact-journal" and path.stat().st_size > 1024 * 1024:
         raise ValueError("coordination journal is aliased or oversized")
     journal = json.loads(path.read_text(), object_pairs_hook=_unique_object)
     if (
@@ -222,13 +233,17 @@ def target_for(root: Path, payload: Payload, *, post_success: bool = False) -> P
                 "coordination requires strict non-observation state at seat and target"
             )
         pending = required_pending_tracking_events(governed)
-        if verb == "log" and governed == target:
+        if verb in {"log", "discharge"} and governed == target:
             if "--pending-id" in options:
                 matches = [
                     event
                     for event in pending
                     if str(event.get("id") or "") == options["--pending-id"][0]
                 ]
+                if verb == "discharge" and not post_success:
+                    # Only delivery-class events (commit, push, PR) discharge into the
+                    # journal; everything else still needs the S:W:H:E log.
+                    matches = [event for event in matches if event.get("kind") == "delivery"]
                 expected = 0 if post_success else 1
                 if len(matches) != expected:
                     state = "resolved" if post_success else "exact"

@@ -67,6 +67,7 @@ from .evidence import (
     payload_is_aegis_repair_apply,
     payload_is_aegis_runtime_update,
     payload_is_aegis_uninstall_apply,
+    payload_is_exact_delivery_discharge,
     payload_is_mutation,
     payload_is_observation_allowed,
     payload_is_post_closeout_delivery,
@@ -290,7 +291,7 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
     try:
         target = target_for(root, payload)
         if target is not None:
-            coordination_log = coordination_request(root, payload)[0] == "log"
+            coordination_log = coordination_request(root, payload)[0] in {"log", "discharge"}
             root = target
     except Exception as exc:  # An invalid target must not fall through advisory/override.
         return gate_hard_block(
@@ -383,6 +384,7 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
         and is_mutation
         and not payload_is_aegis_log(payload)
         and not coordination_log
+        and not payload_is_exact_delivery_discharge(payload, pending_events)
     ):
         return gate_block_or_record(
             root,

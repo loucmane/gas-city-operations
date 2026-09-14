@@ -17,11 +17,40 @@ Operations enables four command classes, using closed grammars:
 - `workflow-begin`: the unchanged canonical `workflow.py begin`, targeting the
   canonical checkout, with its existing Bead/slug/goal/dry-run grammar. Internal
   project, Bead, worktree, ownership, journal and readiness checks remain in force.
-- `workflow-coordinate`: canonical `workflow.py attach/checkpoint/verify/coordinate/log`,
-  targeting one explicit registered linked worktree with verified journal/ownership.
-  See the stationary-orchestration examples in `CLAUDE.md`. Its narrow ledger
-  actions are note append, unassigned/unrouted P2 child creation, and dependency plus
-  transactional attach. It does not approve raw Beads mutations or cross-rig work.
+- `workflow-coordinate`: canonical `workflow.py attach/checkpoint/verify/coordinate/log/
+  discharge/compact-journal`, targeting one explicit registered linked worktree with
+  verified journal/ownership. See the stationary-orchestration examples in `CLAUDE.md`.
+  Its narrow ledger actions are note append, unassigned/unrouted P2 child creation, and
+  dependency plus transactional attach. It does not approve raw Beads mutations or
+  cross-rig work.
+
+## Remote observation and journal-bound discharge (ga-fsfg R1)
+
+Three defects kept a hooked seat from finishing delivery on its own. Each fix is a
+closed grammar with its own regression corpus.
+
+- **Remote reads are inspection.** `gh pr view|list|checks|diff|status`, `gh run
+  list|view|watch`, `gh issue view|list`, `gh repo view`, `gh auth status`, a
+  refspec-free `git fetch` and `git ls-remote` are classified read-only, so a BLOCKED
+  seat can watch CI and remote refs. `--web`, `gh api`, `gh pr create|merge|comment`,
+  reruns, and any fetch carrying a refspec or non-listed flag stay hookable mutations.
+- **Journals stay bounded.** Coordination records reference Bead snapshots by content
+  digest (`{"$snapshot": sha256}`) stored beside the journal in
+  `<bead>.snapshots/`; every reader resolves through `workflow_snapshots.py`, so legacy
+  inline records keep working. `workflow.py compact-journal --root <worktree>` moves
+  verified inline snapshots out-of-line idempotently and records a lifecycle event. It
+  is the one verb the gate accepts for a journal over the 1 MiB bound; every other verb
+  keeps the bound.
+- **Delivery-class events discharge into the journal.** `git commit`, `git push` and
+  `gh pr create|ready|merge` enqueue pending events tagged `kind: delivery`.
+  `workflow.py discharge --root <worktree> --pending-id <12-hex> --note <text>` records
+  head, tree, handler and evidence into the journal and removes exactly that event
+  without touching tracked S:W:H:E files, so a commit no longer re-dirties the tree
+  it just cleaned. PreToolUse exempts only an exact single-id discharge naming one
+  delivery-class event; PostToolUse fails closed if the event is still queued and
+  never enqueues the discharge itself. Edits and every other mutation still log
+  through `aegis log`. The stationary seat runs `discharge` for a registered target
+  with the same exact-id semantics as `log --pending-id`.
 
 Only after the applicable strict gate checks succeed, the bridge records a
 payload-digest decision and emits Claude's `hookSpecificOutput.permissionDecision`

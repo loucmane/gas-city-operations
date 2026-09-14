@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 from pathlib import Path
 
@@ -9,10 +10,13 @@ from .contracts import (
     AEGIS_LOCAL_BIN_REL,
     CODEX_TASK_LOGGING_SUBCOMMANDS,
     FILE_MUTATION_TOOLS,
+    GH_INTERACTIVE_FLAGS,
     LOCALHOST_URL_RE,
     PYTHON_WRITE_RE,
     Payload,
     READ_ONLY_AEGIS_SUBCOMMANDS,
+    READ_ONLY_GH_SUBCOMMANDS,
+    READ_ONLY_GIT_FETCH_FLAGS,
     READ_ONLY_GIT_SUBCOMMANDS,
     READ_ONLY_NPM_SCRIPTS,
     READ_ONLY_SIMPLE_COMMANDS,
@@ -39,7 +43,15 @@ from .payloads import (
     target_dir_confinement_violation,
 )
 from .hard_policy import has_read_only_test_output_option
-from .orchestrator import read_only_beads, read_only_context, read_only_utility, trusted_bootstrap
+from .orchestrator import (
+    WORKFLOW_REL,
+    _options,
+    _python,
+    read_only_beads,
+    read_only_context,
+    read_only_utility,
+    trusted_bootstrap,
+)
 
 
 def redirect_targets(command: str) -> list[str]:
@@ -71,7 +83,86 @@ def read_only_git_segment(tokens: list[str]) -> bool:
         return False
     if remainder[0] == "branch":
         return "--show-current" in remainder[1:]
+    if remainder[0] == "fetch":
+        return read_only_git_fetch(remainder[1:])
     return remainder[0] in READ_ONLY_GIT_SUBCOMMANDS
+
+
+def read_only_git_fetch(args: list[str]) -> bool:
+    """Only a refspec-free fetch is observation: it moves remote-tracking refs alone."""
+
+    positionals: list[str] = []
+    for token in args:
+        if token.startswith("-"):
+            if token not in READ_ONLY_GIT_FETCH_FLAGS:
+                return False
+        else:
+            positionals.append(token)
+    if len(positionals) > 1:
+        return False
+    return not any(":" in value or value.startswith("+") for value in positionals)
+
+
+def read_only_gh_segment(tokens: list[str]) -> bool:
+    """Closed `gh` read grammar: listed noun/verb pairs, never a browser, never `gh api`."""
+
+    if len(tokens) < 3 or (tokens[1], tokens[2]) not in READ_ONLY_GH_SUBCOMMANDS:
+        return False
+    return not any(token in GH_INTERACTIVE_FLAGS for token in tokens[3:])
+
+
+# ga-fsfg R1: delivery-class mutations leave their evidence in Git or GitHub. Their
+# pending events discharge into the workflow journal instead of tracked files.
+DELIVERY_GIT_SUBCOMMANDS = {"commit", "push"}
+DELIVERY_GH_PR_VERBS = {"create", "ready", "merge"}
+PENDING_EVENT_ID_RE = re.compile(r"[0-9a-f]{12}")
+
+
+def bash_is_delivery_command(command: str) -> bool:
+    segments = [segment for segment in SHELL_CONTROL_SPLIT_RE.split(command) if segment.strip()]
+    if len(segments) != 1:
+        return False
+    tokens = strip_shell_prefixes(shlex_tokens(segments[0]))
+    if not tokens:
+        return False
+    name = command_name(tokens[0])
+    if name == "git":
+        remainder = tokens[1:]
+        while remainder and remainder[0].startswith("-"):
+            if remainder[0] == "-C" and len(remainder) >= 2:
+                remainder = remainder[2:]
+            else:
+                remainder = remainder[1:]
+        return bool(remainder) and remainder[0] in DELIVERY_GIT_SUBCOMMANDS
+    if name == "gh":
+        return len(tokens) >= 3 and tokens[1] == "pr" and tokens[2] in DELIVERY_GH_PR_VERBS
+    return False
+
+
+def workflow_discharge_pending_id(command: str, root: Path | None = None) -> str | None:
+    """Return the exact pending id of one literal task-seat `workflow.py discharge`.
+
+    Closed grammar: the governed root's own workflow entrypoint, `--root` naming that
+    root, one literal 12-hex `--pending-id`, one `--note`, no shell composition.
+    """
+
+    if SHELL_CONTROL_SPLIT_RE.search(command) or UNSUPPORTED_READ_ONLY_SHELL_RE.search(command):
+        return None
+    root = root or project_root()
+    tokens = strip_shell_prefixes(shlex_tokens(command))
+    if len(tokens) < 3 or not _python(tokens[0]) or tokens[2] != "discharge":
+        return None
+    if normalize_path(tokens[1], root) != WORKFLOW_REL.as_posix():
+        return None
+    options = _options(tokens[3:], values={"--root", "--pending-id", "--note"}, switches=set())
+    if options is None or set(options) != {"--root", "--pending-id", "--note"}:
+        return None
+    if normalize_path(options["--root"][0], root) != ".":
+        return None
+    pending_id = options["--pending-id"][0]
+    if not PENDING_EVENT_ID_RE.fullmatch(pending_id):
+        return None
+    return pending_id
 
 
 def read_only_taskmaster_segment(tokens: list[str]) -> bool:
@@ -237,6 +328,8 @@ def bash_segment_is_read_only(segment: str) -> bool:
         return True
     if name == "git":
         return read_only_git_segment(tokens)
+    if name == "gh":
+        return read_only_gh_segment(tokens)
     if name == "task-master":
         return read_only_taskmaster_segment(tokens)
     if read_only_aegis_segment(tokens):
