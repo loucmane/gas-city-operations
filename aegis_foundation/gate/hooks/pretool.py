@@ -48,7 +48,12 @@ from .runtime_state import (
     run_readiness,
     write_degraded_event,
 )
-from .delegation import DelegationPolicyError, evaluate_native_delegation
+from .delegation import (
+    DelegationPolicyError,
+    evaluate_native_delegation,
+    is_provider_native_delegation_tool,
+    resolve_managed_project,
+)
 from .permission_modes import deny_plan_mode_mutation
 from .hard_policy import hard_policy_violations, raw_hard_policy_families
 from .shell_policy import (
@@ -89,6 +94,21 @@ def degraded_pretooluse_fallback(raw_payload: str, exc: BaseException) -> int:
     plan_denial = deny_plan_mode_mutation(root, loaded)
     if plan_denial is not None:
         return plan_denial
+    # ga-4p6f: provider-native delegation in a managed project never uses degraded
+    # approval; a project context that cannot be resolved counts as managed. This
+    # runs before any further import so a second failure cannot skip it.
+    if is_provider_native_delegation_tool(loaded.tool_name):
+        try:
+            managed = resolve_managed_project(root) is not None
+        except Exception:  # noqa: BLE001 - an unknown context fails closed.
+            managed = True
+        if managed:
+            return gate_hard_block(
+                root,
+                loaded,
+                "BLOCKED: provider-native delegation cannot use degraded approval",
+                reason="native_delegation_degraded",
+            )
     from .coordination import request as coordination_request
 
     try:
@@ -102,22 +122,6 @@ def degraded_pretooluse_fallback(raw_payload: str, exc: BaseException) -> int:
             "BLOCKED: coordination cannot use degraded approval",
             reason="coordination_target_invalid",
         )
-    # ga-4p6f: provider-native delegation in a managed project never uses degraded
-    # approval either; a project context that cannot be resolved counts as managed.
-    from .delegation import is_provider_native_delegation_tool, resolve_managed_project
-
-    if is_provider_native_delegation_tool(loaded.tool_name):
-        try:
-            managed = resolve_managed_project(root) is not None
-        except Exception:  # noqa: BLE001 - an unknown context fails closed.
-            managed = True
-        if managed:
-            return gate_hard_block(
-                root,
-                loaded,
-                "BLOCKED: provider-native delegation cannot use degraded approval",
-                reason="native_delegation_degraded",
-            )
     if degraded_payload_is_non_destructive(loaded):
         event = write_degraded_event(root, loaded, reason, raw_payload, trace=trace)
         print(

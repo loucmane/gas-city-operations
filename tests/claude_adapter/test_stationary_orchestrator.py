@@ -651,6 +651,8 @@ def test_registered_target_with_layout_override_is_coordinated(tmp_path):
         "journal-identity",
         "runtime-shadow",
         "startup-hook",
+        "target-codex-task",
+        "target-codex-guard",
         "observation",
     ],
 )
@@ -678,6 +680,11 @@ def test_registered_target_must_be_fully_bound(tmp_path, defect):
         write(core_target / "aegis_foundation/gate/hooks/pretool.py", "# shadow\n")
     elif defect == "startup-hook":
         write(core_target / "sitecustomize.py", "import os\n")
+    elif defect == "target-codex-task":
+        # ga-4p6f: the canonical executor would run this target file on checkpoint.
+        write(core_target / "scripts/codex-task", "#!/usr/bin/env python3\n")
+    elif defect == "target-codex-guard":
+        write(core_target / "scripts/codex-guard", "#!/usr/bin/env python3\n")
     else:
         write(
             core_target / ".aegis/state/current-work.json",
@@ -908,6 +915,9 @@ def test_reviewer_binds_a_clean_registered_worktree_at_the_candidate(tmp_path, m
         ("skip-worktree", "hides index entries from status"),
         ("policy-invalid", "registered-project policy is invalid"),
         ("policy-dirty", "orchestrator-command-profile.json differs from the tracked HEAD bytes"),
+        ("replace-ref", "uncommitted or untracked changes"),
+        ("spaced-sign", "at most one exact worktree"),
+        ("punctuation-prefix", "at most one exact worktree"),
         ("definition-before-binding", "differs from the tracked HEAD bytes"),
     ],
 )
@@ -920,7 +930,21 @@ def test_reviewer_registered_binding_refuses_every_defect(
         write(canonical / ".aegis/state/enforcement.json", '{"mode":"advisory"}')
     worktree = str(core_target)
     prompt = None
-    if defect == "case-variant":
+    if defect == "replace-ref":
+        # HEAD stays the candidate while a replace ref makes Git read another tree.
+        write(core_target / "planted.txt", "not the candidate\n")
+        git(core_target, "add", "planted.txt")
+        git(core_target, "commit", "-qm", "replacement")
+        replacement = run(["git", "rev-parse", "HEAD"], core_target).stdout.strip()
+        git(core_target, "replace", candidate, replacement)
+        git(core_target, "reset", "-q", "--soft", candidate)
+        assert run(["git", "rev-parse", "HEAD"], core_target).stdout.strip() == candidate
+        assert run(["git", "status", "--porcelain"], core_target).stdout == ""
+    elif defect == "spaced-sign":
+        prompt = f"Review candidate={candidate} in worktree = {core_target} now."
+    elif defect == "punctuation-prefix":
+        prompt = f"Review candidate={candidate} in (worktree={core_target} now."
+    elif defect == "case-variant":
         prompt = f"Review candidate={candidate} in Worktree={core_target} now."
     elif defect == "fullwidth-equals":
         prompt = f"Review candidate={candidate} in worktree＝{core_target} now."
@@ -1015,7 +1039,16 @@ def test_reviewer_registered_binding_refuses_every_defect(
 
 
 @pytest.mark.parametrize("mode", ["strict", "advisory"])
-@pytest.mark.parametrize("failure", ["reviewer-raises", "reviewer-missing", "evaluation-raises"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "reviewer-raises",
+        "reviewer-missing",
+        "binding-raises",
+        "evaluation-raises",
+        "evaluation-and-context-raise",
+    ],
+)
 def test_delegation_failures_never_degrade_into_an_allow(
     tmp_path, monkeypatch, capsys, failure, mode
 ):
@@ -1038,14 +1071,59 @@ def test_delegation_failures_never_degrade_into_an_allow(
     elif failure == "reviewer-missing":
         monkeypatch.setitem(sys.modules, "aegis_foundation.gate.hooks.reviewer", None)
         detail = "reviewer evaluation failed"
+    elif failure == "binding-raises":
+        monkeypatch.setattr(reviewer, "_foreign_git", explode)
+        detail = "reviewer worktree binding could not be verified: RuntimeError"
+    elif failure == "evaluation-raises":
+        monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+        detail = "provider-native delegation cannot use degraded approval"
     else:
         monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+        monkeypatch.setattr(pretool, "resolve_managed_project", explode)
         detail = "provider-native delegation cannot use degraded approval"
     capsys.readouterr()
     prompt = f"Review candidate={candidate} in worktree={core_target} now."
     assert review(monkeypatch, canonical, prompt) == 2
     assert detail in capsys.readouterr().err
     assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
+    assert not (canonical / AEGIS_DEGRADED_EVENTS_REL).exists()
+
+
+def test_degraded_delegation_rule_leaves_unmanaged_projects_unchanged(tmp_path, monkeypatch):
+    """ga-4p6f: the degraded delegation block applies only to managed projects."""
+
+    from aegis_foundation.gate.hooks import pretool
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    write(canonical / ".aegis/state/enforcement.json", '{"mode":"advisory"}')
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("synthetic infrastructure failure")
+
+    monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+    monkeypatch.setattr(pretool, "resolve_managed_project", lambda _root: None)
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    # An unmanaged project keeps the pre-existing advisory degraded allow.
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert (canonical / AEGIS_DEGRADED_EVENTS_REL).exists()
+
+
+def test_reviewer_binding_never_runs_a_repository_filesystem_monitor(tmp_path, monkeypatch):
+    """ga-4p6f: a core.fsmonitor program configured by the foreign repository never runs."""
+
+    canonical, core, core_target, candidate = reviewer_fixture(tmp_path)
+    marker = tmp_path / "fsmonitor-ran"
+    hook = tmp_path / "fsmonitor-hook"
+    write(hook, f"#!/bin/sh\ntouch {marker}\nexit 1\n")
+    hook.chmod(0o755)
+    git(core, "config", "core.fsmonitor", str(hook))
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert read_gate_decisions(canonical)[-1]["reason"] == "read_only_registered_reviewer_delegation"
+    assert not marker.exists()
+    # Control: the same repository does run the program under a plain status.
+    run(["git", "status", "--porcelain"], core_target)
+    assert marker.exists()
 
 
 def test_tracked_profile_registrations_agree_with_the_tracked_registry():

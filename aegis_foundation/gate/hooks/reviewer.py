@@ -28,14 +28,24 @@ REVIEWER_PROMPT_BOUND = 65536
 REVIEWER_REASON = "native_delegation_reviewer_invalid"
 CANDIDATE_TOKEN = re.compile(r"(?<![0-9A-Za-z=_-])candidate=([0-9a-f]{40})(?![0-9A-Za-z])")
 # ga-4p6f: a reviewer may also name the registered-project worktree holding the
-# candidate. Any `worktree` followed by an equals sign (any case, optional spaces,
-# ASCII or full-width) that is not one exact absolute path ending at a space, tab,
-# newline or the end of the prompt is ambiguous and refused.
+# candidate. The token stands alone: it starts the prompt or follows whitespace, and
+# its path ends at a space, tab, newline or the end of the prompt. Any other
+# `worktree` followed by an equals sign (any case, any whitespace before the sign,
+# ASCII or full-width) is ambiguous and refused.
 WORKTREE_MENTION = re.compile(r"worktree\s*[=＝]", re.IGNORECASE)
-WORKTREE_TOKEN = re.compile(r"(?<![0-9A-Za-z=_-])worktree=(/[A-Za-z0-9._/-]+)(?=[ \t\n]|\Z)")
+WORKTREE_TOKEN = re.compile(r"(?<!\S)worktree=(/[A-Za-z0-9._/-]+)(?=[ \t\n]|\Z)")
 FOREIGN_GIT = "/usr/bin/git"
 FOREIGN_GIT_TIMEOUT = 10
 MAX_GITDIR_LINK_BYTES = 4096
+# Applied to every foreign Git call: no replace objects (HEAD's tree is the
+# candidate's own), no index refresh write, and no repository-configured
+# filesystem monitor program.
+FOREIGN_GIT_OPTIONS = (
+    "--no-replace-objects",
+    "--no-optional-locks",
+    "-c",
+    "core.fsmonitor=false",
+)
 FRONTMATTER_FIELD = re.compile(r"^([a-z_]+):[ \t]*(.*?)[ \t]*$")
 
 
@@ -68,13 +78,14 @@ def _foreign_git(target: Path, *args: str) -> str:
     """Run the absolute Git binary against a registered worktree, bounded and fail-closed.
 
     Inherited GIT_* variables are dropped so the caller's environment cannot redirect
-    the repository, and output is decoded without raising.
+    the repository, every call carries FOREIGN_GIT_OPTIONS, and output is decoded
+    without raising.
     """
 
     env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
     try:
         result = subprocess.run(
-            [FOREIGN_GIT, "-C", str(target), *args],
+            [FOREIGN_GIT, "-C", str(target), *FOREIGN_GIT_OPTIONS, *args],
             capture_output=True,
             timeout=FOREIGN_GIT_TIMEOUT,
             env=env,
@@ -100,6 +111,14 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
         ) from exc
     entries = (profile or {}).get("registered_projects") or []
     target = Path(raw)
+    # The pure path comparison runs first, so no unregistered location is touched.
+    entry = next(
+        (item for item in entries if target.parent == Path(item["worktree_root"])), None
+    )
+    if entry is None:
+        raise DelegationPolicyError(
+            REVIEWER_REASON, "reviewer worktree is not a direct child of a registered worktree root"
+        )
     try:
         resolved = target.resolve(strict=True)
     except (OSError, RuntimeError) as exc:
@@ -107,13 +126,6 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
     if resolved != target or not target.is_dir():
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree must be an exact absolute directory"
-        )
-    entry = next(
-        (item for item in entries if target.parent == Path(item["worktree_root"])), None
-    )
-    if entry is None:
-        raise DelegationPolicyError(
-            REVIEWER_REASON, "reviewer worktree is not a direct child of a registered worktree root"
         )
     common = Path(
         _foreign_git(target, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
@@ -125,13 +137,18 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
     # A linked worktree's private Git directory sits under <common>/worktrees and
     # its gitdir file links back to exactly this worktree's .git file.
     link = git_dir / "gitdir"
+    linked = ""
+    if link.is_file():
+        with link.open("rb") as stream:
+            raw_link = stream.read(MAX_GITDIR_LINK_BYTES + 1)
+        if len(raw_link) <= MAX_GITDIR_LINK_BYTES:
+            linked = raw_link.decode("utf-8", errors="replace").strip()
     if (
         common != Path(entry["canonical_root"]) / ".git"
         or top != target
         or git_dir.parent != common / "worktrees"
-        or not link.is_file()
-        or link.stat().st_size > MAX_GITDIR_LINK_BYTES
-        or Path(link.read_text(encoding="utf-8", errors="replace").strip()) != target / ".git"
+        or not linked
+        or Path(linked) != target / ".git"
     ):
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree is not a linked worktree of its registered project"
@@ -152,12 +169,16 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree hides index entries from status"
         )
-    # No index refresh write and no repository-configured filesystem monitor.
+    # Stat comparison is pinned to Git's defaults so repository configuration cannot
+    # relax change detection.
     status = _foreign_git(
         target,
-        "--no-optional-locks",
         "-c",
-        "core.fsmonitor=false",
+        "core.checkStat=default",
+        "-c",
+        "core.trustctime=true",
+        "-c",
+        "core.ignoreCase=false",
         "status",
         "--porcelain=v1",
         "--untracked-files=all",

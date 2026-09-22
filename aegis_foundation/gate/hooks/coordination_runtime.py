@@ -181,6 +181,11 @@ FOREIGN_RUNTIME_SHADOWS = (
     ".claude/scripts",
     "sitecustomize.py",
     "usercustomize.py",
+    # ga-4p6f: the canonical executor runs these from the target when they exist
+    # (workflow.py checkpoint, verify and finish), so a registered target that
+    # carries either would supply unreviewed code to an approved command.
+    "scripts/codex-task",
+    "scripts/codex-guard",
 )
 
 

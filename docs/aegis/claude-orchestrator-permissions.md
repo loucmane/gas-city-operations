@@ -21,8 +21,8 @@ Operations enables four command classes, using closed grammars:
   discharge/compact-journal/publish`, targeting one explicit registered linked worktree
   with verified journal/ownership. See the stationary-orchestration examples in `CLAUDE.md`.
   Its narrow ledger actions are note append, unassigned/unrouted P2 child creation, and
-  dependency plus transactional attach. It does not approve raw Beads mutations or
-  cross-rig work.
+  dependency plus transactional attach. It does not approve raw Beads mutations. Its only
+  cross-rig reach is the registered projects' own rigs (see Registered projects below).
 
 ## Remote observation and journal-bound discharge (ga-fsfg R1)
 
@@ -81,7 +81,9 @@ checks differ from an Operations worktree in three ways and nowhere else:
   city and the registered canonical root, exactly as the plugin wrote it;
 - the canonical executor is verified as before, and the target must carry no
   Operations runtime tree, installed runtime or Python startup hook that could
-  shadow it;
+  shadow it. Since ga-4p6f this also forbids `scripts/codex-task` and
+  `scripts/codex-guard`, which `workflow.py checkpoint`, `verify` and `finish` would
+  otherwise run from the target;
 - readiness uses the portable Bead-scaffold checks the plugin applies to
   registered projects, resolved through the target's own repository layout,
   because the generic readiness recognizes Bead identity only inside an Aegis
@@ -114,37 +116,42 @@ A registered project's commits are not in the Operations repository, so the prom
 may bind the review to that project's worktree (ga-4p6f).
 
 **Token grammar.**
-- The token is exactly one `worktree=<absolute path>`.
+- The token is exactly one `worktree=<absolute path>`, standing alone: it starts the prompt or follows whitespace.
 - The path uses only `A-Za-z0-9._/-`.
 - The path must be followed by a space, tab, newline or the end of the prompt.
-- Every other occurrence of `worktree` followed by an equals sign is refused. This covers any case, spaces before the sign, the full-width sign, and the token embedded in a longer word. It applies to prompts without a binding too, so a stray `worktree=` in prose now refuses a request that the Operations path used to accept.
+- Every other occurrence of `worktree` followed by an equals sign is refused. This covers any case, any whitespace before the sign, the full-width sign, and the token glued to preceding text such as `(worktree=` or `git_worktree=`. It applies to prompts without a binding too, so a stray `worktree=` in prose now refuses a request that the Operations path used to accept.
+- A spelling with no equals sign at all (`worktree: /path`, look-alike letters) is not a binding. Such a request takes the Operations path. Only the audit reason `read_only_registered_reviewer_delegation` proves that a binding was checked, so the orchestrator records that reason with the verdict.
 
 **Checks.** The definition checks above run first. The binding is then accepted only when the path:
 
+- is a direct child of a `worktree_root` in the seat's validated `registered_projects`. This is a pure path comparison, made before the path is touched;
 - exists, is a directory and resolves to itself (no symlink indirection);
-- is a direct child of a `worktree_root` in the seat's validated `registered_projects`;
 - is that record's linked worktree:
   - its Git common directory is `<canonical_root>/.git`;
   - its private Git directory sits under `<canonical_root>/.git/worktrees/`;
-  - that directory's `gitdir` file links back to exactly `<path>/.git`;
+  - that directory's `gitdir` file, read with a 4096-byte bound, links back to exactly `<path>/.git`. Worktrees that record relative paths (`worktree.useRelativePaths`) are therefore refused;
   - it is its own top level;
 - has HEAD equal to the candidate;
 - has no index entry flagged assume-unchanged or skip-worktree; and
-- shows no tracked, untracked or submodule changes to `git status`. The status call runs without optional locks, with the filesystem monitor disabled and with `--ignore-submodules=none`.
+- shows no tracked, untracked or submodule changes to `git status`. The status call pins `core.checkStat=default`, `core.trustctime=true` and `core.ignoreCase=false`, and passes `--ignore-submodules=none`.
 
-Every Git call uses `/usr/bin/git` with a 10 second timeout. Inherited `GIT_*` variables are dropped, and output is decoded without raising.
+Every foreign Git call (against the named worktree) uses `/usr/bin/git` with a 10 second timeout, `--no-replace-objects`, `--no-optional-locks` and `core.fsmonitor=false`. Inherited `GIT_*` variables are dropped, and output is decoded without raising. A replace ref therefore cannot make HEAD name the candidate while Git reads a different tree. The seat's own reads (the profile and the reviewer definition) still use `delegation._git` against the trusted Operations checkout.
 
-**Failure handling.** Every failure refuses, including unexpected ones: a symlink loop, undecodable output, a timeout, a missing or broken `reviewer.py`. No failure reaches the degraded fallback. Independently, the degraded fallback now hard-blocks provider-native delegation in a managed project, as it does coordination. A project whose context cannot be resolved counts as managed.
+**Failure handling.** Every failure refuses, including unexpected ones: a symlink loop, undecodable output, a timeout, a missing or broken `reviewer.py`. No failure reaches the degraded fallback. A refusal raised inside the profile loader keeps that loader's own reason code, such as `claude_command_profile_invalid`. Independently, the degraded fallback hard-blocks provider-native delegation in a managed project before anything else can fail, as it does coordination. A project whose context cannot be resolved counts as managed.
 
 An allowed binding is audited as `read_only_registered_reviewer_delegation`.
 
 **Limits.** `git status` is not an integrity manifest (compare `coordination_runtime.py`). The binding proves the named worktree was at the candidate with nothing Git reports as changed when the gate ran. It does not cover:
 
 - ignored or excluded files, including `.git/info/exclude` and `core.excludesFile`;
-- clean or process filter drivers that the foreign repository's own configuration may run during status;
+- clean or process filter drivers that the foreign repository's own configuration may run during status (for example a required `git-lfs` process filter);
+- uninitialised submodule directories, and flags or ignore rules inside submodules;
+- tracked symlinks that point outside the worktree;
+- untracked files inside directories Git cannot read, and nested `.git` directories below the top level;
+- an index whose stat data was forged to match modified files;
 - changes made after the check.
 
-The reviewer is still read-only in every case.
+The binding also does not confine what the reviewer reads. A prompt can still direct it to other paths, which is why the orchestrator records the audit reason with the verdict. The reviewer is still read-only in every case.
 
 The gate appends an `allow` decision carrying the request digest; the orchestrator
 records the returned verdict on the Bead with the candidate binding. Malformed

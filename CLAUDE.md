@@ -137,11 +137,14 @@ definition in `.claude/agents/` may declare only Read, Grep and Glob and only th
 description, tools, model and color fields, may be delegated one review of exactly one
 `candidate=<commit>` that exists in the repository, with no isolation, model or other
 options. A registered project's candidate is reviewed in its own worktree: add exactly one
-`worktree=<absolute path>` token (path characters `A-Za-z0-9._/-`, ended by a space, tab,
-newline or the end of the prompt) naming a clean linked worktree that is a direct child of
-a registered worktree root and whose HEAD is the candidate. Any other `worktree=` form,
-in any case, is refused. Every binding failure refuses, in advisory mode too. The gate
-records the request digest; the orchestrator records the verdict on the Bead. Any other
+standalone `worktree=<absolute path>` token (at the start of the prompt or after
+whitespace; path characters `A-Za-z0-9._/-`; ended by a space, tab, newline or the end of
+the prompt) naming a clean linked worktree that is a direct child of a registered worktree
+root and whose HEAD is the candidate. Any other `worktree=` form, in any case, is refused.
+Every binding failure refuses, in advisory mode too. Only the audit reason
+`read_only_registered_reviewer_delegation` proves a binding was checked, so record it with
+the verdict. The gate records the request digest; the orchestrator records the verdict on
+the Bead. Any other
 agent type, tool set, frontmatter field, option or candidate binding stays blocked.
 
 ## Required Workflow State
