@@ -68,6 +68,9 @@ and name roots distinct from the seat's own. A registry record without
 and the Template. A direct child of a registered
 `worktree_root` is then a valid stationary target for `attach`, `checkpoint`,
 `verify`, `coordinate`, `log`, `discharge`, `compact-journal` and `publish`.
+Coordinating a registered target writes that project's own rig. For the Template
+that is `gas-city-template`, a different Beads store from the seat's `gascity`
+rig. Registration grants no other command class and no other rig.
 
 A registered target carries no Operations policy or runtime of its own, so the
 checks differ from an Operations worktree in three ways and nowhere else:
@@ -108,23 +111,40 @@ from a worker with a closed grammar:
   model comes from the tracked definition alone.
 
 A registered project's commits are not in the Operations repository, so the prompt
-may bind the review to that project's worktree (ga-4p6f) with exactly one
-`worktree=<absolute path>` token followed by whitespace or the end of the prompt.
-Any other `worktree=` mention is refused. The gate accepts the binding only when
-the path:
+may bind the review to that project's worktree (ga-4p6f).
+
+**Token grammar.**
+- The token is exactly one `worktree=<absolute path>`.
+- The path uses only `A-Za-z0-9._/-`.
+- The path must be followed by a space, tab, newline or the end of the prompt.
+- Every other occurrence of `worktree` followed by an equals sign is refused. This covers any case, spaces before the sign, the full-width sign, and the token embedded in a longer word. It applies to prompts without a binding too, so a stray `worktree=` in prose now refuses a request that the Operations path used to accept.
+
+**Checks.** The definition checks above run first. The binding is then accepted only when the path:
 
 - exists, is a directory and resolves to itself (no symlink indirection);
 - is a direct child of a `worktree_root` in the seat's validated `registered_projects`;
-- is a linked worktree of that record's `canonical_root` and its own top level;
-- has HEAD equal to the candidate; and
-- is clean, with no tracked or untracked changes. The check runs `git status` without
-  optional locks and with the filesystem monitor disabled. Ignored files are outside
-  the candidate.
+- is that record's linked worktree:
+  - its Git common directory is `<canonical_root>/.git`;
+  - its private Git directory sits under `<canonical_root>/.git/worktrees/`;
+  - that directory's `gitdir` file links back to exactly `<path>/.git`;
+  - it is its own top level;
+- has HEAD equal to the candidate;
+- has no index entry flagged assume-unchanged or skip-worktree; and
+- shows no tracked, untracked or submodule changes to `git status`. The status call runs without optional locks, with the filesystem monitor disabled and with `--ignore-submodules=none`.
 
-The reviewer can only read files, so a clean checkout at the exact candidate is what
-makes it review that commit. An allowed binding is audited as
-`read_only_registered_reviewer_delegation`. Without the token the Operations
-behavior above is unchanged.
+Every Git call uses `/usr/bin/git` with a 10 second timeout. Inherited `GIT_*` variables are dropped, and output is decoded without raising.
+
+**Failure handling.** Every failure refuses, including unexpected ones: a symlink loop, undecodable output, a timeout, a missing or broken `reviewer.py`. No failure reaches the degraded fallback. Independently, the degraded fallback now hard-blocks provider-native delegation in a managed project, as it does coordination. A project whose context cannot be resolved counts as managed.
+
+An allowed binding is audited as `read_only_registered_reviewer_delegation`.
+
+**Limits.** `git status` is not an integrity manifest (compare `coordination_runtime.py`). The binding proves the named worktree was at the candidate with nothing Git reports as changed when the gate ran. It does not cover:
+
+- ignored or excluded files, including `.git/info/exclude` and `core.excludesFile`;
+- clean or process filter drivers that the foreign repository's own configuration may run during status;
+- changes made after the check.
+
+The reviewer is still read-only in every case.
 
 The gate appends an `allow` decision carrying the request digest; the orchestrator
 records the returned verdict on the Bead with the candidate binding. Malformed

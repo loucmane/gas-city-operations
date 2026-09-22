@@ -620,9 +620,19 @@ def evaluate_native_delegation(root: Path, payload: Payload) -> DelegationVerdic
             adapter=adapter,
             project=None,
         )
-    from .reviewer import _reviewer_delegation
+    # ga-4p6f: a missing or failing reviewer module refuses every delegation instead of
+    # escaping to the degraded fallback, which advisory mode would turn into an allow.
+    try:
+        from .reviewer import _reviewer_delegation
 
-    reviewer_reason = _reviewer_delegation(project, payload, normalized_tool, adapter)
+        reviewer_reason = _reviewer_delegation(project, payload, normalized_tool, adapter)
+    except DelegationPolicyError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - reviewer evaluation fails closed.
+        raise DelegationPolicyError(
+            "native_delegation_reviewer_invalid",
+            f"reviewer evaluation failed: {type(exc).__name__}",
+        ) from exc
     if reviewer_reason is not None:
         return DelegationVerdict(
             managed=True,

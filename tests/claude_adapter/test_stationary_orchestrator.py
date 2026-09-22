@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 
+from aegis_foundation.gate.hooks.contracts import AEGIS_DEGRADED_EVENTS_REL
 from test_native_command_profile import PROFILE, WORKFLOW_REL, event, git, profile
 from test_pretooluse_gates import PRETOOLUSE, read_gate_decisions, run, run_gate, write
 from test_readiness_gate import make_bead_source_repo
@@ -818,6 +819,7 @@ def test_registry_record_without_worktree_root_uses_the_derived_default(tmp_path
     git(canonical, "commit", "-qam", "profile names a non-derived root")
     refused = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, elsewhere, "verify")))
     assert refused.returncode == 2
+    assert "registered project disagrees with the canonical registry" in refused.stderr
     assert '"permissionDecision": "allow"' not in refused.stdout
 
 
@@ -839,7 +841,15 @@ def reviewer_fixture(tmp_path):
 
 
 def review(monkeypatch, canonical, prompt):
-    from aegis_foundation.gate.hooks.pretool import pretooluse_gate
+    """Evaluate one reviewer request through the production entry point.
+
+    The degraded fallback is included so an unexpected exception can never pass as a
+    refusal in these tests while the live hook would allow it.
+    """
+
+    from aegis_foundation.gate.hooks.pretool import (
+        pretooluse_gate_with_degraded_fallback as pretooluse_gate,
+    )
 
     monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(canonical))
     monkeypatch.setenv("AEGIS_INVOKING_AGENT", "claude")
@@ -886,15 +896,80 @@ def test_reviewer_binds_a_clean_registered_worktree_at_the_candidate(tmp_path, m
         ("trailing-punctuation", "worktree does not exist"),
         ("relative-path", "at most one exact worktree"),
         ("missing-path", "worktree does not exist"),
+        ("case-variant", "at most one exact worktree"),
+        ("fullwidth-equals", "at most one exact worktree"),
+        ("embedded-mention", "at most one exact worktree"),
+        ("unicode-delimiter", "at most one exact worktree"),
+        ("symlink-loop", "worktree does not exist"),
+        ("not-a-worktree", "Git inspection failed"),
+        ("undecodable-gitdir", "Git inspection failed"),
+        ("borrowed-index", "not a linked worktree of its registered project"),
+        ("assume-unchanged", "hides index entries from status"),
+        ("skip-worktree", "hides index entries from status"),
+        ("policy-invalid", "registered-project policy is invalid"),
+        ("policy-dirty", "orchestrator-command-profile.json differs from the tracked HEAD bytes"),
+        ("definition-before-binding", "differs from the tracked HEAD bytes"),
     ],
 )
+@pytest.mark.parametrize("mode", ["strict", "advisory"])
 def test_reviewer_registered_binding_refuses_every_defect(
-    tmp_path, monkeypatch, capsys, defect, detail
+    tmp_path, monkeypatch, capsys, defect, detail, mode
 ):
     canonical, core, core_target, candidate = reviewer_fixture(tmp_path)
+    if mode == "advisory":
+        write(canonical / ".aegis/state/enforcement.json", '{"mode":"advisory"}')
     worktree = str(core_target)
     prompt = None
-    if defect == "head-mismatch":
+    if defect == "case-variant":
+        prompt = f"Review candidate={candidate} in Worktree={core_target} now."
+    elif defect == "fullwidth-equals":
+        prompt = f"Review candidate={candidate} in worktree＝{core_target} now."
+    elif defect == "embedded-mention":
+        prompt = f"Review candidate={candidate} with git_worktree={core_target} now."
+    elif defect == "unicode-delimiter":
+        prompt = f"Review candidate={candidate} in worktree={core_target}\x1f/../other now."
+    elif defect == "symlink-loop":
+        loop = core_target.parent / "loop"
+        loop.symlink_to(loop)
+        worktree = str(loop)
+    elif defect == "not-a-worktree":
+        plain = core_target.parent / "plain"
+        plain.mkdir()
+        worktree = str(plain)
+    elif defect == "undecodable-gitdir":
+        odd = core_target.parent / "odd"
+        odd.mkdir()
+        (odd / ".git").write_bytes(b"gitdir: /tmp/\xff\n")
+        worktree = str(odd)
+    elif defect == "borrowed-index":
+        borrowed = core_target.parent / "borrowed"
+        borrowed.mkdir()
+        private = run(["git", "rev-parse", "--path-format=absolute", "--git-dir"], core_target)
+        (borrowed / ".git").write_text(f"gitdir: {private.stdout.strip()}\n")
+        for name in run(["git", "ls-files"], core_target).stdout.split():
+            source = core_target / name
+            (borrowed / name).parent.mkdir(parents=True, exist_ok=True)
+            (borrowed / name).write_bytes(source.read_bytes())
+        worktree = str(borrowed)
+    elif defect in {"assume-unchanged", "skip-worktree"}:
+        tracked = run(["git", "ls-files"], core_target).stdout.split()[0]
+        flag = "--assume-unchanged" if defect == "assume-unchanged" else "--skip-worktree"
+        git(core_target, "update-index", flag, tracked)
+        write(core_target / tracked, "hidden change\n")
+        assert run(["git", "status", "--porcelain"], core_target).stdout == ""
+    elif defect == "policy-invalid":
+        value = json.loads((canonical / PROFILE).read_text())
+        value["registered_projects"][0]["extra"] = "field"
+        write(canonical / PROFILE, json.dumps(value))
+        git(canonical, "commit", "-qam", "invalid registered record")
+    elif defect == "policy-dirty":
+        value = json.loads((canonical / PROFILE).read_text())
+        value["registered_projects"][0]["rig"] = "uncommitted"
+        write(canonical / PROFILE, json.dumps(value))
+    elif defect == "definition-before-binding":
+        write(canonical / ".claude/agents/aegis-reviewer.md", REVIEWER_DEFINITION + "\nExtra.\n")
+        worktree = str(core_target.parent / "ga-missing-beads-first-guidance")
+    elif defect == "head-mismatch":
         write(core_target / "later.txt", "later\n")
         git(core_target, "add", "later.txt")
         git(core_target, "commit", "-qm", "later")
@@ -928,7 +1003,7 @@ def test_reviewer_registered_binding_refuses_every_defect(
         prompt = f"Review candidate={candidate} in worktree={core_target}."
     elif defect == "relative-path":
         prompt = f"Review candidate={candidate} in worktree=core-project/ga-core now."
-    else:
+    elif defect == "missing-path":
         worktree = str(core_target.parent / "ga-missing-beads-first-guidance")
     if prompt is None:
         prompt = f"Review candidate={candidate} in worktree={worktree} and report a verdict."
@@ -936,3 +1011,53 @@ def test_reviewer_registered_binding_refuses_every_defect(
     assert review(monkeypatch, canonical, prompt) == 2
     assert detail in capsys.readouterr().err
     assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
+    assert not (canonical / AEGIS_DEGRADED_EVENTS_REL).exists()
+
+
+@pytest.mark.parametrize("mode", ["strict", "advisory"])
+@pytest.mark.parametrize("failure", ["reviewer-raises", "reviewer-missing", "evaluation-raises"])
+def test_delegation_failures_never_degrade_into_an_allow(
+    tmp_path, monkeypatch, capsys, failure, mode
+):
+    """ga-4p6f: an unexpected reviewer or delegation failure refuses in every mode."""
+
+    import sys
+
+    from aegis_foundation.gate.hooks import pretool, reviewer
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    if mode == "advisory":
+        write(canonical / ".aegis/state/enforcement.json", '{"mode":"advisory"}')
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("synthetic infrastructure failure")
+
+    if failure == "reviewer-raises":
+        monkeypatch.setattr(reviewer, "_reviewer_delegation", explode)
+        detail = "reviewer evaluation failed: RuntimeError"
+    elif failure == "reviewer-missing":
+        monkeypatch.setitem(sys.modules, "aegis_foundation.gate.hooks.reviewer", None)
+        detail = "reviewer evaluation failed"
+    else:
+        monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+        detail = "provider-native delegation cannot use degraded approval"
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert detail in capsys.readouterr().err
+    assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
+
+
+def test_tracked_profile_registrations_agree_with_the_tracked_registry():
+    """ga-4p6f: the live profile's registered projects validate against the live registry."""
+
+    from aegis_foundation.gate.hooks.native_permissions import _validate_registered
+
+    root = Path(__file__).resolve().parents[2]
+    value = json.loads((root / PROFILE).read_text())
+    validated = _validate_registered(
+        value["registered_projects"], root, Path(value["worktree_root"])
+    )
+    assert [entry["id"] for entry in validated] == ["gas-city", "gas-city-template"]
+    template = validated[1]
+    assert template["worktree_root"] == template["canonical_root"] + "-worktrees"

@@ -7,7 +7,9 @@ delegation stays under Gas City routing in `delegation.py`.
 
 from __future__ import annotations
 
+import os
 import re
+import subprocess
 from pathlib import Path
 
 from .contracts import Payload
@@ -26,10 +28,14 @@ REVIEWER_PROMPT_BOUND = 65536
 REVIEWER_REASON = "native_delegation_reviewer_invalid"
 CANDIDATE_TOKEN = re.compile(r"(?<![0-9A-Za-z=_-])candidate=([0-9a-f]{40})(?![0-9A-Za-z])")
 # ga-4p6f: a reviewer may also name the registered-project worktree holding the
-# candidate. Any `worktree=` mention that is not one exact absolute path followed by
-# whitespace or the end of the prompt is ambiguous and refused.
-WORKTREE_MENTION = re.compile(r"(?<![0-9A-Za-z=_-])worktree=")
-WORKTREE_TOKEN = re.compile(r"(?<![0-9A-Za-z=_-])worktree=(/[A-Za-z0-9._/-]+)(?!\S)")
+# candidate. Any `worktree` followed by an equals sign (any case, optional spaces,
+# ASCII or full-width) that is not one exact absolute path ending at a space, tab,
+# newline or the end of the prompt is ambiguous and refused.
+WORKTREE_MENTION = re.compile(r"worktree\s*[=＝]", re.IGNORECASE)
+WORKTREE_TOKEN = re.compile(r"(?<![0-9A-Za-z=_-])worktree=(/[A-Za-z0-9._/-]+)(?=[ \t\n]|\Z)")
+FOREIGN_GIT = "/usr/bin/git"
+FOREIGN_GIT_TIMEOUT = 10
+MAX_GITDIR_LINK_BYTES = 4096
 FRONTMATTER_FIELD = re.compile(r"^([a-z_]+):[ \t]*(.*?)[ \t]*$")
 
 
@@ -58,15 +64,32 @@ def _reviewer_frontmatter(raw: bytes) -> dict[str, str]:
     return fields
 
 
-def _registered_review_worktree(project: ManagedProject, raw: str, candidate: str) -> None:
-    """Bind a reviewer to one clean registered worktree whose HEAD is the candidate.
+def _foreign_git(target: Path, *args: str) -> str:
+    """Run the absolute Git binary against a registered worktree, bounded and fail-closed.
 
-    The reviewer can only read files, so the candidate is what it sees only when the
-    named worktree is checked out at exactly that commit with nothing uncommitted.
-    The worktree must be a direct child of a worktree root registered in the seat's
-    tracked command profile, and a linked worktree of that project's canonical root.
+    Inherited GIT_* variables are dropped so the caller's environment cannot redirect
+    the repository, and output is decoded without raising.
     """
 
+    env = {key: value for key, value in os.environ.items() if not key.startswith("GIT_")}
+    try:
+        result = subprocess.run(
+            [FOREIGN_GIT, "-C", str(target), *args],
+            capture_output=True,
+            timeout=FOREIGN_GIT_TIMEOUT,
+            env=env,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        raise DelegationPolicyError(
+            REVIEWER_REASON, "reviewer worktree Git inspection failed"
+        ) from exc
+    if result.returncode != 0:
+        raise DelegationPolicyError(REVIEWER_REASON, "reviewer worktree Git inspection failed")
+    return result.stdout.decode("utf-8", errors="replace")
+
+
+def _verify_registered_review_worktree(project: ManagedProject, raw: str, candidate: str) -> None:
     from .native_permissions import _profile
 
     try:
@@ -79,7 +102,7 @@ def _registered_review_worktree(project: ManagedProject, raw: str, candidate: st
     target = Path(raw)
     try:
         resolved = target.resolve(strict=True)
-    except OSError as exc:
+    except (OSError, RuntimeError) as exc:
         raise DelegationPolicyError(REVIEWER_REASON, "reviewer worktree does not exist") from exc
     if resolved != target or not target.is_dir():
         raise DelegationPolicyError(
@@ -92,24 +115,45 @@ def _registered_review_worktree(project: ManagedProject, raw: str, candidate: st
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree is not a direct child of a registered worktree root"
         )
-    common = _git(target, "rev-parse", "--path-format=absolute", "--git-common-dir")
-    top = _git(target, "rev-parse", "--show-toplevel")
+    common = Path(
+        _foreign_git(target, "rev-parse", "--path-format=absolute", "--git-common-dir").strip()
+    )
+    git_dir = Path(
+        _foreign_git(target, "rev-parse", "--path-format=absolute", "--git-dir").strip()
+    )
+    top = Path(_foreign_git(target, "rev-parse", "--show-toplevel").strip())
+    # A linked worktree's private Git directory sits under <common>/worktrees and
+    # its gitdir file links back to exactly this worktree's .git file.
+    link = git_dir / "gitdir"
     if (
-        common.returncode
-        or top.returncode
-        or Path(str(common.stdout).strip()) != Path(entry["canonical_root"]) / ".git"
-        or Path(str(top.stdout).strip()) != target
+        common != Path(entry["canonical_root"]) / ".git"
+        or top != target
+        or git_dir.parent != common / "worktrees"
+        or not link.is_file()
+        or link.stat().st_size > MAX_GITDIR_LINK_BYTES
+        or Path(link.read_text(encoding="utf-8", errors="replace").strip()) != target / ".git"
     ):
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree is not a linked worktree of its registered project"
         )
-    head = _git(target, "rev-parse", "--verify", "--quiet", "HEAD^{commit}")
-    if head.returncode or str(head.stdout).strip() != candidate:
+    head = _foreign_git(target, "rev-parse", "--verify", "--quiet", "HEAD^{commit}").strip()
+    if head != candidate:
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree HEAD is not the candidate commit"
         )
+    # Index entries flagged assume-unchanged (lowercase tag) or skip-worktree (S)
+    # would let modified files hide from status.
+    flagged = [
+        entry_line
+        for entry_line in _foreign_git(target, "ls-files", "-v", "-z").split("\0")
+        if entry_line and (entry_line[0].islower() or entry_line[0] == "S")
+    ]
+    if flagged:
+        raise DelegationPolicyError(
+            REVIEWER_REASON, "reviewer worktree hides index entries from status"
+        )
     # No index refresh write and no repository-configured filesystem monitor.
-    status = _git(
+    status = _foreign_git(
         target,
         "--no-optional-locks",
         "-c",
@@ -117,11 +161,34 @@ def _registered_review_worktree(project: ManagedProject, raw: str, candidate: st
         "status",
         "--porcelain=v1",
         "--untracked-files=all",
+        "--ignore-submodules=none",
     )
-    if status.returncode or str(status.stdout).strip():
+    if status.strip():
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree has uncommitted or untracked changes"
         )
+
+
+def _registered_review_worktree(project: ManagedProject, raw: str, candidate: str) -> None:
+    """Bind a reviewer to one clean registered worktree whose HEAD is the candidate.
+
+    The reviewer can only read files, so the binding requires the named worktree to be
+    checked out at exactly that commit with nothing uncommitted that Git can see. It
+    must be a direct child of a worktree root registered in the seat's tracked command
+    profile and a linked worktree of that project's canonical root. Every failure,
+    expected or not, is a refusal: an unexpected exception must never reach the
+    gate's degraded fallback, which advisory mode would turn into an allow.
+    """
+
+    try:
+        _verify_registered_review_worktree(project, raw, candidate)
+    except DelegationPolicyError:
+        raise
+    except Exception as exc:  # noqa: BLE001 - every unexpected failure refuses.
+        raise DelegationPolicyError(
+            REVIEWER_REASON,
+            f"reviewer worktree binding could not be verified: {type(exc).__name__}",
+        ) from exc
 
 
 def _reviewer_delegation(
@@ -159,16 +226,8 @@ def _reviewer_delegation(
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer delegation may name at most one exact worktree"
         )
-    if worktrees:
-        _registered_review_worktree(project, worktrees[0], candidates[0])
-        reason = "read_only_registered_reviewer_delegation"
-    else:
-        exists = _git(project.worktree_root, "cat-file", "-e", f"{candidates[0]}^{{commit}}")
-        if exists.returncode != 0:
-            raise DelegationPolicyError(
-                REVIEWER_REASON, "reviewer candidate commit is not present in the repository"
-            )
-        reason = "read_only_reviewer_delegation"
+    # The read-only definition is checked before any candidate binding so no binding
+    # path can be reached with a definition that could edit, run or delegate.
     definition = project.worktree_root / REVIEWER_AGENTS_REL / f"{agent_type}.md"
     raw = _head_bound_bytes(
         project.worktree_root, definition, "reviewer agent definition", reason=REVIEWER_REASON
@@ -182,4 +241,12 @@ def _reviewer_delegation(
     tools = {item.strip() for item in declared.split(",") if item.strip()}
     if not tools or not tools <= REVIEWER_TOOLS:
         raise DelegationPolicyError(REVIEWER_REASON, "reviewer agent definition is not read-only")
-    return reason
+    if worktrees:
+        _registered_review_worktree(project, worktrees[0], candidates[0])
+        return "read_only_registered_reviewer_delegation"
+    exists = _git(project.worktree_root, "cat-file", "-e", f"{candidates[0]}^{{commit}}")
+    if exists.returncode != 0:
+        raise DelegationPolicyError(
+            REVIEWER_REASON, "reviewer candidate commit is not present in the repository"
+        )
+    return "read_only_reviewer_delegation"

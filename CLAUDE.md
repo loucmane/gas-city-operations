@@ -112,8 +112,10 @@ coordination deliberately rejects `current` and `latest` sentinels. Readiness an
 pending tracking belong to the selected target; decision records
 retain the original request digest and session identity. Both canonical and target
 observation/advisory states refuse this opt-in. Use target `log` to clear target
-tracking. No general raw `bd` mutation approval, cross-rig grant, source edit,
-dispatch, signing, publication, lifecycle, or plan-mode exemption is added.
+tracking. Coordinating a registered project's worktree writes that project's own rig
+(the Template's is `gas-city-template`). No general raw `bd` mutation approval, other
+cross-rig grant, source edit, dispatch, signing, publication, lifecycle, or plan-mode
+exemption is added.
 
 The target's executable workflow helpers must match reviewed canonical bytes.
 Ordinary candidate source edits are permitted, but edited workflow executors cannot
@@ -135,10 +137,12 @@ definition in `.claude/agents/` may declare only Read, Grep and Glob and only th
 description, tools, model and color fields, may be delegated one review of exactly one
 `candidate=<commit>` that exists in the repository, with no isolation, model or other
 options. A registered project's candidate is reviewed in its own worktree: add exactly one
-`worktree=<absolute path>`, followed by whitespace, naming a clean direct child of a
-registered worktree root whose HEAD is the candidate. The gate records the request digest;
-the orchestrator records the verdict on the Bead. Any other agent type, tool set,
-frontmatter field, option or candidate binding stays blocked.
+`worktree=<absolute path>` token (path characters `A-Za-z0-9._/-`, ended by a space, tab,
+newline or the end of the prompt) naming a clean linked worktree that is a direct child of
+a registered worktree root and whose HEAD is the candidate. Any other `worktree=` form,
+in any case, is refused. Every binding failure refuses, in advisory mode too. The gate
+records the request digest; the orchestrator records the verdict on the Bead. Any other
+agent type, tool set, frontmatter field, option or candidate binding stays blocked.
 
 ## Required Workflow State
 Claude mutations require all of these to align:
