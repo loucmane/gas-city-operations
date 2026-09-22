@@ -73,12 +73,16 @@ shares the seat's `gascity` rig. A direct child of a registered
 `review_projects` (ga-4p6f) is a second optional list with the same record shape and
 the same registry validation. It may not repeat a registered `id` or `worktree_root`.
 A review project's worktrees can only bind an `aegis-reviewer` candidate (see below).
-They are never coordination targets. The gate's and the executor's own code write
-nothing into them. The gate runs only the bounded reviewer Git inspection there.
-That inspection can still start filter drivers defined by the project's own Git
-configuration (the Template configures a required `git-lfs` process filter), and
-such a driver may itself write, for example objects under `.git/lfs`. See Limits. The Template is a review project. Sanctioned Bead reads and ledger-only
-writes for review projects are follow-up ga-2smi.
+They are never coordination targets from this seat. The gate's and the executor's own
+code write nothing into them when invoked here. The workflow plugin's registry still
+lists the Template for its own `begin` and context commands. The gate runs only the
+bounded reviewer Git inspection there. That inspection can still start filter drivers
+defined by Git configuration (the Template's own config sets a required `git-lfs`
+process filter), and such a driver may itself write, for example objects under
+`.git/lfs`. See Limits.
+
+The Template is a review project. Sanctioned Bead reads and ledger-only writes for
+review projects are follow-up ga-2smi.
 
 Both lists are validated whenever the profile loads. A drifted `review_projects`
 record therefore also disables Core coordination and every native approval until it
@@ -176,7 +180,7 @@ An allowed binding is audited as `read_only_registered_reviewer_delegation`.
 **Limits.** `git status` is not an integrity manifest (compare `coordination_runtime.py`). The binding proves the named worktree was at the candidate with nothing Git reports as changed when the gate ran. It does not cover:
 
 - ignored or excluded files, including `.git/info/exclude` and `core.excludesFile`;
-- clean or process filter drivers that the foreign repository's own configuration may run, and that may write, during status. An example is a required `git-lfs` process filter writing objects under `.git/lfs`;
+- clean or process filter drivers that Git configuration may run, and that may write, during status. That includes the foreign repository's config and the user's global and system config, since only `GIT_*` variables are removed. An example is a required `git-lfs` process filter writing objects under `.git/lfs`;
 - uninitialised submodule directories, flags or ignore rules inside submodules, and replace refs inside a populated submodule (Git clears `GIT_NO_REPLACE_OBJECTS` for submodule children);
 - a hook-level timeout: each foreign call is bounded at 10 seconds, but the seven calls together can take about 70 seconds. The seat's own Git reads have no timeout, and the client's handling of a timed-out hook is outside the gate. A binding that did not finish leaves no `read_only_registered_reviewer_delegation` record;
 - tracked symlinks that point outside the worktree;

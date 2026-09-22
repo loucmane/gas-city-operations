@@ -27,6 +27,11 @@ inventory change, not another policy rewrite.
 | `gate/workflow.py` | Task, bead, observation, source-closeout, and current-work authorization |
 | `gate/render.py` | Bounded human and one-line machine output |
 | `gate/readiness.py` | Public readiness façade and CLI argument translation |
+| `gate/repo_structure.py` | Shared repository-structure configuration for workflow scripts |
+| `gate/bead_scaffold.py` | Beads-native scaffold checks for the shared evidence layout |
+| `gate/session_authority.py` | Read-only parity for tracked daily sessions and the logging envelope |
+| `gate/session_transition.py` | Bounded daily-session transaction with surviving before/after images |
+| `gate/session_reconciliation.py` | Exact-plan reconciliation of one stale source-session envelope |
 | `gate/hooks/contracts.py` | Hook payload and policy data contracts |
 | `gate/hooks/payloads.py` | Payload parsing, paths, MCP classification, and apply-patch parsing |
 | `gate/hooks/hard_policy.py` | Non-overridable Git, governance, and synthesis policy |

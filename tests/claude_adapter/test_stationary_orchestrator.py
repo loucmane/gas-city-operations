@@ -921,6 +921,7 @@ def test_reviewer_binds_a_clean_registered_worktree_at_the_candidate(tmp_path, m
         ("relative-path", "at most one exact worktree"),
         ("missing-path", "worktree does not exist"),
         ("case-variant", "at most one exact worktree"),
+        ("kelvin-sign", "at most one exact worktree"),
         ("fullwidth-equals", "at most one exact worktree"),
         ("embedded-mention", "at most one exact worktree"),
         ("unicode-delimiter", "at most one exact worktree"),
@@ -999,6 +1000,9 @@ def test_reviewer_registered_binding_refuses_every_defect(
         prompt = f"Review candidate={candidate} in (worktree={core_target} now."
     elif defect == "case-variant":
         prompt = f"Review candidate={candidate} in Worktree={core_target} now."
+    elif defect == "kelvin-sign":
+        # U+212A folds to "k" under case-insensitive matching: a mention, not a token.
+        prompt = f"Review candidate={candidate} in worKtree={core_target} now."
     elif defect == "fullwidth-equals":
         prompt = f"Review candidate={candidate} in worktree＝{core_target} now."
     elif defect == "embedded-mention":
@@ -1228,33 +1232,46 @@ def test_every_foreign_git_call_carries_the_documented_contract(tmp_path, monkey
     monkeypatch.setattr(reviewer, "subprocess", stub)
     prompt = f"Review candidate={candidate} in worktree={core_target} now."
     assert review(monkeypatch, canonical, prompt) == 0
-    assert len(calls) == 7
-    for argv, kwargs in calls:
-        assert argv[:3] == ["/usr/bin/git", "-C", str(core_target)]
-        assert argv[3:7] == [
-            "--no-replace-objects",
-            "--no-optional-locks",
+    base = [
+        "/usr/bin/git",
+        "-C",
+        str(core_target),
+        "--no-replace-objects",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+    ]
+    head = [*base, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"]
+    # Exact argv per call: Git's last value wins, so any added override must fail.
+    assert [argv for argv, _ in calls] == [
+        [*base, "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        [*base, "rev-parse", "--path-format=absolute", "--git-dir"],
+        [*base, "rev-parse", "--show-toplevel"],
+        head,
+        [*base, "ls-files", "-v", "-z"],
+        [
+            *base,
             "-c",
-            "core.fsmonitor=false",
-        ]
+            "core.checkStat=default",
+            "-c",
+            "core.trustctime=true",
+            "-c",
+            "core.ignoreCase=false",
+            "-c",
+            "core.fileMode=true",
+            "-c",
+            "core.untrackedCache=false",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignore-submodules=none",
+        ],
+        head,
+    ]
+    for _argv, kwargs in calls:
         assert kwargs["timeout"] == 10
         assert kwargs["capture_output"] is True
         assert not [key for key in kwargs["env"] if key.startswith("GIT_")]
-    status = [argv for argv, _ in calls if "status" in argv]
-    assert len(status) == 1
-    for pin in (
-        "core.checkStat=default",
-        "core.trustctime=true",
-        "core.ignoreCase=false",
-        "core.fileMode=true",
-        "core.untrackedCache=false",
-    ):
-        assert pin in status[0][: status[0].index("status")]
-    assert status[0][status[0].index("status") + 1 :] == [
-        "--porcelain=v1",
-        "--untracked-files=all",
-        "--ignore-submodules=none",
-    ]
 
 
 @pytest.mark.parametrize("error", ["timeout", "oserror"])
