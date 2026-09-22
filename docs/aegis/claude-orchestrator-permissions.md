@@ -62,7 +62,10 @@ The profile may carry `registered_projects`: up to sixteen records of `id`,
 `repository`, `canonical_root`, `worktree_root` and `rig`. Each record must agree
 field for field with the tracked canonical registry
 `plugins/gas-city-workflow/config/projects.json`, use absolute symlink-free roots,
-and name roots distinct from the seat's own. A direct child of a registered
+and name roots distinct from the seat's own. A registry record without
+`worktree_root` is compared against the plugin's derived default,
+`<canonical_root>-worktrees` (ga-4p6f). The profile registers the gascity Core rig
+and the Template. A direct child of a registered
 `worktree_root` is then a valid stationary target for `attach`, `checkpoint`,
 `verify`, `coordinate`, `log`, `discharge`, `compact-journal` and `publish`.
 
@@ -103,6 +106,25 @@ from a worker with a closed grammar:
 - a prompt naming exactly one `candidate=<40-hex>` commit that exists in the
   repository, bounded in size, and no `isolation`, `model` or other options; the
   model comes from the tracked definition alone.
+
+A registered project's commits are not in the Operations repository, so the prompt
+may bind the review to that project's worktree (ga-4p6f) with exactly one
+`worktree=<absolute path>` token followed by whitespace or the end of the prompt.
+Any other `worktree=` mention is refused. The gate accepts the binding only when
+the path:
+
+- exists, is a directory and resolves to itself (no symlink indirection);
+- is a direct child of a `worktree_root` in the seat's validated `registered_projects`;
+- is a linked worktree of that record's `canonical_root` and its own top level;
+- has HEAD equal to the candidate; and
+- is clean, with no tracked or untracked changes. The check runs `git status` without
+  optional locks and with the filesystem monitor disabled. Ignored files are outside
+  the candidate.
+
+The reviewer can only read files, so a clean checkout at the exact candidate is what
+makes it review that commit. An allowed binding is audited as
+`read_only_registered_reviewer_delegation`. Without the token the Operations
+behavior above is unchanged.
 
 The gate appends an `allow` decision carrying the request digest; the orchestrator
 records the returned verdict on the Bead with the candidate binding. Malformed

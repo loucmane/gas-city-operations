@@ -82,10 +82,16 @@ def _validate_registered(
         seen_ids.add(entry["id"])
         seen_roots.add(wroot)
         item = by_id.get(entry["id"])
+        # A registry record without worktree_root uses the workflow plugin's derived
+        # default, <canonical>-worktrees (project_context._default_worktree_root).
+        registry_wroot = (item or {}).get("worktree_root")
+        if registry_wroot is None and isinstance((item or {}).get("root"), str):
+            registry_root = Path(item["root"])
+            registry_wroot = str(registry_root.with_name(f"{registry_root.name}-worktrees"))
         if (
             item is None
             or item.get("root") != entry["canonical_root"]
-            or item.get("worktree_root") != entry["worktree_root"]
+            or registry_wroot != entry["worktree_root"]
             or item.get("rig") != entry["rig"]
             or item.get("repository") != entry["repository"]
         ):

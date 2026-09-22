@@ -2,7 +2,7 @@
 
 **Started**: 2026-09-03
 **Status**: ACTIVE
-**Last Updated**: 2026-09-19
+**Last Updated**: 2026-09-22
 
 ## Goals
 - [ ] Repair scoped pre-kickoff inspection and trusted transactional bootstrap without weakening mutation or delegation boundaries
@@ -483,6 +483,12 @@ except d.DelegationPolicyError as exc:
 - **2026-09-19 20:06 CEST** - [S:20260919|W:ga-e0t1-orchestrator-bootstrap|H:codex:ga-e0t1.14-recovery-readonly-followup|E:reports/r5/q/reconciler-readonly-followup.md] Read-only journal follow-up found all five projections unchanged and no refresh attempt; continuity reports preserved ga-tmgr transaction without spec and Obsidian IPC unavailable. Timer scheduling explains epoch advancement but does not establish full restoration PASS. Core 25/28/30-second limits confirmed unchanged; scope decision remains pending.
 - **2026-09-19 20:14 CEST** - [S:20260919|W:ga-e0t1-orchestrator-bootstrap|H:codex:ga-e0t1.14-core-scope-reopened|E:reports/r5/q/core-reopening-authorization.md] Recorded operator reopening of bounded Core timing repair and restoration reconciliation; preserved consumed R5 and required worker/review/adoption boundaries. Full read-only closure equal except one cache directory timestamp pair with unchanged content; independent disposition pending. No source edit, new worker, or lifecycle change.
 - **2026-09-19 20:17 CEST** - [S:20260919|W:ga-e0t1-orchestrator-bootstrap|H:codex:ga-mutg-repair-registered|E:reports/r5/q/core-repair-lane-disposition.md] Created and read back gascity repair ga-mutg open/unassigned/unrouted after duplicate survey. Independent review retained timestamp-only restoration HOLD and confirmed managed-worker admission mismatch; source-only coordinator exception is the explicit next decision. Core scope reopened, no source or runtime change.
+- **2026-09-22 22:25 CEST** - [S:20260922|W:ga-e0t1-orchestrator-bootstrap|H:bash:python3|E:cmd`python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py coordinate --root /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap --bead ga-e0t1 --action depend --blocker ga-4p6f`] Attached ga-4p6f to the ga-e0t1 worktree through the supported coordinate depend, making it a blocking prerequisite of ga-e0t1 after workflow begin refused new work beside the unfinished ga-e0t1 context.
+- **2026-09-22 22:25 CEST** - [S:20260922|W:ga-e0t1-orchestrator-bootstrap|H:claude:ga-4p6f-implementation|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-4p6f/implementation.md] Implemented ga-4p6f. Registered the Template in the orchestrator profile, compared registry records without worktree_root against the plugin derived default, and moved the reviewer grammar into the new reviewer.py with an optional worktree binding that requires a clean registered linked worktree whose HEAD is the candidate. RED 14 failed on the unchanged tree, GREEN 180 passed, complete Operations suite 3444 passed. Refreshed the managed-update goldens, one more installed file per consumer plan.
+- **2026-09-22 22:26** — [S:20260922|W:ga-e0t1-orchestrator-bootstrap|H:shell:date|E:cmd`date "+%Y-%m-%d %H:%M %Z"`] Confirmed current timestamp as `2026-09-22 22:26 CEST`
+- **2026-09-22 22:26** — [S:20260922|W:ga-e0t1-orchestrator-bootstrap|H:scripts/codex-task:sessions-continue|E:sessions/2026/09/2026-09-22-001-ga-e0t1-ga-e0t1-orchestrator-bootstrap.md] Created a fresh daily bead `ga-e0t1` continuation session while reusing the existing ACTIVE work-tracking folder
+- **2026-09-22 22:26** — [S:20260922|W:ga-e0t1-orchestrator-bootstrap|H:plans/current|E:plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md] Reused the existing bead `ga-e0t1` plan for continuation
+- **2026-09-22 22:26** — [S:20260922|W:ga-e0t1-orchestrator-bootstrap|H:sessions/state.json|E:sessions/state.json] Repointed session state to the bead `ga-e0t1` continuation session
 
 ## Review and evidence
 
@@ -559,3 +565,7 @@ https://claude.ai/code/session_019wd4Kor8BRg2QquH2yjFCh'`] Opened pull request 3
 ## Attached Blocking Beads
 
 - `ga-fsfg` — Provider-neutral orchestrator execution profile v2 for the canonical seat
+
+## Attached Blocking Beads
+
+- `ga-4p6f` — Register the Template project and bind reviewer candidates in registered worktrees

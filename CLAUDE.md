@@ -84,8 +84,9 @@ python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.p
 ```
 
 The profile's `registered_projects` records make direct children of another
-registered project's worktree root valid targets too, starting with the gascity Core
-rig under `/home/loucmane/gascity-core-worktrees`; their readiness comes from the
+registered project's worktree root valid targets too: the gascity Core rig under
+`/home/loucmane/gascity-core-worktrees` and the Template under
+`/home/loucmane/gas-city-template-worktrees`; their readiness comes from the
 portable Bead-scaffold checks and their identity from the seat's tracked registry.
 `discharge` resolves one delivery-class pending event (a commit, push or PR
 operation) into the workflow journal without rewriting tracked S:W:H:E files;
@@ -133,9 +134,11 @@ A read-only reviewer is not a worker. The `aegis-reviewer` agent, whose tracked 
 definition in `.claude/agents/` may declare only Read, Grep and Glob and only the name,
 description, tools, model and color fields, may be delegated one review of exactly one
 `candidate=<commit>` that exists in the repository, with no isolation, model or other
-options. The gate records the request digest; the orchestrator records the verdict on the
-Bead. Any other agent type, tool set, frontmatter field, option or candidate binding stays
-blocked.
+options. A registered project's candidate is reviewed in its own worktree: add exactly one
+`worktree=<absolute path>`, followed by whitespace, naming a clean direct child of a
+registered worktree root whose HEAD is the candidate. The gate records the request digest;
+the orchestrator records the verdict on the Bead. Any other agent type, tool set,
+frontmatter field, option or candidate binding stays blocked.
 
 ## Required Workflow State
 Claude mutations require all of these to align:
