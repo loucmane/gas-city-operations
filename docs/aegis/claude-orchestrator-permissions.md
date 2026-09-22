@@ -73,11 +73,11 @@ shares the seat's `gascity` rig. A direct child of a registered
 `review_projects` (ga-4p6f) is a second optional list with the same record shape and
 the same registry validation. It may not repeat a registered `id` or `worktree_root`.
 A review project's worktrees can only bind an `aegis-reviewer` candidate (see below).
-They are never coordination targets. The gate and the executor write nothing into
-them. The gate runs only the bounded reviewer Git inspection there, and that
-inspection can still start filter drivers the project's own Git configuration
-defines (the Template configures a required `git-lfs` process filter), as listed
-under Limits. The Template is a review project. Sanctioned Bead reads and ledger-only
+They are never coordination targets. The gate's and the executor's own code write
+nothing into them. The gate runs only the bounded reviewer Git inspection there.
+That inspection can still start filter drivers defined by the project's own Git
+configuration (the Template configures a required `git-lfs` process filter), and
+such a driver may itself write, for example objects under `.git/lfs`. See Limits. The Template is a review project. Sanctioned Bead reads and ledger-only
 writes for review projects are follow-up ga-2smi.
 
 Both lists are validated whenever the profile loads. A drifted `review_projects`
@@ -152,7 +152,7 @@ prompt may bind the review to that project's worktree (ga-4p6f).
 - The path uses only `A-Za-z0-9._/-`.
 - The path must be followed by a space, tab, newline or the end of the prompt.
 - Every other occurrence of `worktree` followed by an equals sign is refused. This covers any case, any whitespace before the sign, the full-width sign, and the token glued to preceding text such as `(worktree=` or `git_worktree=`. It applies to prompts without a binding too, so a stray `worktree=` in prose now refuses a request that the Operations path used to accept.
-- A spelling with no recognised equals sign (`worktree: /path`, look-alike letters, or look-alike signs such as U+FE66, U+207C or U+208C) is not a binding. Such a request takes the Operations path. Only the audit reason `read_only_registered_reviewer_delegation` proves that a binding was checked, so the orchestrator records that reason with the verdict.
+- A spelling that the mention pattern does not match is not a binding. Examples: no equals sign (`worktree: /path`), look-alike equals signs such as U+FE66, U+207C or U+208C, or look-alike letters that case-insensitive matching does not fold. The Kelvin sign U+212A folds to `k`, so `worKtree=` is a mention and is refused. Such a request takes the Operations path. Only the audit reason `read_only_registered_reviewer_delegation` proves that a binding was checked, so the orchestrator records that reason with the verdict.
 
 **Checks.** The definition checks above run first. The binding is then accepted only when the path:
 
@@ -176,7 +176,7 @@ An allowed binding is audited as `read_only_registered_reviewer_delegation`.
 **Limits.** `git status` is not an integrity manifest (compare `coordination_runtime.py`). The binding proves the named worktree was at the candidate with nothing Git reports as changed when the gate ran. It does not cover:
 
 - ignored or excluded files, including `.git/info/exclude` and `core.excludesFile`;
-- clean or process filter drivers that the foreign repository's own configuration may run during status (for example a required `git-lfs` process filter);
+- clean or process filter drivers that the foreign repository's own configuration may run, and that may write, during status. An example is a required `git-lfs` process filter writing objects under `.git/lfs`;
 - uninitialised submodule directories, flags or ignore rules inside submodules, and replace refs inside a populated submodule (Git clears `GIT_NO_REPLACE_OBJECTS` for submodule children);
 - a hook-level timeout: each foreign call is bounded at 10 seconds, but the seven calls together can take about 70 seconds. The seat's own Git reads have no timeout, and the client's handling of a timed-out hook is outside the gate. A binding that did not finish leaves no `read_only_registered_reviewer_delegation` record;
 - tracked symlinks that point outside the worktree;

@@ -38,6 +38,13 @@ inventory change, not another policy rewrite.
 | `gate/hooks/permission_modes.py` | Explicit plan-mode mutation/delegation refusal before workflow exemptions and degraded allowances |
 | `gate/hooks/tracking.py` | Post-tool, ledger, scope, and capsule event capture |
 | `gate/hooks/lifecycle.py` | Session-start, stop, and configuration-change boundaries |
+| `gate/hooks/loaders.py` | Script directory and ledger/brief helper module loading |
+| `gate/hooks/delegation.py` | Managed-project identity and provider-native delegation policy |
+| `gate/hooks/reviewer.py` | Read-only `aegis-reviewer` grammar and registered-worktree candidate binding |
+| `gate/hooks/orchestrator.py` | Closed, non-executing pre-kickoff command contracts |
+| `gate/hooks/native_permissions.py` | Opt-in command profile, registered and review projects, and native approvals |
+| `gate/hooks/coordination.py` | Stationary seat binding to one explicit workflow target |
+| `gate/hooks/coordination_runtime.py` | Canonical runtime byte verification and registered-target runtime shadows |
 | `gate/hooks/entrypoint.py` | Phase dispatch only |
 
 State readers never mutate. Classifiers do not write evidence. Decision code is

@@ -1204,6 +1204,59 @@ def test_reviewer_binding_ignores_inherited_git_environment(tmp_path, monkeypatc
     assert read_gate_decisions(canonical)[-1]["reason"] == "read_only_registered_reviewer_delegation"
 
 
+def test_every_foreign_git_call_carries_the_documented_contract(tmp_path, monkeypatch):
+    """ga-4p6f: binary, global options, timeout, clean environment and status pins."""
+
+    import subprocess
+    import types
+
+    from aegis_foundation.gate.hooks import reviewer
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "0")
+    calls = []
+
+    def recording(argv, **kwargs):
+        calls.append((list(argv), dict(kwargs)))
+        return subprocess.run(argv, **kwargs)
+
+    stub = types.SimpleNamespace(
+        run=recording,
+        SubprocessError=subprocess.SubprocessError,
+        TimeoutExpired=subprocess.TimeoutExpired,
+    )
+    monkeypatch.setattr(reviewer, "subprocess", stub)
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert len(calls) == 7
+    for argv, kwargs in calls:
+        assert argv[:3] == ["/usr/bin/git", "-C", str(core_target)]
+        assert argv[3:7] == [
+            "--no-replace-objects",
+            "--no-optional-locks",
+            "-c",
+            "core.fsmonitor=false",
+        ]
+        assert kwargs["timeout"] == 10
+        assert kwargs["capture_output"] is True
+        assert not [key for key in kwargs["env"] if key.startswith("GIT_")]
+    status = [argv for argv, _ in calls if "status" in argv]
+    assert len(status) == 1
+    for pin in (
+        "core.checkStat=default",
+        "core.trustctime=true",
+        "core.ignoreCase=false",
+        "core.fileMode=true",
+        "core.untrackedCache=false",
+    ):
+        assert pin in status[0][: status[0].index("status")]
+    assert status[0][status[0].index("status") + 1 :] == [
+        "--porcelain=v1",
+        "--untracked-files=all",
+        "--ignore-submodules=none",
+    ]
+
+
 @pytest.mark.parametrize("error", ["timeout", "oserror"])
 def test_foreign_git_timeout_or_launch_failure_refuses(tmp_path, monkeypatch, capsys, error):
     import subprocess
@@ -1301,6 +1354,9 @@ def test_review_only_project_binds_a_reviewer_but_is_never_coordinated(tmp_path,
         # The registry refuses a second identity for one checkout before the profile
         # overlap check can see it.
         ("same-root-other-id", "Gas City registry identities are not unique"),
+        # Two different checkouts that share one worktree root pass the registry;
+        # only the profile's worktree_root overlap clause refuses them.
+        ("same-worktree-root", "review project duplicates a registered project"),
     ],
 )
 def test_review_projects_may_not_duplicate_registered_projects(
@@ -1316,6 +1372,16 @@ def test_review_projects_may_not_duplicate_registered_projects(
         registry["projects"].append(alias)
         write(canonical / REGISTRY_REL, json.dumps(registry))
         duplicate["id"] = "core-alias"
+    elif overlap == "same-worktree-root":
+        other = tmp_path / "other-checkout"
+        other.mkdir()
+        registry = json.loads((canonical / REGISTRY_REL).read_text())
+        alias = dict(registry["projects"][1], id="core-alias", root=str(other))
+        registry["projects"].append(alias)
+        write(canonical / REGISTRY_REL, json.dumps(registry))
+        duplicate["id"] = "core-alias"
+        duplicate["canonical_root"] = str(other)
+        assert duplicate["worktree_root"] == value["registered_projects"][0]["worktree_root"]
     value["review_projects"] = [duplicate]
     write(canonical / PROFILE, json.dumps(value))
     git(canonical, "add", ".")
