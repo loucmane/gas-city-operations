@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -933,6 +934,11 @@ def test_reviewer_binds_a_clean_registered_worktree_at_the_candidate(tmp_path, m
         ("policy-dirty", "orchestrator-command-profile.json differs from the tracked HEAD bytes"),
         ("replace-ref", "uncommitted or untracked changes"),
         ("oversized-gitdir-link", "not a linked worktree of its registered project"),
+        ("gitdir-fifo", "not a linked worktree of its registered project"),
+        ("gitdir-symlink", "not a linked worktree of its registered project"),
+        ("gitdir-directory", "not a linked worktree of its registered project"),
+        ("worktree-config-elsewhere", "not a linked worktree of its registered project"),
+        ("file-mode-relaxed", "uncommitted or untracked changes"),
         ("spaced-sign", "at most one exact worktree"),
         ("punctuation-prefix", "at most one exact worktree"),
         ("definition-before-binding", "differs from the tracked HEAD bytes"),
@@ -962,6 +968,31 @@ def test_reviewer_registered_binding_refuses_every_defect(
         private = run(["git", "rev-parse", "--path-format=absolute", "--git-dir"], core_target)
         link = Path(private.stdout.strip()) / "gitdir"
         link.write_text(link.read_text() + " " * 5000 + "\n")
+    elif defect in {"gitdir-fifo", "gitdir-symlink", "gitdir-directory"}:
+        private = run(["git", "rev-parse", "--path-format=absolute", "--git-dir"], core_target)
+        link = Path(private.stdout.strip()) / "gitdir"
+        content = link.read_text()
+        link.unlink()
+        if defect == "gitdir-fifo":
+            os.mkfifo(link)
+        elif defect == "gitdir-symlink":
+            # A symlink to a file holding the right link is still refused.
+            real = tmp_path / "gitdir-copy"
+            real.write_text(content)
+            link.symlink_to(real)
+        else:
+            link.mkdir()
+    elif defect == "worktree-config-elsewhere":
+        elsewhere = tmp_path / "elsewhere-tree"
+        elsewhere.mkdir()
+        git(core, "config", "extensions.worktreeConfig", "true")
+        git(core_target, "config", "--worktree", "core.worktree", str(elsewhere))
+    elif defect == "file-mode-relaxed":
+        # The repository disables mode tracking; the pinned fileMode=true still sees it.
+        tracked = run(["git", "ls-files"], core_target).stdout.split()[0]
+        git(core, "config", "core.fileMode", "false")
+        (core_target / tracked).chmod(0o755)
+        assert run(["git", "status", "--porcelain"], core_target).stdout == ""
     elif defect == "spaced-sign":
         prompt = f"Review candidate={candidate} in worktree = {core_target} now."
     elif defect == "punctuation-prefix":
@@ -1139,6 +1170,68 @@ def test_degraded_delegation_rule_leaves_unmanaged_projects_unchanged(tmp_path, 
     assert (canonical / AEGIS_DEGRADED_EVENTS_REL).exists()
 
 
+def test_reviewer_binding_rechecks_head_after_status(tmp_path, monkeypatch, capsys):
+    """ga-4p6f: a HEAD move while the worktree is inspected is refused."""
+
+    from aegis_foundation.gate.hooks import reviewer
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    inspect = reviewer._foreign_git
+
+    def moving(target, *args):
+        output = inspect(target, *args)
+        if "status" in args:
+            write(core_target / "moved.txt", "moved\n")
+            git(core_target, "add", "moved.txt")
+            git(core_target, "commit", "-qm", "moved during inspection")
+        return output
+
+    monkeypatch.setattr(reviewer, "_foreign_git", moving)
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert "HEAD is not the candidate commit" in capsys.readouterr().err
+
+
+def test_reviewer_binding_ignores_inherited_git_environment(tmp_path, monkeypatch):
+    """ga-4p6f: GIT_* variables from the hook's environment never reach foreign Git."""
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    # Only the foreign index reads would honour this; seat reads never use an index.
+    monkeypatch.setenv("GIT_INDEX_FILE", str(tmp_path / "no-such-index"))
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert read_gate_decisions(canonical)[-1]["reason"] == "read_only_registered_reviewer_delegation"
+
+
+@pytest.mark.parametrize("error", ["timeout", "oserror"])
+def test_foreign_git_timeout_or_launch_failure_refuses(tmp_path, monkeypatch, capsys, error):
+    import subprocess
+    import types
+
+    from aegis_foundation.gate.hooks import reviewer
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+
+    def failing(*_args, **_kwargs):
+        if error == "timeout":
+            raise subprocess.TimeoutExpired(cmd="git", timeout=reviewer.FOREIGN_GIT_TIMEOUT)
+        raise OSError("git cannot start")
+
+    # Replace only the reviewer module's subprocess binding; the seat's own Git reads
+    # in delegation.py keep the real module.
+    stub = types.SimpleNamespace(
+        run=failing,
+        SubprocessError=subprocess.SubprocessError,
+        TimeoutExpired=subprocess.TimeoutExpired,
+    )
+    monkeypatch.setattr(reviewer, "subprocess", stub)
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert "reviewer worktree Git inspection failed" in capsys.readouterr().err
+
+
 def test_reviewer_binding_never_runs_a_repository_filesystem_monitor(tmp_path, monkeypatch):
     """ga-4p6f: a core.fsmonitor program configured by the foreign repository never runs."""
 
@@ -1196,18 +1289,53 @@ def test_review_only_project_binds_a_reviewer_but_is_never_coordinated(tmp_path,
     assert refused.returncode == 2
     assert "coordination target must be a direct registered linked worktree" in refused.stderr
     assert '"permissionDecision": "allow"' not in refused.stdout
+    # Neither the reviewer allow nor the coordination refusal wrote into the worktree.
+    assert read_gate_decisions(core_target) == []
+    assert not (core_target / ".aegis").exists()
 
 
-def test_review_projects_may_not_duplicate_registered_projects(tmp_path, monkeypatch, capsys):
-    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+@pytest.mark.parametrize(
+    "overlap,detail",
+    [
+        ("same-record", "review project duplicates a registered project"),
+        # The registry refuses a second identity for one checkout before the profile
+        # overlap check can see it.
+        ("same-root-other-id", "Gas City registry identities are not unique"),
+    ],
+)
+def test_review_projects_may_not_duplicate_registered_projects(
+    tmp_path, monkeypatch, capsys, overlap, detail
+):
+    canonical, core, core_target, candidate = reviewer_fixture(tmp_path)
     value = json.loads((canonical / PROFILE).read_text())
-    value["review_projects"] = list(value["registered_projects"])
+    duplicate = dict(value["registered_projects"][0])
+    if overlap == "same-root-other-id":
+        # A second registry record for the same checkout under another id.
+        registry = json.loads((canonical / REGISTRY_REL).read_text())
+        alias = dict(registry["projects"][1], id="core-alias")
+        registry["projects"].append(alias)
+        write(canonical / REGISTRY_REL, json.dumps(registry))
+        duplicate["id"] = "core-alias"
+    value["review_projects"] = [duplicate]
     write(canonical / PROFILE, json.dumps(value))
-    git(canonical, "commit", "-qam", "duplicate review project")
+    git(canonical, "add", ".")
+    git(canonical, "commit", "-qm", "duplicate review project")
     capsys.readouterr()
     prompt = f"Review candidate={candidate} in worktree={core_target} now."
     assert review(monkeypatch, canonical, prompt) == 2
-    assert "review project duplicates a registered project" in capsys.readouterr().err
+    assert detail in capsys.readouterr().err
+
+
+def test_review_project_record_must_agree_with_the_registry(tmp_path, monkeypatch, capsys):
+    canonical, _, core_target, candidate = review_only_fixture(tmp_path)
+    value = json.loads((canonical / PROFILE).read_text())
+    value["review_projects"][0]["rig"] = "other"
+    write(canonical / PROFILE, json.dumps(value))
+    git(canonical, "commit", "-qam", "review record drifts from the registry")
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert "registered project disagrees with the canonical registry" in capsys.readouterr().err
 
 
 def test_mcp_tool_named_agent_is_never_a_reviewer(tmp_path, monkeypatch):
@@ -1231,3 +1359,5 @@ def test_mcp_tool_named_agent_is_never_a_reviewer(tmp_path, monkeypatch):
     }
     assert pretooluse_gate_with_degraded_fallback(json.dumps(payload)) == 2
     assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
+    # It is treated as ordinary worker delegation, not as a malformed reviewer.
+    assert read_gate_decisions(canonical)[-1]["reason"] == "native_delegation_requires_gas_city"

@@ -56,7 +56,7 @@ ledger; raw commands/content and free-form readiness output are not copied into 
 new denial records. Failure to record a denial never makes the operation permissible.
 
 Hook success alone is not Claude-native command approval. Operations explicitly
-opts into the three-class command profile documented in
+opts into the four-class command profile documented in
 `docs/aegis/claude-orchestrator-permissions.md`. Only the exact scoped context,
 Beads reads, canonical `workflow.py begin` and, with the `workflow-coordinate` opt-in
 below, the stationary coordination verbs receive audited native approvals after all

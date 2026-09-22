@@ -64,16 +64,25 @@ field for field with the tracked canonical registry
 `plugins/gas-city-workflow/config/projects.json`, use absolute symlink-free roots,
 and name roots distinct from the seat's own. A registry record without
 `worktree_root` is compared against the plugin's derived default,
-`<canonical_root>-worktrees` (ga-4p6f). The profile registers only the gascity Core
-rig, which shares the seat's `gascity` rig. A direct child of a registered
+`<canonical_root>-worktrees` (ga-4p6f); this applies to both lists, so a registered
+record may rely on it too. The profile registers only the gascity Core rig, which
+shares the seat's `gascity` rig. A direct child of a registered
 `worktree_root` is then a valid stationary target for `attach`, `checkpoint`,
 `verify`, `coordinate`, `log`, `discharge`, `compact-journal` and `publish`.
 
 `review_projects` (ga-4p6f) is a second optional list with the same record shape and
 the same registry validation. It may not repeat a registered `id` or `worktree_root`.
 A review project's worktrees can only bind an `aegis-reviewer` candidate (see below).
-They are never coordination targets, so the gate and the executor never write or run
-anything in them. The Template is a review project.
+They are never coordination targets. The gate and the executor write nothing into
+them. The gate runs only the bounded reviewer Git inspection there, and that
+inspection can still start filter drivers the project's own Git configuration
+defines (the Template configures a required `git-lfs` process filter), as listed
+under Limits. The Template is a review project. Sanctioned Bead reads and ledger-only
+writes for review projects are follow-up ga-2smi.
+
+Both lists are validated whenever the profile loads. A drifted `review_projects`
+record therefore also disables Core coordination and every native approval until it
+is fixed. This fails closed.
 
 A registered target carries no Operations policy or runtime of its own, so the
 checks differ from an Operations worktree in three ways and nowhere else:
@@ -84,9 +93,13 @@ checks differ from an Operations worktree in three ways and nowhere else:
   city and the registered canonical root, exactly as the plugin wrote it;
 - the canonical executor is verified as before, and the target must carry no
   Operations runtime tree, installed runtime or Python startup hook that could
-  shadow it. Since ga-4p6f the target may also carry no path of the canonical runtime
-  inventory (`scripts`, `aegis_foundation`, `.claude/scripts` and
-  `plugins/gas-city-workflow/scripts`). That covers `scripts/codex-task` and
+  shadow it. `aegis_foundation`, `plugins/gas-city-workflow` and `.claude/scripts`
+  are refused as whole trees. Since ga-4p6f the target may also carry no file of the
+  canonical runtime inventory, which lists every file tracked at the canonical HEAD
+  under `scripts`, `aegis_foundation`, `.claude/scripts` and
+  `plugins/gas-city-workflow/scripts`. Under `scripts/` this is file by file; the
+  Core rig's own unrelated `scripts/` files stay allowed. That covers
+  `scripts/codex-task` and
   `scripts/codex-guard`, which `workflow.py checkpoint`, `verify` and `finish` would
   otherwise run from the target, and `scripts/_source_workflow_state.py`, which the
   installer would execute during a stationary `log`;
@@ -102,8 +115,9 @@ coordinating a strict target records `advisory_coordination_no_native_approval`
 on that target. The seat receives no native approval either way, so Claude's
 ordinary permissions decide. Observation state still refuses.
 
-**Known gaps for registered coordination (pre-existing since R2, follow-up Beads).**
-These are why the Template is review-only rather than registered:
+**Known gaps for registered coordination (pre-existing since R2, follow-up ga-vomb).**
+These are why the Template is review-only rather than registered. The `codex-task`
+part of the fix is Codex-owned:
 
 - The gate appends its decision record under the target root, and the executor's
   plan sync writes `<target>/.plan_state/sync.log`. Both follow a symlink the target
@@ -138,7 +152,7 @@ prompt may bind the review to that project's worktree (ga-4p6f).
 - The path uses only `A-Za-z0-9._/-`.
 - The path must be followed by a space, tab, newline or the end of the prompt.
 - Every other occurrence of `worktree` followed by an equals sign is refused. This covers any case, any whitespace before the sign, the full-width sign, and the token glued to preceding text such as `(worktree=` or `git_worktree=`. It applies to prompts without a binding too, so a stray `worktree=` in prose now refuses a request that the Operations path used to accept.
-- A spelling with no equals sign at all (`worktree: /path`, look-alike letters) is not a binding. Such a request takes the Operations path. Only the audit reason `read_only_registered_reviewer_delegation` proves that a binding was checked, so the orchestrator records that reason with the verdict.
+- A spelling with no recognised equals sign (`worktree: /path`, look-alike letters, or look-alike signs such as U+FE66, U+207C or U+208C) is not a binding. Such a request takes the Operations path. Only the audit reason `read_only_registered_reviewer_delegation` proves that a binding was checked, so the orchestrator records that reason with the verdict.
 
 **Checks.** The definition checks above run first. The binding is then accepted only when the path:
 
@@ -164,13 +178,19 @@ An allowed binding is audited as `read_only_registered_reviewer_delegation`.
 - ignored or excluded files, including `.git/info/exclude` and `core.excludesFile`;
 - clean or process filter drivers that the foreign repository's own configuration may run during status (for example a required `git-lfs` process filter);
 - uninitialised submodule directories, flags or ignore rules inside submodules, and replace refs inside a populated submodule (Git clears `GIT_NO_REPLACE_OBJECTS` for submodule children);
-- a hook-level timeout: each foreign call is bounded at 10 seconds, but the six calls together can take up to a minute, and the client's handling of a timed-out hook is outside the gate. A binding that did not finish leaves no `read_only_registered_reviewer_delegation` record;
+- a hook-level timeout: each foreign call is bounded at 10 seconds, but the seven calls together can take about 70 seconds. The seat's own Git reads have no timeout, and the client's handling of a timed-out hook is outside the gate. A binding that did not finish leaves no `read_only_registered_reviewer_delegation` record;
 - tracked symlinks that point outside the worktree;
 - untracked files inside directories Git cannot read, and nested `.git` directories below the top level;
 - an index whose stat data was forged to match modified files;
 - changes made after the check.
 
 The binding also does not confine what the reviewer reads. A prompt can still direct it to other paths, which is why the orchestrator records the audit reason with the verdict. The reviewer is still read-only in every case.
+
+**Known gap in the definition check (pre-existing since ga-fsfg, follow-up ga-sv7v, P1).**
+
+- The frontmatter check splits lines with Python `splitlines()`, which also splits on Unicode line separators, and reads `key: value` pairs naively. A YAML parser could read the same bytes differently, for example with no `tools` key at all.
+- The definition is bound to the HEAD of the gate's project root, not to the canonical copy.
+- Another agent definition declaring the same name could shadow it.
 
 The gate appends an `allow` decision carrying the request digest; the orchestrator
 records the returned verdict on the Bead with the candidate binding. Malformed
