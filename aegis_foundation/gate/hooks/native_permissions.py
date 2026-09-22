@@ -32,8 +32,10 @@ SCHEMA = "aegis.claude-orchestrator-command-profile.v1"
 COMMANDS = frozenset({"project-context", "beads-read", "workflow-begin", "workflow-coordinate"})
 KEYS = {"schema", "project_id", "canonical_root", "worktree_root", "city", "rig", "commands"}
 # ga-fsfg R2: optional registered projects whose direct-child worktrees the seat may
-# coordinate. Each record must agree with the tracked canonical registry.
-OPTIONAL_KEYS = {"registered_projects"}
+# coordinate. ga-4p6f: optional review projects whose direct-child worktrees may only
+# bind an aegis-reviewer candidate; they grant no coordination. Each record must agree
+# with the tracked canonical registry, and the two lists may not overlap.
+OPTIONAL_KEYS = {"registered_projects", "review_projects"}
 # An advisory seat coordinating a strict target leaves this record on the target.
 ADVISORY_COORDINATION_REASON = "advisory_coordination_no_native_approval"
 REGISTERED_KEYS = {"id", "repository", "canonical_root", "worktree_root", "rig"}
@@ -165,10 +167,17 @@ def _profile(root: Path) -> dict[str, Any] | None:
     )
     if descriptor.get("rig") != value["rig"]:
         raise ValueError("command-profile rig differs from the managed descriptor")
-    if "registered_projects" in value:
-        value["registered_projects"] = _validate_registered(
-            value["registered_projects"], canonical, worktrees
-        )
+    for key in ("registered_projects", "review_projects"):
+        if key in value:
+            value[key] = _validate_registered(value[key], canonical, worktrees)
+    registered = value.get("registered_projects", [])
+    ids = {entry["id"] for entry in registered}
+    roots = {entry["worktree_root"] for entry in registered}
+    if any(
+        entry["id"] in ids or entry["worktree_root"] in roots
+        for entry in value.get("review_projects", [])
+    ):
+        raise ValueError("review project duplicates a registered project")
     return value
 
 

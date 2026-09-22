@@ -13,7 +13,9 @@
       "canonical_root": "/home/loucmane/gascity/city/rigs/gascity",
       "worktree_root": "/home/loucmane/gascity-core-worktrees",
       "rig": "gascity"
-    },
+    }
+  ],
+  "review_projects": [
     {
       "id": "gas-city-template",
       "repository": "loucmane/gas-city-template",

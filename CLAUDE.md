@@ -58,8 +58,9 @@ new denial records. Failure to record a denial never makes the operation permiss
 Hook success alone is not Claude-native command approval. Operations explicitly
 opts into the three-class command profile documented in
 `docs/aegis/claude-orchestrator-permissions.md`. Only the exact scoped context,
-Beads reads and canonical `workflow.py begin` receive audited native approvals
-after all applicable strict checks. No broad Bash allowlist, file-write grant,
+Beads reads, canonical `workflow.py begin` and, with the `workflow-coordinate` opt-in
+below, the stationary coordination verbs receive audited native approvals after all
+applicable strict checks. No broad Bash allowlist, file-write grant,
 plan-mode mutation, signing or lifecycle authority follows from this profile.
 
 ### Stationary canonical-root orchestration
@@ -84,10 +85,11 @@ python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.p
 ```
 
 The profile's `registered_projects` records make direct children of another
-registered project's worktree root valid targets too: the gascity Core rig under
-`/home/loucmane/gascity-core-worktrees` and the Template under
-`/home/loucmane/gas-city-template-worktrees`; their readiness comes from the
+registered project's worktree root valid targets too, currently only the gascity Core
+rig under `/home/loucmane/gascity-core-worktrees`; their readiness comes from the
 portable Bead-scaffold checks and their identity from the seat's tracked registry.
+`review_projects` records (the Template under `/home/loucmane/gas-city-template-worktrees`)
+only let the reviewer bind a candidate; they are never coordination targets.
 `discharge` resolves one delivery-class pending event (a commit, push or PR
 operation) into the workflow journal without rewriting tracked S:W:H:E files;
 every other mutation still needs `log`. `compact-journal` moves verified Bead
@@ -110,12 +112,11 @@ The two `log` forms are mutually exclusive. Use `--pending-id` only with the exa
 12-character lowercase hexadecimal ID reported by the selected target; stationary
 coordination deliberately rejects `current` and `latest` sentinels. Readiness and
 pending tracking belong to the selected target; decision records
-retain the original request digest and session identity. Both canonical and target
-observation/advisory states refuse this opt-in. Use target `log` to clear target
-tracking. Coordinating a registered project's worktree writes that project's own rig
-(the Template's is `gas-city-template`). No general raw `bd` mutation approval, other
-cross-rig grant, source edit, dispatch, signing, publication, lifecycle, or plan-mode
-exemption is added.
+retain the original request digest and session identity. Observation state at the seat
+or target refuses this opt-in; an advisory seat or target still validates and audits
+the request but receives no native approval. Use target `log` to clear target
+tracking. No general raw `bd` mutation approval, cross-rig grant, source edit,
+dispatch, signing, publication, lifecycle, or plan-mode exemption is added.
 
 The target's executable workflow helpers must match reviewed canonical bytes.
 Ordinary candidate source edits are permitted, but edited workflow executors cannot
@@ -136,11 +137,12 @@ A read-only reviewer is not a worker. The `aegis-reviewer` agent, whose tracked 
 definition in `.claude/agents/` may declare only Read, Grep and Glob and only the name,
 description, tools, model and color fields, may be delegated one review of exactly one
 `candidate=<commit>` that exists in the repository, with no isolation, model or other
-options. A registered project's candidate is reviewed in its own worktree: add exactly one
-standalone `worktree=<absolute path>` token (at the start of the prompt or after
-whitespace; path characters `A-Za-z0-9._/-`; ended by a space, tab, newline or the end of
-the prompt) naming a clean linked worktree that is a direct child of a registered worktree
-root and whose HEAD is the candidate. Any other `worktree=` form, in any case, is refused.
+options, requested through Claude's own `Agent` tool. A registered or review-only
+project's candidate is reviewed in its own worktree: add exactly one standalone
+`worktree=<absolute path>` token (at the start of the prompt or after whitespace; path
+characters `A-Za-z0-9._/-`; ended by a space, tab, newline or the end of the prompt)
+naming a clean linked worktree that is a direct child of a registered or review-only
+worktree root and whose HEAD is the candidate. Any other `worktree=` form, in any case, is refused.
 Every binding failure refuses, in advisory mode too. Only the audit reason
 `read_only_registered_reviewer_delegation` proves a binding was checked, so record it with
 the verdict. The gate records the request digest; the orchestrator records the verdict on

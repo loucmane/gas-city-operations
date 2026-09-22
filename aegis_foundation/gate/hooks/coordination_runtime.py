@@ -200,7 +200,11 @@ def reviewed_registered_target(target: Path, canonical: Path) -> None:
     _source_only_loading()
     algorithm, manifest = _manifest(canonical)
     _verify(canonical, algorithm, manifest)
-    for relative in FOREIGN_RUNTIME_SHADOWS:
+    # ga-4p6f: besides the named shadows, a registered target may carry no path of
+    # the canonical runtime inventory at all. The executor loads some of those by
+    # relative path from its target (for example scripts/_source_workflow_state.py),
+    # and neither registered repository tracks any of them.
+    for relative in (*FOREIGN_RUNTIME_SHADOWS, *manifest):
         path = target / relative
         if path.exists() or path.is_symlink():
             raise ValueError("registered target must not carry an Operations runtime tree")

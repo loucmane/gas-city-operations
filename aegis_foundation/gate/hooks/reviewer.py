@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+import stat
 import subprocess
 from pathlib import Path
 
@@ -109,7 +110,11 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
         raise DelegationPolicyError(
             REVIEWER_REASON, f"reviewer registered-project policy is invalid: {exc}"
         ) from exc
-    entries = (profile or {}).get("registered_projects") or []
+    # Registered projects (coordination and review) and review-only projects.
+    entries = [
+        *((profile or {}).get("registered_projects") or []),
+        *((profile or {}).get("review_projects") or []),
+    ]
     target = Path(raw)
     # The pure path comparison runs first, so no unregistered location is touched.
     entry = next(
@@ -135,29 +140,18 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
     )
     top = Path(_foreign_git(target, "rev-parse", "--show-toplevel").strip())
     # A linked worktree's private Git directory sits under <common>/worktrees and
-    # its gitdir file links back to exactly this worktree's .git file.
-    link = git_dir / "gitdir"
-    linked = ""
-    if link.is_file():
-        with link.open("rb") as stream:
-            raw_link = stream.read(MAX_GITDIR_LINK_BYTES + 1)
-        if len(raw_link) <= MAX_GITDIR_LINK_BYTES:
-            linked = raw_link.decode("utf-8", errors="replace").strip()
+    # its gitdir file links back to exactly this worktree's .git file. The pure path
+    # comparisons run before the link file is opened.
     if (
         common != Path(entry["canonical_root"]) / ".git"
         or top != target
         or git_dir.parent != common / "worktrees"
-        or not linked
-        or Path(linked) != target / ".git"
+        or _gitdir_link(git_dir / "gitdir") != target / ".git"
     ):
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree is not a linked worktree of its registered project"
         )
-    head = _foreign_git(target, "rev-parse", "--verify", "--quiet", "HEAD^{commit}").strip()
-    if head != candidate:
-        raise DelegationPolicyError(
-            REVIEWER_REASON, "reviewer worktree HEAD is not the candidate commit"
-        )
+    _require_candidate_head(target, candidate)
     # Index entries flagged assume-unchanged (lowercase tag) or skip-worktree (S)
     # would let modified files hide from status.
     flagged = [
@@ -169,8 +163,8 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree hides index entries from status"
         )
-    # Stat comparison is pinned to Git's defaults so repository configuration cannot
-    # relax change detection.
+    # Change detection is pinned to Git's defaults so repository configuration cannot
+    # relax it.
     status = _foreign_git(
         target,
         "-c",
@@ -179,6 +173,10 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
         "core.trustctime=true",
         "-c",
         "core.ignoreCase=false",
+        "-c",
+        "core.fileMode=true",
+        "-c",
+        "core.untrackedCache=false",
         "status",
         "--porcelain=v1",
         "--untracked-files=all",
@@ -188,6 +186,34 @@ def _verify_registered_review_worktree(project: ManagedProject, raw: str, candid
         raise DelegationPolicyError(
             REVIEWER_REASON, "reviewer worktree has uncommitted or untracked changes"
         )
+    # HEAD is checked again so a move during the inspection cannot pass.
+    _require_candidate_head(target, candidate)
+
+
+def _require_candidate_head(target: Path, candidate: str) -> None:
+    head = _foreign_git(target, "rev-parse", "--verify", "--quiet", "HEAD^{commit}").strip()
+    if head != candidate:
+        raise DelegationPolicyError(
+            REVIEWER_REASON, "reviewer worktree HEAD is not the candidate commit"
+        )
+
+
+def _gitdir_link(link: Path) -> Path | None:
+    """Read a worktree's gitdir back-link: a bounded regular file, never a FIFO or symlink."""
+
+    try:
+        fd = os.open(link, os.O_RDONLY | os.O_NONBLOCK | os.O_NOFOLLOW)
+    except OSError:
+        return None
+    try:
+        if not stat.S_ISREG(os.fstat(fd).st_mode):
+            return None
+        raw_link = os.read(fd, MAX_GITDIR_LINK_BYTES + 1)
+    finally:
+        os.close(fd)
+    if not raw_link or len(raw_link) > MAX_GITDIR_LINK_BYTES:
+        return None
+    return Path(raw_link.decode("utf-8", errors="replace").strip())
 
 
 def _registered_review_worktree(project: ManagedProject, raw: str, candidate: str) -> None:
@@ -227,7 +253,14 @@ def _reviewer_delegation(
 
     tool_input = payload.tool_input if isinstance(payload.tool_input, dict) else {}
     agent_type = tool_input.get("subagent_type")
-    if adapter != "claude" or normalized_tool != "agent" or agent_type not in REVIEWER_AGENT_TYPES:
+    # Only Claude's own Agent tool qualifies; an MCP tool whose name merely normalizes
+    # to "agent" (mcp__<server>__agent) stays under Gas City routing.
+    if (
+        adapter != "claude"
+        or normalized_tool != "agent"
+        or payload.tool_name != "Agent"
+        or agent_type not in REVIEWER_AGENT_TYPES
+    ):
         return None
     extra = sorted(set(tool_input) - REVIEWER_INPUT_KEYS)
     if extra:

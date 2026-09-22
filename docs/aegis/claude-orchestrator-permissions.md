@@ -21,8 +21,8 @@ Operations enables four command classes, using closed grammars:
   discharge/compact-journal/publish`, targeting one explicit registered linked worktree
   with verified journal/ownership. See the stationary-orchestration examples in `CLAUDE.md`.
   Its narrow ledger actions are note append, unassigned/unrouted P2 child creation, and
-  dependency plus transactional attach. It does not approve raw Beads mutations. Its only
-  cross-rig reach is the registered projects' own rigs (see Registered projects below).
+  dependency plus transactional attach. It does not approve raw Beads mutations or
+  cross-rig work.
 
 ## Remote observation and journal-bound discharge (ga-fsfg R1)
 
@@ -64,13 +64,16 @@ field for field with the tracked canonical registry
 `plugins/gas-city-workflow/config/projects.json`, use absolute symlink-free roots,
 and name roots distinct from the seat's own. A registry record without
 `worktree_root` is compared against the plugin's derived default,
-`<canonical_root>-worktrees` (ga-4p6f). The profile registers the gascity Core rig
-and the Template. A direct child of a registered
+`<canonical_root>-worktrees` (ga-4p6f). The profile registers only the gascity Core
+rig, which shares the seat's `gascity` rig. A direct child of a registered
 `worktree_root` is then a valid stationary target for `attach`, `checkpoint`,
 `verify`, `coordinate`, `log`, `discharge`, `compact-journal` and `publish`.
-Coordinating a registered target writes that project's own rig. For the Template
-that is `gas-city-template`, a different Beads store from the seat's `gascity`
-rig. Registration grants no other command class and no other rig.
+
+`review_projects` (ga-4p6f) is a second optional list with the same record shape and
+the same registry validation. It may not repeat a registered `id` or `worktree_root`.
+A review project's worktrees can only bind an `aegis-reviewer` candidate (see below).
+They are never coordination targets, so the gate and the executor never write or run
+anything in them. The Template is a review project.
 
 A registered target carries no Operations policy or runtime of its own, so the
 checks differ from an Operations worktree in three ways and nowhere else:
@@ -81,9 +84,12 @@ checks differ from an Operations worktree in three ways and nowhere else:
   city and the registered canonical root, exactly as the plugin wrote it;
 - the canonical executor is verified as before, and the target must carry no
   Operations runtime tree, installed runtime or Python startup hook that could
-  shadow it. Since ga-4p6f this also forbids `scripts/codex-task` and
+  shadow it. Since ga-4p6f the target may also carry no path of the canonical runtime
+  inventory (`scripts`, `aegis_foundation`, `.claude/scripts` and
+  `plugins/gas-city-workflow/scripts`). That covers `scripts/codex-task` and
   `scripts/codex-guard`, which `workflow.py checkpoint`, `verify` and `finish` would
-  otherwise run from the target;
+  otherwise run from the target, and `scripts/_source_workflow_state.py`, which the
+  installer would execute during a stationary `log`;
 - readiness uses the portable Bead-scaffold checks the plugin applies to
   registered projects, resolved through the target's own repository layout,
   because the generic readiness recognizes Bead identity only inside an Aegis
@@ -96,13 +102,25 @@ coordinating a strict target records `advisory_coordination_no_native_approval`
 on that target. The seat receives no native approval either way, so Claude's
 ordinary permissions decide. Observation state still refuses.
 
+**Known gaps for registered coordination (pre-existing since R2, follow-up Beads).**
+These are why the Template is review-only rather than registered:
+
+- The gate appends its decision record under the target root, and the executor's
+  plan sync writes `<target>/.plan_state/sync.log`. Both follow a symlink the target
+  tracks at those paths.
+- The executor's Git calls use the registered repository's own configuration, for
+  example filters during `diff --check` and `status`, and `gpg.program` during
+  `publish`'s `verify-commit`.
+
 ## Read-only reviewer delegation (ga-fsfg)
 
 Independent review used to require a human-run reviewer because the managed-project
 delegation rule blocked every `Agent` request. The rule now distinguishes a reviewer
 from a worker with a closed grammar:
 
-- the Claude `Agent` tool with `subagent_type` in the allowlist (`aegis-reviewer`);
+- Claude's own `Agent` tool (the exact tool name, so an MCP tool whose name merely
+  normalizes to `agent` does not qualify) with `subagent_type` in the allowlist
+  (`aegis-reviewer`);
 - the agent definition `.claude/agents/<type>.md` tracked at HEAD, byte-identical to the
   working tree, named for its type, carrying only the `name`, `description`, `tools`,
   `model` and `color` frontmatter fields (no `hooks`, `permissionMode`, `mcpServers`
@@ -112,8 +130,8 @@ from a worker with a closed grammar:
   repository, bounded in size, and no `isolation`, `model` or other options; the
   model comes from the tracked definition alone.
 
-A registered project's commits are not in the Operations repository, so the prompt
-may bind the review to that project's worktree (ga-4p6f).
+A registered or review project's commits are not in the Operations repository, so the
+prompt may bind the review to that project's worktree (ga-4p6f).
 
 **Token grammar.**
 - The token is exactly one `worktree=<absolute path>`, standing alone: it starts the prompt or follows whitespace.
@@ -124,20 +142,20 @@ may bind the review to that project's worktree (ga-4p6f).
 
 **Checks.** The definition checks above run first. The binding is then accepted only when the path:
 
-- is a direct child of a `worktree_root` in the seat's validated `registered_projects`. This is a pure path comparison, made before the path is touched;
+- is a direct child of a `worktree_root` in the seat's validated `registered_projects` or `review_projects`. This is a pure path comparison, made before the path is touched;
 - exists, is a directory and resolves to itself (no symlink indirection);
 - is that record's linked worktree:
   - its Git common directory is `<canonical_root>/.git`;
   - its private Git directory sits under `<canonical_root>/.git/worktrees/`;
-  - that directory's `gitdir` file, read with a 4096-byte bound, links back to exactly `<path>/.git`. Worktrees that record relative paths (`worktree.useRelativePaths`) are therefore refused;
   - it is its own top level;
-- has HEAD equal to the candidate;
+  - that directory's `gitdir` file links back to exactly `<path>/.git`. The file is opened only after the path checks above, with `O_NONBLOCK|O_NOFOLLOW`; it must be a regular file of at most 4096 bytes. Worktrees that record relative paths (`worktree.useRelativePaths`) are therefore refused;
+- has HEAD equal to the candidate, checked both before and after the status call;
 - has no index entry flagged assume-unchanged or skip-worktree; and
-- shows no tracked, untracked or submodule changes to `git status`. The status call pins `core.checkStat=default`, `core.trustctime=true` and `core.ignoreCase=false`, and passes `--ignore-submodules=none`.
+- shows no tracked, untracked or submodule changes to `git status`. The status call pins `core.checkStat=default`, `core.trustctime=true`, `core.ignoreCase=false`, `core.fileMode=true` and `core.untrackedCache=false`, and passes `--ignore-submodules=none`.
 
 Every foreign Git call (against the named worktree) uses `/usr/bin/git` with a 10 second timeout, `--no-replace-objects`, `--no-optional-locks` and `core.fsmonitor=false`. Inherited `GIT_*` variables are dropped, and output is decoded without raising. A replace ref therefore cannot make HEAD name the candidate while Git reads a different tree. The seat's own reads (the profile and the reviewer definition) still use `delegation._git` against the trusted Operations checkout.
 
-**Failure handling.** Every failure refuses, including unexpected ones: a symlink loop, undecodable output, a timeout, a missing or broken `reviewer.py`. No failure reaches the degraded fallback. A refusal raised inside the profile loader keeps that loader's own reason code, such as `claude_command_profile_invalid`. Independently, the degraded fallback hard-blocks provider-native delegation in a managed project before anything else can fail, as it does coordination. A project whose context cannot be resolved counts as managed.
+**Failure handling.** Every failure refuses, including unexpected ones: a symlink loop, undecodable output, a timeout, a missing or broken `reviewer.py`. No failure reaches the degraded fallback. A policy refusal raised inside the profile loader keeps that loader's own reason code, such as `claude_command_profile_invalid` for a profile whose bytes differ from HEAD. A `ValueError` or `OSError` from the loader is refused as `native_delegation_reviewer_invalid`. Independently, the degraded fallback hard-blocks provider-native delegation in a managed project before anything else can fail, as it does coordination. A project whose context cannot be resolved counts as managed.
 
 An allowed binding is audited as `read_only_registered_reviewer_delegation`.
 
@@ -145,7 +163,8 @@ An allowed binding is audited as `read_only_registered_reviewer_delegation`.
 
 - ignored or excluded files, including `.git/info/exclude` and `core.excludesFile`;
 - clean or process filter drivers that the foreign repository's own configuration may run during status (for example a required `git-lfs` process filter);
-- uninitialised submodule directories, and flags or ignore rules inside submodules;
+- uninitialised submodule directories, flags or ignore rules inside submodules, and replace refs inside a populated submodule (Git clears `GIT_NO_REPLACE_OBJECTS` for submodule children);
+- a hook-level timeout: each foreign call is bounded at 10 seconds, but the six calls together can take up to a minute, and the client's handling of a timed-out hook is outside the gate. A binding that did not finish leaves no `read_only_registered_reviewer_delegation` record;
 - tracked symlinks that point outside the worktree;
 - untracked files inside directories Git cannot read, and nested `.git` directories below the top level;
 - an index whose stat data was forged to match modified files;

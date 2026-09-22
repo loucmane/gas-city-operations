@@ -653,6 +653,7 @@ def test_registered_target_with_layout_override_is_coordinated(tmp_path):
         "startup-hook",
         "target-codex-task",
         "target-codex-guard",
+        "target-runtime-inventory",
         "observation",
     ],
 )
@@ -685,6 +686,13 @@ def test_registered_target_must_be_fully_bound(tmp_path, defect):
         write(core_target / "scripts/codex-task", "#!/usr/bin/env python3\n")
     elif defect == "target-codex-guard":
         write(core_target / "scripts/codex-guard", "#!/usr/bin/env python3\n")
+    elif defect == "target-runtime-inventory":
+        # A canonical runtime file outside the named shadows: the installer would
+        # exec a target's scripts/_source_workflow_state.py during a stationary log.
+        write(canonical / "scripts/_source_workflow_state.py", "# reviewed runtime\n")
+        git(canonical, "add", "scripts/_source_workflow_state.py")
+        git(canonical, "commit", "-qm", "runtime module")
+        write(core_target / "scripts/_source_workflow_state.py", "# target-supplied\n")
     else:
         write(
             core_target / ".aegis/state/current-work.json",
@@ -693,6 +701,14 @@ def test_registered_target_must_be_fully_bound(tmp_path, defect):
     result = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, core_target)))
     assert result.returncode == 2
     assert '"permissionDecision": "allow"' not in result.stdout
+    if defect in {
+        "runtime-shadow",
+        "startup-hook",
+        "target-codex-task",
+        "target-codex-guard",
+        "target-runtime-inventory",
+    }:
+        assert "registered target must not carry an Operations runtime tree" in result.stderr
 
 
 def test_registered_target_readiness_uses_portable_scaffold_checks(tmp_path):
@@ -916,6 +932,7 @@ def test_reviewer_binds_a_clean_registered_worktree_at_the_candidate(tmp_path, m
         ("policy-invalid", "registered-project policy is invalid"),
         ("policy-dirty", "orchestrator-command-profile.json differs from the tracked HEAD bytes"),
         ("replace-ref", "uncommitted or untracked changes"),
+        ("oversized-gitdir-link", "not a linked worktree of its registered project"),
         ("spaced-sign", "at most one exact worktree"),
         ("punctuation-prefix", "at most one exact worktree"),
         ("definition-before-binding", "differs from the tracked HEAD bytes"),
@@ -940,6 +957,11 @@ def test_reviewer_registered_binding_refuses_every_defect(
         git(core_target, "reset", "-q", "--soft", candidate)
         assert run(["git", "rev-parse", "HEAD"], core_target).stdout.strip() == candidate
         assert run(["git", "status", "--porcelain"], core_target).stdout == ""
+    elif defect == "oversized-gitdir-link":
+        # Trailing whitespace past the bound; stripped, the link would still match.
+        private = run(["git", "rev-parse", "--path-format=absolute", "--git-dir"], core_target)
+        link = Path(private.stdout.strip()) / "gitdir"
+        link.write_text(link.read_text() + " " * 5000 + "\n")
     elif defect == "spaced-sign":
         prompt = f"Review candidate={candidate} in worktree = {core_target} now."
     elif defect == "punctuation-prefix":
@@ -1036,6 +1058,9 @@ def test_reviewer_registered_binding_refuses_every_defect(
     assert detail in capsys.readouterr().err
     assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
     assert not (canonical / AEGIS_DEGRADED_EVENTS_REL).exists()
+    if defect == "policy-dirty":
+        # A refusal raised inside the profile loader keeps that loader's reason code.
+        assert read_gate_decisions(canonical)[-1]["reason"] == "claude_command_profile_invalid"
 
 
 @pytest.mark.parametrize("mode", ["strict", "advisory"])
@@ -1047,6 +1072,7 @@ def test_reviewer_registered_binding_refuses_every_defect(
         "binding-raises",
         "evaluation-raises",
         "evaluation-and-context-raise",
+        "evaluation-raises-coordination-broken",
     ],
 )
 def test_delegation_failures_never_degrade_into_an_allow(
@@ -1076,6 +1102,11 @@ def test_delegation_failures_never_degrade_into_an_allow(
         detail = "reviewer worktree binding could not be verified: RuntimeError"
     elif failure == "evaluation-raises":
         monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+        detail = "provider-native delegation cannot use degraded approval"
+    elif failure == "evaluation-raises-coordination-broken":
+        # The delegation block must run before the fallback imports coordination.
+        monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+        monkeypatch.setitem(sys.modules, "aegis_foundation.gate.hooks.coordination", None)
         detail = "provider-native delegation cannot use degraded approval"
     else:
         monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
@@ -1133,9 +1164,70 @@ def test_tracked_profile_registrations_agree_with_the_tracked_registry():
 
     root = Path(__file__).resolve().parents[2]
     value = json.loads((root / PROFILE).read_text())
-    validated = _validate_registered(
+    registered = _validate_registered(
         value["registered_projects"], root, Path(value["worktree_root"])
     )
-    assert [entry["id"] for entry in validated] == ["gas-city", "gas-city-template"]
-    template = validated[1]
-    assert template["worktree_root"] == template["canonical_root"] + "-worktrees"
+    review = _validate_registered(value["review_projects"], root, Path(value["worktree_root"]))
+    # Core may be coordinated and reviewed; the Template is review-only.
+    assert [entry["id"] for entry in registered] == ["gas-city"]
+    assert [entry["id"] for entry in review] == ["gas-city-template"]
+    assert review[0]["worktree_root"] == review[0]["canonical_root"] + "-worktrees"
+
+
+def review_only_fixture(tmp_path):
+    """The Core fixture project moved from registered_projects to review_projects."""
+
+    canonical, core, core_target, candidate = reviewer_fixture(tmp_path)
+    value = json.loads((canonical / PROFILE).read_text())
+    value["review_projects"] = value.pop("registered_projects")
+    write(canonical / PROFILE, json.dumps(value))
+    git(canonical, "commit", "-qam", "review-only project")
+    return canonical, core, core_target, candidate
+
+
+def test_review_only_project_binds_a_reviewer_but_is_never_coordinated(tmp_path, monkeypatch):
+    """ga-4p6f: a review-only project grants the reviewer binding and nothing else."""
+
+    canonical, _, core_target, candidate = review_only_fixture(tmp_path)
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert read_gate_decisions(canonical)[-1]["reason"] == "read_only_registered_reviewer_delegation"
+    refused = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, core_target, "verify")))
+    assert refused.returncode == 2
+    assert "coordination target must be a direct registered linked worktree" in refused.stderr
+    assert '"permissionDecision": "allow"' not in refused.stdout
+
+
+def test_review_projects_may_not_duplicate_registered_projects(tmp_path, monkeypatch, capsys):
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    value = json.loads((canonical / PROFILE).read_text())
+    value["review_projects"] = list(value["registered_projects"])
+    write(canonical / PROFILE, json.dumps(value))
+    git(canonical, "commit", "-qam", "duplicate review project")
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert "review project duplicates a registered project" in capsys.readouterr().err
+
+
+def test_mcp_tool_named_agent_is_never_a_reviewer(tmp_path, monkeypatch):
+    """ga-4p6f: only Claude's own Agent tool qualifies as the reviewer."""
+
+    from aegis_foundation.gate.hooks.pretool import pretooluse_gate_with_degraded_fallback
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(canonical))
+    monkeypatch.setenv("AEGIS_INVOKING_AGENT", "claude")
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "session_id": "synthetic",
+        "cwd": str(canonical),
+        "tool_name": "mcp__lookalike__agent",
+        "tool_input": {
+            "description": "Independent review",
+            "prompt": f"Review candidate={candidate} in worktree={core_target} now.",
+            "subagent_type": "aegis-reviewer",
+        },
+    }
+    assert pretooluse_gate_with_degraded_fallback(json.dumps(payload)) == 2
+    assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
