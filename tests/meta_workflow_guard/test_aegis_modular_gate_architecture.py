@@ -57,6 +57,7 @@ def test_modular_gate_inventory_and_size_budget() -> None:
         "payloads.py",
         "permission_modes.py",
         "pretool.py",
+        "reviewer.py",
         "runtime_state.py",
         "shell_policy.py",
         "tracking.py",

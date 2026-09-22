@@ -14,10 +14,10 @@
         "creates": 0,
         "manual_reviews": 0,
         "modifies": 2,
-        "skips": 73
+        "skips": 74
       },
       "kind": "known_stale_update",
-      "operations_sha256": "17561c85d4c39e6dece0a59695f6bbea6d69a6426e9ebfd44f363c9a7ee3d91e",
+      "operations_sha256": "fe0a39d8d62d5a4621cbba5f84c4aa8f9a245529fdb8ce29e4a458768088109c",
       "primary_agent": "multi",
       "stale_content": "# known old Blog ledger\n",
       "stale_path": ".claude/scripts/ledger_lib.py"
@@ -32,13 +32,13 @@
       },
       "expected_summary": {
         "conflicts": 0,
-        "creates": 71,
+        "creates": 72,
         "manual_reviews": 0,
         "modifies": 2,
         "skips": 0
       },
       "kind": "fresh_install",
-      "operations_sha256": "a0bd934714fbd8f1c2d4047cacc253d78365d3ae03e197b0da80e50b26ec0037",
+      "operations_sha256": "67f406565eb95c209b3835dce9a52fbc65c7bad5bf0fb794453947cfa149e032",
       "primary_agent": "codex"
     },
     "hp-fetcher": {
@@ -54,10 +54,10 @@
         "creates": 0,
         "manual_reviews": 0,
         "modifies": 2,
-        "skips": 63
+        "skips": 64
       },
       "kind": "known_stale_update",
-      "operations_sha256": "d271e2035803f0145041c91cd0a2961281ab9bf60ed1cdb922a0e0a8885ac24a",
+      "operations_sha256": "4db50bda73562e2614fe387781204190825386a5f415315c2c002eafc2e76ea1",
       "primary_agent": "claude",
       "stale_content": "# known old HP-Fetcher gate\n",
       "stale_path": ".claude/scripts/gate_lib.py"

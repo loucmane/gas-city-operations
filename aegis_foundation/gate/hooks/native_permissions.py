@@ -32,8 +32,10 @@ SCHEMA = "aegis.claude-orchestrator-command-profile.v1"
 COMMANDS = frozenset({"project-context", "beads-read", "workflow-begin", "workflow-coordinate"})
 KEYS = {"schema", "project_id", "canonical_root", "worktree_root", "city", "rig", "commands"}
 # ga-fsfg R2: optional registered projects whose direct-child worktrees the seat may
-# coordinate. Each record must agree with the tracked canonical registry.
-OPTIONAL_KEYS = {"registered_projects"}
+# coordinate. ga-4p6f: optional review projects whose direct-child worktrees may only
+# bind an aegis-reviewer candidate; they grant no coordination. Each record must agree
+# with the tracked canonical registry, and the two lists may not overlap.
+OPTIONAL_KEYS = {"registered_projects", "review_projects"}
 # An advisory seat coordinating a strict target leaves this record on the target.
 ADVISORY_COORDINATION_REASON = "advisory_coordination_no_native_approval"
 REGISTERED_KEYS = {"id", "repository", "canonical_root", "worktree_root", "rig"}
@@ -82,10 +84,16 @@ def _validate_registered(
         seen_ids.add(entry["id"])
         seen_roots.add(wroot)
         item = by_id.get(entry["id"])
+        # A registry record without worktree_root uses the workflow plugin's derived
+        # default, <canonical>-worktrees (project_context._default_worktree_root).
+        registry_wroot = (item or {}).get("worktree_root")
+        if registry_wroot is None and isinstance((item or {}).get("root"), str):
+            registry_root = Path(item["root"])
+            registry_wroot = str(registry_root.with_name(f"{registry_root.name}-worktrees"))
         if (
             item is None
             or item.get("root") != entry["canonical_root"]
-            or item.get("worktree_root") != entry["worktree_root"]
+            or registry_wroot != entry["worktree_root"]
             or item.get("rig") != entry["rig"]
             or item.get("repository") != entry["repository"]
         ):
@@ -159,10 +167,17 @@ def _profile(root: Path) -> dict[str, Any] | None:
     )
     if descriptor.get("rig") != value["rig"]:
         raise ValueError("command-profile rig differs from the managed descriptor")
-    if "registered_projects" in value:
-        value["registered_projects"] = _validate_registered(
-            value["registered_projects"], canonical, worktrees
-        )
+    for key in ("registered_projects", "review_projects"):
+        if key in value:
+            value[key] = _validate_registered(value[key], canonical, worktrees)
+    registered = value.get("registered_projects", [])
+    ids = {entry["id"] for entry in registered}
+    roots = {entry["worktree_root"] for entry in registered}
+    if any(
+        entry["id"] in ids or entry["worktree_root"] in roots
+        for entry in value.get("review_projects", [])
+    ):
+        raise ValueError("review project duplicates a registered project")
     return value
 
 

@@ -14,5 +14,14 @@
       "worktree_root": "/home/loucmane/gascity-core-worktrees",
       "rig": "gascity"
     }
+  ],
+  "review_projects": [
+    {
+      "id": "gas-city-template",
+      "repository": "loucmane/gas-city-template",
+      "canonical_root": "/home/loucmane/gas-city-template",
+      "worktree_root": "/home/loucmane/gas-city-template-worktrees",
+      "rig": "gas-city-template"
+    }
   ]
 }

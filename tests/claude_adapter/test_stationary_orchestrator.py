@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 
 import pytest
 
+from aegis_foundation.gate.hooks.contracts import AEGIS_DEGRADED_EVENTS_REL
 from test_native_command_profile import PROFILE, WORKFLOW_REL, event, git, profile
 from test_pretooluse_gates import PRETOOLUSE, read_gate_decisions, run, run_gate, write
 from test_readiness_gate import make_bead_source_repo
@@ -650,6 +652,9 @@ def test_registered_target_with_layout_override_is_coordinated(tmp_path):
         "journal-identity",
         "runtime-shadow",
         "startup-hook",
+        "target-codex-task",
+        "target-codex-guard",
+        "target-runtime-inventory",
         "observation",
     ],
 )
@@ -677,6 +682,18 @@ def test_registered_target_must_be_fully_bound(tmp_path, defect):
         write(core_target / "aegis_foundation/gate/hooks/pretool.py", "# shadow\n")
     elif defect == "startup-hook":
         write(core_target / "sitecustomize.py", "import os\n")
+    elif defect == "target-codex-task":
+        # ga-4p6f: the canonical executor would run this target file on checkpoint.
+        write(core_target / "scripts/codex-task", "#!/usr/bin/env python3\n")
+    elif defect == "target-codex-guard":
+        write(core_target / "scripts/codex-guard", "#!/usr/bin/env python3\n")
+    elif defect == "target-runtime-inventory":
+        # A canonical runtime file outside the named shadows: the installer would
+        # exec a target's scripts/_source_workflow_state.py during a stationary log.
+        write(canonical / "scripts/_source_workflow_state.py", "# reviewed runtime\n")
+        git(canonical, "add", "scripts/_source_workflow_state.py")
+        git(canonical, "commit", "-qm", "runtime module")
+        write(core_target / "scripts/_source_workflow_state.py", "# target-supplied\n")
     else:
         write(
             core_target / ".aegis/state/current-work.json",
@@ -685,6 +702,14 @@ def test_registered_target_must_be_fully_bound(tmp_path, defect):
     result = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, core_target)))
     assert result.returncode == 2
     assert '"permissionDecision": "allow"' not in result.stdout
+    if defect in {
+        "runtime-shadow",
+        "startup-hook",
+        "target-codex-task",
+        "target-codex-guard",
+        "target-runtime-inventory",
+    }:
+        assert "registered target must not carry an Operations runtime tree" in result.stderr
 
 
 def test_registered_target_readiness_uses_portable_scaffold_checks(tmp_path):
@@ -796,3 +821,626 @@ def test_exact_pending_id_discharge_mirrors_log_target_semantics(tmp_path):
     assert run_gate(POSTTOOLUSE, canonical, request).returncode == 0
     assert not (canonical / ".aegis/state/pending-tracking.json").exists()
     assert not (target / ".aegis/state/pending-tracking.json").exists()
+
+
+def test_registry_record_without_worktree_root_uses_the_derived_default(tmp_path):
+    """ga-4p6f: the profile cross-check mirrors the plugin's <canonical>-worktrees default."""
+
+    canonical, _, core, core_target, _ = registered_fixture(tmp_path)
+    registry = json.loads((canonical / REGISTRY_REL).read_text())
+    del registry["projects"][1]["worktree_root"]
+    write(canonical / REGISTRY_REL, json.dumps(registry))
+    git(canonical, "commit", "-qam", "derive core worktree root")
+    derived = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, core_target, "verify")))
+    assert derived.returncode == 0, derived.stderr
+    assert json.loads(derived.stdout)["hookSpecificOutput"]["permissionDecision"] == "allow"
+
+    elsewhere = tmp_path / "elsewhere-worktrees" / "ga-core-beads-first-guidance"
+    git(core, "worktree", "add", "-qb", "codex/ga-core-elsewhere", str(elsewhere), "main")
+    value = json.loads((canonical / PROFILE).read_text())
+    value["registered_projects"][0]["worktree_root"] = str(elsewhere.parent)
+    write(canonical / PROFILE, json.dumps(value))
+    git(canonical, "commit", "-qam", "profile names a non-derived root")
+    refused = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, elsewhere, "verify")))
+    assert refused.returncode == 2
+    assert "registered project disagrees with the canonical registry" in refused.stderr
+    assert '"permissionDecision": "allow"' not in refused.stdout
+
+
+REVIEWER_DEFINITION = (
+    "---\nname: aegis-reviewer\n"
+    "description: Read-only independent reviewer for one frozen Gas City Bead candidate.\n"
+    "tools: Read, Grep, Glob\nmodel: opus\n---\n\nReview the candidate and report a verdict.\n"
+)
+
+
+def reviewer_fixture(tmp_path):
+    canonical, _, core, core_target, _ = registered_fixture(tmp_path)
+    write(canonical / ".claude/agents/aegis-reviewer.md", REVIEWER_DEFINITION)
+    git(canonical, "add", ".")
+    git(canonical, "commit", "-qm", "reviewer")
+    candidate = run(["git", "rev-parse", "HEAD"], core_target).stdout.strip()
+    assert run(["git", "status", "--porcelain"], core_target).stdout == ""
+    return canonical, core, core_target, candidate
+
+
+def review(monkeypatch, canonical, prompt):
+    """Evaluate one reviewer request through the production entry point.
+
+    The degraded fallback is included so an unexpected exception can never pass as a
+    refusal in these tests while the live hook would allow it.
+    """
+
+    from aegis_foundation.gate.hooks.pretool import (
+        pretooluse_gate_with_degraded_fallback as pretooluse_gate,
+    )
+
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(canonical))
+    monkeypatch.setenv("AEGIS_INVOKING_AGENT", "claude")
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "session_id": "synthetic",
+        "cwd": str(canonical),
+        "tool_name": "Agent",
+        "tool_input": {
+            "description": "Independent review",
+            "prompt": prompt,
+            "subagent_type": "aegis-reviewer",
+        },
+    }
+    return pretooluse_gate(json.dumps(payload))
+
+
+def test_reviewer_binds_a_clean_registered_worktree_at_the_candidate(tmp_path, monkeypatch):
+    """ga-4p6f: a registered-project candidate is reviewable in its own clean worktree."""
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    prompt = f"Review candidate={candidate} in worktree={core_target} and report a verdict."
+    assert review(monkeypatch, canonical, prompt) == 0
+    record = read_gate_decisions(canonical)[-1]
+    assert record["verdict"] == "allow"
+    assert record["reason"] == "read_only_registered_reviewer_delegation"
+    # The same commit without the binding is not in the Operations repository.
+    assert review(monkeypatch, canonical, f"Review candidate={candidate} and report.") == 2
+
+
+@pytest.mark.parametrize(
+    "defect,detail",
+    [
+        ("head-mismatch", "HEAD is not the candidate commit"),
+        ("tracked-change", "uncommitted or untracked changes"),
+        ("untracked-file", "uncommitted or untracked changes"),
+        ("unregistered-parent", "not a direct child of a registered worktree root"),
+        ("symlinked-path", "exact absolute directory"),
+        ("canonical-root", "not a direct child of a registered worktree root"),
+        ("nested-path", "not a direct child of a registered worktree root"),
+        ("foreign-repository", "not a linked worktree of its registered project"),
+        ("two-worktrees", "at most one exact worktree"),
+        # A trailing period is part of the path token, naming a different directory.
+        ("trailing-punctuation", "worktree does not exist"),
+        ("relative-path", "at most one exact worktree"),
+        ("missing-path", "worktree does not exist"),
+        ("case-variant", "at most one exact worktree"),
+        ("kelvin-sign", "at most one exact worktree"),
+        ("fullwidth-equals", "at most one exact worktree"),
+        ("embedded-mention", "at most one exact worktree"),
+        ("unicode-delimiter", "at most one exact worktree"),
+        ("symlink-loop", "worktree does not exist"),
+        ("not-a-worktree", "Git inspection failed"),
+        ("undecodable-gitdir", "Git inspection failed"),
+        ("borrowed-index", "not a linked worktree of its registered project"),
+        ("assume-unchanged", "hides index entries from status"),
+        ("skip-worktree", "hides index entries from status"),
+        ("policy-invalid", "registered-project policy is invalid"),
+        ("policy-dirty", "orchestrator-command-profile.json differs from the tracked HEAD bytes"),
+        ("replace-ref", "uncommitted or untracked changes"),
+        ("oversized-gitdir-link", "not a linked worktree of its registered project"),
+        ("gitdir-fifo", "not a linked worktree of its registered project"),
+        ("gitdir-symlink", "not a linked worktree of its registered project"),
+        ("gitdir-directory", "not a linked worktree of its registered project"),
+        ("worktree-config-elsewhere", "not a linked worktree of its registered project"),
+        ("file-mode-relaxed", "uncommitted or untracked changes"),
+        ("spaced-sign", "at most one exact worktree"),
+        ("punctuation-prefix", "at most one exact worktree"),
+        ("definition-before-binding", "differs from the tracked HEAD bytes"),
+    ],
+)
+@pytest.mark.parametrize("mode", ["strict", "advisory"])
+def test_reviewer_registered_binding_refuses_every_defect(
+    tmp_path, monkeypatch, capsys, defect, detail, mode
+):
+    canonical, core, core_target, candidate = reviewer_fixture(tmp_path)
+    if mode == "advisory":
+        write(canonical / ".aegis/state/enforcement.json", '{"mode":"advisory"}')
+    worktree = str(core_target)
+    prompt = None
+    if defect == "replace-ref":
+        # HEAD stays the candidate while a replace ref makes Git read another tree.
+        write(core_target / "planted.txt", "not the candidate\n")
+        git(core_target, "add", "planted.txt")
+        git(core_target, "commit", "-qm", "replacement")
+        replacement = run(["git", "rev-parse", "HEAD"], core_target).stdout.strip()
+        git(core_target, "replace", candidate, replacement)
+        git(core_target, "reset", "-q", "--soft", candidate)
+        assert run(["git", "rev-parse", "HEAD"], core_target).stdout.strip() == candidate
+        assert run(["git", "status", "--porcelain"], core_target).stdout == ""
+    elif defect == "oversized-gitdir-link":
+        # Trailing whitespace past the bound; stripped, the link would still match.
+        private = run(["git", "rev-parse", "--path-format=absolute", "--git-dir"], core_target)
+        link = Path(private.stdout.strip()) / "gitdir"
+        link.write_text(link.read_text() + " " * 5000 + "\n")
+    elif defect in {"gitdir-fifo", "gitdir-symlink", "gitdir-directory"}:
+        private = run(["git", "rev-parse", "--path-format=absolute", "--git-dir"], core_target)
+        link = Path(private.stdout.strip()) / "gitdir"
+        content = link.read_text()
+        link.unlink()
+        if defect == "gitdir-fifo":
+            os.mkfifo(link)
+        elif defect == "gitdir-symlink":
+            # A symlink to a file holding the right link is still refused.
+            real = tmp_path / "gitdir-copy"
+            real.write_text(content)
+            link.symlink_to(real)
+        else:
+            link.mkdir()
+    elif defect == "worktree-config-elsewhere":
+        elsewhere = tmp_path / "elsewhere-tree"
+        elsewhere.mkdir()
+        git(core, "config", "extensions.worktreeConfig", "true")
+        git(core_target, "config", "--worktree", "core.worktree", str(elsewhere))
+    elif defect == "file-mode-relaxed":
+        # The repository disables mode tracking; the pinned fileMode=true still sees it.
+        tracked = run(["git", "ls-files"], core_target).stdout.split()[0]
+        git(core, "config", "core.fileMode", "false")
+        (core_target / tracked).chmod(0o755)
+        assert run(["git", "status", "--porcelain"], core_target).stdout == ""
+    elif defect == "spaced-sign":
+        prompt = f"Review candidate={candidate} in worktree = {core_target} now."
+    elif defect == "punctuation-prefix":
+        prompt = f"Review candidate={candidate} in (worktree={core_target} now."
+    elif defect == "case-variant":
+        prompt = f"Review candidate={candidate} in Worktree={core_target} now."
+    elif defect == "kelvin-sign":
+        # U+212A folds to "k" under case-insensitive matching: a mention, not a token.
+        prompt = f"Review candidate={candidate} in worKtree={core_target} now."
+    elif defect == "fullwidth-equals":
+        prompt = f"Review candidate={candidate} in worktree＝{core_target} now."
+    elif defect == "embedded-mention":
+        prompt = f"Review candidate={candidate} with git_worktree={core_target} now."
+    elif defect == "unicode-delimiter":
+        prompt = f"Review candidate={candidate} in worktree={core_target}\x1f/../other now."
+    elif defect == "symlink-loop":
+        loop = core_target.parent / "loop"
+        loop.symlink_to(loop)
+        worktree = str(loop)
+    elif defect == "not-a-worktree":
+        plain = core_target.parent / "plain"
+        plain.mkdir()
+        worktree = str(plain)
+    elif defect == "undecodable-gitdir":
+        odd = core_target.parent / "odd"
+        odd.mkdir()
+        (odd / ".git").write_bytes(b"gitdir: /tmp/\xff\n")
+        worktree = str(odd)
+    elif defect == "borrowed-index":
+        borrowed = core_target.parent / "borrowed"
+        borrowed.mkdir()
+        private = run(["git", "rev-parse", "--path-format=absolute", "--git-dir"], core_target)
+        (borrowed / ".git").write_text(f"gitdir: {private.stdout.strip()}\n")
+        for name in run(["git", "ls-files"], core_target).stdout.split():
+            source = core_target / name
+            (borrowed / name).parent.mkdir(parents=True, exist_ok=True)
+            (borrowed / name).write_bytes(source.read_bytes())
+        worktree = str(borrowed)
+    elif defect in {"assume-unchanged", "skip-worktree"}:
+        tracked = run(["git", "ls-files"], core_target).stdout.split()[0]
+        flag = "--assume-unchanged" if defect == "assume-unchanged" else "--skip-worktree"
+        git(core_target, "update-index", flag, tracked)
+        write(core_target / tracked, "hidden change\n")
+        assert run(["git", "status", "--porcelain"], core_target).stdout == ""
+    elif defect == "policy-invalid":
+        value = json.loads((canonical / PROFILE).read_text())
+        value["registered_projects"][0]["extra"] = "field"
+        write(canonical / PROFILE, json.dumps(value))
+        git(canonical, "commit", "-qam", "invalid registered record")
+    elif defect == "policy-dirty":
+        value = json.loads((canonical / PROFILE).read_text())
+        value["registered_projects"][0]["rig"] = "uncommitted"
+        write(canonical / PROFILE, json.dumps(value))
+    elif defect == "definition-before-binding":
+        write(canonical / ".claude/agents/aegis-reviewer.md", REVIEWER_DEFINITION + "\nExtra.\n")
+        worktree = str(core_target.parent / "ga-missing-beads-first-guidance")
+    elif defect == "head-mismatch":
+        write(core_target / "later.txt", "later\n")
+        git(core_target, "add", "later.txt")
+        git(core_target, "commit", "-qm", "later")
+    elif defect == "tracked-change":
+        tracked = run(["git", "ls-files"], core_target).stdout.split()[0]
+        write(core_target / tracked, "changed\n")
+    elif defect == "untracked-file":
+        write(core_target / "stray.txt", "stray\n")
+    elif defect == "unregistered-parent":
+        stray = tmp_path / "stray-worktrees" / "ga-core-beads-first-guidance"
+        git(core, "worktree", "add", "-q", "--detach", str(stray), candidate)
+        worktree = str(stray)
+    elif defect == "symlinked-path":
+        alias = core_target.parent / "alias"
+        alias.symlink_to(core_target)
+        worktree = str(alias)
+    elif defect == "canonical-root":
+        worktree = str(core)
+    elif defect == "nested-path":
+        nested = core_target / "docs"
+        nested.mkdir(exist_ok=True)
+        worktree = str(nested)
+    elif defect == "foreign-repository":
+        foreign = core_target.parent / "ga-foreign-beads-first-guidance"
+        git(canonical, "worktree", "add", "-q", "--detach", str(foreign), "HEAD")
+        candidate = run(["git", "rev-parse", "HEAD"], foreign).stdout.strip()
+        worktree = str(foreign)
+    elif defect == "two-worktrees":
+        prompt = f"Review candidate={candidate} in worktree={core_target} and worktree={core_target} now."
+    elif defect == "trailing-punctuation":
+        prompt = f"Review candidate={candidate} in worktree={core_target}."
+    elif defect == "relative-path":
+        prompt = f"Review candidate={candidate} in worktree=core-project/ga-core now."
+    elif defect == "missing-path":
+        worktree = str(core_target.parent / "ga-missing-beads-first-guidance")
+    if prompt is None:
+        prompt = f"Review candidate={candidate} in worktree={worktree} and report a verdict."
+    capsys.readouterr()
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert detail in capsys.readouterr().err
+    assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
+    assert not (canonical / AEGIS_DEGRADED_EVENTS_REL).exists()
+    if defect == "policy-dirty":
+        # A refusal raised inside the profile loader keeps that loader's reason code.
+        assert read_gate_decisions(canonical)[-1]["reason"] == "claude_command_profile_invalid"
+
+
+@pytest.mark.parametrize("mode", ["strict", "advisory"])
+@pytest.mark.parametrize(
+    "failure",
+    [
+        "reviewer-raises",
+        "reviewer-missing",
+        "binding-raises",
+        "evaluation-raises",
+        "evaluation-and-context-raise",
+        "evaluation-raises-coordination-broken",
+    ],
+)
+def test_delegation_failures_never_degrade_into_an_allow(
+    tmp_path, monkeypatch, capsys, failure, mode
+):
+    """ga-4p6f: an unexpected reviewer or delegation failure refuses in every mode."""
+
+    import sys
+
+    from aegis_foundation.gate.hooks import pretool, reviewer
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    if mode == "advisory":
+        write(canonical / ".aegis/state/enforcement.json", '{"mode":"advisory"}')
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("synthetic infrastructure failure")
+
+    if failure == "reviewer-raises":
+        monkeypatch.setattr(reviewer, "_reviewer_delegation", explode)
+        detail = "reviewer evaluation failed: RuntimeError"
+    elif failure == "reviewer-missing":
+        monkeypatch.setitem(sys.modules, "aegis_foundation.gate.hooks.reviewer", None)
+        detail = "reviewer evaluation failed"
+    elif failure == "binding-raises":
+        monkeypatch.setattr(reviewer, "_foreign_git", explode)
+        detail = "reviewer worktree binding could not be verified: RuntimeError"
+    elif failure == "evaluation-raises":
+        monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+        detail = "provider-native delegation cannot use degraded approval"
+    elif failure == "evaluation-raises-coordination-broken":
+        # The delegation block must run before the fallback imports coordination.
+        monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+        monkeypatch.setitem(sys.modules, "aegis_foundation.gate.hooks.coordination", None)
+        detail = "provider-native delegation cannot use degraded approval"
+    else:
+        monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+        monkeypatch.setattr(pretool, "resolve_managed_project", explode)
+        detail = "provider-native delegation cannot use degraded approval"
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert detail in capsys.readouterr().err
+    assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
+    assert not (canonical / AEGIS_DEGRADED_EVENTS_REL).exists()
+
+
+def test_degraded_delegation_rule_leaves_unmanaged_projects_unchanged(tmp_path, monkeypatch):
+    """ga-4p6f: the degraded delegation block applies only to managed projects."""
+
+    from aegis_foundation.gate.hooks import pretool
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    write(canonical / ".aegis/state/enforcement.json", '{"mode":"advisory"}')
+
+    def explode(*_args, **_kwargs):
+        raise RuntimeError("synthetic infrastructure failure")
+
+    monkeypatch.setattr(pretool, "evaluate_native_delegation", explode)
+    monkeypatch.setattr(pretool, "resolve_managed_project", lambda _root: None)
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    # An unmanaged project keeps the pre-existing advisory degraded allow.
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert (canonical / AEGIS_DEGRADED_EVENTS_REL).exists()
+
+
+def test_reviewer_binding_rechecks_head_after_status(tmp_path, monkeypatch, capsys):
+    """ga-4p6f: a HEAD move while the worktree is inspected is refused."""
+
+    from aegis_foundation.gate.hooks import reviewer
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    inspect = reviewer._foreign_git
+
+    def moving(target, *args):
+        output = inspect(target, *args)
+        if "status" in args:
+            write(core_target / "moved.txt", "moved\n")
+            git(core_target, "add", "moved.txt")
+            git(core_target, "commit", "-qm", "moved during inspection")
+        return output
+
+    monkeypatch.setattr(reviewer, "_foreign_git", moving)
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert "HEAD is not the candidate commit" in capsys.readouterr().err
+
+
+def test_reviewer_binding_ignores_inherited_git_environment(tmp_path, monkeypatch):
+    """ga-4p6f: GIT_* variables from the hook's environment never reach foreign Git."""
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    # Only the foreign index reads would honour this; seat reads never use an index.
+    monkeypatch.setenv("GIT_INDEX_FILE", str(tmp_path / "no-such-index"))
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert read_gate_decisions(canonical)[-1]["reason"] == "read_only_registered_reviewer_delegation"
+
+
+def test_every_foreign_git_call_carries_the_documented_contract(tmp_path, monkeypatch):
+    """ga-4p6f: binary, global options, timeout, clean environment and status pins."""
+
+    import subprocess
+    import types
+
+    from aegis_foundation.gate.hooks import reviewer
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    monkeypatch.setenv("GIT_TERMINAL_PROMPT", "0")
+    calls = []
+
+    def recording(argv, **kwargs):
+        calls.append((list(argv), dict(kwargs)))
+        return subprocess.run(argv, **kwargs)
+
+    stub = types.SimpleNamespace(
+        run=recording,
+        SubprocessError=subprocess.SubprocessError,
+        TimeoutExpired=subprocess.TimeoutExpired,
+    )
+    monkeypatch.setattr(reviewer, "subprocess", stub)
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 0
+    base = [
+        "/usr/bin/git",
+        "-C",
+        str(core_target),
+        "--no-replace-objects",
+        "--no-optional-locks",
+        "-c",
+        "core.fsmonitor=false",
+    ]
+    head = [*base, "rev-parse", "--verify", "--quiet", "HEAD^{commit}"]
+    # Exact argv per call: Git's last value wins, so any added override must fail.
+    assert [argv for argv, _ in calls] == [
+        [*base, "rev-parse", "--path-format=absolute", "--git-common-dir"],
+        [*base, "rev-parse", "--path-format=absolute", "--git-dir"],
+        [*base, "rev-parse", "--show-toplevel"],
+        head,
+        [*base, "ls-files", "-v", "-z"],
+        [
+            *base,
+            "-c",
+            "core.checkStat=default",
+            "-c",
+            "core.trustctime=true",
+            "-c",
+            "core.ignoreCase=false",
+            "-c",
+            "core.fileMode=true",
+            "-c",
+            "core.untrackedCache=false",
+            "status",
+            "--porcelain=v1",
+            "--untracked-files=all",
+            "--ignore-submodules=none",
+        ],
+        head,
+    ]
+    for _argv, kwargs in calls:
+        assert kwargs["timeout"] == 10
+        assert kwargs["capture_output"] is True
+        assert not [key for key in kwargs["env"] if key.startswith("GIT_")]
+
+
+@pytest.mark.parametrize("error", ["timeout", "oserror"])
+def test_foreign_git_timeout_or_launch_failure_refuses(tmp_path, monkeypatch, capsys, error):
+    import subprocess
+    import types
+
+    from aegis_foundation.gate.hooks import reviewer
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+
+    def failing(*_args, **_kwargs):
+        if error == "timeout":
+            raise subprocess.TimeoutExpired(cmd="git", timeout=reviewer.FOREIGN_GIT_TIMEOUT)
+        raise OSError("git cannot start")
+
+    # Replace only the reviewer module's subprocess binding; the seat's own Git reads
+    # in delegation.py keep the real module.
+    stub = types.SimpleNamespace(
+        run=failing,
+        SubprocessError=subprocess.SubprocessError,
+        TimeoutExpired=subprocess.TimeoutExpired,
+    )
+    monkeypatch.setattr(reviewer, "subprocess", stub)
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert "reviewer worktree Git inspection failed" in capsys.readouterr().err
+
+
+def test_reviewer_binding_never_runs_a_repository_filesystem_monitor(tmp_path, monkeypatch):
+    """ga-4p6f: a core.fsmonitor program configured by the foreign repository never runs."""
+
+    canonical, core, core_target, candidate = reviewer_fixture(tmp_path)
+    marker = tmp_path / "fsmonitor-ran"
+    hook = tmp_path / "fsmonitor-hook"
+    write(hook, f"#!/bin/sh\ntouch {marker}\nexit 1\n")
+    hook.chmod(0o755)
+    git(core, "config", "core.fsmonitor", str(hook))
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert read_gate_decisions(canonical)[-1]["reason"] == "read_only_registered_reviewer_delegation"
+    assert not marker.exists()
+    # Control: the same repository does run the program under a plain status.
+    run(["git", "status", "--porcelain"], core_target)
+    assert marker.exists()
+
+
+def test_tracked_profile_registrations_agree_with_the_tracked_registry():
+    """ga-4p6f: the live profile's registered projects validate against the live registry."""
+
+    from aegis_foundation.gate.hooks.native_permissions import _validate_registered
+
+    root = Path(__file__).resolve().parents[2]
+    value = json.loads((root / PROFILE).read_text())
+    registered = _validate_registered(
+        value["registered_projects"], root, Path(value["worktree_root"])
+    )
+    review = _validate_registered(value["review_projects"], root, Path(value["worktree_root"]))
+    # Core may be coordinated and reviewed; the Template is review-only.
+    assert [entry["id"] for entry in registered] == ["gas-city"]
+    assert [entry["id"] for entry in review] == ["gas-city-template"]
+    assert review[0]["worktree_root"] == review[0]["canonical_root"] + "-worktrees"
+
+
+def review_only_fixture(tmp_path):
+    """The Core fixture project moved from registered_projects to review_projects."""
+
+    canonical, core, core_target, candidate = reviewer_fixture(tmp_path)
+    value = json.loads((canonical / PROFILE).read_text())
+    value["review_projects"] = value.pop("registered_projects")
+    write(canonical / PROFILE, json.dumps(value))
+    git(canonical, "commit", "-qam", "review-only project")
+    return canonical, core, core_target, candidate
+
+
+def test_review_only_project_binds_a_reviewer_but_is_never_coordinated(tmp_path, monkeypatch):
+    """ga-4p6f: a review-only project grants the reviewer binding and nothing else."""
+
+    canonical, _, core_target, candidate = review_only_fixture(tmp_path)
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 0
+    assert read_gate_decisions(canonical)[-1]["reason"] == "read_only_registered_reviewer_delegation"
+    refused = run_gate(PRETOOLUSE, canonical, event(canonical, command(canonical, core_target, "verify")))
+    assert refused.returncode == 2
+    assert "coordination target must be a direct registered linked worktree" in refused.stderr
+    assert '"permissionDecision": "allow"' not in refused.stdout
+    # Neither the reviewer allow nor the coordination refusal wrote into the worktree.
+    assert read_gate_decisions(core_target) == []
+    assert not (core_target / ".aegis").exists()
+
+
+@pytest.mark.parametrize(
+    "overlap,detail",
+    [
+        ("same-record", "review project duplicates a registered project"),
+        # The registry refuses a second identity for one checkout before the profile
+        # overlap check can see it.
+        ("same-root-other-id", "Gas City registry identities are not unique"),
+        # Two different checkouts that share one worktree root pass the registry;
+        # only the profile's worktree_root overlap clause refuses them.
+        ("same-worktree-root", "review project duplicates a registered project"),
+    ],
+)
+def test_review_projects_may_not_duplicate_registered_projects(
+    tmp_path, monkeypatch, capsys, overlap, detail
+):
+    canonical, core, core_target, candidate = reviewer_fixture(tmp_path)
+    value = json.loads((canonical / PROFILE).read_text())
+    duplicate = dict(value["registered_projects"][0])
+    if overlap == "same-root-other-id":
+        # A second registry record for the same checkout under another id.
+        registry = json.loads((canonical / REGISTRY_REL).read_text())
+        alias = dict(registry["projects"][1], id="core-alias")
+        registry["projects"].append(alias)
+        write(canonical / REGISTRY_REL, json.dumps(registry))
+        duplicate["id"] = "core-alias"
+    elif overlap == "same-worktree-root":
+        other = tmp_path / "other-checkout"
+        other.mkdir()
+        registry = json.loads((canonical / REGISTRY_REL).read_text())
+        alias = dict(registry["projects"][1], id="core-alias", root=str(other))
+        registry["projects"].append(alias)
+        write(canonical / REGISTRY_REL, json.dumps(registry))
+        duplicate["id"] = "core-alias"
+        duplicate["canonical_root"] = str(other)
+        assert duplicate["worktree_root"] == value["registered_projects"][0]["worktree_root"]
+    value["review_projects"] = [duplicate]
+    write(canonical / PROFILE, json.dumps(value))
+    git(canonical, "add", ".")
+    git(canonical, "commit", "-qm", "duplicate review project")
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert detail in capsys.readouterr().err
+
+
+def test_review_project_record_must_agree_with_the_registry(tmp_path, monkeypatch, capsys):
+    canonical, _, core_target, candidate = review_only_fixture(tmp_path)
+    value = json.loads((canonical / PROFILE).read_text())
+    value["review_projects"][0]["rig"] = "other"
+    write(canonical / PROFILE, json.dumps(value))
+    git(canonical, "commit", "-qam", "review record drifts from the registry")
+    capsys.readouterr()
+    prompt = f"Review candidate={candidate} in worktree={core_target} now."
+    assert review(monkeypatch, canonical, prompt) == 2
+    assert "registered project disagrees with the canonical registry" in capsys.readouterr().err
+
+
+def test_mcp_tool_named_agent_is_never_a_reviewer(tmp_path, monkeypatch):
+    """ga-4p6f: only Claude's own Agent tool qualifies as the reviewer."""
+
+    from aegis_foundation.gate.hooks.pretool import pretooluse_gate_with_degraded_fallback
+
+    canonical, _, core_target, candidate = reviewer_fixture(tmp_path)
+    monkeypatch.setenv("CLAUDE_PROJECT_DIR", str(canonical))
+    monkeypatch.setenv("AEGIS_INVOKING_AGENT", "claude")
+    payload = {
+        "hook_event_name": "PreToolUse",
+        "session_id": "synthetic",
+        "cwd": str(canonical),
+        "tool_name": "mcp__lookalike__agent",
+        "tool_input": {
+            "description": "Independent review",
+            "prompt": f"Review candidate={candidate} in worktree={core_target} now.",
+            "subagent_type": "aegis-reviewer",
+        },
+    }
+    assert pretooluse_gate_with_degraded_fallback(json.dumps(payload)) == 2
+    assert all(record["verdict"] != "allow" for record in read_gate_decisions(canonical))
+    # It is treated as ordinary worker delegation, not as a malformed reviewer.
+    assert read_gate_decisions(canonical)[-1]["reason"] == "native_delegation_requires_gas_city"
