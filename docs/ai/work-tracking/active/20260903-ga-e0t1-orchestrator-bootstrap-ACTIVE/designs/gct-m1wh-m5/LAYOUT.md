@@ -1,4 +1,4 @@
-# M5 metadata successor: layout proof and activation plan (r2)
+# M5 metadata successor: layout proof and activation plan (r3)
 
 This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
 Opus 5.5 scope of `gct-er3h`.
@@ -6,8 +6,12 @@ Opus 5.5 scope of `gct-er3h`.
 - Target: Template main `28539934fa742056e0a65710d5638ff559a21175`, the PR 69 merge.
 - Its tree `cfe24ca7` is identical to the reviewed branch head `0db4d800`.
 
-r2 answers the two independent HOLD reviews of r1 (`fb7f01cf`). The table at the end maps every
-finding to its disposition.
+Revision history:
+- r2 answered the two HOLD reviews of r1 (`fb7f01cf`).
+- r3 answers the two reviews of r2 (`c3a49e55`). The manifest-lens run returned SOURCE_PASS
+  with should-fix items; the live-safety run returned HOLD.
+
+The tables at the end map every finding of both rounds to its disposition.
 
 ## Operator decisions (2026-09-23, recorded on gct-m1wh)
 
@@ -19,8 +23,11 @@ finding to its disposition.
 - **Combined activation:** m1wh and er3h activate together.
 - **Live sequence:** once two independent reviewers pass the package, the live sequence runs
   without further asking and stops at the first refusal.
-- **Executor:** the operator runs each live command with `!` from the Claude seat. This session
-  cannot reach the supervisor namespaces.
+- **Executor:** the operator runs each live command from a terminal on the machine that shares the
+  supervisor's namespaces. This session cannot reach those namespaces, and while the operator is
+  connected remotely, `!` output does not reach the session. A read-only probe must succeed first.
+- **Still needed:** an explicit operator acknowledgement of the libexpat re-pin. It is a
+  distribution security update, not part of the 2026-09-23 decisions.
 
 ## Why M3 refused, and what M5 changes
 
@@ -118,8 +125,21 @@ lossless `r5/i` compaction is not used, for two reasons:
 
   The cause is identified. At 2026-09-23 01:39, a plain `git status` without
   `--no-optional-locks`, run by the read-only M4 investigation, rewrote the `r5/r` index and five
-  linked-worktree indexes inside the Template `.git`. HEAD did not change. Every package command
-  now uses `--no-optional-locks`, and the quiescent window forbids any other reader.
+  linked-worktree indexes inside the Template `.git`. HEAD did not change. Every git command the
+  package runs at runtime (prereqs, capture, derivation) uses `--no-optional-locks`. The test
+  files only read Git objects. The quiescent window forbids any other reader.
+
+  Both bounds are anchored and asserted (`test_capture.py`):
+  - the `r5/r` M1 baseline is the R9 pin `ad25084c`;
+  - the Template `.git` M1 baseline is M3's reviewed `cbe4982a`.
+
+  For the Template `.git`:
+  - additions, changes and removals are allowed only in objects, refs, logs, worktree admin, LFS
+    locks, rerere and workflow transactions, plus HEAD, index, FETCH_HEAD, ORIG_HEAD,
+    COMMIT_EDITMSG and config;
+  - no `config.worktree` may exist anywhere;
+  - every config key except `branch.<name>.remote|merge` must equal the reviewed set exactly
+    (`git config --list`).
 - **Trees, added (20):** the authority trees, from the capture.
 - **Links, added (2):** the authority links.
 - **Repositories, added (1):** `template-pr69-authority` at 28539934. All six historical
@@ -142,8 +162,9 @@ lossless `r5/i` compaction is not used, for two reasons:
   - successor identity, exactly as in M3;
   - `release_id`, `manifest_sha256`, transaction and attempt;
   - evidence, parents and preimages under `reports/m5`.
-- **Unchanged:** Core, runtime, writer, protected trees, absent entries, `cache_sha256`,
-  `imports_sha256`, host and namespaces.
+- **Unchanged:** Core, runtime, writer, protected trees, absent entries, `cache_sha256` and
+  `imports_sha256`. Host and namespaces stay unchanged as long as the supervisor is not restarted;
+  the builder copies the captured host, and every stage requires it to be stable.
 
 ## Protection argument
 
@@ -168,8 +189,16 @@ launch, and every rig is suspended.
 
 `gc config show --validate` is weak evidence. It accepts even a bogus agent model, and it accepts
 the unordered state. The package therefore adds its own semantic check, `prereqs.models`: every
-claude-family selection must name an offered model. `validate_states.py` runs both checks on
-every state:
+claude-family selection must name an offered model. Its scope:
+- providers.claude defaults;
+- city rig overrides;
+- `[[patches.agent]]` in city.toml and in the rig fragment;
+- every `agents/*/agent.toml` option default, resolving each provider through its `base` chain.
+
+The two other included fragments select no model. The check is a pure function and is unit
+tested: it refuses the unordered state and a probe agent that selects `opus-5`.
+`validate_states.py` runs both checks on every state, and it runs only before the sequence,
+because `gc` reads the pack cache:
 
 | State | `gc` validate | Semantic check |
 | --- | --- | --- |
@@ -185,14 +214,33 @@ The live order therefore:
 2. then syncs the registry and renders the fragment, which selects `opus-5-5`;
 3. last, removes `opus-5` and moves the defaults.
 
-Every intermediate composed config offers every model it selects. `prereqs.py` re-runs the check
-before and after each city step, and after the render.
+Every intermediate composed config offers every model it selects.
+- Before writing, each city step checks the model consistency of both the current and the
+  candidate city.toml.
+- `city-final` also requires the fragment and registry to be at their successor digests.
+- `render` requires the transitional city.toml.
+- The check runs again after every config change.
 
 ## Live sequence
 
-All steps run as UID 1000 in the supervisor namespaces, executed by the operator with `!`.
-Before each command, verify that the package worktree is clean at the reviewed commit. Pass the
-reviewed `manifest_candidate.py` SHA-256 to every `prereqs.py` and `capture.py` call.
+All steps run as UID 1000 in the supervisor namespaces, executed by the operator from a host
+terminal. Before each command, verify that the package worktree is clean at the reviewed commit.
+Pass the reviewed `manifest_candidate.py` SHA-256 to every `prereqs.py` and `capture.py` call.
+
+**Reconciler quiet slot.** The Obsidian reconciler oneshot runs for about 8 s, about every 65 s,
+from an enabled timer. Nothing may pause that timer outside the executor window. Each quiet check
+therefore first waits, by natural drain only, until the oneshot is idle and the timer's next
+elapse is at least 40 s away. The timer's `NextElapseUSecMonotonic` is read through `busctl`. The
+bound is 180 s, and the timer is never started, stopped or signalled. `capture.py complete` waits
+for the same slot before its scope check.
+
+**Intent and resume.** Each step writes `prereq-<step>.intent.json` just before its mutation.
+- If the step is interrupted afterwards (for example, a quiet check fails in `finish`), the same
+  step refuses to run again.
+- `prereqs.py <candidate> resume <step>` then proves the exact reviewed postcondition and a quiet
+  host, and writes the missing record with `resumed: true`. It never repeats the mutation.
+- If the postcondition does not hold, only `rollback` remains.
+- A refusal before the intent is benign; nothing was changed.
 
 1. **Preconditions.** `prereqs.py` checks these before and after every step:
    - supervisor identity through `host_observation`;
@@ -214,12 +262,15 @@ reviewed `manifest_candidate.py` SHA-256 to every `prereqs.py` and `capture.py` 
    2. `cli`: back up to `bin/claude.gct-m1wh-before-2.1.280`, atomically install 2.1.280, then
       require `--version` to print `2.1.280 (Claude Code)`.
    3. `city-transition`: city.toml `6594ee77` → `8e148efa`, which adds the `opus-5-5` choice.
-   4. `checkout`: `git checkout --detach 28539934`, with hooks off and no optional locks. The
-      untracked set and every retained Template pin are asserted.
+   4. `checkout`: before the checkout moves, the renderer, signing-worker and retained-pin
+      digests are proved from the 28539934 Git objects. Then `git checkout --detach 28539934`
+      runs with hooks off and no optional locks. The untracked set and every on-disk digest are
+      asserted.
    5. `registry`: `7fb9a741` → `d22cf4c1`.
    6. `render`:
-      - run `--check` first; it must predict `cba75f87` from `c7c11b8a`, and nothing is written
-        otherwise;
+      - require the transitional city.toml and the synced registry;
+      - run `--check` first; it must exit 4 and predict `cba75f87` from `c7c11b8a`, and nothing
+        is written otherwise;
       - then run `--apply`.
 
       `--apply` stages a `.city.gct-validate.*` shadow beside the city, symlinks every other city
@@ -232,12 +283,16 @@ reviewed `manifest_candidate.py` SHA-256 to every `prereqs.py` and `capture.py` 
    `freeze`. Each stage binds the previous stage's digest.
    - `audit` refuses on any file, tree, protected, repository, canonical, config, link, absent or
      host drift, and on any re-pinned tree change outside its bound.
-   - `complete` requires a stable audit host and carries forward every infrastructure pin of the
-     M3 baseline.
+   - `complete`:
+     - requires a stable audit host;
+     - carries forward every infrastructure pin of the M3 baseline;
+     - refuses any carried-forward pin that changed other than the six reviewed inputs at their
+       exact successor digests;
+     - waits for the reconciler quiet slot before its scope check.
    - `settle` uses ordinary reads only.
 4. **Pin the baseline:**
    - set `BASELINE_SHA`;
-   - run both test files; `test_build_against_frozen_baseline` builds from the real file;
+   - run the three test files; `test_build_against_frozen_baseline` builds from the real file;
    - write `source-pins.json`;
    - commit, and have the binding reviewed.
 5. **Transaction.** This is the unchanged reviewed M3 executor.
@@ -266,27 +321,45 @@ role selects `claude-opus-5`. Fable is not probed.
 `prereqs.py <candidate> rollback` runs only while all of the following hold:
 
 - the installed manifest is `a6324753`;
-- no `reports/m5` root exists (once it does, the executor's recovery paths apply);
+- no M5 executor window is open: either `reports/m5` does not exist, or its `q/restored.json`
+  records a completed timer restoration and no `commit-consumed.json` exists. The executor's own
+  recovery restores only the reconciler timer; it never reverts the live prerequisites;
 - no rollback has already run.
 
-Rollback restores every live file whose bytes differ from the predecessor, from a digest-verified
-backup:
+Rollback first verifies the digest of every backup it will need. It waits for the reconciler slot
+and records the quiet-host result. That result is recorded but not required, so that restoration
+stays possible. Rollback then restores, in an order that never composes the inverse unordered
+state:
 
-- city.toml, from `r5/i/00`;
-- the fragment and the registry, from their `m5-inputs` copies;
-- the CLI, from its backup.
+1. the transitional city.toml, if the final one is installed;
+2. the fragment and the registry, from their `m5-inputs` copies;
+3. the predecessor city.toml, from `r5/i/00`;
+4. the CLI, from its backup;
+5. the canonical checkout, to `51440da2`.
 
-This covers an unreviewed render too. Rollback then returns the canonical checkout to `51440da2`
-and proves every predecessor digest and the untracked set. Rollback uses a temp-file name distinct
-from the forward steps, and a leftover temp file refuses. After a rollback, no forward step can
-run.
+It runs the model check after each config write and at the end, and it proves every predecessor
+digest and the untracked set. This covers an unreviewed render too. It uses a temp-file name
+distinct from the forward steps.
+
+The record lists any leftover temp files and renderer shadow directories. They are reported and
+never deleted. The record also states whether the authority worktree remains; it is left in
+place, clean and unreferenced.
+
+After a rollback, no forward step can run.
 
 `test_prereqs.py` covers:
 
-- rollback from every partial state;
+- the full forward sequence;
+- a `finish` refusal followed by `resume`;
+- resume without the postcondition;
+- the Git-object check before the checkout moves;
+- both render refusal paths and an apply mismatch;
+- the executor-window gate;
+- rollback from every partial state through consistent configs;
 - a corrupt backup;
-- an unreviewed render;
-- the refusal of the package root and of a changed installed manifest.
+- leftovers;
+- host change;
+- the candidate binding.
 
 ## Dependencies outside this package
 
@@ -302,6 +375,33 @@ Each dependency is digest-pinned at load time and has a byte-identical durable c
 - The M1 audit and the M3 baseline in the durable staging directory.
 
 If `/tmp` is cleaned, restore those paths byte for byte before running.
+
+## Review dispositions for r2 (c3a49e55: one SOURCE_PASS, one HOLD)
+
+| Finding | Disposition |
+| --- | --- |
+| `finish` quiet check refuses while the reconciler runs, which strands a mutated step (must-fix) | Reconciler quiet slot before every quiet check (natural drain, bounded, tested with a fake clock), plus intent records and a verify-only `resume` (tested). |
+| RENDERER_SHA untested and checked only after the checkout moved | Proved from the Git object before the checkout (tested); also tested against the blob in `test_manifest.py`. |
+| Template `.git` config bound narrower than documented | Full `git config --list` check; only `branch.<name>.remote/merge` vary. No `config.worktree` anywhere. Tested with include, credential, gpg and extensions entries. |
+| Rollback restores city before the fragment (inverse unordered state) | Transitional city first, model check after each write (tested from every partial state). |
+| Re-pinned tree predecessors not asserted | `REPINNED_TREE_PREDECESSORS` asserted in the builder (tested). The bound baselines are asserted against the reviewed digests. |
+| Many refusal branches untested | 15 more builder refusal cases and the prerequisite refusal paths added, each asserting its reason. |
+| libexpat successor not derived by a test | The test checks the live SHA-256, the dpkg MD5 record and the R9 predecessor. Operator acknowledgement requested. |
+| `models()` unordered refusal not unit-tested | Unit test, including a probe agent. |
+| Docs inaccurate (no-optional-locks, registry.json, host) | Corrected. |
+| `derive_expected` uses `assert` | Replaced by `require`, which `-O` cannot disable. |
+| `inputs` re-reads the fragment after checking | It writes the exact bytes it checked. |
+| `validate_states` could break the cache closure | Documented: run only before the sequence. |
+| Render parses before checking the exit code | The exit code is checked first (tested with rc 3). |
+| Rollback refused after the executor window, although executor recovery only restores the timer | Allowed once `restored.json` exists and no apply started (tested). |
+| Rollback has no quiet check or leftover detection; authority left in place | Slot waited for, quiet result recorded, leftovers reported, authority presence recorded. |
+| Semantic check only after the write; `city-final` and `render` do not assert their companions | Checked before writing; companions asserted (tested). |
+| `models()` scope | Extended to agent definitions and city patches. The scope is documented. |
+| `quiet()` fully stubbed in tests | `quiet_slot` tested directly. The host observation itself runs only in the supervisor namespaces and is stated as such. |
+| `capture.py` untested | `test_capture.py`: tree bounds, config check, bound baselines, pin-change guard, candidate binding. |
+| `complete()` never refuses pin drift | Refuses any change except the six reviewed successors (tested). |
+| Bound baseline not asserted | Asserted (tested). |
+| Bound too strict for rerere and removals | `rr-cache` added; removals allowed inside the allowed Git-state set only. |
 
 ## Review dispositions for r1 (fb7f01cf, two HOLD verdicts)
 
@@ -322,7 +422,7 @@ If `/tmp` is cleaned, restore those paths byte for byte before running.
 | City-config source predecessor unasserted | Asserted as `r5/i/07`. |
 | CLI 2.1.280 never run inside W | Stated. The `observe` dry-run is the first proof and fails closed. |
 | Preconditions not checked in code | Quiet-host, suspension, installed-manifest and package-root checks run in every step. |
-| No tests of the live code | `test_prereqs.py`, 13 behavioural tests. |
+| No tests of the live code | `test_prereqs.py` (13 tests in r2, 20 in r3). |
 | Rollback restores city without verification | Every restore verifies its backup digest. |
 | Rollback while the package root exists | Refused (tested). |
 | Steps can run after a rollback | Refused (tested). |

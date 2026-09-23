@@ -88,6 +88,10 @@ VERSION_NEW = ('gct-claude-signing-worker 1 dependencies_sha256='
 # Template .git, were rewritten at 2026-09-23 01:39 by a plain git status of
 # the read-only M4 investigation. HEAD is unchanged. capture.py bounds both diffs.
 REPINNED_TREES = (TEMPLATE + '/.git', R5R)
+REPINNED_TREE_PREDECESSORS = {
+    TEMPLATE + '/.git': '3d87754cc1b781f00c40a9ee61bdd49f2a5db2f880fad462e24a9cc4e41de804',
+    R5R: 'ad25084c3dd633191232369d5325bb44b994f3f67d8917711047e56dd6e17ce0',
+}
 
 # Complete coverage of the 277 tracked paths of Template 28539934: maximal
 # link-free subtrees, individual regular files, and the two tracked links. No
@@ -256,6 +260,7 @@ def assemble(old, closure, host, parents, transaction, attempt):
     md['inputs'].append(dict(name='', path=CITY_SOURCE, sha256=CITY_NEW, mode=0o644))
     for path in REPINNED_TREES:
         pin = _one(md['trees'], 'path', path, 'repinned tree cardinality: ' + path)
+        require(pin['sha256'] == REPINNED_TREE_PREDECESSORS[path], 'exact predecessor tree: ' + path)
         require(trees[path]['sha256'] != pin['sha256'], 'repinned tree unexpectedly unchanged: ' + path)
         pin['sha256'] = trees[path]['sha256']
     repos = out['integrity']['repositories']

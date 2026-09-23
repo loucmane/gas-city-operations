@@ -15,6 +15,10 @@ Two checks run on every state.
   name an offered model. It must accept each state of the live order and refuse
   the unordered state.
 
+Run it only before the live sequence starts. `gc config show` reads the pack
+cache, so running it during the capture or the transaction window would break the
+frozen cache closure.
+
   python3 -I -B validate_states.py <derive-out-dir> <scratch-dir>
 """
 import json
@@ -73,7 +77,7 @@ def main():
         shadow(root, city_toml, rig_toml)
         code, detail = validate(root)
         try:
-            semantic = prereqs.models(city_toml.decode(), rig_toml.decode())['selected']
+            semantic = prereqs.models(city_toml.decode(), rig_toml.decode(), prereqs.fragment_texts())['selected']
             accepted = True
         except RuntimeError as exc:
             semantic, accepted = str(exc), False

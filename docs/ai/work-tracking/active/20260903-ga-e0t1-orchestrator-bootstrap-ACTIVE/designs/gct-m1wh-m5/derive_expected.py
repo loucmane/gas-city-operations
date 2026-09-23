@@ -1,7 +1,8 @@
 """Derive the M5 expected constants from Git objects, the staged CLI and live predecessor bytes.
 
-It writes only the output files named on its command line; it never touches live
-state. It derives:
+It writes only into the output directory named on its command line: the derived
+files, plus the registry.json it hands the renderer. It never touches live state.
+Every check raises RuntimeError, so running with -O cannot disable it. It derives:
 - the authority coverage from `git ls-tree` of 28539934;
 - the signing-worker dependency version, after first reproducing the reviewed M3
   value;
@@ -45,8 +46,13 @@ TRANSITION_BLOCK = ('[[providers.claude.options_schema.choices]]\n', 'value = "o
 REGISTRY_EDITS = ((CLI_OLD, CLI_NEW), ('"2.1.263 (Claude Code)"', '"2.1.280 (Claude Code)"'))
 
 
+def require(ok, reason):
+    if not ok:
+        raise RuntimeError(reason)
+
+
 def git(*args, text=True):
-    return subprocess.run(['/usr/bin/git', '-C', TEMPLATE, *args], capture_output=True,
+    return subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', TEMPLATE, *args], capture_output=True,
                           text=text, check=True).stdout
 
 
@@ -103,9 +109,10 @@ def city_bytes(raw):
     lines = raw.decode().splitlines(True)
     final = list(lines)
     for number, (before, after) in CITY_EDITS.items():
-        assert final[number - 1] == before, number
+        require(final[number - 1] == before, 'city line %d' % number)
         final[number - 1] = after
-    assert lines[TRANSITION_AFTER - 1] == '\n' and lines[TRANSITION_AFTER - 2].startswith('flag_args')
+    require(lines[TRANSITION_AFTER - 1] == '\n' and lines[TRANSITION_AFTER - 2].startswith('flag_args'),
+            'transition anchor')
     transition = lines[:TRANSITION_AFTER] + list(TRANSITION_BLOCK) + lines[TRANSITION_AFTER:]
     return raw, ''.join(transition).encode(), ''.join(final).encode()
 
@@ -113,29 +120,30 @@ def city_bytes(raw):
 def registry_bytes(raw):
     text = raw.decode()
     for before, after in REGISTRY_EDITS:
-        assert text.count(before) == 1, before
+        require(text.count(before) == 1, 'registry edit anchor')
         text = text.replace(before, after)
     new = text.encode()
     live, synced = json.loads(raw), json.loads(new)
     profiles = {name: json.loads((Path(RENDER_ROOT) / 'managed/profiles' / (name + '.json')).read_bytes())
                 for name in ('gascity-claude-signing', 'blog-codex')}
     by_name = {r['name']: r for p in profiles.values() for r in p['rigs']}
-    assert {k: v for k, v in synced.items() if k != 'rigs'} == {
-        k: v for k, v in profiles['gascity-claude-signing'].items() if k != 'rigs'}
-    assert all(r == by_name[r['name']] for r in synced['rigs']), 'synced registry differs from 28539934 profiles'
-    assert [r for r in live['rigs'] if r['name'] == 'blog'] == [r for r in synced['rigs'] if r['name'] == 'blog']
+    require({k: v for k, v in synced.items() if k != 'rigs'} == {
+        k: v for k, v in profiles['gascity-claude-signing'].items() if k != 'rigs'}, 'registry top level')
+    require(all(r == by_name[r['name']] for r in synced['rigs']), 'synced registry differs from 28539934 profiles')
+    require([r for r in live['rigs'] if r['name'] == 'blog'] == [r for r in synced['rigs'] if r['name'] == 'blog'],
+            'blog rig changed')
     return raw, new
 
 
 def render(registry_raw, scratch):
-    head = subprocess.run(['/usr/bin/git', '-C', RENDER_ROOT, 'rev-parse', 'HEAD^{tree}'],
+    head = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', RENDER_ROOT, 'rev-parse', 'HEAD^{tree}'],
                           capture_output=True, text=True, check=True).stdout.strip()
-    assert head == RENDER_TREE == git('rev-parse', COMMIT + '^{tree}').strip()
+    require(head == RENDER_TREE == git('rev-parse', COMMIT + '^{tree}').strip(), 'renderer worktree tree')
     status = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', RENDER_ROOT, 'status', '--porcelain',
                              '--untracked-files=normal'], capture_output=True, text=True, check=True).stdout
-    assert status == '', 'renderer worktree is not clean'
+    require(status == '', 'renderer worktree is not clean')
     source = Path(RENDER_ROOT) / 'bin/gct-managed-rig-permissions'
-    assert sha(source.read_bytes()) == sha(blob('bin/gct-managed-rig-permissions'))
+    require(sha(source.read_bytes()) == sha(blob('bin/gct-managed-rig-permissions')), 'renderer bytes')
     module = types.ModuleType('renderer'); module.__file__ = str(source)
     sys.modules['renderer'] = module
     exec(compile(source.read_bytes(), str(source), 'exec'), module.__dict__)
@@ -144,24 +152,24 @@ def render(registry_raw, scratch):
     registry, _ = module._load_registry(path)
     rendered, _ = module._render(registry)
     text = rendered.decode()
-    assert RENDER_ROOT + '/' in text
+    require(RENDER_ROOT + '/' in text, 'renderer root not embedded')
     return text.replace(RENDER_ROOT + '/', TEMPLATE + '/').encode()
 
 
 def main():
     out = Path(sys.argv[1])
-    assert git('rev-parse', COMMIT).strip() == COMMIT and sha(STAGED.read_bytes()) == CLI_NEW
+    require(git('rev-parse', COMMIT).strip() == COMMIT and sha(STAGED.read_bytes()) == CLI_NEW, 'commit or staged CLI')
     m3 = deps_version('4f9acd546431f865c2b0bddeec81a4b2bbb7381a32a99b5dd93a155b6be7dcb4', CLI_OLD,
                       '51440da2d0ff12912ff7d2ec26d239849e3bc342')
-    assert m3.endswith('8b8b3f7680181c1bad5ee74f6773e8c57616531e3bf16b94649c94bc0f9766a5'), m3
+    require(m3.endswith('8b8b3f7680181c1bad5ee74f6773e8c57616531e3bf16b94649c94bc0f9766a5'), 'M3 version method check')
     city_old, city_transition, city_final = city_bytes(CITY_BACKUP.read_bytes())
     registry_old, registry_new = registry_bytes((CITY / 'managed/rig-permissions.json').read_bytes())
     rig_live = (CITY / 'managed/rig-permissions.toml').read_bytes()
     reproduced = render(registry_old, out)
     live_lines = rig_live.decode().splitlines(True)
-    assert live_lines[94] == 'model = "opus-5"\n'
-    assert reproduced == ''.join(live_lines[:94] + ['model = "opus-5-5"\n'] + live_lines[95:]).encode(), \
-        'method check: renderer does not reproduce the live file'
+    require(live_lines[94] == 'model = "opus-5"\n', 'fragment line 95')
+    require(reproduced == ''.join(live_lines[:94] + ['model = "opus-5-5"\n'] + live_lines[95:]).encode(),
+        'method check: renderer does not reproduce the live file')
     rig_new = render(registry_new, out)
     parser_new = sha(blob('lib/gct_claude_signing_worker.py'))
     values = dict(

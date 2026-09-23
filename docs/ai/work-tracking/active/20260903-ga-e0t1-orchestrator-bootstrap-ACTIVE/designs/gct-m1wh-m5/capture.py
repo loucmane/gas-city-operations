@@ -14,11 +14,19 @@ record under reports/m5-capture. No timer, lifecycle, worker, signer or Bead act
 
 The two re-pinned trees are bounded against the reviewed M1 audit inventories,
 ignoring access times:
-- r5/r may differ only in .git/index;
-- the Template .git may change only Git object, ref, log, worktree-admin, LFS
-  lock and workflow-transaction state, plus HEAD, index, FETCH_HEAD, ORIG_HEAD,
-  COMMIT_EDITMSG and config. Its non-branch config must stay exactly the
-  reviewed set, and no hook, info or description entry may change.
+- r5/r may differ only in .git/index. Its M1 digest is the R9 pin ad25084c.
+- The Template .git may add, change or remove only Git object, ref, log,
+  worktree-admin, LFS lock, rerere and workflow-transaction state, plus HEAD,
+  index, FETCH_HEAD, ORIG_HEAD, COMMIT_EDITMSG and config. Its M1 digest is the
+  M3-reviewed cbe4982a.
+- No config.worktree may exist anywhere in it.
+- Every config key other than branch.<name>.remote and branch.<name>.merge must
+  equal the reviewed set exactly.
+- No hook, info or description entry may change.
+
+`complete` refuses any carried-forward M3 pin that changed, except the six
+reviewed CHANGED_INPUTS, each at its exact successor digest. It waits for the
+same natural reconciler quiet slot as prereqs.py before its scope check.
 """
 import copy
 import hashlib
@@ -37,16 +45,21 @@ M1_AUDIT = Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-
                 'gct-m1wh-metadata-20260922-r1/audit.json')
 M1_AUDIT_SHA = '942583964ff1bac9bd9bb9e343b7c5323f7d986edf9b71a40df3e2bb2bec2930'
 GIT_EXACT = {'.', 'HEAD', 'index', 'FETCH_HEAD', 'ORIG_HEAD', 'COMMIT_EDITMSG', 'config', 'packed-refs',
-             'objects', 'refs', 'logs', 'worktrees', 'lfs', 'lfs/cache', 'gas-city-workflow'}
-GIT_PREFIXES = ('objects/', 'refs/', 'logs/', 'worktrees/', 'lfs/cache/locks/', 'gas-city-workflow/')
+             'objects', 'refs', 'logs', 'worktrees', 'lfs', 'lfs/cache', 'gas-city-workflow', 'rr-cache'}
+GIT_PREFIXES = ('objects/', 'refs/', 'logs/', 'worktrees/', 'lfs/cache/locks/', 'gas-city-workflow/', 'rr-cache/')
+M1_TREE_DIGESTS = {
+    '/home/loucmane/gas-city-template/.git': 'cbe4982a3117d7212de86092031a81586b20667a4437fcb143a7ad3f78578c9b',
+    '/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/r5/r':
+        'ad25084c3dd633191232369d5325bb44b994f3f67d8917711047e56dd6e17ce0',
+}
 CONFIG_EXPECTED = (
-    'core.repositoryformatversion 0\ncore.filemode true\ncore.bare false\ncore.logallrefupdates true\n'
-    'remote.origin.url https://github.com/loucmane/gas-city-template.git\n'
-    'remote.origin.fetch +refs/heads/main:refs/remotes/origin/main\nlfs.repositoryformatversion 0\n'
-    'filter.lfs.clean git-lfs clean -- %f\nfilter.lfs.smudge git-lfs smudge -- %f\n'
-    'filter.lfs.process git-lfs filter-process\nfilter.lfs.required true\n'
-    'lfs.https://github.com/loucmane/gas-city-template.git/info/lfs.access basic\n'
-    'user.signingkey FD5585922F5335BC378AD8D42ECF4432C7E7982D!\n')
+    'core.repositoryformatversion=0', 'core.filemode=true', 'core.bare=false', 'core.logallrefupdates=true',
+    'remote.origin.url=https://github.com/loucmane/gas-city-template.git',
+    'remote.origin.fetch=+refs/heads/main:refs/remotes/origin/main', 'lfs.repositoryformatversion=0',
+    'filter.lfs.clean=git-lfs clean -- %f', 'filter.lfs.smudge=git-lfs smudge -- %f',
+    'filter.lfs.process=git-lfs filter-process', 'filter.lfs.required=true',
+    'lfs.https://github.com/loucmane/gas-city-template.git/info/lfs.access=basic',
+    'user.signingkey=FD5585922F5335BC378AD8D42ECF4432C7E7982D!')
 
 
 def load_candidate(expected):
@@ -84,6 +97,13 @@ def exclusive(name, raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+def load_source(filename, name):
+    path = HERE/filename
+    module = types.ModuleType(name); module.__file__ = str(path)
+    exec(compile(path.read_bytes(), str(path), 'exec', dont_inherit=True), module.__dict__)
+    return module
+
+
 def require(ok, reason):
     if not ok:
         raise RuntimeError(reason)
@@ -98,20 +118,45 @@ def git(o, repo, *args):
                 stderr=r.stderr.decode(errors='replace'))
 
 
+def classify(kind, before, now):
+    """Pure bound on a re-pinned tree: every change must lie inside the allowed set for its kind."""
+    strip = lambda v: {k: x for k, x in v.items() if k != 'atime_ns'}
+    changed = sorted(k for k in set(before) & set(now) if strip(before[k]) != strip(now[k]))
+    added, removed = sorted(set(now) - set(before)), sorted(set(before) - set(now))
+    if kind == 'r5r':
+        outside = [k for k in changed if k not in ('.git', '.git/index')] + added + removed
+    else:
+        allowed = lambda k: (k in GIT_EXACT or k.startswith(GIT_PREFIXES)) and \
+            k.rsplit('/', 1)[-1] != 'config.worktree'
+        outside = [k for k in changed + added + removed if not allowed(k)]
+        outside += [k for k in now if k.rsplit('/', 1)[-1] == 'config.worktree' and k not in outside]
+    return dict(changed=changed, added=added, removed=removed, outside_allowed=outside)
+
+
 def bounded_tree_diff(path, now):
     """Changes since the reviewed M1 inventory, ignoring access times, within the allowed set."""
     raw = M1_AUDIT.read_bytes()
     require(hashlib.sha256(raw).hexdigest() == M1_AUDIT_SHA, 'M1 audit drift')
-    before = json.loads(raw)['trees'][path]['inventory']
-    strip = lambda v: {k: x for k, x in v.items() if k != 'atime_ns'}
-    changed = sorted(k for k in set(before) & set(now) if strip(before[k]) != strip(now[k]))
-    added, removed = sorted(set(now) - set(before)), sorted(set(before) - set(now))
-    if path == m.R5R:
-        allowed = lambda k: k in ('.git', '.git/index')
-    else:
-        allowed = lambda k: k in GIT_EXACT or k.startswith(GIT_PREFIXES)
-    outside = [k for k in changed + added if not allowed(k)] + removed
-    return dict(changed=changed, added=added, removed=removed, outside_allowed=outside)
+    tree = json.loads(raw)['trees'][path]
+    require(tree['sha256'] == M1_TREE_DIGESTS[path], 'M1 bound baseline is not the reviewed digest')
+    return classify('r5r' if path == m.R5R else 'git', tree['inventory'], now)
+
+
+def unexpected_changes(changes, successors):
+    """Carried-forward pins may change only to the exact reviewed successor digests."""
+    return [x['path'] for x in changes
+            if x['path'] not in successors or x['after']['sha256'] != successors[x['path']]]
+
+
+def config_drift(listing):
+    """Every key except branch.<name>.remote/merge must equal the reviewed set; returns the differences."""
+    lines = [line for line in listing.splitlines() if line]
+    branch = [line for line in lines if line.startswith('branch.')]
+    other = tuple(line for line in lines if not line.startswith('branch.'))
+    bad_branch = [line for line in branch if not line.split('=', 1)[0].endswith(('.remote', '.merge'))]
+    return dict(unexpected=[line for line in other if line not in CONFIG_EXPECTED],
+                missing=[line for line in CONFIG_EXPECTED if line not in other],
+                duplicate=len(other) != len(set(other)), bad_branch_keys=bad_branch)
 
 
 def target(manifest):
@@ -197,10 +242,10 @@ def audit():
     for path, diff in bounds.items():
         if diff['outside_allowed']:
             drifts.append(dict(kind='repinned-tree-bound', path=path, outside=diff['outside_allowed'][:50]))
-    config = git(o, m.TEMPLATE, 'config', '--file', m.TEMPLATE + '/.git/config', '--get-regexp',
-                 '^(core|remote|lfs|filter|user)\\.')
-    if config['stdout'] != CONFIG_EXPECTED:
-        drifts.append(dict(kind='template-git-config', actual=config))
+    config = git(o, m.TEMPLATE, 'config', '--file', m.TEMPLATE + '/.git/config', '--list')
+    config_check = config_drift(config['stdout'])
+    if config['returncode'] != 0 or any(config_check[k] for k in config_check):
+        drifts.append(dict(kind='template-git-config', check=config_check))
     canonical = dict(head=git(o, m.TEMPLATE, 'rev-parse', 'HEAD'),
                      status=git(o, m.TEMPLATE, 'status', '--porcelain', '--untracked-files=normal'))
     if canonical['head']['stdout'].strip() != m.TEMPLATE_COMMIT or canonical['status']['stdout'] != UNTRACKED:
@@ -211,7 +256,7 @@ def audit():
                   worker_release=False, manifest=manifest, receipt=receipt, host=host, host_after=after_host,
                   pins=pins, trees=trees, protected=protected, links=links, absent=absent, drifts=drifts,
                   unexpected_drifts=unexpected, repositories=repositories, canonical_checkout=canonical,
-                  repinned_tree_bounds=bounds, template_git_config=config,
+                  repinned_tree_bounds=bounds, template_git_config=config, template_git_config_check=config_check,
                   suspension=s.pin(o.CITY/'.gc/runtime/suspension-state.json', links),
                   provisioning=s.pin(o.CITY/'.gc/runtime/provisioning/receipt.json', links))
     digest = exclusive('audit.json', o.encoded(result))
@@ -233,17 +278,20 @@ def complete(audit_sha):
             pins[path] = s.pin(path, a['links'])
         if pins[path] != before:
             changes.append(dict(path=path, before=before, after=pins[path]))
+    unexpected = unexpected_changes(changes, {path: after for path, _, after in m.CHANGED_INPUTS})
+    require(not unexpected, 'carried-forward pins changed outside the reviewed set: ' + json.dumps(unexpected))
     runtime = c.runtime_readiness()
     mount = m.r7.r6.r4.current_mount()
     host = o.host_observation()
     require(host == a['host'] and runtime == prior['runtime'] and mount == prior['mount'],
             'host/runtime/mount changed')
+    slot = load_source('prereqs.py', 'm5_prereqs').quiet_slot()
     scope = s.quiet_scope(host)
     trees = {path: {k: v[k] for k in ('sha256', 'entries', 'file_bytes')} for path, v in a['trees'].items()}
     closure = dict(host=host, pins=pins, suspension=a['suspension'], trees=trees,
                    cache=a['trees']['/home/loucmane/gascity/home/cache/repos'], protected=a['protected'],
                    links=a['links'], scope=scope)
-    result = dict(closure=closure, runtime=runtime, mount=mount, pin_changes=changes,
+    result = dict(closure=closure, runtime=runtime, mount=mount, pin_changes=changes, reconciler_slot=slot,
                   audit_sha256=audit_sha, preparation_only=True, live_acceptance=False)
     digest = exclusive('baseline-audit.json', o.encoded(result))
     print(json.dumps(dict(evidence=str(OUT/'baseline-audit.json'), sha256=digest,

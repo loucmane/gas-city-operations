@@ -342,6 +342,56 @@ class SuccessorTests(unittest.TestCase):
             with self.subTest(case=index, reason=reason):
                 self.refuses(reason, old=variant(mutate))
 
+    def test_more_predecessor_refusals(self):
+        def first(rows, key, value):
+            return next(p for p in rows if p[key] == value)
+        gc_b = '/var/tmp/ga-mutg-custody-build-20260920/gc-b'
+        cases = [
+            (lambda v: v['core'].update(sha256='0'*64), 'unchanged installed Core binding'),
+            (lambda v: v['core'].update(source=gc_b), 'backup alias or duplicate'),
+            (lambda v: v['metadata']['inputs'].remove(first(v['metadata']['inputs'], 'path',
+                                                             '/home/loucmane/gascity/bin/claude')),
+             'changed input cardinality'),
+            (lambda v: v['metadata']['inputs'].remove(first(v['metadata']['inputs'], 'path',
+                                                             m.TEMPLATE + '/lib/gct_claude_subscription.py')),
+             'retained Template input'),
+            (lambda v: v['integrity']['files'].remove(first(v['integrity']['files'], 'name', 'rig-permissions.json')),
+             'integrity file: rig-permissions.json'),
+            (lambda v: v['integrity']['providers'].remove(first(v['integrity']['providers'], 'name', 'claude-native')),
+             'native provider'),
+            (lambda v: v['integrity']['providers'].remove(first(v['integrity']['providers'], 'name', 'claude')),
+             'signing provider'),
+            (lambda v: v['managed_files'].remove(first(v['managed_files'], 'name', 'city-config')),
+             'city config managed file'),
+            (lambda v: v['metadata']['inputs'].append(dict(name='', path=m.CITY_SOURCE, sha256=m.CITY_NEW, mode=420)),
+             'city source duplicate'),
+            (lambda v: v['metadata']['trees'].remove(first(v['metadata']['trees'], 'path', m.R5R)),
+             'repinned tree cardinality'),
+            (lambda v: first(v['metadata']['trees'], 'path', m.R5R).update(sha256='0'*64), 'exact predecessor tree'),
+            (lambda v: v['previous_metadata'].update(manifest_backup_path='/elsewhere'), 'previous backup binding'),
+            (lambda v: v['metadata']['preimages'].pop(0), 'preimage cardinality'),
+            (lambda v: v['metadata']['inputs'].append(dict(name='', path=m.AUTHORITY + '/stray', sha256='0'*64,
+                                                           mode=420)), 'authority coverage overlaps an existing pin'),
+            (lambda v: v['metadata']['trees'].append(dict(name='', path=m.AUTHORITY, sha256='0'*64, mode=493)),
+             'authority coverage overlaps an existing pin'),
+        ]
+        for index, (mutate, reason) in enumerate(cases):
+            with self.subTest(case=index, reason=reason):
+                self.refuses(reason, old=variant(mutate))
+
+    def test_renderer_and_libexpat_constants(self):
+        prereqs = load('prereqs_constants', 'prereqs.py')
+        self.assertEqual(sha(blob('bin/gct-managed-rig-permissions')), prereqs.RENDERER_SHA)
+        self.assertEqual(prereqs.REGISTRY_EDITS[0], (m.CLI_OLD, m.CLI_NEW))
+        path, before, after = m.CHANGED_INPUTS[5]
+        self.assertEqual(path, '/usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1')
+        raw = Path(path).read_bytes()
+        self.assertEqual(sha(raw), after)
+        record = Path('/var/lib/dpkg/info/libexpat1:amd64.md5sums').read_text()
+        self.assertIn(hashlib.md5(raw).hexdigest() + '  usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1', record)
+        installed = next(p for p in old['metadata']['inputs'] if p['path'] == path)
+        self.assertEqual(installed['sha256'], before)
+
     def test_live_and_serialized_host_order_identical(self):
         host = copy.deepcopy(closure['host'])
         host['host'] = {k: host['host'][k] for k in old['metadata']['host']}
