@@ -34,7 +34,7 @@ import sys
 import types
 
 HERE = Path(__file__).parent
-ROOT = Path('/var/tmp/gct-m1wh-p6-input-20260923-r1')
+ROOT = Path('/var/tmp/gct-m1wh-p6-input-20260923-r2')
 CITY = Path('/home/loucmane/gascity/city')
 RECEIPT = CITY/'.gc/runtime/provisioning/receipt.json'
 WORKER = Path('/home/loucmane/gas-city-template/bin/gct-claude-signing-worker')

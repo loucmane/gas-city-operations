@@ -22,9 +22,9 @@ import sys
 import types
 
 HERE = Path(__file__).parent
-ROOT = Path('/var/tmp/gct-m1wh-p6-compose-20260923-r1')
+ROOT = Path('/var/tmp/gct-m1wh-p6-compose-20260923-r2')
 INPUT_SOURCE = HERE/'p6-input.py'
-INPUT_SHA = '88f1ec2f6e5fbffddc8865ba77a052a7ce6f80b33236758abb8665063e0dfdc2'
+INPUT_SHA = 'f0150b631196dec051dad05f40803deccad8e480ed0a638e86e61ea0db962c1c'
 BUILD = Path('/var/tmp/ga-ecwh-compose-diagnostic-20260920-r2')
 OBS = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.14-rollout-r1/package-r4/resume-r4b/recovery-source-r2/observe_recovery.py')
 CACHE = Path('/home/loucmane/gascity/home/cache/repos')

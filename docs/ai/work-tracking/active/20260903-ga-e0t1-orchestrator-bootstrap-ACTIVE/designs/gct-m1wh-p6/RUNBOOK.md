@@ -113,6 +113,29 @@ Start it, after the two reviews of this evidence and package, with
 `systemd-run --user --unit=gct-m1wh-p6-adopt --collect -p UMask=0022 sh $P/operator/P6-ADOPT.sh <commit>`.
 Nobody runs gc until its log ends.
 
+## r3: fresh roots after stale readiness
+
+**The r2 evidence went stale.** r2 (`effbf5e5`) got SOURCE_PASS from its first reviewer. That
+reviewer noted that the adoption compares its before snapshot with the readiness before.json,
+ignoring only atimes. The coordinator had posted a gc Bead note at 12:10:54Z, which changed the pack
+cache repo `.git` directory's mtime and ctime (13:53:41 in the snapshot, 14:10:54 live, Stockholm).
+The -r1 readiness evidence was therefore stale, and nothing was adopted.
+
+**r3 changes:**
+- the four roots become `-20260923-r2`;
+- the adoption constants return to None;
+- the chain is re-pinned: input `f0150b63`, compose `43b94ce6`, readiness `7b28b3e5`, adopt
+  `2fb64793`;
+- the wrapper pins follow.
+
+The -r1 roots are preserved.
+
+**Quiescence.** It covers the whole span, from the start of `P6-READONLY.sh` to the end of the
+adoption log. In that span nobody runs gc at all: not the coordinator, not the operator, and no Bead
+notes (they wait in staging). The cache also has a time limit: yesterday's 13:33:50Z atime cluster
+turns 24 h old at 13:33:50Z today. From then on the compose diagnostic's own pack reads refresh
+atimes, and compose preservation would fail. So the read-only run must finish before 13:30Z.
+
 ## Stop conditions
 
 Stop on any of these:

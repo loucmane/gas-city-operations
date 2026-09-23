@@ -17,7 +17,7 @@ S=/home/loucmane/.local/share/gas-city-staging/gct-m1wh-p6
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 P=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6
 COMMIT=${1:?usage: P6-ADOPT.sh <reviewed commit>}
-ADOPT_SHA=917c1635e5bcafac9f29a2eba3e93bc2f07ffcfa0cd62ad9b72787d555264645
+ADOPT_SHA=2fb647931aac2861880d122530adfe4a16bce98bbcf3b722e4f0c9f24bf1a32c
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 LOG="$S/p6-adopt-$(date -u +%Y%m%dT%H%M%SZ).txt"
@@ -29,7 +29,7 @@ status=$(git -C "$W" --no-optional-locks status --porcelain) || status=unreadabl
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/gct-m1wh-p6-adoption-20260923-r1 ] && [ ! -L /var/tmp/gct-m1wh-p6-adoption-20260923-r1 ]; } \
+{ [ ! -e /var/tmp/gct-m1wh-p6-adoption-20260923-r2 ] && [ ! -L /var/tmp/gct-m1wh-p6-adoption-20260923-r2 ]; } \
   || { echo "== STOP: adoption root already used"; echo "== end"; exit 1; }
 echo "== adopt $(date -u +%H:%M:%SZ)"
 /usr/bin/python3 -I -S -B "$P/source-launch.py" "$P/p6-adopt.py" "$ADOPT_SHA"

@@ -21,15 +21,15 @@ import sys
 import types
 
 HERE=Path(__file__).parent
-ROOT=Path('/var/tmp/gct-m1wh-p6-readiness-20260923-r1')
+ROOT=Path('/var/tmp/gct-m1wh-p6-readiness-20260923-r2')
 BUILD=Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1')
 BASE=HERE/'p6-observe-compose.py'
-BASE_SHA='b83e5fd01caa844d9dfaabe681fc257abbcb244e8a6e943f45e13efa36c89215'
+BASE_SHA='43b94ce677dcaa80b6937f7205362063da151f0608a99874b18b692ab8f2c8d6'
 SUCCESSOR=Path('/home/loucmane/.local/share/gas-city-staging/ga-mutg-20260920/ga-ecwh-provisioning-successor-20260920')
 LAUNCH=HERE/'source-launch.py'
 LAUNCH_SHA='31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea'
 BINARY_SHA='edbc0fa11d3ebae15f678179725203d9da3434ec0cf8883c536398d5f97426bf'
-COMPOSITION=Path('/var/tmp/gct-m1wh-p6-compose-20260923-r1/composition.json')
+COMPOSITION=Path('/var/tmp/gct-m1wh-p6-compose-20260923-r2/composition.json')
 NATIVE=Path('/home/loucmane/.local/share/fnm/node-versions/v22.16.0/installation/lib/node_modules/@anthropic-ai/claude-code/bin/claude.exe')
 NATIVE_LINK=Path('/home/loucmane/.local/share/fnm/node-versions/v22.16.0/installation/bin/claude')
 NATIVE_SHA='1e08503dbdf3c2cb0d706d32f3408277388d1c76ef108673e8fe42c1b322925b'

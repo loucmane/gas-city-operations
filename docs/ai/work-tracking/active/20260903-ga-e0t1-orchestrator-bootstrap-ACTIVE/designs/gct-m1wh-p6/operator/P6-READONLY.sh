@@ -14,9 +14,9 @@ S=/home/loucmane/.local/share/gas-city-staging/gct-m1wh-p6
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 P=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6
 COMMIT=${1:?usage: sh P6-READONLY.sh <reviewed package commit>}
-INPUT_SHA=88f1ec2f6e5fbffddc8865ba77a052a7ce6f80b33236758abb8665063e0dfdc2
-COMPOSE_SHA=b83e5fd01caa844d9dfaabe681fc257abbcb244e8a6e943f45e13efa36c89215
-READY_SHA=649ffa11fa192d46b1c10135a21b47f48838fac2ff870240df52e63e7c021760
+INPUT_SHA=f0150b631196dec051dad05f40803deccad8e480ed0a638e86e61ea0db962c1c
+COMPOSE_SHA=43b94ce677dcaa80b6937f7205362063da151f0608a99874b18b692ab8f2c8d6
+READY_SHA=7b28b3e551e86818a2cdda3e53ed90c7072781e0a9354bd1ebf5d9425d579133
 LOG="$S/p6-readonly-$(date -u +%Y%m%dT%H%M%SZ).txt"
 stage() {
   head=$(git -C "$W" rev-parse HEAD) || head=unreadable

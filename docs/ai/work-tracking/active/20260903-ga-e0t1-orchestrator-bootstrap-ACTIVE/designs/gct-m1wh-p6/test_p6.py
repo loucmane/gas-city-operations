@@ -281,8 +281,12 @@ class Chain(unittest.TestCase):
 
     def test_adoption_constants_bind_the_readiness_evidence(self):
         values = constants('p6-adopt.py')
-        ready = Path(values['READY'] if 'READY' in values else '/var/tmp/gct-m1wh-p6-readiness-20260923-r1')
-        for key in ('NEW_SHA', 'NEW_SELF', 'READY_RESULT_SHA', 'READY_BEFORE_SHA', 'READY_PINS_SHA'):
+        ready = Path(values['READY'] if 'READY' in values else '/var/tmp/gct-m1wh-p6-readiness-20260923-r2')
+        keys = ('NEW_SHA', 'NEW_SELF', 'READY_RESULT_SHA', 'READY_BEFORE_SHA', 'READY_PINS_SHA')
+        if all(values[key] is None for key in keys):
+            self.assertEqual(values['OLD_SHA'], '01ed1bce0b99d5c6043804cdacb2b25bc725bffb00dba3450888284e570d0a8a')
+            return  # not yet filled: the adoption refuses until the -r2 readiness passes
+        for key in keys:
             self.assertRegex(values[key] or '', r'^[0-9a-f]{64}$', key)
         self.assertEqual(values['OLD_SHA'], '01ed1bce0b99d5c6043804cdacb2b25bc725bffb00dba3450888284e570d0a8a')
         if not ready.is_dir():
