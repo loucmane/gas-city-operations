@@ -273,15 +273,27 @@ class Chain(unittest.TestCase):
             found = re.findall(r"^ROOT\s*=\s*Path\('([^']+)'\)$", (HERE/name).read_text(), re.M)
             self.assertEqual(len(found), 1, name)
             self.assertTrue(found[0].startswith('/var/tmp/gct-m1wh-p6-'), name)
-            self.assertFalse(os.path.lexists(found[0]), name)
             roots.append(found[0])
         self.assertEqual(len(set(roots)), 4)
+        # The three read-only roots were consumed by the passed 12:04-12:07Z run. Only the adoption
+        # root must still be fresh.
+        self.assertFalse(os.path.lexists(roots[3]), 'adoption root already used')
 
-    def test_adoption_refuses_until_filled(self):
+    def test_adoption_constants_bind_the_readiness_evidence(self):
         values = constants('p6-adopt.py')
-        self.assertTrue(all(values[k] is None for k in ('NEW_SHA', 'NEW_SELF', 'READY_RESULT_SHA',
-                                                        'READY_BEFORE_SHA', 'READY_PINS_SHA')))
+        ready = Path(values['READY'] if 'READY' in values else '/var/tmp/gct-m1wh-p6-readiness-20260923-r1')
+        for key in ('NEW_SHA', 'NEW_SELF', 'READY_RESULT_SHA', 'READY_BEFORE_SHA', 'READY_PINS_SHA'):
+            self.assertRegex(values[key] or '', r'^[0-9a-f]{64}$', key)
         self.assertEqual(values['OLD_SHA'], '01ed1bce0b99d5c6043804cdacb2b25bc725bffb00dba3450888284e570d0a8a')
+        if not ready.is_dir():
+            self.skipTest('readiness evidence not present on this host')
+        sha = lambda name: hashlib.sha256((ready/name).read_bytes()).hexdigest()
+        self.assertEqual(values['NEW_SHA'], sha('receipt.final.json'))
+        self.assertEqual(values['READY_RESULT_SHA'], sha('result.json'))
+        self.assertEqual(values['READY_BEFORE_SHA'], sha('before.json'))
+        self.assertEqual(values['READY_PINS_SHA'], sha('before.json.provider-pins'))
+        final = json.loads((ready/'receipt.final.json').read_bytes())
+        self.assertEqual(values['NEW_SELF'], final['receipt_sha256'])
 
 
 class Composition(unittest.TestCase):

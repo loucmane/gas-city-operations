@@ -31,12 +31,13 @@ READY=Path('/var/tmp/gct-m1wh-p6-readiness-20260923-r1')
 READY_SOURCE=HERE/'p6-readiness.py'
 READY_SHA='649ffa11fa192d46b1c10135a21b47f48838fac2ff870240df52e63e7c021760'
 OLD_SHA='01ed1bce0b99d5c6043804cdacb2b25bc725bffb00dba3450888284e570d0a8a'
-# Filled from the passed readiness evidence before the adoption reviews.
-NEW_SHA=None
-NEW_SELF=None
-READY_RESULT_SHA=None
-READY_BEFORE_SHA=None
-READY_PINS_SHA=None
+# Filled from the passed readiness evidence (/var/tmp/gct-m1wh-p6-readiness-20260923-r1, 12:06:36Z to
+# 12:07:47Z): receipt.final.json, its receipt_sha256, result.json, before.json and its provider pins.
+NEW_SHA='0b30c23f4484382fd4918f394599268f4f4005ac71118e8a7f82ca72eb9615ff'
+NEW_SELF='c635e8ee0547ebc8c4caec6577d65103b9d17436ff17a18f66687f0ea3f1957f'
+READY_RESULT_SHA='a6cac0b99822e8432fa8b01b2a0c87bb212ff141c165d13d4921b2b75f8c8ee7'
+READY_BEFORE_SHA='af7ef094c11d73b864ea7174f2b5e856a15ec34577ac3574bb54e1c537c21227'
+READY_PINS_SHA='a5f7f8c11a95b48d01f910c5c4668828d61a587a5942545f27d403ebadfeac8f'
 CORE='796d9a7a67c42294fdc467c107bb59b76e482301'
 EVIDENCE=[
  ('reviewed-build','/var/tmp/ga-mutg-custody-build-20260920/artifact-verification.json','fd1317440274f995aa52bebea565bba511912fdcb7a36b52b67105a673ee23ee'),

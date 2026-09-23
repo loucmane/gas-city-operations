@@ -82,6 +82,37 @@ Reused unchanged by digest:
    only `receipt.sha256`, then `--apply`, then verify). Exact rollback on failure.
 6. Two reviews of the adoption evidence, then `gc platform canary`.
 
+## Run record and adoption binding (r2)
+
+The package commit `a1759c01` received two independent SOURCE_PASS reviews with no must-fix. The
+operator then ran `operator/P6-READONLY.sh a1759c01…` once, from 12:04:26Z to 12:07:47Z:
+- **input:** result `060565e1`, draft `24c1ca75`, running revision `d6ca85cd`.
+- **compose:** ok, under `/var/tmp/gct-m1wh-p6-compose-20260923-r1`. The actual argv, environment
+  and revision equal the draft, before equals after, and nothing was installed.
+- **readiness:** ok, under `/var/tmp/gct-m1wh-p6-readiness-20260923-r1`. All six phases completed
+  and the run was unchanged; no inference, no signing, no worker.
+  - normalize equals finalize: Template and Core agree.
+  - discover bound `1e08503d`.
+  - The old path refused at `worker_profile_sha256`.
+  - The subscription is claude.ai, max, logged in.
+  - Preflight OK on all 12 checks, including provider_readiness and signer.
+  - The finalized receipt `receipt.final.json` is `0b30c23f`, with self digest `c635e8ee`. It names
+    Template 28539934, revision d6ca85cd, provider version f36deb20, model claude-opus-5-5 and
+    toolchain go.
+
+r2 fills only `p6-adopt.py`:
+- `NEW_SHA` 0b30c23f and `NEW_SELF` c635e8ee;
+- `READY_RESULT_SHA` a6cac0b9, `READY_BEFORE_SHA` af7ef094, `READY_PINS_SHA` a5f7f8c1.
+
+Its digest becomes `917c1635`. The three scripts that ran stay byte-identical: adoption loads them by
+digest. The test now binds the constants to the readiness files. `operator/P6-ADOPT.sh` runs the
+adoption detached, as its own user unit with output to a file. It checks the reviewed clean commit,
+pins `917c1635` and requires a fresh adoption root.
+
+Start it, after the two reviews of this evidence and package, with
+`systemd-run --user --unit=gct-m1wh-p6-adopt --collect -p UMask=0022 sh $P/operator/P6-ADOPT.sh <commit>`.
+Nobody runs gc until its log ends.
+
 ## Stop conditions
 
 Stop on any of these:
