@@ -7,10 +7,18 @@ after every live prerequisite record exists and before any M5 preparation.
 Each stage binds the previous stage by exact digest and writes one exclusive
 record under reports/m5-capture. No timer, lifecycle, worker, signer or Bead action.
 
-  python3 -I -B capture.py audit
-  python3 -I -B capture.py complete <audit.json sha256>
-  python3 -I -B capture.py settle <baseline-audit.json sha256>
-  python3 -I -B capture.py freeze <baseline-audit.json sha256> <settle-result.json sha256>
+  python3 -I -B capture.py <candidate sha256> audit
+  python3 -I -B capture.py <candidate sha256> complete <audit.json sha256>
+  python3 -I -B capture.py <candidate sha256> settle <baseline-audit.json sha256>
+  python3 -I -B capture.py <candidate sha256> freeze <baseline-audit.json sha256> <settle-result.json sha256>
+
+The two re-pinned trees are bounded against the reviewed M1 audit inventories,
+ignoring access times:
+- r5/r may differ only in .git/index;
+- the Template .git may change only Git object, ref, log, worktree-admin, LFS
+  lock and workflow-transaction state, plus HEAD, index, FETCH_HEAD, ORIG_HEAD,
+  COMMIT_EDITMSG and config. Its non-branch config must stay exactly the
+  reviewed set, and no hook, info or description entry may change.
 """
 import copy
 import hashlib
@@ -23,11 +31,35 @@ import time
 import types
 
 HERE = Path(__file__).parent
-p = HERE/'manifest_candidate.py'
-m = types.ModuleType('m5_candidate'); m.__file__ = str(p)
-exec(compile(p.read_bytes(), str(p), 'exec', dont_inherit=True), m.__dict__)
-OUT = Path(m.O + '/reports/m5-capture')
-PREREQS = Path(m.O + '/reports/m5-inputs')
+m = None
+OUT = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5-capture')
+M1_AUDIT = Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/'
+                'gct-m1wh-metadata-20260922-r1/audit.json')
+M1_AUDIT_SHA = '942583964ff1bac9bd9bb9e343b7c5323f7d986edf9b71a40df3e2bb2bec2930'
+GIT_EXACT = {'.', 'HEAD', 'index', 'FETCH_HEAD', 'ORIG_HEAD', 'COMMIT_EDITMSG', 'config', 'packed-refs',
+             'objects', 'refs', 'logs', 'worktrees', 'lfs', 'lfs/cache', 'gas-city-workflow'}
+GIT_PREFIXES = ('objects/', 'refs/', 'logs/', 'worktrees/', 'lfs/cache/locks/', 'gas-city-workflow/')
+CONFIG_EXPECTED = (
+    'core.repositoryformatversion 0\ncore.filemode true\ncore.bare false\ncore.logallrefupdates true\n'
+    'remote.origin.url https://github.com/loucmane/gas-city-template.git\n'
+    'remote.origin.fetch +refs/heads/main:refs/remotes/origin/main\nlfs.repositoryformatversion 0\n'
+    'filter.lfs.clean git-lfs clean -- %f\nfilter.lfs.smudge git-lfs smudge -- %f\n'
+    'filter.lfs.process git-lfs filter-process\nfilter.lfs.required true\n'
+    'lfs.https://github.com/loucmane/gas-city-template.git/info/lfs.access basic\n'
+    'user.signingkey FD5585922F5335BC378AD8D42ECF4432C7E7982D!\n')
+
+
+def load_candidate(expected):
+    global m
+    path = HERE/'manifest_candidate.py'
+    raw = path.read_bytes()
+    require(hashlib.sha256(raw).hexdigest() == expected, 'candidate source differs from the reviewed digest')
+    m = types.ModuleType('m5_candidate'); m.__file__ = str(path)
+    exec(compile(raw, str(path), 'exec', dont_inherit=True), m.__dict__)
+    require(Path(m.O + '/reports/m5-capture') == OUT, 'capture root binding')
+
+
+PREREQS = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5-inputs')
 M3_BASELINE = Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/'
                    'gct-m1wh-metadata-20260922-r3/baseline.json')
 M3_BASELINE_SHA = 'c411dc6072d3a5d29c79e70883c50c13503014fedcc819a3b6778aae2979daf6'
@@ -66,6 +98,22 @@ def git(o, repo, *args):
                 stderr=r.stderr.decode(errors='replace'))
 
 
+def bounded_tree_diff(path, now):
+    """Changes since the reviewed M1 inventory, ignoring access times, within the allowed set."""
+    raw = M1_AUDIT.read_bytes()
+    require(hashlib.sha256(raw).hexdigest() == M1_AUDIT_SHA, 'M1 audit drift')
+    before = json.loads(raw)['trees'][path]['inventory']
+    strip = lambda v: {k: x for k, x in v.items() if k != 'atime_ns'}
+    changed = sorted(k for k in set(before) & set(now) if strip(before[k]) != strip(now[k]))
+    added, removed = sorted(set(now) - set(before)), sorted(set(before) - set(now))
+    if path == m.R5R:
+        allowed = lambda k: k in ('.git', '.git/index')
+    else:
+        allowed = lambda k: k in GIT_EXACT or k.startswith(GIT_PREFIXES)
+    outside = [k for k in changed + added if not allowed(k)] + removed
+    return dict(changed=changed, added=added, removed=removed, outside_allowed=outside)
+
+
 def target(manifest):
     """The exact M5 coverage and the digest each pin must have before preparation."""
     md = manifest['metadata']
@@ -99,9 +147,11 @@ def audit():
     g = r.legacy()
     o, s = g['observe_recovery'], g['recovery_state']
     o.GC_SHA = m.NEW
-    for step in ('inputs', 'cli', 'city', 'checkout', 'render', 'authority'):
+    for step in ('inputs', 'cli', 'city-transition', 'checkout', 'registry', 'render', 'city-final',
+                 'authority'):
         require(os.path.lexists(PREREQS/('prereq-' + step + '.json')), 'live prerequisite missing: ' + step)
-    require(not os.path.lexists(OUT) and not os.path.lexists(m.ROOT), 'capture or package root consumed')
+    require(not os.path.lexists(OUT) and not os.path.lexists(m.ROOT)
+            and not os.path.lexists(PREREQS/'rollback.json'), 'capture, package or rollback consumed')
     manifest = s.read(o.CITY/'.gc/platform/install-manifest.json', m.OLD_MANIFEST_SHA)
     receipt = s.read(o.CITY/'.gc/platform/install-receipt.json', m.OLD_RECEIPT_SHA)
     md = manifest['metadata']
@@ -143,6 +193,14 @@ def audit():
         if head['stdout'].strip() != repo['commit'] or status['returncode'] != 0 or status['stdout']:
             drifts.append(dict(kind='repository', name=repo['name'], expected=repo,
                                actual=repositories[repo['name']]))
+    bounds = {path: bounded_tree_diff(path, trees[path]['inventory']) for path in m.REPINNED_TREES}
+    for path, diff in bounds.items():
+        if diff['outside_allowed']:
+            drifts.append(dict(kind='repinned-tree-bound', path=path, outside=diff['outside_allowed'][:50]))
+    config = git(o, m.TEMPLATE, 'config', '--file', m.TEMPLATE + '/.git/config', '--get-regexp',
+                 '^(core|remote|lfs|filter|user)\\.')
+    if config['stdout'] != CONFIG_EXPECTED:
+        drifts.append(dict(kind='template-git-config', actual=config))
     canonical = dict(head=git(o, m.TEMPLATE, 'rev-parse', 'HEAD'),
                      status=git(o, m.TEMPLATE, 'status', '--porcelain', '--untracked-files=normal'))
     if canonical['head']['stdout'].strip() != m.TEMPLATE_COMMIT or canonical['status']['stdout'] != UNTRACKED:
@@ -153,6 +211,7 @@ def audit():
                   worker_release=False, manifest=manifest, receipt=receipt, host=host, host_after=after_host,
                   pins=pins, trees=trees, protected=protected, links=links, absent=absent, drifts=drifts,
                   unexpected_drifts=unexpected, repositories=repositories, canonical_checkout=canonical,
+                  repinned_tree_bounds=bounds, template_git_config=config,
                   suspension=s.pin(o.CITY/'.gc/runtime/suspension-state.json', links),
                   provisioning=s.pin(o.CITY/'.gc/runtime/provisioning/receipt.json', links))
     digest = exclusive('audit.json', o.encoded(result))
@@ -166,7 +225,7 @@ def complete(audit_sha):
     c = m.r7.c; s = c.s; o = c.o
     o.GC_SHA = m.NEW
     a = s.read(OUT/'audit.json', audit_sha)
-    require(not a['unexpected_drifts'], 'audit carries unexpected drift')
+    require(not a['unexpected_drifts'] and a['host'] == a['host_after'], 'audit carries drift or host change')
     prior = s.read(M3_BASELINE, M3_BASELINE_SHA)
     pins = dict(a['pins']); changes = []
     for path, before in prior['closure']['pins'].items():
@@ -256,10 +315,11 @@ def main():
     require(sys.flags.isolated and sys.flags.dont_write_bytecode and os.geteuid() == 1000,
             'isolated source-only UID1000 invocation required')
     args = sys.argv[1:]
-    require(args and args[0] in ('audit', 'complete', 'settle', 'freeze'), 'usage: see module docstring')
-    arity = dict(audit=1, complete=2, settle=2, freeze=3)[args[0]]
-    require(len(args) == arity and all(m.b.hex64(x) for x in args[1:]), 'exact digest arguments required')
-    dict(audit=audit, complete=complete, settle=settle, freeze=freeze)[args[0]](*args[1:])
+    require(len(args) >= 2 and args[1] in ('audit', 'complete', 'settle', 'freeze'), 'usage: see module docstring')
+    load_candidate(args[0])
+    arity = dict(audit=2, complete=3, settle=3, freeze=4)[args[1]]
+    require(len(args) == arity and all(m.b.hex64(x) for x in args[2:]), 'exact digest arguments required')
+    dict(audit=audit, complete=complete, settle=settle, freeze=freeze)[args[1]](*args[2:])
 
 
 if __name__ == '__main__':

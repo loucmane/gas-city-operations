@@ -3,10 +3,13 @@
 Successor fields follow the reviewed M3 correction. The data changes are the
 operator-approved V1 layout of 2026-09-23: a fresh clean Template authority
 worktree with complete explicit coverage, the unused python3.12/test pins
-dropped, and the exact re-pins that the live prerequisites produce. Every new
-digest is either a constant derived from Git objects or live bytes before the
-change (see derive_expected.py and LAYOUT.md), or a tree digest taken from the
-frozen baseline. Nothing here reads the host except the pinned baseline.
+dropped, the exact re-pins that the live prerequisites produce (including the
+rig registry synced to the 28539934 gascity profile), and the distribution
+security update of libexpat installed by unattended-upgrade on 2026-09-23.
+Every new digest is either a constant derived from Git objects, staged or
+distribution bytes, or live bytes before the change (see derive_expected.py
+and LAYOUT.md), or a tree digest taken from the frozen baseline. Nothing here
+reads the host except the pinned baseline.
 """
 import copy
 import hashlib
@@ -46,11 +49,33 @@ CHANGED_INPUTS = (
      '4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591'),
     ('/home/loucmane/gascity/city/managed/rig-permissions.toml',
      'c7c11b8aa544ad40a82daea5232d2718790eeff8754bc3c50a7aa622dfa1f04e',
-     'a5ff5a5834ef433b2f0bff3332f5fe65a22910a77ae231d08b4a06481609f689'),
+     'cba75f87a373a078c11832609c274bd7eaa592b435545ef203ba6211f4f86725'),
+    ('/home/loucmane/gascity/city/managed/rig-permissions.json',
+     '7fb9a74179d58c02abb33369b4f2b5a7f7a35522619ee48374e1de1e6cfc8265',
+     'd22cf4c14650e465b6b530e17d16b601079aa1e7dd52b1b76403cc58299c8adf'),
+    # libexpat1 2.6.1-2ubuntu0.4 -> 0.5, unattended-upgrade 2026-09-23 06:55:34;
+    # dpkg --verify clean, md5 f0cbf5c6 equals the package record.
+    ('/usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1',
+     'c42ff317838b4b4639e2ea801905f0317177c6df7e31b2f0d0240e3c3ac0cfde',
+     'ec6c12d33bb8f9d0e90804121adf19930f36b1b2a4aeb6e1a454b89c7a50c801'),
 )
 CITY_OLD, CITY_NEW = CHANGED_INPUTS[2][1:]
 RIGPERM_OLD, RIGPERM_NEW = CHANGED_INPUTS[3][1:]
+REGISTRY_OLD, REGISTRY_NEW = CHANGED_INPUTS[4][1:]
 CLI_OLD, CLI_NEW = CHANGED_INPUTS[1][1:]
+CITY_SOURCE_OLD = O + '/reports/r5/i/07'
+# Canonical Template files that 28539934 leaves byte-identical; the predecessor
+# pins must already equal the 28539934 blobs (proved in test_manifest.py).
+RETAINED_TEMPLATE_PINS = {
+    TEMPLATE + '/bin/gct-claude-signing-worker':
+        '9df9ea34e83ad7ce39328ffedc7c9b3a2aceef9abb537e7e27c4e85e884378e0',
+    TEMPLATE + '/lib/gct_claude_subscription.py':
+        '3b92bc92f3bc05a762c0008738550d8c48c0998fad6b4807578552643529639b',
+    TEMPLATE + '/templates/claude/signing-provider.toml':
+        'f820690b032fac347b75ac4c0bcf0e46f572a04be9063a5c63b754c4c74d2dc9',
+    TEMPLATE + '/templates/claude/core-signing-control-policy.json':
+        '16022d04533e3d6366cfc25b3ad76a3af2d7bd5da2ad7412d76b93fe4d3c1225',
+}
 NATIVE_VERSION_OLD = '2.1.263 (Claude Code)'
 NATIVE_VERSION_NEW = '2.1.280 (Claude Code)'
 VERSION_OLD = ('gct-claude-signing-worker 1 dependencies_sha256='
@@ -59,7 +84,9 @@ VERSION_NEW = ('gct-claude-signing-worker 1 dependencies_sha256='
                'f36deb20efa5cc11781f1d9703b8e5e0d7897c6357260dff1045bcd86489ff34')
 # Trees re-pinned from the frozen baseline: the Template common Git directory
 # (fetch of 28539934, checkout advance, new linked worktree) and the r5/r
-# authority clone (its index was rewritten on 2026-09-23 without a HEAD change).
+# authority clone. Its index, and five linked-worktree indexes inside the
+# Template .git, were rewritten at 2026-09-23 01:39 by a plain git status of
+# the read-only M4 investigation. HEAD is unchanged. capture.py bounds both diffs.
 REPINNED_TREES = (TEMPLATE + '/.git', R5R)
 
 # Complete coverage of the 277 tracked paths of Template 28539934: maximal
@@ -196,9 +223,14 @@ def assemble(old, closure, host, parents, transaction, attempt):
         require(pins[path]['sha256'] == after and pins[path]['mode'] == pin['mode'],
             'reviewed successor input: ' + path)
         pin['sha256'] = after
-    files = _one(out['integrity']['files'], 'name', 'rig-permissions.toml', 'rig-permissions integrity')
-    require(files['sha256'] == RIGPERM_OLD, 'exact predecessor rig permissions')
-    files['sha256'] = RIGPERM_NEW
+    for path, digest in RETAINED_TEMPLATE_PINS.items():
+        pin = _one(md['inputs'], 'path', path, 'retained Template input: ' + path)
+        require(pin['sha256'] == digest and pins[path]['sha256'] == digest, 'retained Template bytes: ' + path)
+    for name, before, after in (('rig-permissions.toml', RIGPERM_OLD, RIGPERM_NEW),
+                                ('rig-permissions.json', REGISTRY_OLD, REGISTRY_NEW)):
+        files = _one(out['integrity']['files'], 'name', name, 'integrity file: ' + name)
+        require(files['sha256'] == before, 'exact predecessor integrity file: ' + name)
+        files['sha256'] = after
     native = _one(out['integrity']['providers'], 'name', 'claude-native', 'native provider')
     require(native['sha256'] == CLI_OLD and native['version'] == NATIVE_VERSION_OLD
         and native['path'] == native['resolved_path'] == '/home/loucmane/gascity/bin/claude',
@@ -206,12 +238,14 @@ def assemble(old, closure, host, parents, transaction, attempt):
     native.update(sha256=CLI_NEW, version=NATIVE_VERSION_NEW)
     worker = _one(out['integrity']['providers'], 'name', 'claude', 'signing provider')
     require(worker['version'] == VERSION_OLD
-        and worker['path'] == TEMPLATE + '/bin/gct-claude-signing-worker', 'exact predecessor worker')
+        and worker['path'] == worker['resolved_path'] == TEMPLATE + '/bin/gct-claude-signing-worker'
+        and worker['sha256'] == RETAINED_TEMPLATE_PINS[worker['path']], 'exact predecessor worker')
     worker['version'] = VERSION_NEW
     config = _one(out['managed_files'], 'name', 'city-config', 'city config managed file')
     require(config['sha256'] == config['previous_sha256'] == CITY_OLD
         and config['destination'] == '/home/loucmane/gascity/city/city.toml'
-        and config['backup_path'] == O + '/reports/r5/i/00', 'exact predecessor city config')
+        and config['backup_path'] == O + '/reports/r5/i/00'
+        and config['source'] == CITY_SOURCE_OLD, 'exact predecessor city config')
     # Already installed out of band; the unchanged backup proves the predecessor
     # bytes, so the native metadata-only path reuses it and mutates nothing.
     require(pins[config['backup_path']]['sha256'] == CITY_OLD, 'city config backup bytes')
@@ -230,8 +264,8 @@ def assemble(old, closure, host, parents, transaction, attempt):
     repos.append(dict(name=AUTHORITY_NAME, path=AUTHORITY, commit=TEMPLATE_COMMIT))
     existing = {p['path'] for p in md['inputs']} | {p['path'] for p in md['trees']} | {
         p['path'] for p in md['links']}
-    require(not any(x == AUTHORITY or x.startswith(AUTHORITY + '/') for x in existing),
-        'authority coverage overlaps an existing pin')
+    require(not any(x == AUTHORITY or x.startswith(AUTHORITY + '/') or AUTHORITY.startswith(x + '/')
+                    for x in existing), 'authority coverage overlaps an existing pin')
     for relative, digest, mode in AUTH_INPUTS:
         path = AUTHORITY + '/' + relative
         require(pins[path]['sha256'] == digest and pins[path]['mode'] == mode, 'authority file: ' + path)

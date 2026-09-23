@@ -1,42 +1,47 @@
-# M5 metadata successor: layout proof and activation plan
+# M5 metadata successor: layout proof and activation plan (r2)
 
-Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the Opus 5.5 scope of
-`gct-er3h`. Target: Template main `28539934fa742056e0a65710d5638ff559a21175`
-(PR 69 merge; tree `cfe24ca7`, equal to the reviewed branch head `0db4d800`).
+This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
+Opus 5.5 scope of `gct-er3h`.
+
+- Target: Template main `28539934fa742056e0a65710d5638ff559a21175`, the PR 69 merge.
+- Its tree `cfe24ca7` is identical to the reviewed branch head `0db4d800`.
+
+r2 answers the two independent HOLD reviews of r1 (`fb7f01cf`). The table at the end maps every
+finding to its disposition.
 
 ## Operator decisions (2026-09-23, recorded on gct-m1wh)
 
-- The layout is **V1**:
+- **Layout V1:**
   - a fresh, clean Template authority worktree;
-  - the `python3.12/test` pins dropped, a narrowing the operator accepts.
-- The upgrade of the shared Claude Code CLI to 2.1.280 is accepted for every role. The Fable
+  - the `python3.12/test` pins dropped, a narrowing the operator accepted.
+- **Shared Claude Code CLI:** the upgrade to 2.1.280 is accepted for every role, and the Fable
   roles stay unprobed.
-- The m1wh and er3h activations are combined. The canonical checkout advance to `28539934`
-  carries both.
-- Once two independent reviewers pass this layout proof, the coordinator may run the live
-  sequence below without asking again. It stops at the first refusal or at anything unexpected.
+- **Combined activation:** m1wh and er3h activate together.
+- **Live sequence:** once two independent reviewers pass the package, the live sequence runs
+  without further asking and stops at the first refusal.
+- **Executor:** the operator runs each live command with `!` from the Claude seat. This session
+  cannot reach the supervisor namespaces.
 
 ## Why M3 refused, and what M5 changes
 
 The confined writer W mounts only declared inputs, trees and links. M3 declared the canonical
 checkout as the Template authority but mounted only `.git` plus 5 of its 258 tracked files. Inside
-W, `git status` therefore saw 253 tracked paths deleted, and the result was
-`repositories[template-pr67-authority].clean expected true, actual false`. The untracked
-`deploy/` and egg-info directories were never mounted and were not the cause.
+W, `git status` therefore saw 253 tracked paths deleted, which produced
+`repositories[template-pr67-authority].clean expected true, actual false`.
 
-M5 names a **fresh linked worktree** as the authority:
+M5 instead names a **fresh linked worktree** as the authority:
 
 - path: `/home/loucmane/gas-city-template-worktrees/gct-m1wh-pr69-authority`;
 - detached at `28539934`;
-- declared with complete explicit coverage of all 277 tracked paths.
+- with complete explicit coverage of all 277 tracked paths.
 
 The canonical checkout stays the executed worker path. It is not a repository entry, so its
-untracked user data is left alone and never needs to be clean.
+untracked `deploy/` and egg-info are left alone.
 
 ## Complete authority coverage
 
-The layout follows the rule from `LAYOUT-DECISION.md`: maximal link-free subtrees, individual
-regular files, and explicit links.
+The authority is covered by maximal link-free subtrees, individual regular files and explicit
+links.
 
 | Kind | Count | Members |
 | --- | --- | --- |
@@ -44,207 +49,287 @@ regular files, and explicit links.
 | Trees | 20 | 19 root directories plus `sessions/2026` (mode 0755) |
 | Links | 2 | `plans/current`, `sessions/current` |
 
-- Input digests are the SHA-256 of the Git blob content. `.gitattributes` has no eol or filter
-  conversion.
-- The `.git` pointer file content is `gitdir: <template>/.git/worktrees/gct-m1wh-pr69-authority\n`.
-- No tree contains a link.
-- Both link targets resolve to covered regular files:
-  - one is a `plans` input;
-  - the other lies inside the `sessions/2026` tree.
+- Input digests are Git blob SHA-256s. `.gitattributes` has no eol or filter rule.
+- No tree contains a link, and both link targets resolve to covered regular files.
 - The worktree admin directory lies inside the already-pinned Template `.git` tree.
-
-`test_authority_coverage_is_complete_and_exact` proves from Git objects that every tracked path is
-covered exactly once.
+- `test_authority_coverage_is_complete_and_exact` proves from Git objects that every tracked path is
+  covered exactly once. It also re-derives the inputs with `derive_expected.coverage()`.
 
 ## Frame
 
-The frame is measured with the reviewed `build_manifest.frame_bound`, the maximal-binding upper
-bound against 131,072 bytes. Placeholder digests have the real fixed length. Host, parent and
-version fields are the same length as the real values, give or take a few digits.
+The frame is the reviewed `build_manifest.frame_bound`, a maximal-binding upper bound checked
+against 131,072 bytes.
 
 | Manifest | Upper bound (bytes) | Spare (bytes) |
 | --- | --- | --- |
 | R9 installed | 130,177 | 895 |
 | M3 (refused) | 130,420 | 652 |
-| M5 without dropping the test pins | 136,985 | **−5,913** |
-| **M5 (this package)** | **128,071** | **3,001** |
+| M5 without dropping the test pins | 136,985 | −5,913 |
+| **M5 r2** | **128,071** | **3,001** |
 
-The lossless `reports/r5/i` compaction was measured at about 4 KB more spare. It is **not used**,
-for three reasons:
+The real build enforces the limit, so a placeholder-length difference cannot slip through. The
+lossless `r5/i` compaction is not used, for two reasons:
 
-- it would put the managed-file backups `r5/i/00` (city-config) and `r5/i/15` inside a tree;
-- it depends on unverified bwrap stacking of the retained `r5/i/20` setup input;
-- M5 fits without it.
+- it would put the managed-file backups `r5/i/00` and `r5/i/15` inside a tree;
+- it relies on unverified bwrap stacking.
 
-## Complete old-to-new pin map
+## Complete old-to-new pin map (`test_exact_coverage_map` fixes every entry)
 
-The builder computes this map, and `test_exact_coverage_map` fixes every entry of it.
+- **Inputs, removed (57):** `/usr/lib/python3.12/test/**`. The external quiet-window closure still
+  observes them through the carried-forward baseline pins. After apply, the platform no longer
+  verifies them.
+- **Inputs, re-pinned (6).** Each requires its exact predecessor.
 
-- **Inputs, removed (57):** all of `/usr/lib/python3.12/test/**`, as the operator decided. The
-  worker's traced `--version` closure loads 63 stdlib files, none of them under `test/`. The
-  external quiet-window closure still observes these 57 files during the transaction, because
-  they remain in the carried-forward baseline pins. After apply, the platform no longer verifies
-  them.
-- **Inputs, re-pinned (4):** the predecessor digest must match exactly, and the successor digest
-  is a reviewed constant.
-
-  | Path | R9 digest | M5 digest | Source of the M5 digest |
+  | Path | R9 | M5 | Source of the M5 bytes |
   | --- | --- | --- | --- |
-  | `gas-city-template/lib/gct_claude_signing_worker.py` | `bac4df82` | `4e28d5b8` | Git blob at `28539934` (`MODEL = "claude-opus-5-5"`) |
-  | `gascity/bin/claude` | `26d02035` | `1e08503d` | staged 2.1.280 bytes |
+  | `gas-city-template/lib/gct_claude_signing_worker.py` | `bac4df82` | `4e28d5b8` | Git blob at 28539934 (`MODEL = "claude-opus-5-5"`) |
+  | `gascity/bin/claude` | `26d02035` | `1e08503d` | staged 2.1.280 bytes (the gct-er3h preflight) |
   | `gascity/city/city.toml` | `6594ee77` | `4f7e170f` | exact 6-line edit of the R9 backup `r5/i/00` |
-  | `gascity/city/managed/rig-permissions.toml` | `c7c11b8a` | `a5ff5a58` | line 95 → `opus-5-5`, the reviewed 28539934 renderer output at the canonical path |
+  | `gascity/city/managed/rig-permissions.json` | `7fb9a741` | `d22cf4c1` | the registry synced to the 28539934 profiles: only the gascity claude toolchain digest and version change, and the blog rig is untouched |
+  | `gascity/city/managed/rig-permissions.toml` | `c7c11b8a` | `cba75f87` | reviewed 28539934 renderer output for the synced registry: `registry_sha256`, the `managed-<digest>` choice name, and `model = "opus-5-5"` |
+  | `/usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1` | `c42ff317` | `ec6c12d3` | Ubuntu security update `libexpat1` 2.6.1-2ubuntu0.4 → 0.5 by `unattended-upgrade` at 2026-09-23 06:55:34 |
 
+  - The render method is checked first. The same renderer reproduces the live `c7c11b8a` file
+    from the live registry, apart from the model line.
+  - For libexpat, `dpkg --verify` is clean and the MD5 `f0cbf5c6` equals the package record.
 - **Inputs, added (14):**
   - the `gc-b` Core backup, as in M3;
-  - the new city-config source `reports/m5-inputs/city.toml` (`4f7e170f`, mode 0644);
+  - the city-config source `reports/m5-inputs/city.toml` (`4f7e170f`, mode 0644);
   - the 12 authority inputs.
-- **Trees, re-pinned from the frozen capture (2):**
-  - the Template `.git`, changed by the fetch of `28539934`, the checkout advance and the new
-    worktree admin directory;
-  - `reports/r5/r`, whose index was rewritten on 2026-09-23 01:39 with HEAD `7e354226`
-    unchanged. That authority is still clean.
+- **Inputs, retained and asserted:** four canonical Template files that 28539934 leaves
+  byte-identical.
+  - `bin/gct-claude-signing-worker` (`9df9ea34`), which is also the provider SHA;
+  - `lib/gct_claude_subscription.py` (`3b92bc92`);
+  - `templates/claude/signing-provider.toml` (`f820690b`);
+  - `core-signing-control-policy.json` (`16022d04`).
 
-  The builder refuses if either digest is unchanged.
-- **Trees, added (20):** the authority trees. Their digests come only from the frozen capture.
+  Each equals its blob at both `51440da2` and `28539934`.
+- **Trees, re-pinned from the frozen capture (2):** `capture.py audit` bounds both against the
+  reviewed M1 audit inventories, ignoring access times.
+  - `reports/r5/r`: only `.git/index` may change.
+  - Template `.git`:
+    - may change only objects, refs, logs, worktree admin, LFS locks, workflow transactions,
+      HEAD, index, FETCH_HEAD, ORIG_HEAD, COMMIT_EDITMSG and config;
+    - its non-branch config must equal the reviewed set;
+    - hooks, info and description must be unchanged.
+
+  Today both are inside their bounds: `r5/r` shows 2 changed entries, and `.git` shows 83 changed
+  and 92 added, none outside the allowed set.
+
+  The cause is identified. At 2026-09-23 01:39, a plain `git status` without
+  `--no-optional-locks`, run by the read-only M4 investigation, rewrote the `r5/r` index and five
+  linked-worktree indexes inside the Template `.git`. HEAD did not change. Every package command
+  now uses `--no-optional-locks`, and the quiescent window forbids any other reader.
+- **Trees, added (20):** the authority trees, from the capture.
 - **Links, added (2):** the authority links.
-- **Repositories, added (1):** `template-pr69-authority` at `28539934`. All six historical
+- **Repositories, added (1):** `template-pr69-authority` at 28539934. All six historical
   authorities are retained.
 - **Providers:**
   - `claude-native`: `26d02035` / `2.1.263` → `1e08503d` / `2.1.280 (Claude Code)`;
-  - `claude` (signing wrapper) version: `dependencies_sha256` `b7fee446` → `f36deb20`. The
-    derivation method reproduces the reviewed M3 value `8b8b3f76` first.
-- **Integrity files:** `rig-permissions.toml` `c7c11b8a` → `a5ff5a58`.
+  - `claude`: the version `dependencies_sha256` moves `b7fee446` → `f36deb20`. The same derivation
+    first reproduces the reviewed M3 value `8b8b3f76`.
+- **Integrity files:**
+  - `rig-permissions.toml`: `c7c11b8a` → `cba75f87`;
+  - `rig-permissions.json`: `7fb9a741` → `d22cf4c1`.
 - **Managed file `city-config`:**
-  - `sha256` → `4f7e170f`, and `source` → `reports/m5-inputs/city.toml`;
-  - `previous_sha256` stays `6594ee77`, with the existing backup `r5/i/00` holding exactly those
-    bytes.
+  - `sha256` → `4f7e170f`, and `source` moves from `r5/i/07`, which is asserted, to
+    `reports/m5-inputs/city.toml`;
+  - `previous_sha256` stays `6594ee77`, with the backup `r5/i/00` holding those bytes.
 
-  Core's metadata-only preflight therefore sees the file as already installed and reuses the
-  backup, so there is no mutation (`installer.go` 468-492, `metadata_adopt.go` 61-84).
+  Core then treats the file as already installed and reuses the backup, so there is no mutation
+  (`installer.go` 468-492, `metadata_adopt.go` 61-84).
 - **Scalars:**
-  - successor identity, exactly as reviewed in M3;
+  - successor identity, exactly as in M3;
   - `release_id`, `manifest_sha256`, transaction and attempt;
-  - evidence, parents and preimages under the fresh root `reports/m5`.
+  - evidence, parents and preimages under `reports/m5`.
 - **Unchanged:** Core, runtime, writer, protected trees, absent entries, `cache_sha256`,
-  `imports_sha256` and every other pin. `imports_sha256` does not change, because the city.toml
-  edit touches only provider model values, not imports.
+  `imports_sha256`, host and namespaces.
 
 ## Protection argument
 
-- **Narrower (operator-approved):** the 57 test-suite pins listed above.
-- **Equal:**
-  - every other R9 pin is retained;
-  - each changed pin moves to exact reviewed successor bytes and requires the exact predecessor;
-  - the two re-pinned trees keep their tree semantics.
+- **Narrower (operator-approved):** only the 57 test-suite pins.
+- **Equal:** every other R9 pin. Six inputs and two trees move to exact reviewed successor bytes,
+  and each requires its exact predecessor.
 - **Stronger:**
-  - W's clean check now sees the complete tracked authority, including its links;
-  - after the provisioning receipt refresh, the dispatch gate can bind `template_commit` to a
-    pinned, clean `28539934`;
-  - the builder refuses any authority file, tree, link, backup or source whose bytes differ from
-    the reviewed constants.
+  - W's clean check sees the complete tracked authority;
+  - after the receipt refresh, the dispatch gate can bind `template_commit` to a pinned, clean
+    28539934;
+  - the builder refuses a wrong authority file, tree or link, and a wrong backup, source or
+    retained Template byte. It also refuses an overlapping ancestor or descendant pin.
+
+## Config validity during the live sequence
+
+The supervisor reloads config on file change (`cmd/gc/controller.go` 727-806). When a load fails,
+it logs "keeping old config" and continues without a restart (`cmd/gc/city_runtime.go` 1756-1778).
+
+Load validation checks provider option defaults against their choices
+(`internal/config/compose.go` 725 calls `resolved_cache.go` 28-119). Agent patch values are resolved only at session
+launch, and every rig is suspended.
+
+`gc config show --validate` is weak evidence. It accepts even a bogus agent model, and it accepts
+the unordered state. The package therefore adds its own semantic check, `prereqs.models`: every
+claude-family selection must name an offered model. `validate_states.py` runs both checks on
+every state:
+
+| State | `gc` validate | Semantic check |
+| --- | --- | --- |
+| predecessor | accepted | accepted |
+| after `city-transition` | accepted | accepted |
+| after `render` | accepted | accepted |
+| after `city-final` | accepted | accepted |
+| unordered (final city + old fragment) | accepted | **refused** (`patches.agent.1: "opus-5"`) |
+
+The live order therefore:
+
+1. first adds the `opus-5-5` choice to city.toml;
+2. then syncs the registry and renders the fragment, which selects `opus-5-5`;
+3. last, removes `opus-5` and moves the defaults.
+
+Every intermediate composed config offers every model it selects. `prereqs.py` re-runs the check
+before and after each city step, and after the render.
 
 ## Live sequence
 
-Every step below must run as UID 1000 **in the supervisor host namespaces**. See the blocker
-section.
+All steps run as UID 1000 in the supervisor namespaces, executed by the operator with `!`.
+Before each command, verify that the package worktree is clean at the reviewed commit. Pass the
+reviewed `manifest_candidate.py` SHA-256 to every `prereqs.py` and `capture.py` call.
 
-1. **Preconditions:**
-   - every rig is suspended;
-   - there are zero sessions and no `city` tmux server;
-   - the installed manifest is `a6324753` and the receipt `482b5daf`;
-   - no other writer touches any Template worktree or `reports/r5/r` from here until restoration.
-     This is the quiescent-window rule.
-2. **Live prerequisites.** Run `python3 -I -B prereqs.py <step>` for each step, in order. Each
-   step writes an exclusive record under `reports/m5-inputs`.
-   - `inputs`: create the city-config source and a copy of the current rig-permissions file.
-   - `cli`: back up to `bin/claude.gct-m1wh-before-2.1.280`, then atomically install 2.1.280.
-     `--version` must print `2.1.280 (Claude Code)`.
-   - `city`: atomically write the edited city.toml.
-   - `checkout`: `git checkout --detach 28539934` in the canonical checkout, with hooks disabled
-     and the untracked set unchanged.
-   - `render`: `gct-managed-rig-permissions --apply` from the canonical 28539934 renderer. It must
-     report conformant and `a5ff5a58`.
-   - `authority`: `git worktree add --detach` for the authority, then prove it clean at HEAD
-     `28539934` with every file, link and tree root checked.
+1. **Preconditions.** `prereqs.py` checks these before and after every step:
+   - supervisor identity through `host_observation`;
+   - an empty supervisor scope and no city tmux server (`quiet_scope`);
+   - suspension record `823e4e21`;
+   - installed manifest `a6324753`;
+   - no `reports/m5` root and no rollback record.
 
-   The render comes after the checkout advance. The renderer embeds its own root path, and only
-   the 28539934 renderer emits `opus-5-5`. Between the checkout and render steps, the live
-   signing worker would refuse the old `claude-opus-5` argv. Every rig is suspended, so nothing
-   launches in that gap.
-3. **Capture.** Run `capture.py audit`, then `complete`, `settle` and `freeze`. Each stage binds
-   the previous stage's digest.
-   - The audit refuses on any drift other than the two re-pinned trees.
-   - `complete` carries forward every infrastructure pin of the M3 baseline and records each
-     change.
-   - `settle` warms cache access times with ordinary reads only, as the reviewed M1 settle did.
+   The host must be the same before and after each step. No other writer may touch any Template
+   worktree or `reports/r5/r` until restoration. Check `/var/log/apt/history.log` first: an
+   unattended upgrade of a pinned library during the window refuses preservation. That is safe,
+   but it consumes the attempt.
+2. **Live prerequisites.** Run `prereqs.py <candidate> <step>` for each step, in order. Each step
+   writes an exclusive record.
+   1. `inputs`: derive and verify every byte before creating `reports/m5-inputs`, which holds:
+      - the final and transitional city.toml;
+      - the new registry;
+      - backups of the registry and fragment.
+   2. `cli`: back up to `bin/claude.gct-m1wh-before-2.1.280`, atomically install 2.1.280, then
+      require `--version` to print `2.1.280 (Claude Code)`.
+   3. `city-transition`: city.toml `6594ee77` → `8e148efa`, which adds the `opus-5-5` choice.
+   4. `checkout`: `git checkout --detach 28539934`, with hooks off and no optional locks. The
+      untracked set and every retained Template pin are asserted.
+   5. `registry`: `7fb9a741` → `d22cf4c1`.
+   6. `render`:
+      - run `--check` first; it must predict `cba75f87` from `c7c11b8a`, and nothing is written
+        otherwise;
+      - then run `--apply`.
+
+      `--apply` stages a `.city.gct-validate.*` shadow beside the city, symlinks every other city
+      entry into it, runs `gc config show --validate` against it, and removes it. That reads the
+      pack cache, which is why the capture settles cache access times.
+   7. `city-final`: `8e148efa` → `4f7e170f`.
+   8. `authority`: `git worktree add --detach`. The worktree must be clean at 28539934, with
+      every file, link and tree root proved and the exact root entry set.
+3. **Capture.** Run `capture.py <candidate> audit`, then `complete`, then `settle`, then
+   `freeze`. Each stage binds the previous stage's digest.
+   - `audit` refuses on any file, tree, protected, repository, canonical, config, link, absent or
+     host drift, and on any re-pinned tree change outside its bound.
+   - `complete` requires a stable audit host and carries forward every infrastructure pin of the
+     M3 baseline.
+   - `settle` uses ordinary reads only.
 4. **Pin the baseline:**
    - set `BASELINE_SHA`;
-   - run the tests, including a build against the real baseline;
-   - write `source-pins.json` for the six launcher sources and commit.
+   - run both test files; `test_build_against_frozen_baseline` builds from the real file;
+   - write `source-pins.json`;
+   - commit, and have the binding reviewed.
 5. **Transaction.** This is the unchanged reviewed M3 executor.
-   1. `launch.py --expect-sources <inventory> prepare`. This starts the 15-minute window and
-      pauses only the reconciler timer.
+   1. `launch.py prepare`. This starts the 15-minute window and pauses the reconciler timer.
    2. Two SOURCE_PASS reviews.
    3. `pause`.
-   4. `observe`: the native metadata-only dry-run.
+   4. `observe`: the native metadata-only dry-run. This is also the first proof that 2.1.280
+      `--version` runs inside W, and it fails closed if not.
    5. Two PAIRING_PASS reviews.
-   6. `paired`: probes, then one apply.
+   6. `paired`.
    7. `verify`.
    8. Two COMMIT_PASS reviews.
    9. `restore-accepted`.
 
-   Any refusal preserves the evidence and restores the timer. Nothing is replayed.
-6. **Provisioning receipt refresh.** This is a separate reviewed package, because the receipt
-   must name `28539934`.
+   Nothing is replayed.
+6. **Provisioning receipt refresh.** This is a separate reviewed package naming 28539934. It reads
+   the synced registry, so M5 already pins the registry and fragment it needs.
 7. **Canary:** run `gc platform canary`.
 
-The Opus probe is reused, not repeated. The gct-er3h preflight ran on the byte-exact 2.1.280
-binary and got `OK` from:
-
-- `claude-opus-5-5`;
-- `claude-haiku-4-5-20251001`;
-- `claude-sonnet-5`.
-
-After the city edit, no live role selects `claude-opus-5`. Fable is not probed.
+The Opus probe is reused. The gct-er3h preflight on the byte-exact 2.1.280 answered `OK` for
+`claude-opus-5-5`, `claude-haiku-4-5-20251001` and `claude-sonnet-5`. After the city edit, no live
+role selects `claude-opus-5`. Fable is not probed.
 
 ## Rollback
 
-`prereqs.py rollback` is allowed only while the installed manifest is still `a6324753`. It
-restores, in reverse order:
+`prereqs.py <candidate> rollback` runs only while all of the following hold:
 
-1. rig-permissions, from its copy;
-2. the canonical checkout to `51440da2`;
-3. city.toml, from `r5/i/00`;
-4. the CLI, from its backup.
+- the installed manifest is `a6324753`;
+- no `reports/m5` root exists (once it does, the executor's recovery paths apply);
+- no rollback has already run.
 
-It then proves every predecessor digest and the untracked set. The authority worktree is left in
-place; it is clean and unreferenced. After apply, rollback is the native successor path only. It
-is never a hand edit of the platform metadata.
+Rollback restores every live file whose bytes differ from the predecessor, from a digest-verified
+backup:
 
-## Blocker: executor namespaces
+- city.toml, from `r5/i/00`;
+- the fragment and the registry, from their `m5-inputs` copies;
+- the CLI, from its backup.
 
-The reviewed `host_observation` requires the observer to share the supervisor's namespaces.
-From the canonical Claude seat session, commands run in mount namespace `4026532229`, while the
-supervisor (PID 3150812) runs in `4026532219`. The observation refuses with
-`observer is not in supervisor host namespaces`, and running unsandboxed was refused by the
-session's permission classifier.
+This covers an unreviewed render too. Rollback then returns the canonical checkout to `51440da2`
+and proves every predecessor digest and the untracked set. Rollback uses a temp-file name distinct
+from the forward steps, and a leftover temp file refuses. After a rollback, no forward step can
+run.
 
-The live prerequisites, the capture and the transaction therefore need an executor that runs in
-the supervisor's namespaces. That can be the operator's host shell or a Gas City coordinator
-session, as Codex ran R9 and M1 through M3. It must not be a weakened check.
+`test_prereqs.py` covers:
+
+- rollback from every partial state;
+- a corrupt backup;
+- an unreviewed render;
+- the refusal of the package root and of a changed installed manifest.
 
 ## Dependencies outside this package
 
-This package loads helpers from the following locations. Each one is digest-pinned at load time,
-and each has a byte-identical durable copy under
+Each dependency is digest-pinned at load time and has a byte-identical durable copy under
 `~/.local/share/gas-city-staging/{ga-mutg-20260920,gct-m1wh-metadata-20260922}`.
 
-- The legacy recovery sources under the ga-e0t1 tracker `reports/`.
-- The R9 helper chain:
-  - `reports/ga-mutg-metadata-quiet-r9-20260920/manifest_candidate.py`;
-  - `/tmp/ga-mutg-adoption-20260920-r{3,4,7}`;
-  - `/tmp/ga-mutg-adoption-20260920`.
-- The M3 baseline.
+- The legacy recovery sources in the ga-e0t1 tracker `reports/`.
+- The R9 helper `reports/ga-mutg-metadata-quiet-r9-20260920/manifest_candidate.py`.
+- The `/tmp` chain it loads:
+  - `/tmp/ga-mutg-adoption-20260920`;
+  - `/tmp/ga-mutg-adoption-20260920-r3`, `-r4`, `-r6` and `-r7`;
+  - `/tmp/ga-mutg-metadata-quiet-20260920-r9`.
+- The M1 audit and the M3 baseline in the durable staging directory.
 
-If `/tmp` is cleaned, restore those files byte-for-byte from the durable copies before running.
+If `/tmp` is cleaned, restore those paths byte for byte before running.
+
+## Review dispositions for r1 (fb7f01cf, two HOLD verdicts)
+
+| Finding | Disposition |
+| --- | --- |
+| Registry still pins 2.1.263 (must-fix) | Registry sync step. Both the registry and fragment are re-pinned, derived from the 28539934 profiles and renderer. |
+| `render` writes before checking; rollback cannot undo a wrong render (must-fix) | `--check` must predict `cba75f87` before `--apply`. Rollback restores any non-predecessor fragment from its verified copy (tested). |
+| Invalid-config window starts at `city` (must-fix) | Transitional city.toml ordering, plus the semantic model check before and after each config step. The supervisor reload behaviour is documented. |
+| Retained Template pins not checked offline | `RETAINED_TEMPLATE_PINS`, asserted in the builder and at checkout, and tested against both commits. |
+| `RIGPERM_NEW` not derived by a test | Derived with the real renderer and a method check, in `derive_expected.py` and the tests. |
+| Suspension digest checked late | Checked in every `prereqs.py` step. |
+| Untested branches; reasons not asserted | Every negative case uses `assertRaisesRegex` with its reason; the missing branches were added. |
+| Predecessor digest not asserted | `test_predecessor_is_installed_r9`. |
+| No real-baseline build test | `test_build_against_frozen_baseline` (refuses before the freeze, builds after it). |
+| Re-pinned trees accept any digest | Bounded diffs in the audit. |
+| Ancestor overlap unchecked | The guard now covers ancestors, and it is tested. |
+| `derive_expected` docs inaccurate | Rewritten. |
+| City-config source predecessor unasserted | Asserted as `r5/i/07`. |
+| CLI 2.1.280 never run inside W | Stated. The `observe` dry-run is the first proof and fails closed. |
+| Preconditions not checked in code | Quiet-host, suspension, installed-manifest and package-root checks run in every step. |
+| No tests of the live code | `test_prereqs.py`, 13 behavioural tests. |
+| Rollback restores city without verification | Every restore verifies its backup digest. |
+| Rollback while the package root exists | Refused (tested). |
+| Steps can run after a rollback | Refused (tested). |
+| `inputs` consumes its directory before validating | It validates first (tested). |
+| Candidate not digest-pinned | Both scripts require the reviewed candidate SHA-256. |
+| `complete` does not check host stability | It requires `host == host_after`. |
+| `/tmp` list incomplete | The list is complete, including `-r6`. |
+| Render side effects undocumented | Documented in step 2.6. |
+| `r5/r` index rewriter unidentified | Identified, and bounded. |
+| Shared temp-file name | Forward and rollback use distinct names, and a leftover refuses. |

@@ -1,8 +1,9 @@
-"""Offline M5 data-binding tests; synthetic closure and parents, never an execution manifest.
+"""Offline M5 data-binding tests. Synthetic closure and parents; never an execution manifest.
 
 The synthetic closure is the frozen M3 baseline overlaid with the expected
-successor pins. Tree digests are placeholders: only the frozen capture can
-supply real ones, and build() refuses until that capture is pinned.
+successor pins. Tree digests are placeholders. Only the frozen capture can
+supply real ones, and build() refuses until that capture is pinned. After the
+capture, test_build_against_frozen_baseline builds from the real file.
 """
 import copy
 import hashlib
@@ -13,9 +14,17 @@ import types
 import unittest
 
 HERE = Path(__file__).parent
-p = HERE/'manifest_candidate.py'
-m = types.ModuleType('candidate_under_test'); m.__file__ = str(p)
-exec(compile(p.read_bytes(), str(p), 'exec', dont_inherit=True), m.__dict__)
+
+
+def load(name, filename):
+    path = HERE/filename
+    module = types.ModuleType(name); module.__file__ = str(path)
+    exec(compile(path.read_bytes(), str(path), 'exec', dont_inherit=True), module.__dict__)
+    return module
+
+
+m = load('candidate_under_test', 'manifest_candidate.py')
+derive = load('derive_under_test', 'derive_expected.py')
 old_bytes = (Path(m.OLD_ROOT)/'q/manifest.json').read_bytes()
 old = json.loads(old_bytes)
 M3_BASELINE = Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/'
@@ -23,10 +32,24 @@ M3_BASELINE = Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metada
 m3_raw = M3_BASELINE.read_bytes()
 assert hashlib.sha256(m3_raw).hexdigest() == 'c411dc6072d3a5d29c79e70883c50c13503014fedcc819a3b6778aae2979daf6'
 STAGED_CLI = Path('/home/loucmane/.local/share/gas-city-staging/gct-er3h/claude-2.1.280')
+INPUTS = Path(m.O + '/reports/m5-inputs')
+
+
+def sha(data):
+    return hashlib.sha256(data).hexdigest()
 
 
 def hexd(label):
-    return hashlib.sha256(label.encode()).hexdigest()
+    return sha(label.encode())
+
+
+def predecessor(live, backup, digest):
+    """Live predecessor bytes before the live step, its preserved copy after."""
+    raw = Path(live).read_bytes()
+    if sha(raw) != digest:
+        raw = Path(backup).read_bytes()
+    assert sha(raw) == digest
+    return raw
 
 
 def synthetic_closure():
@@ -60,41 +83,55 @@ def build(**kw):
     return m.assemble(**args)
 
 
+def git(*args):
+    return subprocess.run(['/usr/bin/git', '-C', m.TEMPLATE, *args], capture_output=True, check=True).stdout
+
+
 def tracked():
-    out = subprocess.run(['/usr/bin/git', '-C', m.TEMPLATE, 'ls-tree', '-r', '--full-tree', m.TEMPLATE_COMMIT],
-                         capture_output=True, text=True, check=True).stdout.splitlines()
     rows = {}
-    for line in out:
+    for line in git('ls-tree', '-r', '--full-tree', m.TEMPLATE_COMMIT).decode().splitlines():
         meta, path = line.split('\t', 1)
         mode, _, obj = meta.split()
         rows[path] = (mode, obj)
     return rows
 
 
-def blob(path):
-    return subprocess.run(['/usr/bin/git', '-C', m.TEMPLATE, 'show', m.TEMPLATE_COMMIT+':'+path],
-                          capture_output=True, check=True).stdout
+def blob(path, commit=None):
+    return git('show', (commit or m.TEMPLATE_COMMIT)+':'+path)
+
+
+def variant(mutate):
+    value = copy.deepcopy(old)
+    mutate(value)
+    return m.b.finalized(value)
 
 
 class SuccessorTests(unittest.TestCase):
+    def refuses(self, reason, **kw):
+        with self.assertRaisesRegex(Exception, reason):
+            build(**kw)
+
+    def test_predecessor_is_installed_r9(self):
+        self.assertEqual(sha(old_bytes), m.OLD_MANIFEST_SHA)
+        self.assertEqual(sha(Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json').read_bytes()),
+                         m.OLD_MANIFEST_SHA)
+
     def test_native_successor_fields(self):
         new, _ = build()
         self.assertEqual(new['previous_sha256'], old['core']['sha256'])
         self.assertEqual(new['activation']['previous_commit'], old['activation']['expected_commit'])
         self.assertEqual(new['activation']['previous_version'], old['activation']['expected_version'])
         self.assertEqual(new['backup_path'], '/var/tmp/ga-mutg-custody-build-20260920/gc-b')
-        self.assertEqual(new['core'], old['core'])
-        self.assertEqual(new['metadata']['protected_trees'], old['metadata']['protected_trees'])
-        self.assertEqual(new['metadata']['runtime'], old['metadata']['runtime'])
-        self.assertEqual(new['metadata']['writer'], old['metadata']['writer'])
-        self.assertEqual(new['metadata']['absent'], old['metadata']['absent'])
-        self.assertEqual(new['metadata']['cache_sha256'], old['metadata']['cache_sha256'])
-        self.assertEqual(new['metadata']['imports_sha256'], old['metadata']['imports_sha256'])
+        for key in ('core',):
+            self.assertEqual(new[key], old[key])
+        for key in ('protected_trees', 'runtime', 'writer', 'absent', 'cache_sha256', 'imports_sha256',
+                    'gc_home', 'host', 'namespaces'):
+            self.assertEqual(new['metadata'][key], old['metadata'][key], key)
         self.assertEqual(m.b.finalized(new), new)
         self.assertEqual(build(), build())
 
     def test_exact_coverage_map(self):
-        new, report = build()
+        _, report = build()
         cm = report['coverage_map']
         auth_inputs = {m.AUTHORITY+'/'+r for r, _, _ in m.AUTH_INPUTS}
         self.assertEqual(set(cm['inputs']['added']),
@@ -116,7 +153,7 @@ class SuccessorTests(unittest.TestCase):
                           cm['repositories']['changed']), ([m.AUTHORITY_NAME], [], {}))
         self.assertEqual(set(cm['providers']['changed']), {'claude-native', 'claude'})
         self.assertEqual((cm['providers']['added'], cm['providers']['removed']), ([], []))
-        self.assertEqual(set(cm['files']['changed']), {'rig-permissions.toml'})
+        self.assertEqual(set(cm['files']['changed']), {'rig-permissions.toml', 'rig-permissions.json'})
         self.assertEqual(set(cm['managed_files']['changed']), {'city-config'})
         config = cm['managed_files']['changed']['city-config']
         self.assertEqual({k for k in config['before'] if config['before'][k] != config['after'][k]},
@@ -148,7 +185,7 @@ class SuccessorTests(unittest.TestCase):
                 covered[path] = 'link'
             elif path in inputs:
                 self.assertEqual(owners, [])
-                self.assertEqual(hashlib.sha256(blob(path)).hexdigest(), inputs[path][0])
+                self.assertEqual(sha(blob(path)), inputs[path][0])
                 self.assertEqual(inputs[path][1], 493 if mode == '100755' else 420)
                 covered[path] = 'input'
             else:
@@ -165,112 +202,145 @@ class SuccessorTests(unittest.TestCase):
             self.assertIn(resolved, rows)
             self.assertNotEqual(rows[resolved][0], '120000')
         pointer = ('gitdir: ' + m.TEMPLATE + '/.git/worktrees/' + Path(m.AUTHORITY).name + '\n').encode()
-        self.assertEqual(hashlib.sha256(pointer).hexdigest(), inputs['.git'][0])
+        self.assertEqual(sha(pointer), inputs['.git'][0])
+        self.assertEqual(derive.coverage()['inputs'], [dict(path=r, sha256=d, mode=mo) for r, d, mo in m.AUTH_INPUTS])
 
     def test_changed_constants_derive_from_reviewed_bytes(self):
-        self.assertEqual(hashlib.sha256(blob('lib/gct_claude_signing_worker.py')).hexdigest(),
-                         m.CHANGED_INPUTS[0][2])
+        by_path = {p: after for p, _, after in m.CHANGED_INPUTS}
+        parser = m.TEMPLATE + '/lib/gct_claude_signing_worker.py'
+        self.assertEqual(sha(blob('lib/gct_claude_signing_worker.py')), by_path[parser])
         self.assertIn(b'MODEL = "claude-opus-5-5"', blob('lib/gct_claude_signing_worker.py'))
-        self.assertEqual(hashlib.sha256(STAGED_CLI.read_bytes()).hexdigest(), m.CLI_NEW)
-        backup = Path(m.O + '/reports/r5/i/00').read_bytes()
-        self.assertEqual(hashlib.sha256(backup).hexdigest(), m.CITY_OLD)
-        lines = backup.decode().splitlines(True)
-        edits = {21: ('model = "opus-5"\n', 'model = "opus-5-5"\n'),
-                 28: ('default = "opus-5"\n', 'default = "opus-5-5"\n'),
-                 31: ('value = "opus-5"\n', 'value = "opus-5-5"\n'),
-                 32: ('label = "Claude Opus 5"\n', 'label = "Claude Opus 5.5"\n'),
-                 33: ('flag_args = ["--model", "claude-opus-5"]\n', 'flag_args = ["--model", "claude-opus-5-5"]\n'),
-                 236: ('model = "opus-5"\n', 'model = "opus-5-5"\n')}
-        for number, (before, after) in edits.items():
-            self.assertEqual(lines[number-1], before)
-            lines[number-1] = after
-        new_city = ''.join(lines).encode()
-        self.assertEqual(hashlib.sha256(new_city).hexdigest(), m.CITY_NEW)
-        self.assertNotIn(b'"opus-5"', new_city)
-        self.assertNotIn(b'claude-opus-5"', new_city)
+        self.assertEqual(sha(STAGED_CLI.read_bytes()), m.CLI_NEW)
+        city_old, city_transition, city_final = derive.city_bytes(Path(m.O+'/reports/r5/i/00').read_bytes())
+        self.assertEqual((sha(city_old), sha(city_final)), (m.CITY_OLD, m.CITY_NEW))
+        self.assertNotIn(b'"opus-5"', city_final)
+        self.assertNotIn(b'claude-opus-5"', city_final)
+        prereqs = load('prereqs_under_test', 'prereqs.py')
+        self.assertEqual(sha(city_transition), prereqs.CITY_TRANSITION)
+        registry_old = predecessor('/home/loucmane/gascity/city/managed/rig-permissions.json',
+                                   INPUTS/'rig-permissions.json.before', m.REGISTRY_OLD)
+        _, registry_new = derive.registry_bytes(registry_old)
+        self.assertEqual(sha(registry_new), m.REGISTRY_NEW)
+        rig_old = predecessor('/home/loucmane/gascity/city/managed/rig-permissions.toml',
+                              INPUTS/'rig-permissions.toml.before', m.RIGPERM_OLD)
+        scratch = Path(subprocess.run(['/usr/bin/mktemp', '-d'], capture_output=True, text=True,
+                                      check=True).stdout.strip())
+        lines = rig_old.decode().splitlines(True)
+        self.assertEqual(lines[94], 'model = "opus-5"\n')
+        lines[94] = 'model = "opus-5-5"\n'
+        self.assertEqual(derive.render(registry_old, scratch), ''.join(lines).encode(),
+                         'renderer method must reproduce the live file from the live registry')
+        self.assertEqual(sha(derive.render(registry_new, scratch)), m.RIGPERM_NEW)
+
+    def test_retained_template_pins_equal_target_blobs(self):
+        inputs = {p['path']: p['sha256'] for p in old['metadata']['inputs']}
+        for path, digest in m.RETAINED_TEMPLATE_PINS.items():
+            relative = path[len(m.TEMPLATE)+1:]
+            self.assertEqual(inputs[path], digest)
+            self.assertEqual(sha(blob(relative)), digest)
+            self.assertEqual(sha(blob(relative, '51440da2d0ff12912ff7d2ec26d239849e3bc342')), digest)
+        worker = next(p for p in old['integrity']['providers'] if p['name'] == 'claude')
+        self.assertEqual(worker['sha256'], m.RETAINED_TEMPLATE_PINS[worker['path']])
 
     def test_worker_version_derivation(self):
-        def version(parser, cli, commit):
-            root = m.TEMPLATE
-            def at(path):
-                raw = subprocess.run(['/usr/bin/git', '-C', root, 'show', commit+':'+path],
-                                     capture_output=True, check=True).stdout
-                return hashlib.sha256(raw).hexdigest()
-            records = [dict(path='/home/loucmane/gascity/bin/claude', sha256=cli),
-                       dict(path=root+'/templates/claude/core-signing-control-policy.json',
-                            sha256=at('templates/claude/core-signing-control-policy.json')),
-                       dict(path=root+'/bin/gct-claude-signing-worker', sha256=at('bin/gct-claude-signing-worker')),
-                       dict(path=root+'/lib/gct_claude_signing_worker.py', sha256=parser),
-                       dict(path=root+'/lib/gct_claude_subscription.py', sha256=at('lib/gct_claude_subscription.py')),
-                       dict(path=root+'/templates/claude/signing-provider.toml',
-                            sha256=at('templates/claude/signing-provider.toml'))]
-            domain = json.dumps(records, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode()
-            return 'gct-claude-signing-worker 1 dependencies_sha256=' + hashlib.sha256(domain).hexdigest()
-        # The method reproduces the reviewed M3 value before deriving M5's.
-        self.assertTrue(version('4f9acd546431f865c2b0bddeec81a4b2bbb7381a32a99b5dd93a155b6be7dcb4', m.CLI_OLD,
-                                '51440da2d0ff12912ff7d2ec26d239849e3bc342').endswith(
+        self.assertTrue(derive.deps_version('4f9acd546431f865c2b0bddeec81a4b2bbb7381a32a99b5dd93a155b6be7dcb4',
+                                            m.CLI_OLD, '51440da2d0ff12912ff7d2ec26d239849e3bc342').endswith(
                         '8b8b3f7680181c1bad5ee74f6773e8c57616531e3bf16b94649c94bc0f9766a5'))
-        self.assertEqual(version(m.CHANGED_INPUTS[0][2], m.CLI_NEW, m.TEMPLATE_COMMIT), m.VERSION_NEW)
+        self.assertEqual(derive.deps_version(m.CHANGED_INPUTS[0][2], m.CLI_NEW, m.TEMPLATE_COMMIT), m.VERSION_NEW)
 
-    def test_build_refuses_until_baseline_frozen(self):
-        with self.assertRaises(Exception):
-            m.build(old_bytes, m3_raw, closure['host'], parents, '1'*64, '2'*64)
+    def test_build_against_frozen_baseline(self):
+        if m.BASELINE_SHA is None:
+            with self.assertRaisesRegex(Exception, 'baseline not yet frozen'):
+                m.build(old_bytes, m3_raw, closure['host'], parents, '1'*64, '2'*64)
+            return
+        raw = Path(m.BASELINE_PATH).read_bytes()
+        self.assertEqual(sha(raw), m.BASELINE_SHA)
+        real = json.loads(raw)['closure']
+        new, report = m.build(old_bytes, raw, real['host'], parents, '1'*64, '2'*64)
+        self.assertLessEqual(report['frame']['upper_bound_bytes'], 131072)
+        self.assertEqual(set(report['coverage_map']['trees']['changed']), set(m.REPINNED_TREES))
 
-    def test_manifest_tamper(self):
-        with self.assertRaises(Exception):
-            m.build(old_bytes + b' ', m3_raw, closure['host'], parents, '1'*64, '2'*64)
+    def test_build_refuses_foreign_baseline_and_manifest(self):
+        saved = m.BASELINE_SHA
+        m.BASELINE_SHA = hexd('frozen')
+        try:
+            with self.assertRaisesRegex(Exception, 'current baseline drift'):
+                m.build(old_bytes, m3_raw, closure['host'], parents, '1'*64, '2'*64)
+            with self.assertRaisesRegex(Exception, 'installed R9 manifest drift'):
+                m.build(old_bytes + b' ', m3_raw, closure['host'], parents, '1'*64, '2'*64)
+        finally:
+            m.BASELINE_SHA = saved
 
-    def test_host_drift(self):
+    def test_host_and_identity_refusals(self):
         host = copy.deepcopy(closure['host']); host['host']['pid'] += 1
-        with self.assertRaises(Exception):
-            build(host=host)
-
-    def test_attempt_reuse(self):
+        self.refuses('manifest/host binding', host=host)
         for overrides in (dict(attempt='1'*64), dict(attempt=old['metadata']['attempt']),
                           dict(transaction=old['metadata']['transaction']), dict(attempt='bad')):
-            with self.subTest(overrides=overrides), self.assertRaises(Exception):
-                build(**overrides)
+            with self.subTest(overrides=overrides):
+                self.refuses('fresh distinct transaction and attempt required', **overrides)
 
-    def test_parent_authority_alias_reuse(self):
+    def test_parent_refusals(self):
         for field, value in (('uid', 0), ('mode', 0o777), ('entries', ['consumed']),
                              ('path', m.ROOT+'/other'), ('inode', 0)):
             changed = copy.deepcopy(parents); changed[1][field] = value
-            with self.subTest(field=field), self.assertRaises(Exception):
-                build(parents=changed)
+            with self.subTest(field=field):
+                self.refuses('fresh output parent identity', parents=changed)
         for value in (parents[2]['inode'], old['metadata']['parents'][1]['inode']):
             changed = copy.deepcopy(parents); changed[1]['inode'] = value
-            with self.assertRaises(Exception):
-                build(parents=changed)
+            self.refuses('output alias/reuse', parents=changed)
         changed = copy.deepcopy(parents); changed[0]['inode'] += 1
-        with self.assertRaises(Exception):
-            build(parents=changed)
+        self.refuses('platform parent drift', parents=changed)
 
     def test_refuses_wrong_successor_bytes(self):
-        cases = []
-        for path, _, _ in m.CHANGED_INPUTS:
-            c = copy.deepcopy(closure); c['pins'][path]['sha256'] = hexd('wrong'); cases.append(c)
-        c = copy.deepcopy(closure); c['pins'][m.CITY_SOURCE]['sha256'] = m.CITY_OLD; cases.append(c)
-        c = copy.deepcopy(closure); c['pins'][m.O+'/reports/r5/i/00']['sha256'] = m.CITY_NEW; cases.append(c)
-        c = copy.deepcopy(closure); c['pins'][m.AUTHORITY+'/AGENTS.md']['sha256'] = hexd('wrong'); cases.append(c)
-        c = copy.deepcopy(closure); c['pins'][m.AUTHORITY+'/.git']['mode'] = 0o600; cases.append(c)
-        c = copy.deepcopy(closure); del c['trees'][m.AUTHORITY+'/tests']; cases.append(c)
-        c = copy.deepcopy(closure); c['links'][m.AUTHORITY+'/plans/current'] = 'elsewhere.md'; cases.append(c)
-        c = copy.deepcopy(closure); c['trees'][m.R5R] = dict(c['trees'][m.R5R], sha256=
-            next(t['sha256'] for t in old['metadata']['trees'] if t['path'] == m.R5R)); cases.append(c)
-        for index, case in enumerate(cases):
-            with self.subTest(case=index), self.assertRaises(Exception):
-                build(closure=case)
+        def case(mutate):
+            value = copy.deepcopy(closure); mutate(value); return value
+        cases = [(case(lambda c, p=path: c['pins'][p].update(sha256=hexd('wrong'))), 'reviewed successor input')
+                 for path, _, _ in m.CHANGED_INPUTS]
+        cases += [
+            (case(lambda c: c['pins'][m.CITY_SOURCE].update(sha256=m.CITY_OLD)), 'city config successor source bytes'),
+            (case(lambda c: c['pins'][m.CITY_SOURCE].update(mode=0o600)), 'city config successor source bytes'),
+            (case(lambda c: c['pins'][m.O+'/reports/r5/i/00'].update(sha256=m.CITY_NEW)), 'city config backup bytes'),
+            (case(lambda c: c['pins'][m.TEMPLATE+'/lib/gct_claude_subscription.py'].update(sha256=hexd('w'))),
+             'retained Template bytes'),
+            (case(lambda c: c['pins'][m.AUTHORITY+'/AGENTS.md'].update(sha256=hexd('wrong'))), 'authority file'),
+            (case(lambda c: c['pins'][m.AUTHORITY+'/.git'].update(mode=0o600)), 'authority file'),
+            (case(lambda c: c['trees'].pop(m.AUTHORITY+'/tests')), 'authority tree'),
+            (case(lambda c: c['links'].update({m.AUTHORITY+'/plans/current': 'elsewhere.md'})), 'authority link'),
+        ]
+        for path in m.REPINNED_TREES:
+            before = next(t['sha256'] for t in old['metadata']['trees'] if t['path'] == path)
+            cases.append((case(lambda c, p=path, d=before: c['trees'][p].update(sha256=d)),
+                          'repinned tree unexpectedly unchanged'))
+        for index, (value, reason) in enumerate(cases):
+            with self.subTest(case=index, reason=reason):
+                self.refuses(reason, closure=value)
 
     def test_refuses_unexpected_predecessor(self):
-        variant = copy.deepcopy(old)
-        variant['metadata']['inputs'] = [p for p in variant['metadata']['inputs']
-                                         if p['path'] != '/usr/lib/python3.12/test/__init__.py']
-        with self.assertRaises(Exception):
-            build(old=m.b.finalized(variant))
-        variant = copy.deepcopy(old)
-        variant['integrity']['repositories'].append(dict(name='x', path=m.AUTHORITY, commit='0'*40))
-        with self.assertRaises(Exception):
-            build(old=m.b.finalized(variant))
+        def first(rows, key, value):
+            return next(p for p in rows if p[key] == value)
+        cases = [
+            (lambda v: v['metadata']['inputs'].remove(first(v['metadata']['inputs'], 'path',
+                                                             '/usr/lib/python3.12/test/__init__.py')),
+             'unused stdlib test pin cardinality'),
+            (lambda v: v['integrity']['repositories'].append(dict(name='x', path='/x', commit=m.TEMPLATE_COMMIT)),
+             'authority already present'),
+            (lambda v: first(v['integrity']['providers'], 'name', 'claude-native').update(path='/other'),
+             'exact predecessor native provider'),
+            (lambda v: first(v['integrity']['providers'], 'name', 'claude').update(resolved_path='/other'),
+             'exact predecessor worker'),
+            (lambda v: first(v['managed_files'], 'name', 'city-config').update(source='/other'),
+             'exact predecessor city config'),
+            (lambda v: first(v['integrity']['files'], 'name', 'rig-permissions.json').update(sha256=hexd('w')),
+             'exact predecessor integrity file'),
+            (lambda v: first(v['metadata']['inputs'], 'path', '/home/loucmane/gascity/bin/claude').update(
+                sha256=hexd('w')), 'exact predecessor input'),
+            (lambda v: v['metadata']['trees'].append(dict(name='', path='/home/loucmane/gas-city-template-worktrees',
+                                                          sha256=hexd('w'), mode=493)),
+             'authority coverage overlaps an existing pin'),
+        ]
+        for index, (mutate, reason) in enumerate(cases):
+            with self.subTest(case=index, reason=reason):
+                self.refuses(reason, old=variant(mutate))
 
     def test_live_and_serialized_host_order_identical(self):
         host = copy.deepcopy(closure['host'])
