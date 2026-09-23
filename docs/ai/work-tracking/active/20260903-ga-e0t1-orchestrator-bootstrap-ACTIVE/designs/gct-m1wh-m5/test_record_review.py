@@ -73,6 +73,57 @@ class Recorder(unittest.TestCase):
         finally:
             rc.s.RECORDS = prior
 
+    def test_consumer_formulas_not_the_recorder(self):
+        """Non-circular: the real consumers build the expected bindings themselves."""
+        rc = controller()
+        prior = rc.s.RECORDS
+        rc.s.RECORDS = self.m.Q
+        try:
+            self.m.record(self.o, 'SOURCE_PASS', self.pair('SOURCE_PASS'))
+            package = hashlib.sha256((self.m.Q/'prepared.json').read_bytes()).hexdigest()
+            prepared = self.o.decode((self.m.Q/'prepared.json').read_bytes())
+            rc.source_review(package, prepared)  # recovery_controller.py:130-132, the real formula
+            self.m.record(self.o, 'PAIRING_PASS', self.pair('PAIRING_PASS'))
+            digest = lambda name: hashlib.sha256((self.m.Q/name).read_bytes()).hexdigest()
+            # The executor sets recovery_native.PROBE_LIMIT to its float 36.0; the record must match it.
+            rc.review('PAIRING_PASS', dict(package_sha256=package, observation_result_sha256=digest('observe-result.json'),
+                                           after_observation_sha256=digest('after-observation.json'),
+                                           window_sha256=digest('window.json'), probe_limit_seconds=36.0))
+        finally:
+            rc.s.RECORDS = prior
+
+    def test_binding_keys_match_consumer_source(self):
+        import ast
+
+        def keywords(path, function, kind):
+            tree = ast.parse(Path(path).read_text())
+            for node in ast.walk(tree):
+                if isinstance(node, ast.FunctionDef) and node.name == function:
+                    for call in ast.walk(node):
+                        if (isinstance(call, ast.Call) and call.args and isinstance(call.args[0], ast.Constant)
+                                and call.args[0].value == kind and len(call.args) == 2):
+                            return {k.arg for k in call.args[1].keywords}
+            raise AssertionError((function, kind))
+        self.assertEqual(keywords(LEGACY/'recovery_controller.py', 'source_review', 'SOURCE_PASS'),
+                         set(self.m.bindings(self.o, 'SOURCE_PASS')))
+        self.assertEqual(keywords(LEGACY/'recovery_controller.py', 'paired', 'PAIRING_PASS'),
+                         set(self.m.bindings(self.o, 'PAIRING_PASS')))
+        self.assertEqual(keywords(HERE/'metadata_executor.py', 'restore', 'COMMIT_PASS'),
+                         set(self.m.bindings(self.o, 'COMMIT_PASS')))
+        text = (HERE/'metadata_executor.py').read_text()
+        self.assertIn('PROBE_LIMIT = 36.0\n', text)
+        self.assertIn('n.PROBE_LIMIT = PROBE_LIMIT\n', text)
+        self.assertEqual((self.m.PROBE_LIMIT, type(self.m.PROBE_LIMIT)), (36.0, float))
+
+    def test_atomic_publication_leaves_no_partial_or_temporary(self):
+        target = self.m.Q/'atomic.json'
+        self.m.exclusive(target, b'{"a":1}')
+        self.assertEqual(target.read_bytes(), b'{"a":1}')
+        with self.assertRaises(FileExistsError):
+            self.m.exclusive(target, b'{"b":2}')
+        self.assertEqual(target.read_bytes(), b'{"a":1}')
+        self.assertEqual([p.name for p in self.m.Q.iterdir() if p.name.startswith('.')], [])
+
     def test_bindings_follow_the_executor(self):
         package = hashlib.sha256((self.m.Q/'prepared.json').read_bytes()).hexdigest()
         self.assertEqual(self.m.bindings(self.o, 'SOURCE_PASS'),

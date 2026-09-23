@@ -17,6 +17,7 @@ import hashlib
 import os
 from pathlib import Path
 import re
+import secrets
 import sys
 import types
 
@@ -26,7 +27,8 @@ REVIEWS = Path(O + '/reports/m5-reviews')
 OBS = Path(O + '/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/'
            'ga-e0t1.14-rollout-r1/package-r4/resume-r4b/recovery-source-r2/observe_recovery.py')
 OBS_SHA = 'f5357d222f0a2f7ceb9e1a830533f20a4868fe5f3beb247de335843b730bdd78'
-PROBE_LIMIT = 36
+# Exactly the executor value (metadata_executor.PROBE_LIMIT, set as recovery_native.PROBE_LIMIT).
+PROBE_LIMIT = 36.0
 KINDS = ('SOURCE_PASS', 'PAIRING_PASS', 'COMMIT_PASS')
 
 
@@ -64,9 +66,13 @@ def bindings(o, kind):
 
 
 def exclusive(path, data):
+    """Atomic and never overwriting. The complete bytes go to a fresh temporary name, are
+    fsynced, then link() publishes them. link() fails if the final name exists. A crash leaves at
+    most an inert temporary file, never a partial record under the final name."""
     parent = os.open(path.parent, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_CLOEXEC)
     try:
-        fd = os.open(path.name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
+        temporary = '.' + path.name + '.tmp-' + secrets.token_hex(8)
+        fd = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC,
                      0o600, dir_fd=parent)
         try:
             view = memoryview(data)
@@ -75,6 +81,10 @@ def exclusive(path, data):
             os.fsync(fd)
         finally:
             os.close(fd)
+        try:
+            os.link(temporary, path.name, src_dir_fd=parent, dst_dir_fd=parent, follow_symlinks=False)
+        finally:
+            os.unlink(temporary, dir_fd=parent)
         os.fsync(parent)
     finally:
         os.close(parent)

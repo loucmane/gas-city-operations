@@ -1,4 +1,4 @@
-# M5 metadata successor: layout proof and activation plan (r5)
+# M5 metadata successor: layout proof and activation plan (r7)
 
 This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
 Opus 5.5 scope of `gct-er3h`.
@@ -15,6 +15,9 @@ Revision history:
 - r5 answers the reviews of r4 (`56a84aff`). The live-safety lens returned SOURCE_PASS; the
   manifest lens returned HOLD. Its must-fix: the r3 "no `config.worktree` anywhere" rule refused
   the 93 pre-existing empty `config.worktree` files in the live Template `.git`.
+- r6 (`310dfa54`) pinned the first live capture. Its binding review returned one SOURCE_PASS and
+  one HOLD, because the pinned baseline had already reached its cache-renewal horizon. r7 answers
+  that review; see "Binding step" below.
 
 The tables at the end map every finding of both rounds to its disposition.
 
@@ -350,8 +353,11 @@ after every precondition check, including the absence of a leftover forward temp
    - `settle` uses ordinary reads only.
 4. **Pin the baseline:**
    - set `BASELINE_SHA`;
-   - run the three test files (17 manifest, 38 prerequisite, 9 capture);
-     `test_build_against_frozen_baseline` builds from the real file;
+   - run the four test files: 17 manifest, 38 prerequisite, 9 capture and 9 recorder tests, 73 in
+     all. `test_build_against_frozen_baseline` builds from the real file;
+   - confirm the renewal horizon: the oldest frozen cache atime plus 24 h must leave the full
+     900 s window, the 10 s margin and the review time. `operator/M5-EXECUTE.sh` refuses before
+     `prepare` otherwise;
    - write `source-pins.json`;
    - commit, and have the binding reviewed.
 5. **Transaction.** This is the unchanged reviewed M3 executor.
@@ -485,13 +491,64 @@ If `/tmp` is cleaned, restore those paths byte for byte before running.
 
 ## Binding step (r6, 2026-09-23): live results and executor entry
 
-This commit changes no reviewed logic. It changes:
-- `manifest_candidate.py` sets `BASELINE_SHA` and a comment line, and nothing else (digest
+r6 (`310dfa54`) changed no reviewed logic. It changed:
+- `manifest_candidate.py`: `BASELINE_SHA` and a two-line comment, and nothing else (digest
   `29cee991` → `9f293b9c`);
-- `source-pins.json` is new;
-- `record_review.py` and `test_record_review.py` are new.
+- `source-pins.json` (new);
+- `record_review.py` and `test_record_review.py` (new).
 
-The other four launch modules and `launch.py` are byte-identical to r5.
+The other four launch modules and `launch.py` were byte-identical to r5.
+
+**r6 dispositions and r7.** Review A returned SOURCE_PASS with no must-fix. Review B returned HOLD.
+
+The must-fix, confirmed in `metadata_window.build`:
+- the window's renewal horizon is the oldest frozen cache atime plus 24 h;
+- that atime was 2026-09-22 09:29:24Z, so `prepare` had to start before 09:14:14Z;
+- `prepare` checks the horizon only after it has created `reports/m5` and written two records, so
+  a late start consumes the package root;
+- after 09:29Z, relatime renews those atimes on the next read, so the baseline expires anyway.
+
+The executor was never started. `reports/m5` does not exist and the timer was never touched. The
+expired first capture root `reports/m5-capture` (baseline `8f980d2e`) is preserved unmodified.
+
+r7 changes:
+- `manifest_candidate.py` returns to the exact r5 bytes (`29cee991`, `BASELINE_SHA = None`). The
+  eight prerequisite records bind that digest, and `capture.py audit` requires it.
+- `capture.py` writes a fresh root, `reports/m5-capture-r2`, and binds it the same way. That is the
+  only change.
+- `record_review.py`:
+  - publishes every file atomically: a temporary name, fsync, then `link()`, which never
+    overwrites and leaves no partial record (B should-fix 3);
+  - uses the executor float `36.0` (B should-fix 2).
+- Its tests are no longer circular:
+  - `source_review` runs as the real consumer;
+  - the PAIRING bindings carry the executor float;
+  - the AST key sets match `source_review`, `paired` and `restore`;
+  - atomicity is tested.
+  There are now 9 recorder tests (B should-fix 2 and 5).
+- `operator/` holds the exact live wrappers for review:
+  - `M5-PREREQS.sh`, already run;
+  - `M5-CAPTURE.sh`, which refuses before 10:44:00Z and prints the horizon;
+  - `M5-EXECUTE.sh`, which runs detached as its own user unit with all output to a file (A
+    should-fix 3, B should-fix 4). It has a hard horizon gate before `prepare` (B must-fix), and
+    it waits for each review record and stops on any refusal, HOLD marker or timeout;
+  - `gate_extract.py` and `GATE-PROMPTS.md` for the in-window gates.
+
+**Recapture schedule.** Yesterday's cache atimes cluster at 09:29 (1994 entries), 10:42 (177) and
+13:33 (13191). A capture at 10:44:00Z or later refreshes the first two clusters on its settle
+reads. That puts the horizon at 13:33Z, so `prepare` must start before about 13:18Z. r8 then
+pins `BASELINE_PATH` (`reports/m5-capture-r2/baseline.json`) and `BASELINE_SHA`, and gets its
+binding reviewed.
+
+**Rollback digest (A should-fix 2).** `prereqs.py <digest> rollback` needs the digest of the
+current `manifest_candidate.py` bytes: `29cee991` at r7, and the r8 digest after the pin.
+`rollback()` reads no step or intent record, so any digest mismatch refuses cleanly and consumes
+nothing.
+
+**Launcher loader (A should-fix 4).** On 2026-09-23 the coordinator replayed launch.py's
+source-inventory checks outside any stage. `source-pins.json` `7656a92f` and all six sources
+passed: digest, mode 0644, uid/gid 1000 and nlink 1. r8 regenerates `source-pins.json` and
+repeats that check.
 
 **Executor entry, found live.** "Host terminal" in the live sequence means this exact form, typed in
 a real WSL terminal:
@@ -517,7 +574,7 @@ a real WSL terminal:
   - the installed manifest is still `a6324753`;
   - the supervisor, still 3150812, reloaded to revision `d6ca85cd`.
 - **Capture,** 08:49–08:51Z:
-  - audit `1041f0d0`, with no unexpected drifts, a stable host and every absent path absent;
+  - audit `1041f0d0`, with no unexpected drifts and a stable host (the absent list is empty);
   - complete `ca35f7ff`, where exactly the six `CHANGED_INPUTS` changed, over a clean scope;
   - settle `fda048e0`, with one atime change;
   - freeze: `baseline.json` `8f980d2e`.
