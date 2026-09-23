@@ -1,4 +1,4 @@
-# M5 metadata successor: layout proof and activation plan (r10)
+# M5 metadata successor: layout proof and activation plan (r11)
 
 This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
 Opus 5.5 scope of `gct-er3h`.
@@ -654,6 +654,42 @@ executor was never started.
   prerequisite records) and writes the third root `reports/m5-capture-r3`. The capture window is
   still 10:44:00Z–12:30:00Z, with horizon 13:33:50Z. r11 then pins it and regenerates
   `source-pins.json`, which is stale at r10.
+
+**r10 dispositions and r11 (the binding step).** Both r10 reviews returned SOURCE_PASS with no
+must-fix.
+
+The third capture ran once, from 11:25:59Z to 11:28:10Z, as `operator/M5-CAPTURE.sh f5371f4d…`:
+- audit `40044fab`, with no unexpected drift;
+- complete `91e2a54a`: exactly the six `CHANGED_INPUTS`, over a clean scope;
+- settle `d60a8959`;
+- freeze `baseline.json` `e4b6798b`;
+- horizon 13:33:50Z, so the latest executor start is 12:43:40Z;
+- the FROZEN no-gc notice printed.
+
+At 11:28Z the coordinator's read-only lstat guard found the live cache equal to it: 15413 entries, 0
+differing. The coordinator has made no gc call since 11:10Z.
+
+r11 changes:
+- `manifest_candidate.py` pins `BASELINE_PATH = reports/m5-capture-r3/baseline.json` and
+  `BASELINE_SHA = e4b6798b`. Its digest is `db81b17b`.
+- `source-pins.json` is regenerated (`4d11ddb7`).
+- The r10 should-fixes are taken:
+  - the capture script's git status fails closed;
+  - the FROZEN notice no longer depends on the horizon print;
+  - the `reports/m5` and rollback prechecks also refuse a dangling symlink;
+  - a `prepare` failure after the root is created and before its intent now gets a disposition
+    message;
+  - the wrapper header states the derived waits;
+  - the guard comment states its indirect coverage of link targets, contents and entry sets.
+- R9 evidence for the native dry run: R9's `after-observation.json` records
+  `complete_preservation` true under the same gc `69d00186`. That is, the native
+  `gc platform adopt --metadata-only --dry-run` left the whole closure, cache included, unchanged.
+
+Checks at r11:
+- 73 tests pass;
+- the launch.py loader replay passes for `4d11ddb7`;
+- the real build from the r3 baseline gives 685 inputs, 49 trees and 23 links, frame 128071, and the
+  authority last at `28539934`.
 
 **Rollback digest (A should-fix 2).** `prereqs.py <digest> rollback` needs the digest of the
 current `manifest_candidate.py` bytes: `29cee991` at r7 and r8, and the r9 digest after the pin.

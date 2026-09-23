@@ -30,12 +30,12 @@
 #   gate derived from the measured pause (at least 180 s and 300 s). The
 #   remaining window is computed exactly as admit() does: the minimum of the monotonic deadline,
 #   the boot-time deadline, and the renewal horizon minus 10 s.
-#   The SOURCE_PASS wait ends at 660 s of window left and the PAIRING_PASS wait at 300 s. The
-#   paired gate is derived from the measured pause, and is at least 300 s. Waits count wall-clock time.
+#   The SOURCE_PASS wait ends at 660 s of window left. The PAIRING_PASS wait ends at the derived
+#   paired requirement: max(300, 197 + 2 x pause). Waits count wall-clock time.
 # - Horizon: restore-accepted still needs the exact cache metadata, atimes included, so it must
 #   run before the renewal horizon (oldest frozen atime plus 24 h). The gate before prepare
 #   reserves 900 + 10 + 1800 (COMMIT_PASS reviews and restoration) + 300 s of slack. The
-#   COMMIT_PASS wait ends 310 s before the horizon.
+#   COMMIT_PASS wait ends 2 x pause + 160 s before the horizon, which is the restoration reserve plus 60 s.
 S=/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 P=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-m5
@@ -110,6 +110,9 @@ print(int(min(d['mono_deadline'] - mono, d['boot_deadline'] - boot, d['renewal']
 }
 # Compares every baseline cache entry with lstat: type, mode, uid, gid, size, nlink, inode, device and
 # atime/mtime/ctime. BASELINE_PATH is parsed as text. No package code runs, and no content is read.
+# The snapshot also records link targets, content digests and entry sets. Those are covered
+# indirectly: a content or target rewrite changes ctime (and usually inode or size), and an added or
+# removed entry changes its parent directory's mtime and ctime.
 cache_unchanged() {
   /usr/bin/python3 -I -B -c "
 import json, os, re, stat, sys
@@ -139,8 +142,8 @@ run() {
   echo "== context umask=$(umask) mnt=$(readlink /proc/self/ns/mnt) cgroup=$(cat /proc/self/cgroup)"
   [ "$(umask)" = 0022 ] || { echo "== STOP: umask is not 0022"; return; }
   clean || return
-  [ ! -e "$W/reports/m5" ] || { echo "== STOP: reports/m5 already exists; this attempt root is consumed"; return; }
-  [ ! -e "$W/reports/m5-inputs/rollback.json" ] || { echo "== STOP: a prerequisite rollback record exists"; return; }
+  { [ ! -e "$W/reports/m5" ] && [ ! -L "$W/reports/m5" ]; } || { echo "== STOP: reports/m5 already exists; this attempt root is consumed"; return; }
+  { [ ! -e "$W/reports/m5-inputs/rollback.json" ] && [ ! -L "$W/reports/m5-inputs/rollback.json" ]; } || { echo "== STOP: a prerequisite rollback record exists"; return; }
   for marker in "$S"/HOLD-*; do
     [ -e "$marker" ] && { echo "== STOP: leftover HOLD marker $marker"; return; }
   done
@@ -155,6 +158,8 @@ run() {
     if [ -f "$Q/preparation-pause-intent.json" ]; then preparation_recovery
     elif [ ! -e "$W/reports/m5" ]; then
       echo "== prepare refused before creating reports/m5 (for example, the reconciler was running): nothing is consumed; the same start command may be run again"
+    else
+      echo "== prepare refused after creating reports/m5 but before its pause intent: the root is consumed, and the timer was never stopped. Confirm the timer is active; a new attempt root needs a new reviewed revision."
     fi
     return; }
   X=$(sha "$Q/prepared.json"); echo "== prepared $X; window left $(window_left) s"

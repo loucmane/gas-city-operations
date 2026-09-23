@@ -1,5 +1,5 @@
 #!/bin/sh
-# M5 recapture (ga-0t04, LAYOUT.md live sequence step 3, second capture root). Read-only except its
+# M5 recapture (ga-0t04, LAYOUT.md live sequence step 3, third capture root). Read-only except its
 # own records under reports/m5-capture-r3. It runs capture.py audit, complete, settle and freeze in
 # order. Each stage gets the SHA-256 of the record the previous stage wrote exclusively. Before each
 # stage it verifies that the package worktree is clean at the reviewed commit. Each stage runs as
@@ -23,7 +23,8 @@ COMMIT=${1:?usage: sh M5-CAPTURE.sh <reviewed package commit>}
 LOG="$S/capture-$(date -u +%Y%m%dT%H%M%SZ).txt"
 stage() {
   head=$(git -C "$W" rev-parse HEAD)
-  dirty=$(git -C "$W" --no-optional-locks status --porcelain | wc -l)
+  status=$(git -C "$W" --no-optional-locks status --porcelain) || status=unreadable
+  dirty=$(printf '%s' "$status" | wc -c)
   if [ "$head" != "$COMMIT" ] || [ "$dirty" != 0 ]; then
     echo "== STOP before $1: package worktree head=$head dirty=$dirty"; return 1
   fi
@@ -54,8 +55,9 @@ run() {
   && stage complete "$(sha audit.json)" \
   && B=$(sha baseline-audit.json) && stage settle "$B" \
   && stage freeze "$B" "$(sha settle-result.json)" \
-  && echo "== baseline.json $(sha baseline.json)" && horizon \
-  && echo "== FROZEN: from now until restore-accepted, nobody runs gc (it touches the pack cache)"
+  && { echo "== baseline.json $(sha baseline.json)"
+         echo "== FROZEN: from now until restore-accepted, nobody runs gc (it touches the pack cache)"
+         horizon; }
   echo "== end $(date -u +%H:%M:%SZ)"
 }
 run 2>&1 | tee "$LOG"
