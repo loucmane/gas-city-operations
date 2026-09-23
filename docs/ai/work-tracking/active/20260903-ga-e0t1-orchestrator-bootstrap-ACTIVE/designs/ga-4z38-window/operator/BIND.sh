@@ -11,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: BIND.sh <reviewed commit>}
-BIND_SHA=d3d453eec25595479f57b1bbdeef9223c1526cd92578f0553165e39786856fa0
+BIND_SHA=46eeac9a6249e5e3cf0700971b686998ae101001c806d6b099ca39491b758059
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -34,7 +34,7 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== BIND REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== BIND REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }

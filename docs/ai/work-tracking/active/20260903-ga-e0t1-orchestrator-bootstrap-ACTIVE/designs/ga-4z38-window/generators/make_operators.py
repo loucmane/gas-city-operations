@@ -43,7 +43,7 @@ fi
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== {upper} REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== {upper} REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }}
@@ -70,6 +70,7 @@ def main(package):
     out = Path(os.environ.get('GA4Z38_OUT', package))
     d = {name: sha(out/name) for name in ('reconcile-predecessor-r3.py', 'observe-integrity-r11.py', 'window-r11.py',
                                           'freshen-r11.py', 'hold-r11.py', 'restore-admission-r3.py',
+                                          'release-r11.py', 'close-r11.py', 'budget-r11.py',
                                           'bind-task-r3.py', 'route-task-r5.py',
                                           'audit-queue-r3.py', 'observe-terminal-r11.py', 'watch-r11.py')}
     window = '/var/tmp/ga-4z38-window-20260923-r1'
@@ -105,7 +106,8 @@ def main(package):
                                  + '# An object already fresh at FRESHEN may be up to 19 hours old; it must stay under 24\n'
                                    '# hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.\n'
                                    'find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 '
-                                   '| grep -q . || { echo "== STOP: no FRESHEN pass in the last 45 minutes"; '
+                                   '-exec grep -l \'"ok": true\' {} + | grep -q . || '
+                                   '{ echo "== STOP: no FRESHEN pass in the last 45 minutes"; '
                                    'echo "== end"; exit 1; }\n',
                              steps=['step preflight "$C/window-r11.py" "$WINDOW_SHA" preflight']),
         'STAGE.sh': dict(title='stage: the single-worker overlay city and its native-finalized receipt, through\n'
@@ -147,6 +149,25 @@ def main(package):
                                   '[ ! -e %s/suspension-rig-suspend-event.json ]; then\n'
                                   '  step rig-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-suspend\n'
                                   'fi' % (window, window)]),
+        'SOURCE-RELEASE.sh': dict(title='source release: validate the coordinator source release against the live\n'
+                                        '# worker session, then send it once as gc mail and read it back.',
+                                  pins='RELEASE_SHA=%s' % d['release-r11.py'],
+                                  pre=absent('/var/tmp/ga-4z38-source-release-20260923-r1'),
+                                  steps=['step source-release "$C/release-r11.py" "$RELEASE_SHA" source']),
+        'SIGNING-RELEASE.sh': dict(title='signing release: validate the coordinator signing release against the live\n'
+                                         '# worker session and the staged index, then send it once as gc mail.',
+                                   pins='RELEASE_SHA=%s' % d['release-r11.py'],
+                                   pre='[ -e /var/tmp/ga-4z38-source-release-20260923-r1/result.json ] || '
+                                       '{ echo "== STOP: no source release"; echo "== end"; exit 1; }\n'
+                                       + absent('/var/tmp/ga-4z38-signing-release-20260923-r1'),
+                                   steps=['step signing-release "$C/release-r11.py" "$RELEASE_SHA" signing']),
+        'CLOSE.sh': dict(title='close: after CONTAIN, drain (best-effort) and close the one worker session, then\n'
+                               '# prove zero session, pane and worktree-process residue.',
+                         pins='CLOSE_SHA=%s' % d['close-r11.py'],
+                         pre='[ -e %s/suspension-rig-suspend-event.json ] || '
+                             '{ echo "== STOP: CONTAIN has not completed"; echo "== end"; exit 1; }\n' % window
+                             + absent('/var/tmp/ga-4z38-close-20260923-r1'),
+                         steps=['step close "$C/close-r11.py" "$CLOSE_SHA"']),
         'HOLD.sh': dict(title='hold: emergency scheduling hold for a STRANDED window only (a lifecycle failure record\n'
                               '# exists, so CONTAIN.sh cannot act). Suspends the city and the gascity rig; never\n'
                               '# replays lifecycle, never restores, writes nothing in the window root.',
@@ -156,24 +177,27 @@ def main(package):
                         steps=['step hold "$C/hold-r11.py" "$HOLD_SHA"']),
         'ADMIT.sh': dict(title='admit: the read-only restore admission (full preservation check, terminal lifecycle,\n'
                                '# quiescent host) after CONTAIN and the session close. RESTORE.sh requires its pass.',
-                         pins='ADMIT_SHA=%s' % d['restore-admission-r3.py'],
                          pre='[ -e %s/stage-consumed.json ] && [ ! -e %s/restore-consumed.json ] || '
                              '{ echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }\n'
                              % (window, window) + absent(window + '/restore-admission.json'),
-                         steps=['step admit "$C/restore-admission-r3.py" "$ADMIT_SHA"']),
+                         pins='ADMIT_SHA=%s\nBUDGET_SHA=%s' % (d['restore-admission-r3.py'], d['budget-r11.py']),
+                         steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 40',
+                                'step admit "$C/restore-admission-r3.py" "$ADMIT_SHA"']),
         'RESTORE.sh': dict(title='restore: the exact baseline city and receipt, once, after terminal suspension\n'
                                  '# and containment.',
-                           pins='WINDOW_SHA=%s' % d['window-r11.py'],
+                           pins='WINDOW_SHA=%s\nBUDGET_SHA=%s' % (d['window-r11.py'], d['budget-r11.py']),
                            pre='[ -e %s/restore-admission-pass.json ] && [ ! -e %s/restore-consumed.json ] || '
                                '{ echo "== STOP: restore admission has not passed or restore already consumed"; '
                                'echo "== end"; exit 1; }\n'
                                % (window, window),
-                           steps=['step restore "$C/window-r11.py" "$WINDOW_SHA" restore']),
+                           steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 25',
+                                  'step restore "$C/window-r11.py" "$WINDOW_SHA" restore']),
         'TERMINAL.sh': dict(title='terminal: the full native integrity observation of the restored baseline,\n'
                                   '# bound to the terminal suspension endpoint and the accepted restoration.',
-                            pins='TERMINAL_SHA=%s' % d['observe-terminal-r11.py'],
                             pre=absent('/var/tmp/ga-4z38-terminal-20260923-r1'),
-                            steps=['step terminal "$C/observe-terminal-r11.py" "$TERMINAL_SHA"']),
+                            pins='TERMINAL_SHA=%s\nBUDGET_SHA=%s' % (d['observe-terminal-r11.py'], d['budget-r11.py']),
+                            steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 8',
+                                   'step terminal "$C/observe-terminal-r11.py" "$TERMINAL_SHA"']),
     }
     (out/'operator').mkdir(exist_ok=True)
     for name, spec in wrappers.items():

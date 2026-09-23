@@ -11,6 +11,7 @@ D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: RESTORE.sh <reviewed commit>}
 WINDOW_SHA=1accf5c9859cc57dc7e7a5ded83cdf1218c2a1f043de0294ba15042d67168f4f
+BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -32,10 +33,11 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== RESTORE REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== RESTORE REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
+step budget "$C/budget-r11.py" "$BUDGET_SHA" 25
 step restore "$C/window-r11.py" "$WINDOW_SHA" restore
 echo "== RESTORE PASS"
 echo "== end $(date -u +%H:%M:%SZ)"

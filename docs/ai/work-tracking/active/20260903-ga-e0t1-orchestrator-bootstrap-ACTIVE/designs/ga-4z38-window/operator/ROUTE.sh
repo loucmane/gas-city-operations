@@ -10,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: ROUTE.sh <reviewed commit>}
-ROUTE_SHA=9bc5b789b610d736b06ef3fcefe7356968bf080b5b7a9a10a56122be9b4b433f
+ROUTE_SHA=8e6ad15f3f93b47ab095ba570b00756685e69a5b22d951758a0a0ad8540d9d66
 AUDIT_SHA=1fe311cbb51f0858daca941ee9b811e67152ab85fab9073e3f74e7f8ab20761c
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
@@ -34,7 +34,7 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== ROUTE REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== ROUTE REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }

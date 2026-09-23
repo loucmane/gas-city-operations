@@ -14,6 +14,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import types
 import unittest
 from pathlib import Path
@@ -21,7 +22,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 GENERATED = ('window-r11.py', 'bind-task-r3.py', 'route-task-r5.py', 'audit-queue-r3.py', 'observe-terminal-r11.py',
              'reconcile-predecessor-r3.py', 'restore-admission-r3.py', 'restore-r9-routes-r3.py', 'route-chain-r1.py')
-WRAPPERS = ('RECONCILE.sh', 'FRESHEN.sh', 'HOLD.sh', 'ADMIT.sh', 'OBSERVE.sh', 'BIND.sh', 'PREFLIGHT.sh', 'STAGE.sh', 'ROUTE.sh', 'RESUME.sh', 'WATCH.sh', 'CONTAIN.sh',
+WRAPPERS = ('RECONCILE.sh', 'FRESHEN.sh', 'HOLD.sh', 'ADMIT.sh', 'SOURCE-RELEASE.sh', 'SIGNING-RELEASE.sh', 'CLOSE.sh',
+            'OBSERVE.sh', 'BIND.sh', 'PREFLIGHT.sh', 'STAGE.sh', 'ROUTE.sh', 'RESUME.sh', 'WATCH.sh', 'CONTAIN.sh',
             'RESTORE.sh', 'TERMINAL.sh')
 LAUNCH = 'gct-m1wh-p6/source-launch.py'
 GC_ENV = dict(HOME='/home/loucmane', GC_HOME='/home/loucmane/gascity/home', GIT_OPTIONAL_LOCKS='0',
@@ -84,7 +86,7 @@ class Pins(unittest.TestCase):
         self.assertEqual(constant(terminal, 'WINDOW_SHA'), sha(HERE/'window-r11.py'))
         self.assertEqual(constant(terminal, 'MANIFEST_SHA'),
                          sha('/home/loucmane/gascity/city/.gc/platform/install-manifest.json'))
-        for name in ('watch-r11.py', 'freshen-r11.py', 'hold-r11.py'):
+        for name in ('watch-r11.py', 'freshen-r11.py', 'hold-r11.py', 'release-r11.py', 'close-r11.py'):
             self.assertEqual(re.findall(r"^BASE_SHA = '([0-9a-f]{64})'$", self.text(name), re.M),
                              [sha(HERE/'window-base-r11.py')], name)
         admission = self.text('restore-admission-r3.py')
@@ -191,7 +193,7 @@ class Safety(unittest.TestCase):
 
     def test_hold_acts_only_on_a_stranded_window_and_never_blocks_its_suspends(self):
         text = (HERE/'hold-r11.py').read_text()
-        self.assertIn("w.require(stranded, 'hold is only for a stranded lifecycle; use CONTAIN.sh')", text)
+        self.assertIn("w.require(records, 'hold is only for a stranded lifecycle; use CONTAIN.sh')", text)
         self.assertIn("intent.name.replace('-intent.json', '-event.json')", text)
         self.assertIn("started.name.replace('-started.json', '-phase.json')", text)
         self.assertIn("w.phase(name, argv, b, owned, expected=ANY)", text)
@@ -215,6 +217,66 @@ class Safety(unittest.TestCase):
         self.assertFalse([p for p in paths if p == cache or p.startswith(cache + '/')])
         self.assertFalse([p for p in paths if '/dev/blog' in p or '/dev/hpfetcher' in p])
 
+    def test_hold_stranded_detection_over_fabricated_roots(self):
+        h = self.load('hold-r11.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            window = Path(tmp)/'window'
+            done = Path(tmp)/'done'
+            window.mkdir()
+            done.mkdir()
+            (window/'suspension-rig-resume-intent.json').write_text('{}')
+            (window/'suspension-rig-resume-event.json').write_text('{}')
+            (window/'rig-resume-started.json').write_text('{}')
+            (window/'rig-resume-phase.json').write_text('{}')
+            self.assertEqual(h.stranded(window, done), [])
+            (window/'suspension-city-resume-intent.json').write_text('{}')
+            self.assertEqual(h.stranded(window, done), ['suspension-city-resume-intent.json'])
+            (window/'suspension-city-resume-event.json').write_text('{}')
+            (window/'city-resume-started.json').write_text('{}')
+            self.assertEqual(h.stranded(window, done), ['city-resume-started.json'])
+            (window/'city-resume-phase.json').write_text('{}')
+            (window/'suspension-city-suspend-failure.json').write_text('{}')
+            self.assertEqual(h.stranded(window, done), ['suspension-city-suspend-failure.json'])
+            (window/'suspension-city-suspend-failure.json').unlink()
+            wrapper = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/operator/'
+            (done/'ok.json').write_text(json.dumps(dict(exit=0, job=dict(wrapper=wrapper + 'CONTAIN.sh'))))
+            (done/'other.json').write_text(json.dumps(dict(exit=1, job=dict(wrapper=wrapper + 'STAGE.sh'))))
+            self.assertEqual(h.stranded(window, done), [])
+            (done/'contain.json').write_text(json.dumps(dict(exit=1, job=dict(wrapper=wrapper + 'CONTAIN.sh'))))
+            self.assertEqual(h.stranded(window, done), ['runner:contain.json'])
+
+    def test_budget_gate_counts_the_four_hour_bound_from_before_json(self):
+        g = self.load('budget-r11.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            g.WINDOW = Path(tmp)
+            boot = Path('/proc/sys/kernel/random/boot_id').read_text().strip()
+            now = time.clock_gettime_ns(time.CLOCK_BOOTTIME)
+
+            def gate(age_minutes, required):
+                (Path(tmp)/'before.json').write_text(json.dumps(dict(cache_access_clock=dict(start=dict(
+                    boot=boot, boot_before_ns=now - age_minutes * 60 * 10**9)))))
+                sys.argv[1:] = [str(required)]
+                return g.main()
+            self.assertEqual(gate(60, 40), 0)
+            self.assertEqual(gate(210, 40), 1)
+            self.assertEqual(gate(216, 25), 1)
+            self.assertEqual(gate(200, 25), 0)
+
+    def test_release_validates_before_it_sends_once(self):
+        text = (HERE/'release-r11.py').read_text()
+        send = text.index("run('send'")
+        for check in ("'exactly the named worker session is live'", "'task claimed by the session'",
+                      "'startup proof digest'", "'gitignore entries are exactly the untracked paths'",
+                      "'signing head and tree'", "'staged paths'", "root.mkdir(mode=0o700)"):
+            self.assertLess(text.index(check), send, check)
+        self.assertIn("'message readback carries the exact body in one field'", text)
+
+    def test_singleton_is_preserved_while_it_owns_the_task(self):
+        done = subprocess.run([sys.executable, '-B', str(HERE/'proof'/'singleton-proof.py')],
+                              capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+        self.assertEqual(done.returncode, 0, done.stdout[-2000:] + done.stderr[-2000:])
+        self.assertTrue(json.loads(done.stdout)['ok'])
+
     def test_worker_environment_inherits_git_optional_locks(self):
         done = subprocess.run([sys.executable, '-B', str(HERE/'proof'/'worker-env-proof.py')],
                               capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
@@ -231,6 +293,11 @@ class Safety(unittest.TestCase):
     def test_preflight_requires_a_recent_freshen_pass(self):
         text = (HERE/'operator'/'PREFLIGHT.sh').read_text()
         self.assertIn('-path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45', text)
+        self.assertIn('-exec grep -l \'"ok": true\' {} +', text)
+        for name, minutes in (('ADMIT.sh', 40), ('RESTORE.sh', 25), ('TERMINAL.sh', 8)):
+            body = (HERE/'operator'/name).read_text()
+            self.assertIn('step budget "$C/budget-r11.py" "$BUDGET_SHA" %d' % minutes, body, name)
+            self.assertLess(body.index('step budget'), body.index('step', body.index('step budget') + 5), name)
 
     def test_restore_requires_the_admission_pass(self):
         text = (HERE/'operator'/'RESTORE.sh').read_text()

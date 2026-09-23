@@ -11,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: FRESHEN.sh <reviewed commit>}
-FRESHEN_SHA=6302bca4bd8e24554ff9c096d8a195558818dc40e6c1dadce1668c08b1211fa4
+FRESHEN_SHA=61092dc21d7feb0a38e43cc7ba1355b40b7767299507df97fd502d95c4f31c65
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -34,7 +34,7 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== FRESHEN REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== FRESHEN REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }

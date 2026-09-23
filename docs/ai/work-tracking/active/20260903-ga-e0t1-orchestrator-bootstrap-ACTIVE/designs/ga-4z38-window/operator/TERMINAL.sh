@@ -11,6 +11,7 @@ D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: TERMINAL.sh <reviewed commit>}
 TERMINAL_SHA=148160cc3c2b587a2462b2f52dbb8ff3c3f7e433818fc8cd1565c7dbc2abac58
+BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -32,10 +33,11 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== TERMINAL REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== TERMINAL REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
+step budget "$C/budget-r11.py" "$BUDGET_SHA" 8
 step terminal "$C/observe-terminal-r11.py" "$TERMINAL_SHA"
 echo "== TERMINAL PASS"
 echo "== end $(date -u +%H:%M:%SZ)"

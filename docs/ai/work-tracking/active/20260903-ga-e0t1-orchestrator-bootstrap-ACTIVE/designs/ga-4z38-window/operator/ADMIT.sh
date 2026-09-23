@@ -11,6 +11,7 @@ D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
 ADMIT_SHA=471de7cfc0825ebad8b862d7b9e52812f9298916f8d6aab05c8f68d4bf9d107b
+BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -33,10 +34,11 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== ADMIT REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== ADMIT REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
+step budget "$C/budget-r11.py" "$BUDGET_SHA" 40
 step admit "$C/restore-admission-r3.py" "$ADMIT_SHA"
 echo "== ADMIT PASS"
 echo "== end $(date -u +%H:%M:%SZ)"

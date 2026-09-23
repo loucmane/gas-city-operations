@@ -11,14 +11,15 @@ such reads (restore-r9-routes-r3.py account_recorded_reads).
 A read cannot refresh an atime that is still younger than 24 hours, so reading alone is not enough:
 this job requires every object to END young, not only fresh. It runs before OBSERVE and before any
 window root exists, and is repeatable (one fresh timestamped root per run). For each object it reads one
-byte of a regular file or lists a directory (symlinks are only recorded). It records lstat before and
+byte of a regular file, lists a directory, or reads a symlink. It records lstat before and
 after, requires that nothing but atime changed, and requires every object to end with an atime newer than
 its mtime and ctime and younger than YOUNG_HOURS, which leaves the four-hour window a margin before the
 24-hour mark. If any object is still too old, it refuses and lists each one with the UTC time at which
 its 24-hour mark passes; after that time a rerun refreshes it. The pack cache is excluded: the reviewed
 cache-atime policy accounts for its access times, and no P6 pin may lie under it. Symlinks (the API
-link) are refreshed with readlink, which updates a symlink's atime under the same rule. An object on a
-noatime or read-only mount cannot change atime at all and is recorded, not required to be young.
+link) are refreshed with readlink, which updates a symlink's atime under the same rule. Every object
+must sit on a relatime mount that is neither noatime nor read-only (as the base requires of the city);
+anything else refuses, because this strategy is only valid under relatime.
 
 Objects this job cannot hold, all checked by the read-only ADMIT job before RESTORE is consumed:
 - the city root and provisioning directory, whose mtimes the window's atomic renames change;
@@ -26,9 +27,9 @@ Objects this job cannot hold, all checked by the read-only ADMIT job before REST
   route-chain event model binds them from then on). Two of those stores are the protected blog and
   hpfetcher checkouts, which this job never reads.
 
-Pass order: PREFLIGHT.sh requires a FRESHEN pass from the last 60 minutes, because an object that was
-already fresh (not refreshable) may be up to YOUNG_HOURS old and must stay under 24 hours until the
-window's T0 plus four hours.
+Pass order: PREFLIGHT.sh requires a FRESHEN pass (result.json with ok) from the last 45 minutes,
+because an object that was already fresh (not refreshable) may be up to YOUNG_HOURS old and must stay
+under 24 hours until the window's T0 plus four hours: 19 h + 45 min + 4 h < 24 h.
 """
 from datetime import datetime, timezone
 import hashlib
@@ -112,11 +113,11 @@ def touch(path):
     return 'recorded'
 
 
-def atime_fixed(path):
-    """True when the object's mount never updates atime (noatime or read-only)."""
+def relatime(path):
+    """True when the object's mount is relatime and neither noatime nor read-only."""
     target = path if not os.path.islink(path) else os.path.dirname(path)
     flags = os.statvfs(target).f_flag
-    return bool(flags & (os.ST_NOATIME | os.ST_RDONLY))
+    return bool(flags & os.ST_RELATIME) and not flags & (os.ST_NOATIME | os.ST_RDONLY)
 
 
 def main():
@@ -131,6 +132,8 @@ def main():
     w.ROOT = root
     b, o, owned = w.load_support()
     paths = objects(w, b)
+    other = [path for path in paths if not relatime(path)]
+    w.require(not other, 'objects not on a writable relatime mount: ' + ', '.join(other[:10]))
     before = {path: image(path) for path in paths}
     w.save('before.json', dict(started=datetime.now(timezone.utc).isoformat(), objects=before))
     actions = {path: touch(path) for path in paths}
@@ -145,21 +148,17 @@ def main():
             changed.append(path)
     now = datetime.now(timezone.utc).timestamp() * 10**9
     old = []
-    fixed = []
     for path in paths:
         z = after[path]
-        if atime_fixed(path):
-            fixed.append(path)
-            continue
         age = (now - z['atime_ns']) / 3.6e12
         if not z['atime_ns'] > max(z['mtime_ns'], z['ctime_ns']) or age >= YOUNG_HOURS:
             mark = datetime.fromtimestamp(z['atime_ns'] / 10**9 + 24 * 3600, timezone.utc).isoformat()
             old.append(dict(path=path, age_hours=round(age, 2), stale_after=mark))
     w.save('old.json', old)
-    w.save('atime-fixed.json', fixed)
     w.require(not old, '%d objects not young enough; rerun after the stale_after times in old.json' % len(old))
     result = dict(ok=True, objects=len(paths), atime_refreshed=len(changed), content_changed=False,
-                  cache_excluded=True, window_started=False, young_hours=YOUNG_HOURS)
+                  cache_excluded=True, window_started=False, young_hours=YOUNG_HOURS,
+                  executor_sha256=_SOURCE_SHA)
     w.save('result.json', result)
     print(json.dumps(result))
 

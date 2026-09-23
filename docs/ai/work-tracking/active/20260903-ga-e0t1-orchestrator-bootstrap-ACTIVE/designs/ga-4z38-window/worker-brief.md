@@ -31,7 +31,10 @@ preflight, so the coordinator holds scheduling at preflight plus two hours and
 forty-five minutes whatever the progress. Work steadily: startup proof first, then the implementation
 as soon as the source release arrives. If scheduling is held before you finish,
 stop at the current safe point and preserve everything; unfinished work is
-evidence, not a reason to hurry past a check.
+evidence, not a reason to hurry past a check. Keep command output short (focused
+test runs, -q flags, head or tail on long logs, evidence in files rather than in
+the conversation): an automatic context compaction runs the handoff hook, and a
+cycled session cannot be replaced inside this window.
 
 ## Claim and capability proof, before any source edit
 

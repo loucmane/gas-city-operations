@@ -11,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: HOLD.sh <reviewed commit>}
-HOLD_SHA=e2cb431f895e53485206375fafae726884f9afaf5a98f0088ca8ef7a2911a443
+HOLD_SHA=3b29cd7b9e2634ea454643346aab93cf48da16fc1994de9b3afb985ec36e7aa5
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -33,7 +33,7 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== HOLD REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== HOLD REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }

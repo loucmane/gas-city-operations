@@ -7,15 +7,18 @@ from its hooks, its claim and its drain-ack. This proof checks each link of the 
 1. The live supervisor (the P6 accepted host pid) carries GIT_OPTIONAL_LOCKS=0. Only that one entry is
    tested; nothing else from its environment is read into the result.
 2. Core at the worker base e6366b9e (the PR 45 merge the installed gc 69d00186 was built from):
-   - no non-test Go source mentions GIT_OPTIONAL_LOCKS, so nothing sets or unsets it; the only
-     mention is the docsync test of the supervisor's cache-readonly systemd drop-in that sets it;
+   - no non-test Go source names GIT_OPTIONAL_LOCKS (the only mention is the docsync test of the
+     supervisor's cache-readonly systemd drop-in that sets it), so nothing sets or unsets it by name;
+     the tmux paths below show the session environment is not rebuilt from scratch;
    - the tmux executor runs `tmux` without a custom environment, so the city tmux server inherits the
      supervisor's environment;
    - a new session unsets only keys whose composed value is empty, so an inherited key the session
      map never names stays in the pane environment.
 3. The Template signing wrapper builds the Claude environment from its parent's, removing only
    ANTHROPIC_API_KEY.
-All reads are git object reads (GIT_OPTIONAL_LOCKS=0) and plain file reads. Nothing is written.
+All reads are git object reads (GIT_OPTIONAL_LOCKS=0) and O_NOATIME file reads, so running it changes no
+compared access time. The live pane environment is observed in-window by WATCH (one boolean).
+Nothing is written.
 
 Usage: python3 -B worker-env-proof.py   (prints one JSON object; exit 0 only if every link holds)
 """
@@ -57,7 +60,11 @@ def main():
                 and '.Env' not in executor.group(0),
                 session_unsets_only_empty=bool(session) and 'if env[k] == "" {' in session.group(0)
                 and session.group(0).count('unsetKeys = append(') == 1)
-    text = WRAPPER.read_text()
+    fd = os.open(WRAPPER, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        text = os.read(fd, 1 << 20).decode()
+    finally:
+        os.close(fd)
     function = re.search(r'def subscription_environment\(.*?\n    return child\n', text, re.S)
     wrapper = dict(removes_only_api_key=bool(function) and 'REMOVED_CREDENTIAL = "ANTHROPIC_API_KEY"' in text
                    and 'if name == REMOVED_CREDENTIAL:\n            continue' in function.group(0)
