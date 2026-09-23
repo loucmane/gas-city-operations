@@ -80,6 +80,24 @@ class Overlay(unittest.TestCase):
         self.assertNotIn(b'ga-y49e', candidate)
 
 
+class R2(unittest.TestCase):
+    def test_overlay_pin_matches_the_test_pin(self):
+        self.assertEqual(P.OVERLAY_SHA, OVERLAY_SHA)
+
+    def test_singleton_warning_is_exactly_the_observed_one(self):
+        observed = '/var/tmp/ga-4z38-prep-20260923-r1/config.isolated.json'
+        baseline = '/var/tmp/ga-4z38-prep-20260923-r1/config.baseline.json'
+        with open(observed) as handle:
+            after = json.load(handle)['validation']['warnings']
+        with open(baseline) as handle:
+            before = json.load(handle)['validation']['warnings']
+        self.assertEqual([w for w in after if w not in before], [P.SINGLETON_WARNING])
+        self.assertEqual(after, sorted(before + [P.SINGLETON_WARNING]))
+
+    def test_launcher_pin(self):
+        self.assertTrue(P.read(P.LAUNCH, P.LAUNCH_SHA))
+
+
 class Wrapper(unittest.TestCase):
     def test_wrapper_pins_prep_and_the_p6_launcher(self):
         with open(os.path.join(HERE, 'operator', 'PREP.sh'), encoding='utf-8') as handle:

@@ -1,6 +1,7 @@
 #!/bin/sh
 # ga-4z38 window prep, round 1: the isolation overlay and its receipt image. Read-only: installs
-# nothing, launches no worker, writes only its fresh evidence root /var/tmp/ga-4z38-prep-20260923-r1.
+# nothing and launches no worker. It writes its fresh evidence root /var/tmp/ga-4z38-prep-20260923-r2
+# plus the staging log below. r2 follows the fail-closed refusal of the r1 job (root -r1 preserved).
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner). The runner starts it as
 #   systemd-run --user --wait --collect --quiet --service-type=oneshot --unit=gc-job-<id> \
@@ -11,8 +12,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: PREP.sh <reviewed commit>}
-PREP_SHA=3ebf7006de0f68f7e9ee9a23292518c32a1a766b4b77174d49f80834fd43b432
-OUT=/var/tmp/ga-4z38-prep-20260923-r1
+PREP_SHA=28303722c711e307a614247410ad9a5d00cc4fa858ca41baf008392570605d90
+OUT=/var/tmp/ga-4z38-prep-20260923-r2
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

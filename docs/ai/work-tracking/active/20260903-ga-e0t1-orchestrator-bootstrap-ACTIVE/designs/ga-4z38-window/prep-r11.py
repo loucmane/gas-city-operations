@@ -12,6 +12,19 @@ What changes from the originals:
   being read from an older observation root.
 - The prior receipt input is P6's reviewed input draft.
 - Outputs go to one fresh root, ROOT, created exclusively outside every repository.
+- All gc and compose calls use a fixed minimal ENV (with GIT_OPTIONAL_LOCKS=0) instead of the
+  caller's environment. The running revision is still pinned (d6ca85cd).
+- The old verified.json gate between the two original scripts becomes the in-run overlay revision.
+  That value is used only after every isolation proof has passed.
+
+r2 (after job ga-4z38-prep refused fail-closed at 16:06:01Z; root -r1 preserved):
+- `gc config show` reports one more advisory validation warning under the overlay: the bound
+  worker's max_active_sessions=1 makes it a canonical singleton. The expected effective config now
+  includes exactly that pinned warning string, in sorted position. Every Agents, Workspace and
+  Orders field was already exact.
+- The overlay bytes are pinned in-job (OVERLAY_SHA), not only in the test.
+- The normalize child is re-launched through the digest-checked source launcher.
+- The root is -r2.
 
 What it does, all in read-only, network-isolated bwrap namespaces:
 1. It generates the one-worker overlay:
@@ -40,7 +53,7 @@ import sys
 import tomllib
 import types
 
-ROOT = Path('/var/tmp/ga-4z38-prep-20260923-r1')
+ROOT = Path('/var/tmp/ga-4z38-prep-20260923-r2')
 CITY = Path('/home/loucmane/gascity/city')
 RECEIPT = CITY/'.gc/runtime/provisioning/receipt.json'
 WORK = '/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles'
@@ -62,6 +75,14 @@ RECEIPT_SHA = '0b30c23f4484382fd4918f394599268f4f4005ac71118e8a7f82ca72eb9615ff'
 REVISION = 'd6ca85cd96c7aab4ea0b6a7954d2d74e5e6bb211cde0bb820f3b6f815023bd88'
 ORDER_COUNT = 34
 HEADER = '\n# ga-4z38 bounded one-worker window; restore exact preserved baseline.\n'
+OVERLAY_SHA = '5f3b60e1c1e391b5a1f66de62a2e767ea226570ce7549c6dfb526cd072e6530d'
+LAUNCH = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
+              '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6/source-launch.py')
+LAUNCH_SHA = '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea'
+# Advisory validation warning gc adds when the overlay caps the bound worker at one session.
+SINGLETON_WARNING = ('agent "gascity/gc.implementation-worker": max_active_sessions=1 creates a canonical '
+                     'singleton that drains when scale_check returns 0; declare [[named_session]] only if '
+                     'you need a session that survives empty-demand windows')
 ENV = dict(HOME='/home/loucmane', USER='loucmane', LOGNAME='loucmane', LANG='C.UTF-8',
            GC_HOME='/home/loucmane/gascity/home', GIT_OPTIONAL_LOCKS='0', PYTHONDONTWRITEBYTECODE='1',
            PATH='/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin')
@@ -174,6 +195,7 @@ def main():
     write('config.baseline.json', baseline)
     write('orders.baseline.json', orders)
     candidate, patches, names, target, selected = build_overlay(city, baseline, orders)
+    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the reviewed 5f3b60e1'
     write('city.baseline.toml', city)
     write('city.isolated.toml', candidate)
     write('declared-delta.json', dict(patches=patches, order_skip=names, workspace_cap=1))
@@ -195,6 +217,8 @@ def main():
             expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1)
     expected['config']['Workspace']['MaxActiveSessions'] = 1
     expected['config']['Orders']['Skip'] = names
+    assert SINGLETON_WARNING not in baseline['validation']['warnings']
+    expected['validation']['warnings'] = sorted(baseline['validation']['warnings'] + [SINGLETON_WARNING])
     assert observed == expected, 'unexpected effective configuration delta'
     empty = confined([str(GC), '--city', str(CITY), 'order', 'list', '--json'], True)
     write('orders.isolated.json', empty)
@@ -204,9 +228,13 @@ def main():
     candidate_input['permission_revision'] = after['permission_revision']
     owned = module(BUILD/'phase_runner.py', RUNNER_PHASE_SHA, 'owned_phase')
     read(BUILD/'compose', FINALIZE_SHA)
+    read(LAUNCH, LAUNCH_SHA)
+    source_sha = globals().get('_SOURCE_SHA')
+    assert source_sha and sha(read(Path(sys.argv[0]))) == source_sha, 'prep must run under the source launcher'
     write('receipt.before.json', before_receipt)
     write('receipt.input.json', candidate_input)
-    for name, command in [('normalize', ['/usr/bin/python3', '-I', '-S', '-B', sys.argv[0], 'normalize']),
+    normalize = ['/usr/bin/python3', '-I', '-S', '-B', str(LAUNCH), sys.argv[0], source_sha, 'normalize']
+    for name, command in [('normalize', normalize),
                           ('finalize', [str(BUILD/'compose'), 'finalize', str(ROOT/'receipt.normalized.json')])]:
         argv = ['/usr/bin/bwrap', '--ro-bind', '/', '/', '--unshare-net', '--unshare-pid', '--die-with-parent',
                 '--new-session', '--proc', '/proc', '--dev', '/dev', '--', *command]

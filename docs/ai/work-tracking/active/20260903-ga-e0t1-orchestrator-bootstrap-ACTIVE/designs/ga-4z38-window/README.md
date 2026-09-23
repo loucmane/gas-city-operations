@@ -52,6 +52,24 @@ M5 city equals the old R9 baseline except for its Opus 5 to 5.5 model lines.
 **Job.** Job `ga-4z38-prep` runs `operator/PREP.sh` at this commit. It writes its log to
 `~/.local/share/gas-city-staging/ga-4z38-window/prep-*.txt` and exits with the prep result.
 
+### Round 1 r2 (after the r1 job refused)
+
+Job `ga-4z38-prep` at `7ae90892` (two SOURCE_PASS reviews) ran at 16:06Z and refused fail-closed at
+the effective-config assertion. The only difference was one additional advisory entry in
+`gc config show` `validation.warnings`: the bound worker's `max_active_sessions=1` makes it a
+canonical singleton. The observed list equals the sorted baseline plus exactly that string, and every
+Agents, Workspace and Orders field matched. The compose checks had already passed: before
+`d6ca85cd`, overlay revision different. Root `-r1` is consumed and preserved.
+
+r2 does the following:
+- it expects exactly that pinned warning, `SINGLETON_WARNING`;
+- it pins the overlay `5f3b60e1` in-job, not just in the test, as both r1 reviewers suggested;
+- it re-launches the normalize child through the digest-checked source launcher;
+- it declares the fixed ENV and the in-run revision gate in the docstring;
+- it uses root `-r2`.
+
+A test binds the pinned warning to the r1 evidence.
+
 ## Round 2 (next commit): the window
 
 Round 2 rebinds the reviewed ga-y49e R10 window stack onto this baseline and task:
