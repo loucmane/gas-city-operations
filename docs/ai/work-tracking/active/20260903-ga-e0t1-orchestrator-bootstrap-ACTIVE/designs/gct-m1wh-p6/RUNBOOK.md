@@ -148,6 +148,15 @@ atimes, and compose preservation would fail. So the read-only run must finish be
 - `READY_PINS_SHA` a5f7f8c11a95b48d01f910c5c4668828d61a587a5942545f27d403ebadfeac8f
 - p6-adopt `64879d2a4f8109750323da3d91af6d46667d4ea6eccbfd0086e453ccc521c399`, pinned in `operator/P6-ADOPT.sh`.
 
+## r5: adoption deadline
+
+`verify_snapshot` compares the adoption's before and after snapshots exactly, cache atimes included.
+The adoption also runs `gc trace show` between them, as the reviewed 09-20 base did. The pack cache's
+13:33:50Z access cluster from 2026-09-22 turns 24 h old at 2026-09-23 13:33:50Z. After that, any read
+refreshes those atimes, so the adoption must finish before then. `operator/P6-ADOPT.sh` refuses to
+start after 13:20:00Z (15:20 Stockholm), which leaves 13 minutes. A crossing fails closed into the
+exact rollback. The quiescence rule still holds: no gc call from anyone until the adoption log ends.
+
 ## Stop conditions
 
 Stop on any of these:

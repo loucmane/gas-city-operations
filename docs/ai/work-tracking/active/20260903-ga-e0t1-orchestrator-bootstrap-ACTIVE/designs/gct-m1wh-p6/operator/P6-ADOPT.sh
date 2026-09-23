@@ -31,8 +31,14 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
 fi
 { [ ! -e /var/tmp/gct-m1wh-p6-adoption-20260923-r2 ] && [ ! -L /var/tmp/gct-m1wh-p6-adoption-20260923-r2 ]; } \
   || { echo "== STOP: adoption root already used"; echo "== end"; exit 1; }
+# Deadline: the adoption compares its before and after cache snapshots with atimes included, and the
+# pack cache's 2026-09-22 13:33:50Z access cluster turns 24 h old at 2026-09-23 13:33:50Z. So it starts
+# only until 13:20:00Z, which leaves 13 minutes for the whole transaction.
+now=$(date -u +%Y%m%d%H%M%S)
+case "$now" in (*[!0-9]*|'') echo "== STOP: clock unreadable"; echo "== end"; exit 1;; esac
+[ "$now" -le 20260923132000 ] || { echo "== STOP: past the 13:20:00Z start deadline; the pack-cache atime boundary is 13:33:50Z"; echo "== end"; exit 1; }
 echo "== adopt $(date -u +%H:%M:%SZ)"
 /usr/bin/python3 -I -S -B "$P/source-launch.py" "$P/p6-adopt.py" "$ADOPT_SHA"
 rc=$?
-if [ "$rc" = 0 ]; then echo "== ADOPTED"; else echo "== REFUSED rc=$rc: read result.json and rollback.json in the adoption root; run nothing else"; fi
+if [ "$rc" = 0 ]; then echo "== ADOPTED"; else echo "== REFUSED rc=$rc: read this log (traceback), the *-phase.json files and any result.json or rollback.json in the adoption root; run nothing else"; fi
 echo "== end $(date -u +%H:%M:%SZ)"
