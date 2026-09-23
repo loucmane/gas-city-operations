@@ -585,11 +585,13 @@ class Safety(unittest.TestCase):
             ticks['t'] += 7.0
             return ticks['t']
         c.time = types.SimpleNamespace(monotonic=monotonic, sleep=lambda seconds: None)
-        for panes, expect_kill in (('', True), ('gc-other 4242\n', False)):
+        # The real tmux 3.4 answers (proof/tmux-probe.py): a live server lists its sessions with exit 0, even
+        # when it holds none; no server answers exit 1.
+        for live, expect_kill in (('', True), ('gc-other\n', False), (None, False)):
             with tempfile.TemporaryDirectory() as tmp:
                 tmp = Path(tmp)
                 row = dict(id='ci-1', template=c.TEMPLATE, closed=False, state='active')
-                state = dict(open=[row], server=True, procs=[dict(pid=7, cwd='/')])
+                state = dict(open=[row], server=live is not None, procs=[dict(pid=7, cwd='/')] if live is not None else [])
 
                 def respond(argv):
                     if argv[:4] == ['gc', 'session', 'list', '--json']:
@@ -600,10 +602,10 @@ class Safety(unittest.TestCase):
                     if argv[:3] == ['gc', 'session', 'close']:
                         state['open'] = []
                         return 0, '{"ok":true,"command":"session close","session_id":"ci-1"}\n', ''
-                    if argv[:5] == ['/usr/bin/tmux', '-u', '-L', 'city', 'list-panes']:
+                    if argv == ['/usr/bin/tmux', '-u', '-L', 'city', 'list-sessions', '-F', '#{session_name}']:
                         if state['server']:
-                            return 0, panes, ''
-                        return 1, '', 'no server running on /tmp/tmux-1000/city\n'
+                            return 0, live, ''
+                        return 1, '', 'error connecting to /tmp/tmux-1000/city (No such file or directory)\n'
                     if argv == ['/usr/bin/tmux', '-u', '-L', 'city', 'kill-server']:
                         state['server'] = False
                         state['procs'] = []
@@ -617,11 +619,12 @@ class Safety(unittest.TestCase):
                 (tmp/'var').mkdir()
                 (tmp/'window'/'suspension-rig-suspend-event.json').write_text('{}')
                 c.WINDOW, c.VAR = tmp/'window', tmp/'var'
-                if expect_kill:
+                if live != 'gc-other\n':
                     with contextlib.redirect_stdout(io.StringIO()) as out:
                         c.main()
                     result = json.loads(out.getvalue())
-                    self.assertTrue(result['ok'] and result['tmux_server_killed'])
+                    self.assertTrue(result['ok'])
+                    self.assertEqual(result['tmux_server_killed'], expect_kill)
                 else:
                     with self.assertRaisesRegex(RuntimeError, 'residue remains'):
                         c.main()
@@ -682,6 +685,124 @@ class Safety(unittest.TestCase):
                 self.assertEqual(result['staged'], [])
                 self.assertEqual(result['status_records'], ['?? .claude/settings.local.json'])
 
+    def test_hold_main_suspends_a_stranded_window_against_the_real_base(self):
+        h = self.load('hold-r11.py')
+        h._SOURCE_SHA = sha(HERE/'hold-r11.py')
+        h.datetime = Clock
+        h.time = types.SimpleNamespace(monotonic=time.monotonic, sleep=lambda seconds: None)
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            state = dict(city=False, rig=False)
+
+            def respond(argv):
+                if argv == ['gc', 'status', '--json']:
+                    return 0, json.dumps(dict(ok=True, suspended=state['city'], rigs=[
+                        dict(name='gascity', suspended=state['rig']), dict(name='blog', suspended=True)]), indent=2), ''
+                if argv == ['gc', 'suspend', '--json']:
+                    state['city'] = True
+                    return 0, '{"ok":true}\n', ''
+                if argv == ['gc', 'rig', 'suspend', 'gascity', '--json']:
+                    state['rig'] = True
+                    return 0, '{"ok":true}\n', ''
+                raise AssertionError('unexpected argv %r' % argv)
+            owned = FakeOwned(respond)
+            w = real_base(tmp, owned)
+            h.load = lambda: w
+            for name in ('window', 'done', 'var'):
+                (tmp/name).mkdir()
+            (tmp/'window'/'stage-consumed.json').write_text('{}')
+            (tmp/'window'/'suspension-city-suspend-failure.json').write_text('{}')
+            h.WINDOW, h.DONE, h.VAR = tmp/'window', tmp/'done', tmp/'var'
+            before = sorted(p.name for p in (tmp/'window').iterdir())
+            with contextlib.redirect_stdout(io.StringIO()) as out:
+                h.main()
+            result = json.loads(out.getvalue())
+            self.assertTrue(result['ok'] and result['city_suspended'] and result['gascity_rig_suspended'])
+            self.assertEqual(result['stranded_records'], ['suspension-city-suspend-failure.json'])
+            self.assertEqual(sorted(p.name for p in (tmp/'window').iterdir()), before)
+            self.assertEqual([argv[1:] for name, argv in owned.calls if 'suspend' in name],
+                             [['suspend', '--json'], ['rig', 'suspend', 'gascity', '--json']])
+            # Not stranded: HOLD refuses and suspends nothing.
+            (tmp/'window'/'suspension-city-suspend-failure.json').unlink()
+            with self.assertRaisesRegex(RuntimeError, 'hold is only for a stranded lifecycle'):
+                h.main()
+
+    def test_worker_files_are_bounded_on_the_open_descriptor(self):
+        r = self.load('release-r11.py')
+        watch = self.load('watch-r11.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            small, big = Path(tmp)/'small.json', Path(tmp)/'big.bin'
+            small.write_text('{}')
+            big.write_bytes(b'x' * ((1 << 20) + 1))
+            self.assertEqual(r.bounded_read(small, r.WORKER_FILE_LIMIT), b'{}')
+            with self.assertRaisesRegex(RuntimeError, 'worker file shape or size'):
+                r.bounded_read(big, r.WORKER_FILE_LIMIT)
+            w = real_base(Path(tmp), None)
+            row = watch.entry(w, big)
+            self.assertEqual((row['kind'], row['size']), ('file', (1 << 20) + 1))
+            self.assertNotIn('sha256', row)
+            self.assertIn('worker file shape or size', row['read_error'])
+            self.assertEqual(watch.entry(w, small)['sha256'], sha(small))
+
+    def test_main_tests_fail_on_each_defect_they_guard(self):
+        """Committed mutation check: each real-base main() test fails on its defect, applied to a copy."""
+        mutations = [
+            ('test_release_main_runs_every_slot_against_the_real_base', 'release-r11.py',
+             "pane_clear(w, run, session, 'pane-before-nudge')", "pane_clear(w, run, session, 'pane-before-post')",
+             'phase already consumed'),
+            ('test_close_main_ends_only_an_empty_city_server', 'close-r11.py',
+             'and not server_killed:', 'and False:', 'residue remains'),
+            ('test_close_main_ends_only_an_empty_city_server', 'close-r11.py',
+             "'list-sessions', '-F', '#{session_name}']", "'list-panes', '-a', '-F', '#{session_name} #{pane_pid}']",
+             'unexpected argv'),
+            ('test_watch_main_runs_before_and_after_stage_against_the_real_base', 'watch-r11.py',
+             "    routes_unchanged = routes_since_stage(w, o, routes, WINDOW/'stage-reload-generated-routes.json')\n",
+             "    routes_unchanged = routes_since_stage(w, o, routes, WINDOW/'stage-reload-generated-routes.json')\n"
+             "    staged = {} if routes_unchanged is not None else staged\n", 'splitlines'),
+        ]
+        for test, name, old, new, symptom in mutations:
+            with tempfile.TemporaryDirectory() as tmp:
+                copy = Path(tmp)/'pkg'
+                shutil.copytree(HERE, copy, ignore=shutil.ignore_patterns('__pycache__'))
+                text = (copy/name).read_text()
+                self.assertEqual(text.count(old), 1, (name, old))
+                (copy/name).write_text(text.replace(old, new))
+                done = subprocess.run([sys.executable, '-B', '-m', 'unittest', 'test_round2b.Safety.' + test], cwd=copy,
+                                      capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL,
+                                      env=dict(PATH='/usr/bin:/bin', HOME='/home/loucmane', GIT_OPTIONAL_LOCKS='0'))
+                self.assertNotEqual(done.returncode, 0, (test, name))
+                self.assertIn(symptom, done.stderr, (test, name))
+
+    def test_watch_redacts_tmux_session_environment(self):
+        watch = self.load('watch-r11.py')
+        argv = ['tmux', '-u', '-L', 'city', 'new-session', '-d', '-s', 'gc-ci-1', '-e', 'GC_TOKEN=secret',
+                '-eOTHER=value', '-c', '/work', 'claude']
+        self.assertEqual(watch.redacted(argv), ['tmux', '-u', '-L', 'city', 'new-session', '-d', '-s', 'gc-ci-1', '-e',
+                                                'GC_TOKEN=<redacted>', '-eOTHER=<redacted>', '-c', '/work', 'claude'])
+        self.assertIn('argv=redacted([arg.decode(', (HERE/'watch-r11.py').read_text())
+
+    def test_resume_stops_when_the_city_tmux_server_holds_a_session(self):
+        text = (HERE/'operator'/'RESUME.sh').read_text()
+        gate = ('if /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>/dev/null | grep -q .; then\n'
+                '  echo "== STOP: the city tmux server already holds a session"; echo "== end"; exit 1\nfi\n')
+        self.assertIn(gate, text)
+        self.assertLess(text.index(gate), text.index('step rig-resume'))
+
+    def test_survival_and_socket_directory_proofs(self):
+        for proof in ('singleton-proof.py', 'worker-env-proof.py'):
+            done = subprocess.run([sys.executable, '-B', str(HERE/'proof'/proof)], capture_output=True, text=True,
+                                  timeout=120, stdin=subprocess.DEVNULL)
+            self.assertEqual(done.returncode, 0, done.stdout[-2000:] + done.stderr[-2000:])
+        survival = json.loads(subprocess.run([sys.executable, '-B', str(HERE/'proof'/'singleton-proof.py')],
+                                             capture_output=True, text=True, timeout=120).stdout)
+        self.assertTrue(all(survival['survival_config'].values()) and all(survival['survival_core'].values()))
+
+    def test_tmux_answers_close_relies_on(self):
+        done = subprocess.run([sys.executable, '-B', str(HERE/'proof'/'tmux-probe.py')],
+                              capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+        self.assertEqual(done.returncode, 0, done.stdout[-2000:] + done.stderr[-2000:])
+        self.assertTrue(json.loads(done.stdout)['ok'])
+
     def test_watch_routes_since_stage(self):
         watch = self.load('watch-r11.py')
         with tempfile.TemporaryDirectory() as tmp:
@@ -700,6 +821,11 @@ class Safety(unittest.TestCase):
                 raise RuntimeError('route authority')
             self.assertEqual(watch.routes_since_stage(w, None, types.SimpleNamespace(capture_routes=refuse), event),
                              'refused: route authority')
+
+            def unreadable(w, o):
+                raise FileNotFoundError('routes.jsonl')
+            self.assertEqual(watch.routes_since_stage(w, None, types.SimpleNamespace(capture_routes=unreadable), event),
+                             'refused: routes.jsonl')
 
     def test_tree_listing_equals_the_staged_index_in_a_real_repository(self):
         r = self.load('release-r11.py')

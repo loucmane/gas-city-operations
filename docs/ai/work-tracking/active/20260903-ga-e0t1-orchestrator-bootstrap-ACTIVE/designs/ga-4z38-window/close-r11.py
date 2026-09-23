@@ -11,15 +11,24 @@ template. Steps, each through the owned-phase runner with the support environmen
 1. Once only, guarded by the exclusive marker /var/tmp/ga-4z38-close-drain.requested:
    `gc runtime drain <id> --json` (any exit status), then up to 60 seconds of session-list polling.
 2. `gc session close <id> --json` (must succeed), only while that session is still open.
-3. Up to 120 seconds until: no open session for the template, no pane at all in the city tmux server
-   (every other agent stays suspended in this window; exit 1 counts only when tmux reports no server),
-   and no process whose argv names the worktree or whose cwd is inside it.
+3. Up to 120 seconds until: no open session for the template, no tmux session at all on the city
+   server (every other agent stays suspended in this window), and no process whose argv names the
+   worktree or whose cwd is inside it. The server is read with `list-sessions`, which a running server
+   answers with exit 0 even when it holds no session; `list-panes -a` would answer "no current target"
+   there (tmux 3.4, proof/tmux-probe.py; Core wrapError treats that answer as a live empty server).
+   Exit 1 counts only for Core's no-server answers: no server running, error connecting to (no such
+   file or connection refused), server exited unexpectedly.
 4. The one tmux action, at most once per run: when no open session remains and the city tmux server is
-   up with no pane, `tmux -u -L city kill-server`. Core sets exit-empty off on every session create
+   up with no session, `tmux -u -L city kill-server`. Core sets exit-empty off on every session create
    (internal/runtime/tmux/tmux.go ConfigureServer), so a server started by the worker's `new-session -c
    <worktree>` outlives the session with the worktree in its argv. Core's own `gc stop` ends the server
    the same way once sessions are drained (cmd/gc/cmd_stop.go TeardownServer, KillServer). The ga-5ot6
    R10 restore needed this by hand. An empty server holds no agent work, and scheduling is held.
+Declared effect on the task: `gc session close` releases the work assigned to the closed session
+(Core cmd/gc/cmd_session.go unclaimWorkAssignedToRetiredSessionBead, work_assignment.go
+ReleaseWorkBead), so ga-4z38 ends open, unassigned and still routed. Its task attempt is started, so no
+new session can start for it (taskattempt). The coordinator's delivery closeout closes it after the
+merge; before any later window the audit would stop on it, as it did on ga-y49e.
 It never signals a process itself and never replays a lifecycle action. `gc session close --json`
 emits JSONL; exactly one record must name the session. Each run uses a fresh timestamped root, so a
 refusal can be followed by another run, which never repeats the drain. Identity is the base
@@ -138,25 +147,25 @@ def main():
     server_killed = False
     while True:
         remaining = open_sessions()
-        listed = run('tmux', ['/usr/bin/tmux', '-u', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid}'],
+        listed = run('tmux', ['/usr/bin/tmux', '-u', '-L', 'city', 'list-sessions', '-F', '#{session_name}'],
                      expected=(0, 1))
-        # Exit 1 counts only when tmux says there is no server (no socket, or nothing listening on it).
+        # Exit 1 counts only when no server answers (Core internal/runtime/tmux wrapError ErrNoServer).
         stderr = listed['stderr']
-        w.require(listed['exit_code'] == 0 or 'no server running' in stderr
+        w.require(listed['exit_code'] == 0 or 'no server running' in stderr or 'server exited unexpectedly' in stderr
                   or ('error connecting to' in stderr and ('No such file or directory' in stderr
                                                            or 'Connection refused' in stderr)),
                   'tmux listing failed')
-        worker_panes = [p for p in listed['stdout'].split('\n') if p.strip()] if listed['exit_code'] == 0 else []
-        if listed['exit_code'] == 0 and not remaining and not worker_panes and not server_killed:
+        tmux_sessions = [s for s in listed['stdout'].split('\n') if s.strip()] if listed['exit_code'] == 0 else []
+        if listed['exit_code'] == 0 and not remaining and not tmux_sessions and not server_killed:
             # An empty city server kept alive by exit-empty off: end it the way `gc stop` does.
             run('tmux-kill-server', ['/usr/bin/tmux', '-u', '-L', 'city', 'kill-server'])
             server_killed = True
             continue
         residue = processes(w.WORK)
-        if not remaining and not worker_panes and not residue:
+        if not remaining and not tmux_sessions and not residue:
             break
-        w.require(time.monotonic() < deadline, 'residue remains: sessions=%d panes=%d processes=%d'
-                  % (len(remaining), len(worker_panes), len(residue)))
+        w.require(time.monotonic() < deadline, 'residue remains: sessions=%d tmux_sessions=%d processes=%d'
+                  % (len(remaining), len(tmux_sessions), len(residue)))
         time.sleep(5)
     w.ROOT = WINDOW
     w.active_epoch(o)

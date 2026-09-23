@@ -16,6 +16,9 @@ from its hooks, its claim and its drain-ack. This proof checks each link of the 
      map never names stays in the pane environment.
 3. The Template signing wrapper builds the Claude environment from its parent's, removing only
    ANTHROPIC_API_KEY.
+4. The tmux socket directory is the default /tmp/tmux-1000 for both sides: the supervisor carries no
+   TMUX_TMPDIR and no TMUX (tested by name only), and the jobs' fixed support environment
+   (p6-observe-compose.py ENV) names neither, so the jobs' `tmux -L city` reaches Core's server.
 All reads are git object reads (GIT_OPTIONAL_LOCKS=0) and O_NOATIME file reads, so running it changes no
 compared access time. The live pane environment is observed in-window by WATCH (one boolean).
 Nothing is written.
@@ -33,6 +36,8 @@ P6_AFTER = Path('/var/tmp/gct-m1wh-p6-adoption-20260923-r2/after.json')
 CORE = '/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles'
 BASE = 'e6366b9ececd3a4ceab2bcaa264a5e317e6eab88'
 WRAPPER = Path('/home/loucmane/gas-city-template/lib/gct_claude_subscription.py')
+SUPPORT = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
+               '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6/p6-observe-compose.py')
 ENV = dict(PATH='/usr/local/bin:/usr/bin:/bin', HOME='/home/loucmane', GIT_OPTIONAL_LOCKS='0', LC_ALL='C.UTF-8')
 
 
@@ -47,8 +52,17 @@ def main():
     pid = host['pid']
     environ = Path('/proc/%d/environ' % pid).read_bytes().split(b'\0')
     stat = Path('/proc/%d/stat' % pid).read_text().rsplit(') ', 1)[1].split()
+    names = {entry.split(b'=', 1)[0] for entry in environ if entry}
     supervisor = dict(pid=pid, start_matches=stat[19] == host['start'],
-                      git_optional_locks_zero=b'GIT_OPTIONAL_LOCKS=0' in environ)
+                      git_optional_locks_zero=b'GIT_OPTIONAL_LOCKS=0' in environ,
+                      default_tmux_socket_dir=b'TMUX_TMPDIR' not in names and b'TMUX' not in names)
+    fd = os.open(SUPPORT, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        compose = os.read(fd, 1 << 20).decode()
+    finally:
+        os.close(fd)
+    block = re.search(r'^ENV = dict\(.*?\)\n', compose, re.S | re.M)
+    supervisor['jobs_env_names_no_tmux'] = bool(block) and 'TMUX' not in block.group(0)
     grep = git('grep', '-n', 'GIT_OPTIONAL_LOCKS', BASE, '--', '*.go', ':(exclude)*_test.go', ok=(0, 1))
     dropin = git('grep', '-n', 'Environment=GIT_OPTIONAL_LOCKS=0', BASE, '--', 'test/docsync/cache_readonly_dropin_test.go',
                  ok=(0, 1))

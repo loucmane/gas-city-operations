@@ -11,16 +11,34 @@ waits for a release. This proof checks that the session is still preserved:
    - cmd/gc/pool_desired_state.go: new-session demand comes from scale_check, while the desired-state
      computation "only preserves sessions that already own actionable work", and its resume tier keeps
      a session whose assigned work bead is in_progress or open.
-All reads are git object reads (GIT_OPTIONAL_LOCKS=0) and one prep evidence file. Nothing is written.
+3. The session survives its idle waits (a restart would be refused: BIND stamps the task attempt, and
+   Core taskattempt.Start never starts an attempt twice). In the pinned overlay config
+   (config.isolated.json 6c4b44c4) the worker has no idle_timeout, no max_session_age and no
+   sleep_after_idle; the gascity rig's and the workspace's session_sleep defaults are empty, so Core
+   ResolveSessionSleepPolicy returns off (legacy_off); claim_holder_stall_timeout is unset. The city's
+   progress_stall_timeout (5m) restarts only a claim-less session (session_progress.go
+   sessionProgressStalled returns false for a claim holder); for a claim holder Core only marks the
+   claimed work with the needs/operator label and progress-stall metadata, never its status or assignee
+   (session_reconciler.go markProgressStalledClaimedWorkNeedsOperator). AssignedWorkDeferLimit bounds
+   only the idle-timeout ladder, which is off. The managed signer (managed-git-commit, managed-git-signerd)
+   reads no Bead label, status or assignee, so the mark cannot refuse the signature.
+All reads are git object reads (GIT_OPTIONAL_LOCKS=0), an O_NOATIME read of the prep evidence file, and
+plain reads of the two root-owned signer sources (O_NOATIME needs ownership). The proof runs before
+PREFLIGHT, never in the window. Nothing is written.
 
 Usage: python3 -B singleton-proof.py   (prints one JSON object; exit 0 only if every check holds)
 """
+import hashlib
 import json
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 
 CONFIG = Path('/var/tmp/ga-4z38-prep-20260923-r2/config.isolated.json')
+CONFIG_SHA = '6c4b44c48c189171eb6ed0870e587c915f8af9e3053392cc877974024f2ab412'
+SIGNER = ('/usr/local/libexec/gas-city/managed-git-commit', '/usr/local/libexec/gas-city/managed-git-signerd')
 CORE = '/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles'
 BASE = 'e6366b9ececd3a4ceab2bcaa264a5e317e6eab88'
 ENV = dict(PATH='/usr/local/bin:/usr/bin:/bin', HOME='/home/loucmane', GIT_OPTIONAL_LOCKS='0', LC_ALL='C.UTF-8')
@@ -33,8 +51,24 @@ def show(path):
     return p.stdout
 
 
+def noatime(path):
+    try:
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    except PermissionError:  # O_NOATIME needs file ownership; the signer sources are root-owned
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+    try:
+        raw = b''
+        while chunk := os.read(fd, 1 << 20):
+            raw += chunk
+    finally:
+        os.close(fd)
+    return raw
+
+
 def main():
-    agents = json.loads(CONFIG.read_text())['config']['Agents']
+    raw = noatime(CONFIG)
+    city = json.loads(raw)['config']
+    agents = city['Agents']
     [worker] = [a for a in agents if a['Dir'] == 'gascity' and a['Name'] == 'implementation-worker']
     config = dict(default_demand=worker['ScaleCheck'] == '' and worker['WorkQuery'] == '',
                   capped_singleton=worker['MaxActiveSessions'] == 1 and worker['MinActiveSessions'] == 0)
@@ -45,8 +79,34 @@ def main():
         desired_state_preserves_owners='new-session demand comes\n// from scale_check, while this function only preserves sessions that already\n// own actionable work.' in desired,
         resume_tier_keeps_in_progress='if wb.Status != "in_progress" && wb.Status != "open" {' in desired
         and 'Resume tier: actionable assigned work beads whose assignee resolves' in desired)
-    result = dict(config=config, core=core)
-    result['ok'] = all(v for part in (config, core) for v in part.values())
+    [rig] = [r for r in city['Rigs'] if r['Name'] == 'gascity']
+    survival_config = dict(
+        pinned=hashlib.sha256(raw).hexdigest() == CONFIG_SHA,
+        no_idle_timeout=worker['IdleTimeout'] == '',
+        no_max_session_age=worker['MaxSessionAge'] == '',
+        no_sleep_policy=worker['SleepAfterIdle'] == '' and set(rig['SessionSleep'].values()) == {''}
+        and set(city['SessionSleep'].values()) == {''},
+        claim_holder_recycle_off=city['Session']['ClaimHolderStallTimeout'] == '',
+        claimless_recycle_only=city['Session']['ProgressStallTimeout'] == '5m')
+    config_go = show('internal/config/config.go')
+    sleep_go = show('internal/config/session_sleep.go')
+    progress_go = show('cmd/gc/session_progress.go')
+    reconciler = show('cmd/gc/session_reconciler.go')
+    mark = re.search(r'func markProgressStalledClaimedWorkNeedsOperator\(.*?\n}\n', reconciler, re.S)
+    update = re.search(r'item\.store\.Update\(item\.bead\.ID, beads\.UpdateOpts\{.*?\n\t\t\}\)', mark.group(0), re.S) if mark else None
+    signer = [noatime(path) for path in SIGNER]
+    survival_core = dict(
+        idle_timeout_empty_disables='// Empty (default) disables idle checking.\n\tIdleTimeout string' in config_go,
+        max_age_empty_disables='Empty (default) disables preemptive restarts.' in config_go,
+        defer_limit_only_bounds_idle_ladder='AssignedWorkDeferLimit bounds how many consecutive reconciler ticks the\n\t// idle-timeout ladder may defer' in config_go,
+        unset_sleep_is_off='\treturn ResolvedSessionSleepPolicy{\n\t\tClass:  class,\n\t\tValue:  SessionSleepOff,\n\t\tSource: SessionSleepSourceLegacyOff,\n\t}\n}' in sleep_go,
+        claimless_only='if threshold <= 0 || holdsClaim || !providerHealthy || exempt {\n\t\treturn false' in progress_go,
+        claim_holder_needs_threshold='if threshold <= 0 || !holdsClaim || !providerHealthy || exempt || lastProgress.IsZero() {\n\t\treturn false' in progress_go,
+        attention_mark_keeps_status_and_assignee=bool(update) and 'Labels: []string{"needs/operator"}' in update.group(0)
+        and 'Status' not in update.group(0) and 'Assignee' not in update.group(0),
+        signer_reads_no_bead_labels=all(b'needs/operator' not in text and b'labels' not in text.lower() for text in signer))
+    result = dict(config=config, core=core, survival_config=survival_config, survival_core=survival_core)
+    result['ok'] = all(v for part in (config, core, survival_config, survival_core) for v in part.values())
     print(json.dumps(result, indent=1, sort_keys=True))
     return 0 if result['ok'] else 1
 

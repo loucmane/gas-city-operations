@@ -628,6 +628,81 @@ review B named a second. r9 fixes them, and each fix now has a test that runs th
   "run HOLD, then CLOSE" was right.
 - The job runner README now records the in-window review exception.
 
+### Round 2b r10 (after the 3c4b0975 review A HOLD)
+
+Review A of `3c4b0975` held, and its transcript is filed. The r9 kill-server branch could never run.
+- **The cause.** CLOSE decided emptiness with `list-panes -a`. A live server with no session answers
+  that with exit 1, "no current target". CLOSE refused that answer as a failed listing, so both slots
+  would have refused and ADMIT could never pass.
+  - Tonight's probe on a throwaway socket confirmed the answer on this host (tmux 3.4).
+  - Core's own `wrapError` reads this answer as a live empty server.
+  - The r9 test's fake answered an empty server with exit 0, which is not how tmux behaves.
+- **The fix.** CLOSE now reads the city server with `list-sessions -F '#{session_name}'`. A live server
+  answers that with exit 0 even when it holds no session. With no open template session and no tmux
+  session, CLOSE runs `kill-server` once. Exit 1 counts only for Core's no-server answers: no server
+  running, error connecting (no such file or connection refused), and server exited unexpectedly.
+- **New `proof/tmux-probe.py`, run in the tests.** It starts a private server on the throwaway socket
+  ga4z38-tmux-probe, never `city`, with exit-empty off. It records the answers with one session, with
+  none, and after `kill-server`, then removes its own socket. It passes. The CLOSE test now uses these
+  real answers: a live empty server (killed once), a server that still holds a session (refused as
+  residue, never killed), and no server (nothing to kill).
+- **`session close --json` is proven to be one line.** `writeSessionActionJSON` writes through
+  `writeCLIJSONLine`, a `json.Encoder` without indentation.
+- **The tree derivation is proven on the real repository.** `ls-tree -r -z --full-tree` of the base
+  tree f2c120a5, about 0.5 MB, equals `ls-files -s -z` of the worker worktree's index. The owned-phase
+  runner captures stdout with `communicate()`, which does not truncate.
+- **Worker-written files are bounded on the open descriptor** (regular, uid 1000, one link, at most
+  1 MiB), in both the release job and WATCH. WATCH records an oversized file without its digest.
+  **Erratum** to the r9 bullet "Worker-written files are read only as regular files of at most
+  1 MiB": in r9 that held only in the release job, and it was checked with lstat before the read.
+- **WATCH's route check** records any exception, not only RuntimeError.
+- **HOLD `main()` now has a real-base test.** HOLD suspends a stranded window in order (city, then
+  rig), writes nothing in the window root, and refuses a window that is not stranded.
+- **Erratum** to the r9 cli-proof bullet: the proof checks the installed gc digest and that 796d9a7a
+  and e6366b9e have the same tree. That the binary was built from signed 796d9a7a is recorded on
+  ga-mutg; the proof does not check it.
+- The release docstring no longer claims that an exit-0 capture proves the pane is running. A dead pane
+  kept by remain-on-exit would still capture; the active state and the nudge outcome cover that case.
+
+### Round 2b r10, continued (after the 3c4b0975 review B HOLD)
+
+Review B of `3c4b0975` also held, and its transcript is filed. Its must-fix: nothing proved the worker
+session survives its idle waits. Any runtime restart ends the attempt, because BIND stamps the task
+attempt and Core never starts an attempt twice.
+- **`proof/singleton-proof.py` now proves the session survives.** From the pinned overlay config
+  (config.isolated.json 6c4b44c4) and Core source:
+  - the worker has no idle_timeout, no max_session_age and no sleep_after_idle;
+  - the gascity rig's and the workspace's session_sleep defaults are empty, so Core resolves sleep to
+    off;
+  - claim_holder_stall_timeout is unset.
+  The city's progress_stall_timeout (5m) restarts only a claim-less session. For a claim holder, Core
+  only adds the needs/operator label and progress-stall metadata to the claimed work, never its status
+  or assignee. The managed signer reads no Bead label, status or assignee. The proof passes live.
+- **The brief tells the worker to claim at once** (it was already the first command), and says why.
+  It also says the needs/operator mark during a long wait is expected, not a stop. **Declared
+  consequence:** after a review wait of more than five minutes, ga-4z38 carries that label and
+  metadata. The coordinator clears them in the closeout.
+- **CLOSE releases the task.** `gc session close` releases the work assigned to the closed session, so
+  ga-4z38 ends open, unassigned and still routed. Its attempt is started, so no new session can start
+  for it. The delivery closeout closes it after the merge. Before any later window, the audit would
+  stop on it, as it did on ga-y49e. This is declared in the CLOSE docstring.
+- **RESUME stops before resuming if the city tmux server already holds a session.** This is a
+  read-only `list-sessions` gate in the wrapper. CLOSE can end only an empty server.
+- **The tmux socket directory is proven.** The supervisor has no TMUX_TMPDIR and no TMUX, checked by
+  name. The jobs' fixed support environment names neither, so both sides use /tmp/tmux-1000.
+- **WATCH redacts tmux `-e KEY=VALUE` values** in recorded argv. The city tmux server keeps Core's
+  new-session argv, which carries the session environment.
+- **Rig stores.** `gc session close` opens every rig's native store. Tonight's `gc status` calls, which
+  open every rig store, left all five route files at their 10:45 CEST atime, equal to their mtime. So
+  opening a store does not read `routes.jsonl`. The post-CLOSE WATCH repeats the route comparison
+  before ADMIT.
+- **After CLOSE's kill-server**, the next listing may answer "server exited unexpectedly"; this is
+  accepted as no server. Or it may still list an empty server, and then the loop waits for the process
+  to go.
+- **The mutation check is a committed test.** `test_main_tests_fail_on_each_defect_they_guard` copies
+  the package and applies each r8/r9 defect. It requires the guarding `main()` test to fail with the
+  named symptom. The CLOSE row includes the r9 `list-panes` defect.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,

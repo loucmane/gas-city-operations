@@ -128,6 +128,11 @@ def main(package):
                           pre='[ -e /var/tmp/ga-4z38-route-20260923-r1/result.json ] && '
                               '[ -e /var/tmp/ga-4z38-audit-route-20260923-r1/result.json ] || '
                               '{ echo "== STOP: ROUTE has not passed"; echo "== end"; exit 1; }\n'
+                              # CLOSE can end only an empty city tmux server: a session there before
+                              # RESUME would make CLOSE unpassable, so it stops here (read-only).
+                              'if /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>/dev/null | grep -q .; then\n'
+                              '  echo "== STOP: the city tmux server already holds a session"; echo "== end"; exit 1\n'
+                              'fi\n'
                               + absent('/var/tmp/ga-4z38-audit-resume-20260923-r1', window + '/rig-resume-started.json'),
                           steps=['step rig-resume "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-resume',
                                  'step audit-resume "$C/audit-queue-r3.py" "$AUDIT_SHA" resume',

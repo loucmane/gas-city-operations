@@ -53,6 +53,24 @@ def load():
     return w
 
 
+def redacted(argv):
+    """argv with every tmux -e KEY=VALUE value removed: the city tmux server keeps Core's new-session
+    argv, which carries the session environment. Only the key names stay in evidence."""
+    out, value_next = [], False
+    for arg in argv:
+        if value_next:
+            out.append(arg.split('=', 1)[0] + '=<redacted>')
+            value_next = False
+        elif arg == '-e':
+            out.append(arg)
+            value_next = True
+        elif arg.startswith('-e') and '=' in arg:
+            out.append(arg.split('=', 1)[0] + '=<redacted>')
+        else:
+            out.append(arg)
+    return out
+
+
 def routes_since_stage(w, o, routes, stage_event):
     """None before STAGE; True when the route files still equal the stage-reload after-capture (what
     ADMIT requires exactly, route-chain-r1); otherwise the sorted differing fields, or the refusal."""
@@ -65,8 +83,24 @@ def routes_since_stage(w, o, routes, stage_event):
             '%s %s.%s' % (root, section, key) for root in after for section in ('metadata', 'parent')
             for key in set(after[root][section]) | set(now[root][section])
             if after[root][section].get(key) != now[root][section].get(key))
-    except RuntimeError as exc:  # route authority refused: recorded, since WATCH only observes
+    except Exception as exc:  # any refusal or read error is recorded, since WATCH only observes
         return 'refused: ' + str(exc)
+
+
+def bounded_read(path, limit):
+    """A worker-written file: regular, uid 1000, one link and at most `limit` bytes, checked on the open
+    descriptor (no lstat-then-open race), read without touching its atime. Raises OSError or RuntimeError."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        s = os.fstat(fd)
+        if not (stat.S_ISREG(s.st_mode) and s.st_uid == 1000 and s.st_nlink == 1 and s.st_size <= limit):
+            raise RuntimeError('worker file shape or size: ' + Path(path).name)
+        raw = os.read(fd, limit + 1)
+        if len(raw) != s.st_size or os.fstat(fd) != s:
+            raise RuntimeError('worker file changed while read: ' + Path(path).name)
+    finally:
+        os.close(fd)
+    return raw
 
 
 def entry(w, path):
@@ -80,8 +114,8 @@ def entry(w, path):
     elif stat.S_ISREG(s.st_mode):
         row['kind'] = 'file'
         try:
-            row['sha256'] = w.digest(w.read(path))
-        except Exception as exc:  # recorded, not fatal: this is an observation
+            row['sha256'] = w.digest(bounded_read(path, 1 << 20))
+        except Exception as exc:  # recorded, not fatal: this is an observation (too large included)
             row['read_error'] = str(exc)
     elif stat.S_ISDIR(s.st_mode):
         row['kind'] = 'directory'
@@ -148,7 +182,7 @@ def main():
                 except OSError:
                     locks = None
                 processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks,
-                                      argv=[arg.decode(errors='replace') for arg in argv if arg]))
+                                      argv=redacted([arg.decode(errors='replace') for arg in argv if arg])))
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
     records = [r for r in status.split('\0') if r]

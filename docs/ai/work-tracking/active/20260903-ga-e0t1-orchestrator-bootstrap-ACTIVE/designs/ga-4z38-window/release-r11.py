@@ -25,7 +25,9 @@ validated against the live state before anything is posted:
   command, `git diff-index --cached --patch --binary --full-index --output=<file> HEAD` (plumbing
   ignores diff.* and color config, and full object names do not depend on core.abbrev), and both hash
   the file's raw bytes. The signer independently re-verifies the tree. Worker-written files are read
-  only as regular files of at most 1 MiB.
+  only as regular files of at most 1 MiB, checked on the open descriptor. The owned-phase runner
+  captures stdout with communicate(), without truncation, so the full-tree listings arrive whole;
+  proof/cli-proof.py runs the same derivation over the base tree and the worker worktree's index.
 In both modes: `gc status` shows the city resumed; exactly one open session exists for the template
 and it is the named session, in state active (a managed session that is not running would get a
 queued wake instead of an immediate delivery, Core cmd/gc/cmd_nudge.go shouldQueueManagedNudgeWake; the
@@ -34,7 +36,8 @@ internal/session normalizeInfoState); ga-4z38 is in_progress and assigned to tha
 also requires the source release line to be present in the notes. The worker's visible tmux pane must
 show no permission dialog or numbered menu, both before the post and right before the nudge, because
 the nudge's Enter would answer one. The two captures are separate phases (pane-before-post and
-pane-before-nudge); a capture that exits 0 also proves the session's tmux pane is running.
+pane-before-nudge). A capture that exits 0 proves the session's tmux pane exists; a dead pane kept by
+remain-on-exit would still capture, and the active state and the nudge outcome cover a stopped worker.
 
 Once and only once: before the post, no line with this release's prefix may exist in the notes. An
 exclusive marker /var/tmp/ga-4z38-<mode>-release.posted is created right before the single notes append,
@@ -131,11 +134,24 @@ def pane_clear(w, run, session, name):
     w.require(not dialog_showing(pane), 'the worker pane shows a permission dialog or menu')
 
 
+def bounded_read(path, limit):
+    """A worker-written file: regular, uid 1000, one link and at most `limit` bytes, checked on the open
+    descriptor (no lstat-then-open race), read without touching its atime. Raises OSError or RuntimeError."""
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        s = os.fstat(fd)
+        if not (stat.S_ISREG(s.st_mode) and s.st_uid == 1000 and s.st_nlink == 1 and s.st_size <= limit):
+            raise RuntimeError('worker file shape or size: ' + Path(path).name)
+        raw = os.read(fd, limit + 1)
+        if len(raw) != s.st_size or os.fstat(fd) != s:
+            raise RuntimeError('worker file changed while read: ' + Path(path).name)
+    finally:
+        os.close(fd)
+    return raw
+
+
 def worker_file(w, path):
-    """A worker-written file: a regular file of at most WORKER_FILE_LIMIT bytes, then the base read."""
-    s = path.lstat()
-    w.require(stat.S_ISREG(s.st_mode) and s.st_size <= WORKER_FILE_LIMIT, 'worker file shape or size: ' + path.name)
-    return w.read(path)
+    return bounded_read(path, WORKER_FILE_LIMIT)
 
 
 def tree_entries(listing):

@@ -12,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: SOURCE-RELEASE-1.sh <reviewed commit>}
-RELEASE_SHA=eaeff286bb466b8d8324280575e1efae8eac2fae02d8d6a2fc10063e98ee51b3
+RELEASE_SHA=9dda8ca91780b91ebcd1e2ab815faeaaac2ad78212617e328f31a60833aab4c1
 BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

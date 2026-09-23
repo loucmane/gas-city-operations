@@ -27,9 +27,18 @@ which source commit the binary was built from:
   emits exactly three health signals: city_suspended, controller_not_running and no_agents_running
   (cmd/gc/city_status_snapshot.go). The window allows the first and third, and requires the
   controller running, so a live worker cannot add an unexpected signal.
-- the source checked here is the binary's source: gc 69d00186 was built reproducibly (two
-  byte-identical builds, recorded on ga-mutg) from signed commit 796d9a7a, and the worker base e6366b9e
-  (the PR 45 merge) has the same tree f2c120a5;
+- the source checked here is the binary's source. The ga-mutg record says gc 69d00186 was built
+  reproducibly (two byte-identical builds) from signed commit 796d9a7a; this proof checks the installed
+  binary's digest and that 796d9a7a and the worker base e6366b9e (the PR 45 merge) have the same tree
+  f2c120a5;
+- `session close --json` writes exactly one JSON line (session_action_json.go writeSessionActionJSON
+  through writeCLIJSONLine, a json.Encoder without indentation), which CLOSE parses as JSONL;
+- Core reads tmux's "no current target" as a live server holding zero sessions (tmux.go wrapError), the
+  answer proof/tmux-probe.py observes for `list-panes -a` on an empty server, which is why CLOSE uses
+  `list-sessions`;
+- the signing release's read-only tree derivation (release-r11.py tree_entries and index_entries) holds
+  on the real repository: `ls-tree -r -z --full-tree` of the base tree equals `ls-files -s -z` of the
+  worker worktree's index while it is still at the base, over the full ~0.5 MB listing;
 - the window runs the overlay city.toml (CITY_SHA[1] 5f3b60e1, the prep root's city.isolated.toml), which
   also has no [api] section, no [session] socket and no workspace name, so the socket stays `city`;
 - the city tmux server outlives its last session: Core sets exit-empty off on every create
@@ -134,6 +143,19 @@ def main():
                            env=ENV, capture_output=True, text=True, timeout=60).stdout.split()
     stop_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':cmd/gc/cmd_stop.go'],
                              env=ENV, capture_output=True, text=True, timeout=60).stdout
+    action_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':cmd/gc/session_action_json.go'],
+                               env=ENV, capture_output=True, text=True, timeout=60).stdout
+    schema_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':cmd/gc/json_schema.go'],
+                               env=ENV, capture_output=True, text=True, timeout=60).stdout
+    line_writer = re.search(r'func writeCLIJSONLine\(stdout io\.Writer, value any\) error \{.*?\n}\n', schema_go, re.S)
+    release = {}
+    here = os.path.dirname(os.path.abspath(__file__))
+    exec(compile(noatime(os.path.join(here, '..', 'release-r11.py')), 'release-r11.py', 'exec', dont_inherit=True), release)
+    git = ['/usr/bin/git', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-C', CORE]
+    listing = subprocess.run(git + ['ls-tree', '-r', '-z', '--full-tree', TREE], env=ENV, capture_output=True,
+                             text=True, timeout=60).stdout
+    index = subprocess.run(git + ['ls-files', '-s', '-z'], env=ENV, capture_output=True, text=True, timeout=60).stdout
+    head = subprocess.run(git + ['rev-parse', 'HEAD'], env=ENV, capture_output=True, text=True, timeout=60).stdout.strip()
     status = json.loads(subprocess.run(GC + ['status', '--json'], env=ENV, capture_output=True, text=True, timeout=60,
                                        stdin=subprocess.DEVNULL).stdout)
     result = dict(
@@ -168,6 +190,13 @@ def main():
         and not any(line.strip().startswith(b'socket') for line in section(overlay, b'session').splitlines())
         and not any(line.strip().startswith(b'name') for line in section(overlay, b'workspace').splitlines())
         and not any(line.strip().startswith(b'name') for line in section(city_toml, b'workspace').splitlines()),
+        close_is_one_json_line='\treturn writeCLIJSONLine(stdout, result)\n' in action_go
+        and bool(line_writer) and 'json.NewEncoder(stdout)' in line_writer.group(0)
+        and 'SetIndent' not in line_writer.group(0),
+        empty_server_is_no_current_target='if strings.Contains(stderr, "no current target") {' in tmux_go
+        and 'The server answered — it is simply holding zero sessions' in tmux_go,
+        tree_derivation_holds_on_base=head == BASE and len(listing) > 100000
+        and release['tree_entries'](listing) == release['index_entries'](index),
         server_outlives_sessions='func (t *Tmux) ConfigureServer() error {\n\treturn t.SetExitEmpty(false)\n}' in tmux_go
         and 'func (t *Tmux) TeardownServer() error {\n\treturn t.KillServer()\n}' in tmux_go
         and 'lifecycle.TeardownServer()' in stop_go)

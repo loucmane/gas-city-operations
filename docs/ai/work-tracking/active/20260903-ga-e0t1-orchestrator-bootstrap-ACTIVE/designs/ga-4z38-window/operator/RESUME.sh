@@ -26,6 +26,9 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
 [ -e /var/tmp/ga-4z38-route-20260923-r1/result.json ] && [ -e /var/tmp/ga-4z38-audit-route-20260923-r1/result.json ] || { echo "== STOP: ROUTE has not passed"; echo "== end"; exit 1; }
+if /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>/dev/null | grep -q .; then
+  echo "== STOP: the city tmux server already holds a session"; echo "== end"; exit 1
+fi
 { [ ! -e /var/tmp/ga-4z38-audit-resume-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-audit-resume-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-audit-resume-20260923-r1"; echo "== end"; exit 1; }
 { [ ! -e /var/tmp/ga-4z38-window-20260923-r1/rig-resume-started.json ] && [ ! -L /var/tmp/ga-4z38-window-20260923-r1/rig-resume-started.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-window-20260923-r1/rig-resume-started.json"; echo "== end"; exit 1; }
 step() {
