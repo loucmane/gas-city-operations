@@ -28,7 +28,9 @@ and it is the named session, in state active (a managed session that is not runn
 queued wake instead of an immediate delivery, Core cmd/gc/cmd_nudge.go shouldQueueManagedNudgeWake; the
 session list reports the reconciler's running states awake and active both as active, Core
 internal/session normalizeInfoState); ga-4z38 is in_progress and assigned to that session. The signing release
-also requires the source release line to be present in the notes.
+also requires the source release line to be present in the notes. The worker's visible tmux pane must
+show no permission dialog, both before the post and right before the nudge, because the nudge's Enter
+would answer one.
 
 Once and only once: before the post, no line with this release's prefix may exist in the notes. An
 exclusive marker /var/tmp/ga-4z38-<mode>-release.posted is created right before the single notes append,
@@ -52,6 +54,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import sys
 import types
@@ -65,6 +68,11 @@ TASK = 'ga-4z38'
 TEMPLATE = 'gascity/gc.implementation-worker'
 BASE_COMMIT = 'e6366b9ececd3a4ceab2bcaa264a5e317e6eab88'
 ALLOWED = {'internal/sling/cycle.go', 'internal/sling/cycle_test.go', 'internal/sling/sling_core_test.go', '.gitignore'}
+# Claude Code permission dialogs, plus the two markers Core's own tmux approval parser reads
+# (internal/runtime/tmux/interaction.go requiresApprovalRe). The immediate nudge ends with Enter, which
+# would answer a visible dialog, so a release never nudges over one.
+DIALOG_MARKERS = ('Do you want to proceed?', 'Do you want to make this edit', 'Do you want to create',
+                  'This command requires approval', 'Approve edits?')
 KEYS = dict(source={'schema', 'task', 'session', 'base', 'startup_proof_sha256', 'gitignore_entries', 'reviews'},
             signing={'schema', 'task', 'session', 'base', 'head', 'tree', 'staged_patch_sha256', 'reviews'})
 
@@ -93,9 +101,23 @@ def hexdigest(value, size):
 def line_for(mode, release):
     return '%s_RELEASE %s %s' % (mode.upper(), TASK, json.dumps(release, sort_keys=True, separators=(',', ':')))
 
+
 def document(stdout):
     """One JSON document from a gc --json command: status prints it indented over many lines."""
     return json.loads(stdout)
+
+
+def dialog_showing(pane):
+    """True when the visible pane shows a permission dialog or its first choice line."""
+    return any(m in line for line in pane.splitlines() for m in DIALOG_MARKERS) or any(
+        re.match(r'\s*[\u276f\u203a>]?\s*1\. Yes\b', line) for line in pane.splitlines())
+
+
+def pane_clear(w, run, session):
+    """The worker's visible pane, captured the way Core captures it (tmux -L <city> capture-pane -p -t
+    <session_name>, internal/runtime/tmux/tmux.go), shows no permission dialog. Read-only."""
+    pane = run('pane', ['/usr/bin/tmux', '-L', 'city', 'capture-pane', '-p', '-t', session['session_name']])['stdout']
+    w.require(not dialog_showing(pane), 'the worker pane shows a permission dialog')
 
 
 def release_lines(notes, mode):
@@ -177,6 +199,7 @@ def main():
     def run(name, args, expected=(0,)):
         return w.phase(name, args, b, owned, expected=expected, timeout=90)
     session, task = validate_live(w, mode, release, run)
+    pane_clear(w, run, session)
     line = line_for(mode, release)
     if mode == 'signing':
         w.require(release_lines(task.get('notes'), 'source'), 'source release line absent from the notes')
@@ -197,6 +220,7 @@ def main():
     [task] = json.loads(run('readback', w.GC + ['--rig', 'gascity', 'bd', 'show', TASK, '--json'])['stdout'])
     lines = release_lines(task.get('notes'), mode)
     w.require(lines and lines[-1] == line, 'the release line is the last one with its prefix')
+    pane_clear(w, run, session)
     nudge = document(run('nudge', w.GC + ['session', 'nudge', session['id'],
                                             'Coordinator note for ga-4z38: a new %s release line is in the task notes. '
                                             'Read the latest %s_RELEASE line with /home/loucmane/gascity/bin/bd show %s --json.'

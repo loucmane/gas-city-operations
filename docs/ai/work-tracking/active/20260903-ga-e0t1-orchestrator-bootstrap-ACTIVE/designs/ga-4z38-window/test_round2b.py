@@ -284,12 +284,18 @@ class Safety(unittest.TestCase):
         self.assertIn("['diff-index', '--cached', '--patch', '--output=' + str(root/'staged.patch'), 'HEAD']", text)
         self.assertIn('with /home/loucmane/gascity/bin/bd show %s --json.', text)
         self.assertNotIn('last_json', text)
-        self.assertNotIn('splitlines()', text)
+        self.assertNotIn('splitlines()[-1]', text)
         after = text[text.index('    if marker.exists():'):text.index('    else:\n        validate_worktree')]
         self.assertNotIn('validate_worktree', after)
         self.assertNotIn("run('post'", after)
         self.assertIn("root = Path('/var/tmp/ga-4z38-%s-release-%s'", text)
         self.assertEqual(text.count("run('post'"), 1)
+        # The pane is checked after the live validation, before either branch, and again before the nudge.
+        main = text[text.index('def main('):]
+        self.assertEqual(main.count('pane_clear(w, run, session)'), 2)
+        self.assertLess(main.index('pane_clear(w, run, session)'), main.index('    if marker.exists():'))
+        self.assertLess(main.rindex('pane_clear(w, run, session)'), main.index("nudge = document(run('nudge'"))
+        self.assertIn("['/usr/bin/tmux', '-L', 'city', 'capture-pane', '-p', '-t', session['session_name']]", text)
 
     def test_close_drains_once_and_closes_only_an_open_session(self):
         text = (HERE/'close-r11.py').read_text()
@@ -417,6 +423,20 @@ class Safety(unittest.TestCase):
         self.assertEqual(r.release_lines(None, 'source'), [])
         self.assertEqual(r.document('{\n  "ok": true,\n  "suspended": false\n}\n'), dict(ok=True, suspended=False))
         self.assertEqual(r.document('{"sessions":[]}\n'), dict(sessions=[]))
+
+    def test_release_refuses_to_nudge_over_a_permission_dialog(self):
+        r = self.load('release-r11.py')
+        dialog = ('\u25cf Bash(rm -rf build)\n  rm -rf build\n\n Do you want to proceed?\n \u276f 1. Yes\n'
+                  "   2. Yes, and don't ask again\n   3. No, and tell Claude what to do differently (esc)\n")
+        self.assertTrue(r.dialog_showing(dialog))
+        self.assertTrue(r.dialog_showing(' Do you want to make this edit to cycle.go?\n'))
+        self.assertTrue(r.dialog_showing('\u25cf Bash(go test)\nThis command requires approval\n'))
+        self.assertTrue(r.dialog_showing('   \u276f 1. Yes\n'))
+        idle = ('CANDIDATE_REVIEW_READY\n\n\u256d\u2500\u2500\u2500\u256e\n\u2502 > \u2502\n'
+                '\u2570\u2500\u2500\u2500\u256f\n  ? for shortcuts\n')
+        self.assertFalse(r.dialog_showing(idle))
+        self.assertFalse(r.dialog_showing('Reported: 1 test failed, then 1 passed. Yesterday it passed.\n'))
+        self.assertFalse(r.dialog_showing(''))
 
 
 class Task(unittest.TestCase):

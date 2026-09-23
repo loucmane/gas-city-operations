@@ -537,6 +537,17 @@ Both reviews of `e3b01b2c` held on the staged-patch digest contract, and both tr
 - **The PREFLIGHT and ADMIT gates** only accept results owned by uid 1000.
 - **Erratum to the r7 CLOSE bullet above**, which says "exactly one open session is required before
   the close". The job requires at most one, and closes it only if it is still open.
+- **No nudge over a permission dialog.** The worker runs with `--permission-mode auto` (Core builtin
+  claude profile auto-edit), and nothing proves it never shows an approval dialog. The immediate
+  nudge ends with Enter, which would answer one.
+  - The release job captures the worker's visible pane the way Core does,
+    `tmux -L city capture-pane -p -t <session_name>`. It refuses while the pane shows a Claude
+    permission dialog, Core's own approval markers, or a `1. Yes` choice line.
+  - The check runs after the live validation, before the post, and again right before the nudge. A
+    refusal before the post consumes nothing, and a later slot retries.
+- **The city tmux socket is `city`.** Core names it after the city unless `[session] socket` is set.
+  city.toml sets no socket, and `gc status` reports `city_name` city. `proof/cli-proof.py` checks
+  this, together with Core's capture form.
 
 **Operating limits.**
 - **Budget refusal.** A budget refusal while the worker is live never ends the window without

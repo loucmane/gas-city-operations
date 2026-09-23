@@ -17,6 +17,10 @@ which source commit the binary was built from:
   shouldQueueManagedNudgeWake, which is why the release job requires the session active before it posts);
   text that lands while Claude is mid-turn waits in Claude's own input queue (tmux provider Nudge
   comment). The worker's receipt provider is claude;
+- the city tmux socket is `city`: Core names it from [session] socket, else the city name
+  (cmd/gc/providers.go tmuxConfigFromSession), city.toml sets no socket, and `gc status --json` reports
+  city_name city. Core captures a pane with `tmux -L <socket> capture-pane -p -t <session_name>`
+  (internal/runtime/tmux/tmux.go), the form CLOSE, WATCH and the release pane check use;
 - `session close`: requires ok and session_id (CLOSE);
 - `runtime drain`: requires ok and status draining (CLOSE);
 - `status`: the health object the lifecycle suspension check reads. Core at the worker base e6366b9e
@@ -90,6 +94,13 @@ def main():
     finally:
         os.close(fd)
     normalize = re.search(r'func normalizeInfoState\(state State\) State \{.*?\n}\n', manager_go, re.S)
+    providers_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':cmd/gc/providers.go'],
+                                  env=ENV, capture_output=True, text=True, timeout=60).stdout
+    tmux_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':internal/runtime/tmux/tmux.go'],
+                             env=ENV, capture_output=True, text=True, timeout=60).stdout
+    session_section = city_toml.split(b'\n[session]\n', 1)[1].split(b'\n[', 1)[0]
+    status = json.loads(subprocess.run(GC + ['status', '--json'], env=ENV, capture_output=True, text=True, timeout=60,
+                                       stdin=subprocess.DEVNULL).stdout)
     result = dict(
         session_list=all(k in row for k in ('id', 'template', 'closed', 'session_name', 'alias', 'state')),
         nudge=set(nudge['required']) >= {'ok', 'outcome'}
@@ -109,7 +120,12 @@ def main():
         list_takes_direct_store_path=not any(line.strip().startswith(b'[api') for line in city_toml.splitlines())
         and 'if err != nil || cfg.API.Port <= 0 {\n\t\treturn nil\n\t}' in apiroute_go
         and '\t\treturn standaloneControllerClient(cityPath)\n' in apiroute_go,
-        not_running_gets_a_queued_wake='\treturn !obs.Running, nil\n' in cli_go)
+        not_running_gets_a_queued_wake='\treturn !obs.Running, nil\n' in cli_go,
+        tmux_socket_is_city='\tsocketName := sc.Socket\n\tif socketName == "" {\n\t\tsocketName = cityName\n\t}' in providers_go
+        and not any(line.strip().startswith(b'socket') for line in session_section.splitlines())
+        and status.get('city_name') == 'city' and status.get('city_path') == '/home/loucmane/gascity/city'
+        and 'allArgs = append(allArgs, "-L", t.cfg.SocketName)' in tmux_go
+        and 't.run("capture-pane", "-p", "-t", session, "-S"' in tmux_go)
     result['ok'] = all(result.values())
     result['emitted_signals'] = emitted
     print(json.dumps(result, indent=1, sort_keys=True))
