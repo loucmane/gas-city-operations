@@ -316,6 +316,106 @@ class Cycle(Fixture):
         self.assertEqual(os.listdir(self.where['queue']), [])
 
 
+class R4(Fixture):
+    def test_reviews_are_checked_before_any_host_git(self):
+        def boom(*args):
+            raise AssertionError('host git ran before the reviews were checked')
+        os.unlink(self.reviews[1])
+        deps = {key: boom for key in ('head', 'clean', 'signed', 'blob_sha')}
+        with self.assertRaises(J.Refuse):
+            J.admit(self.cfg, self.job(), deps)
+
+    def test_an_active_or_unreadable_earlier_unit_blocks_the_next_job(self):
+        self.job()
+        J.cycle(self.cfg, self.deps, self.launch, self.state)
+        os.rename(self.where['halted'], self.where['halted'] + '.cleared')
+        self.job('next-job')
+        for unit_state, want in (('active', 'job unit not inactive canary-r2'), ('activating', 'job unit not inactive'),
+                                 ('unknown', 'job unit not inactive')):
+            self.assertTrue(J.cycle(self.cfg, self.deps, self.launch, lambda unit: unit_state).startswith(want))
+        self.assertEqual(len(self.launched), 1)
+
+    def test_final_record_carries_the_unit_state_after(self):
+        self.job()
+        record = J.cycle(self.cfg, self.deps, self.launch, lambda unit: 'inactive')
+        self.assertEqual(record['unit_state_after'], 'inactive')
+
+    def test_resolution_needs_non_empty_strings(self):
+        with open(os.path.join(self.where['done'], 'crashed.started.json'), 'w') as handle:
+            json.dump({'job': {'commit': 'b' * 40, 'wrapper': WRAPPER}}, handle)
+        with open(os.path.join(self.where['done'], 'crashed.resolved.json'), 'w') as handle:
+            json.dump({'job_id': 'crashed', 'outcome': ' ', 'evidence': ['x']}, handle)
+        with self.assertRaises(J.Refuse):
+            J.unfinished(self.cfg, self.state)
+
+    def test_newline_only_splitting(self):
+        os.unlink(self.reviews[1])
+        self.reviews[1] = self.file_review('cccc2222dddd', prompt='candidate=%s\u2028junk\nWrapper: %s' % (COMMIT, WRAPPER))
+        self.refused(self.job(), 'only candidate')
+        os.unlink(self.reviews[1])
+        self.reviews[1] = self.file_review('cccc2222dddd', prompt='candidate=%s\nWrapper: %s\u2028x' % (COMMIT, WRAPPER))
+        self.refused(self.job(), 'exact "Wrapper:')
+
+    def test_a_non_object_message_is_a_refusal_not_a_crash(self):
+        os.unlink(self.reviews[1])
+        self.reviews[1] = self.file_review('cccc2222dddd', extra=[{'type': 'assistant', 'agentId': 'cccc2222dddd',
+                                                                    'isSidechain': True, 'message': 'text'}])
+        self.refused(self.job(), 'not an object')
+
+    def test_heartbeat_never_writes_through_a_hardlink(self):
+        target = os.path.join(self.tmp.name, 'precious')
+        with open(target, 'w') as handle:
+            handle.write('keep')
+        os.link(target, os.path.join(self.where['state'], 'runner.json.tmp'))
+        J.heartbeat(self.cfg, 'x', 'idle')
+        with open(target) as handle:
+            self.assertEqual(handle.read(), 'keep')
+
+    def test_log_skips_linked_files(self):
+        target = os.path.join(self.tmp.name, 'precious')
+        with open(target, 'w') as handle:
+            handle.write('keep')
+        os.symlink(target, os.path.join(self.cfg['stage'], 'runner.log'))
+        J.log(self.cfg, 'hello')
+        os.unlink(os.path.join(self.cfg['stage'], 'runner.log'))
+        os.link(target, os.path.join(self.cfg['stage'], 'runner.log'))
+        J.log(self.cfg, 'hello')
+        with open(target) as handle:
+            self.assertEqual(handle.read(), 'keep')
+        os.unlink(os.path.join(self.cfg['stage'], 'runner.log'))
+        J.log(self.cfg, 'hello')
+        with open(os.path.join(self.cfg['stage'], 'runner.log')) as handle:
+            self.assertTrue(handle.read().endswith('hello\n'))
+
+    def test_stage_directories_must_be_real(self):
+        self.assertIsNone(J.stage_problem(self.cfg))
+        os.rename(self.where['done'], self.where['done'] + '.real')
+        os.symlink(self.where['done'] + '.real', self.where['done'])
+        self.assertIsNotNone(J.stage_problem(self.cfg))
+
+
+class Status(unittest.TestCase):
+    def test_render_shows_state_halt_queue_and_jobs(self):
+        spec2 = importlib.util.spec_from_file_location('gcjobs', os.path.join(HERE, 'gcjobs.py'))
+        G = importlib.util.module_from_spec(spec2)
+        spec2.loader.exec_module(G)
+        with tempfile.TemporaryDirectory() as stage:
+            for name in ('queue', 'done', 'state'):
+                os.makedirs(os.path.join(stage, name))
+            with open(os.path.join(stage, 'state', 'HALTED'), 'w') as handle:
+                json.dump({'at': '2026-09-23T15:07:01Z', 'reason': 'job canary-r2 finished with exit 1'}, handle)
+            with open(os.path.join(stage, 'done', 'canary-r2.started.json'), 'w') as handle:
+                json.dump({'started': '2026-09-23T15:03:02Z', 'job': {'wrapper': WRAPPER}}, handle)
+            with open(os.path.join(stage, 'done', 'canary-r2.json'), 'w') as handle:
+                json.dump({'ended': '2026-09-23T15:07:01Z', 'exit': 1}, handle)
+            text = G.render(stage, {'ActiveState': 'active', 'SubState': 'running', 'UnitFileState': 'enabled'})
+        self.assertIn('service active', text)
+        self.assertIn('HALTED since', text)
+        self.assertIn('canary-r2', text)
+        self.assertIn('gct-m1wh-canary', text)
+        self.assertIn('Queue: (empty)', text)
+
+
 class Identity(unittest.TestCase):
     def test_only_the_runner_unit_passes(self):
         good = '0::/user.slice/user-1000.slice/user@1000.service/app.slice/gas-city-jobrunner.service\n'
@@ -362,6 +462,17 @@ class LiveShape(unittest.TestCase):
         self.assertEqual(J.sha(os.path.join(HERE, '..', 'gct-m1wh-p6', 'source-launch.py')),
                          '31bdeea8' + J.sha(os.path.join(HERE, '..', 'gct-m1wh-p6', 'source-launch.py'))[8:])
         self.assertIn('--no-optional-locks status --porcelain --untracked-files=all', text)
+
+    def test_installer_pins_this_runner_gcjobs_and_the_p6_launcher(self):
+        with open(os.path.join(HERE, 'operator', 'INSTALL.sh'), encoding='utf-8') as handle:
+            text = handle.read()
+        pins = dict(re.findall(r'^(RUNNER_SHA|GCJOBS_SHA|LAUNCH_SHA)=([0-9a-f]{64})$', text, re.M))
+        self.assertEqual(pins['RUNNER_SHA'], J.sha(os.path.join(HERE, 'jobrunner.py')))
+        self.assertEqual(pins['GCJOBS_SHA'], J.sha(os.path.join(HERE, 'gcjobs.py')))
+        self.assertEqual(pins['LAUNCH_SHA'], J.sha(os.path.join(HERE, '..', 'gct-m1wh-p6', 'source-launch.py')))
+        self.assertIn('Slice=app.slice', text)
+        self.assertIn('RestartPreventExitStatus=2 3', text)
+        self.assertTrue(J.CONFIG['cgroup'].endswith('/app.slice/gas-city-jobrunner.service'))
 
     def test_real_worktree_head_verifies_against_the_operator_key(self):
         self.assertTrue(J.real_signed(J.CONFIG, J.real_head(J.CONFIG)))

@@ -1,6 +1,10 @@
 """Queue one reviewed operator wrapper for the job runner (coordinator side).
 
 Usage: python3 -B submit_job.py <job_id> <wrapper path relative to the ga-e0t1 worktree> <transcript> <transcript>
+       python3 -B submit_job.py file <transcript>
+         Files any strictly parsed reviewer transcript for HEAD, a HOLD included. Coordinator policy is to
+         file EVERY review of a job-bound commit this way, so that the runner's any-HOLD rule can see a
+         HOLD that was never cited.
 
 Steps:
 1. Validate the job id, and refuse while the queue is non-empty or the runner is HALTED. The runner
@@ -37,7 +41,26 @@ def copy_review(source, target):
         handle.write(raw)
 
 
+def file_only(source):
+    cfg = J.CONFIG
+    where = J.paths(cfg)
+    commit = J.real_head(cfg)
+    real = os.path.realpath(source)
+    try:
+        _, _, verdict = J.read_review(real, commit, cfg['uid'])
+    except Exception as exc:  # noqa: BLE001 - any parse failure means it is not filed
+        print('NOT FILED: %s' % exc)
+        return 1
+    review_dir = os.path.join(where['reviews'], commit)
+    os.makedirs(review_dir, mode=0o700, exist_ok=True)
+    copy_review(real, os.path.join(review_dir, os.path.basename(real)))
+    print('filed %s for %s: %s' % (os.path.basename(real), commit, verdict))
+    return 0
+
+
 def main(argv):
+    if len(argv) == 3 and argv[1] == 'file':
+        return file_only(argv[2])
     if len(argv) != 5:
         print(__doc__)
         return 2
@@ -71,10 +94,10 @@ def main(argv):
         # Validate before filing: a filed transcript that does not pass blocks the whole commit.
         try:
             _, prompt, verdict = J.read_review(real, commit, cfg['uid'])
-        except J.Refuse as exc:
+        except Exception as exc:  # noqa: BLE001 - never a traceback, always NOT QUEUED
             print('NOT QUEUED: %s' % exc)
             return 1
-        if verdict != 'SOURCE_PASS ' + commit or 'Wrapper: ' + wrapper not in [line.strip() for line in prompt.splitlines()]:
+        if verdict != 'SOURCE_PASS ' + commit or 'Wrapper: ' + wrapper not in [line.strip() for line in prompt.split('\n')]:
             print('NOT QUEUED: %s does not pass %s with an exact Wrapper line' % (real, commit))
             return 1
         target = os.path.join(review_dir, os.path.basename(real))

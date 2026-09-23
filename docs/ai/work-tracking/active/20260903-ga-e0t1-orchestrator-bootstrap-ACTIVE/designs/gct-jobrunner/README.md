@@ -90,6 +90,53 @@ started, and records the outcome only after the job ends.
 **Policy-only.** The any-HOLD rule sees only transcripts the coordinator files; a HOLD that is never
 filed is invisible to the runner. Filing every review of a job-bound commit is coordinator policy.
 
+## r4: a persistent service with visible status (operator request, 2026-09-23)
+
+The operator asked for something longer-lived than the transient runner, and one they could see.
+
+**Install once, then it survives restarts.**
+- From a real WSL terminal, run `sh <J>/operator/INSTALL.sh <reviewed commit>`. The installer:
+  - checks that the worktree is clean at that commit and that the commit is signed by 7720D1FE;
+  - copies `jobrunner.py`, `source-launch.py` and `gcjobs` out of the commit's git objects into
+    read-only `~/.local/share/gas-city-jobrunner/<commit>/`, each digest-pinned;
+  - stops the transient runner;
+  - writes `~/.config/systemd/user/gas-city-jobrunner.service` (`Slice=app.slice`, `UMask=0022`,
+    `Restart=on-failure` with `RestartSec=30`, `RestartPreventExitStatus=2 3`, enabled for
+    `default.target`);
+  - installs `~/.local/bin/gcjobs`;
+  - runs enable --now.
+- The operator has linger, so the service starts at every WSL boot. It executes the pinned copies, so
+  later commits in the worktree never change the running code. Upgrading means running INSTALL.sh
+  again with a new reviewed commit.
+- Uninstall: `systemctl --user disable --now gas-city-jobrunner`, remove the unit file and
+  `~/.local/bin/gcjobs`, then `systemctl --user daemon-reload`.
+
+**See it.**
+- `gcjobs` shows one screen: service state, runner state, PAUSE and HALTED, the queue, recent jobs with
+  exit codes, and the log tail. Times are in local time.
+- `journalctl --user -u gas-city-jobrunner -f` follows the live log. The runner also appends to
+  `jobs/runner.log`, which is what the coordinator reads.
+
+**Hardening from the reviews of `5cfcf172` (both SOURCE_PASS):**
+- **Reviews come first.** `check_reviews()` runs before any host git call, so an unreviewed job never
+  makes the runner run git in the worktree.
+- **Earlier units must be finished.** Before any launch, every earlier gc-job unit must be provably
+  inactive or failed. An unreadable state counts as active. Every final record stores
+  `unit_state_after`.
+- **Resolutions need real text.** `outcome` and `evidence` must be non-empty strings.
+- **Transcripts parse strictly.** Lines split on `\n` only, and a record whose `message` is not an
+  object is refused, never a crash.
+- **No writing through planted links.** The heartbeat removes and recreates its temp file with
+  `O_EXCL`, and the log file copy is skipped unless it is a single-link regular file. The stage
+  directories must be real directories owned by the operator.
+- **HOLDs can be filed.** `submit_job.py file <transcript>` files any strictly parsed review, a HOLD
+  included. Coordinator policy is to file EVERY review of a job-bound commit that way.
+- **The capability claim is honest now.** The runner adds no privilege the operator's pastes lacked,
+  but it does remove the human step, and admission runs host git (after the reviews pass).
+
+**Long-term replacement.** A native, supervisor-executed reviewed-operation type is tracked as ga-lzvy.
+A Gas City worker builds it after the first successful worker window.
+
 ## What it does
 
 `operator/JOBRUNNER.sh` starts it once as the transient user service `gas-city-jobrunner` and execs
@@ -157,9 +204,10 @@ It does not guard against a compromised coordinator. The coordinator writes the 
 them (the signing key is available to the session) and files the transcripts. The real gate is the
 pair of independent reviewers and the standing stop conditions, which the coordinator still honors.
 
-The runner adds no capability beyond what the operator's pastes already did. It runs the same kind
-of reviewed wrapper, in the same namespace, the same way, one step at a time, and it halts on
-failure.
+The runner holds no privilege the operator's pastes lacked: it runs the same kind of reviewed
+wrapper, in the same namespace, the same way, one step at a time, and it halts after every job. It
+differs from the pastes in two ways. It removes the human step. And it runs host git during
+admission, after the reviews pass, to check HEAD, cleanliness, signature and blob.
 
 ## Operator controls
 

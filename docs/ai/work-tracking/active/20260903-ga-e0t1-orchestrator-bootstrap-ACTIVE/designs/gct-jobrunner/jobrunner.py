@@ -1,8 +1,10 @@
 """Gas City operator job runner (the operator's decision of 2026-09-23: automate the live pastes).
 
-The operator starts it once, from a real WSL terminal, as the transient user service
-`gas-city-jobrunner`. That puts it under the user manager in the supervisor mount namespace. It polls
-a staging queue and runs at most one reviewed operator wrapper at a time, each as its own
+It runs as the user service `gas-city-jobrunner`, under the user manager in the supervisor mount
+namespace. From r4 it is a persistent unit installed by operator/INSTALL.sh, which starts at WSL boot
+(the user has linger) and executes pinned copies of the reviewed bytes. The worktree can therefore move
+on without affecting the running code. The runner polls a staging queue and runs at most one reviewed
+operator wrapper at a time, each as its own oneshot
 `systemd-run --user --wait --collect -p UMask=0022` unit. It never runs anything else.
 
 A queued job runs only when all of these hold. Every refusal is recorded, and nothing is retried.
@@ -11,6 +13,7 @@ Before any job, re-checked every time:
 - The operator's PAUSE file is absent. The coordinator never touches it.
 - The runner's HALTED latch is absent.
 - No earlier job has a started record without a final or resolved record.
+- No earlier gc-job unit is still active, and the unit state can be read.
 - The job is the only file in the queue.
 
 The job file:
@@ -28,7 +31,7 @@ The wrapper:
 - its committed blob, its working file and the job's digest all agree;
 - it has never run at that commit.
 
-The reviews:
+The reviews, checked before any host git command runs:
 - Two reviewer subagent transcripts are filed for the commit.
 - The first prompt line of each is `candidate=<commit>`, and each names the wrapper.
 - Each has exactly one SubagentHandback report, and that report's first line is
@@ -208,8 +211,12 @@ def read_review(path, commit, uid):
         raise Refuse('review %s mixes transcripts' % path)
     if os.path.basename(path) != 'agent-%s.jsonl' % agent:
         raise Refuse('review %s is not named after its agent id' % path)
-    prompt = (first.get('message') or {}).get('content')
-    if not isinstance(prompt, str) or prompt.splitlines()[:1] != ['candidate=' + commit] or prompt.count('candidate=') != 1:
+    if not all(isinstance(record.get('message'), dict) for record in records if 'message' in record) \
+            or not isinstance(first.get('message'), dict):
+        raise Refuse('review %s has a record whose message is not an object' % path)
+    prompt = first['message'].get('content')
+    # Split on newline only: str.splitlines() also splits on U+2028, \x0b and \x1c-\x1e.
+    if not isinstance(prompt, str) or prompt.split('\n')[:1] != ['candidate=' + commit] or prompt.count('candidate=') != 1:
         raise Refuse('review %s was not bound to the commit as its only candidate' % path)
     reports = []
     for record in records:
@@ -220,7 +227,7 @@ def read_review(path, commit, uid):
                 reports.append((item.get('input') or {}).get('message'))
     if len(reports) != 1 or not isinstance(reports[0], str) or not reports[0].strip():
         raise Refuse('review %s has %d handback reports, want exactly one' % (path, len(reports)))
-    return agent, prompt, reports[0].splitlines()[0].strip()
+    return agent, prompt, reports[0].split('\n')[0].strip()
 
 
 def check_reviews(cfg, commit, wrapper, reviews):
@@ -237,7 +244,7 @@ def check_reviews(cfg, commit, wrapper, reviews):
         if os.path.realpath(path) != path or path not in filed:
             raise Refuse('review %s is not a file filed directly under %s' % (path, directory))
         agent, prompt, _ = filed[path]
-        if 'Wrapper: ' + wrapper not in [line.strip() for line in prompt.splitlines()]:
+        if 'Wrapper: ' + wrapper not in [line.strip() for line in prompt.split('\n')]:
             raise Refuse('review %s has no exact "Wrapper: %s" line' % (path, wrapper))
         agents.add(agent)
     if len(agents) != 2:
@@ -268,8 +275,8 @@ def resolved(cfg, job_id, state=unit_state):
     if not os.path.lexists(path):
         return False
     record = strict_json(read_owned(path, cfg['uid'], RECORD_LIMIT, 'resolution record'))
-    if not isinstance(record, dict) or record.get('job_id') != job_id or not record.get('outcome') \
-            or not record.get('evidence'):
+    if not isinstance(record, dict) or record.get('job_id') != job_id \
+            or not all(isinstance(record.get(key), str) and record[key].strip() for key in ('outcome', 'evidence')):
         raise Refuse('resolution record for %s must state job_id, outcome and evidence' % job_id)
     return state('gc-job-%s.service' % job_id) in ('inactive', 'failed')
 
@@ -279,6 +286,12 @@ def unfinished(cfg, state=unit_state):
     done = paths(cfg)['done']
     return sorted(job_id for job_id in done_records(cfg)
                   if not os.path.lexists(os.path.join(done, job_id + '.json')) and not resolved(cfg, job_id, state))
+
+
+def active_units(cfg, state=unit_state):
+    """Started jobs whose gc-job unit is not provably inactive; unreadable state counts as active."""
+    return sorted(job_id for job_id in done_records(cfg)
+                  if state('gc-job-%s.service' % job_id) not in ('inactive', 'failed'))
 
 
 def admit(cfg, job_path, deps=REAL):
@@ -297,6 +310,8 @@ def admit(cfg, job_path, deps=REAL):
         raise Refuse('wrapper_sha256 must be a lowercase SHA-256')
     if not isinstance(wrapper, str) or not WRAPPER.fullmatch(wrapper):
         raise Refuse('wrapper must be a designs/<package>/operator/<NAME>.sh path outside gct-jobrunner')
+    # Reviews first: an unreviewed job never makes the runner run host git in the worktree.
+    check_reviews(cfg, commit, wrapper, job['reviews'])
     if deps['head'](cfg) != commit:
         raise Refuse('commit is not the worktree HEAD')
     if not deps['clean'](cfg):
@@ -313,7 +328,6 @@ def admit(cfg, job_path, deps=REAL):
     previous = already_ran(cfg, commit, wrapper)
     if previous:
         raise Refuse('this wrapper already ran at this commit as job %s' % previous)
-    check_reviews(cfg, commit, wrapper, job['reviews'])
     return job
 
 
@@ -366,8 +380,26 @@ def stamp():
 
 
 def log(cfg, text):
-    # operator/JOBRUNNER.sh sends stdout and stderr to jobs/runner.log, tracebacks included.
-    print('%s %s' % (stamp(), text), flush=True)
+    """Log to stdout (the journal under the persistent unit) and append to jobs/runner.log.
+
+    The file copy is opened without following links and is skipped if it is not a single-link
+    regular file, so a planted link can never redirect or truncate anything."""
+    line = '%s %s' % (stamp(), text)
+    print(line, flush=True)
+    try:
+        fd = os.open(os.path.join(cfg['stage'], 'runner.log'),
+                     os.O_WRONLY | os.O_APPEND | os.O_CREAT | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600)
+    except OSError as exc:
+        print('runner.log unavailable: %s' % exc, flush=True)
+        return
+    try:
+        info = os.fstat(fd)
+        if stat.S_ISREG(info.st_mode) and info.st_nlink == 1 and info.st_uid == cfg['uid']:
+            os.write(fd, (line + '\n').encode())
+        else:
+            print('runner.log is not a single-link regular file; not written', flush=True)
+    finally:
+        os.close(fd)
 
 
 def halt(cfg, reason):
@@ -376,7 +408,7 @@ def halt(cfg, reason):
         write_new(path, {'at': stamp(), 'reason': reason})
 
 
-def process(cfg, job_path, deps=REAL, launch=real_launch):
+def process(cfg, job_path, deps=REAL, launch=real_launch, state=unit_state):
     """Handle one queue file. Returns the record written to done/."""
     where = paths(cfg)
     name = os.path.basename(job_path)
@@ -412,7 +444,10 @@ def process(cfg, job_path, deps=REAL, launch=real_launch):
     # the exit code is not the verdict, and the coordinator reads the wrapper's log before clearing.
     log(cfg, 'finished %s: exit %s; HALTED until the coordinator records the outcome' % (job['job_id'], code))
     halt(cfg, 'job %s finished with exit %s; read its log, record the outcome, then clear' % (job['job_id'], code))
-    record.update(ended=stamp(), exit=code, stdout=out, stderr=err)
+    # If the systemd-run client returned early (a bus drop, a killed client), the unit may still run;
+    # the record says so, and active_units() keeps every later job waiting until it ends.
+    record.update(ended=stamp(), exit=code, stdout=out, stderr=err,
+                  unit_state_after=state('gc-job-%s.service' % job['job_id']))
     write_new(os.path.join(where['done'], job['job_id'] + '.json'), record)
     return record
 
@@ -432,14 +467,19 @@ def cycle(cfg, deps=REAL, launch=real_launch, state=unit_state):
         return 'idle'
     if len(names) > 1:
         return 'multiple'
-    return process(cfg, os.path.join(where['queue'], names[0]), deps, launch)
+    busy = active_units(cfg, state)
+    if busy:
+        return 'job unit not inactive ' + ','.join(busy)
+    return process(cfg, os.path.join(where['queue'], names[0]), deps, launch, state)
 
 
 def heartbeat(cfg, started, state):
     # last_poll is not refreshed while a job runs, because the runner is inside `systemd-run --wait`.
     path = os.path.join(paths(cfg)['state'], 'runner.json')
     temp = path + '.tmp'
-    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    if os.path.lexists(temp):
+        os.unlink(temp)
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as handle:
         json.dump({'pid': os.getpid(), 'started': started, 'last_poll': stamp(), 'state': state,
                    'source_sha256': globals().get('_SOURCE_SHA')}, handle, sort_keys=True)
@@ -461,11 +501,28 @@ def own_unit(cfg, cgroup_text, environ):
     return None
 
 
+def stage_problem(cfg):
+    """The stage and its four directories must be real directories owned by the operator."""
+    where = paths(cfg)
+    for path in [cfg['stage']] + [where[name] for name in ('queue', 'done', 'reviews', 'state')]:
+        try:
+            info = os.lstat(path)
+        except OSError as exc:
+            return '%s: %s' % (path, exc)
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != cfg['uid']:
+            return '%s is not a real directory owned by uid %d' % (path, cfg['uid'])
+    return None
+
+
 def main():
     cfg = CONFIG
     where = paths(cfg)
     for name in ('queue', 'done', 'reviews', 'state'):
         os.makedirs(where[name], mode=0o700, exist_ok=True)
+    problem = stage_problem(cfg)
+    if problem:
+        print('job runner refused to start: %s' % problem, flush=True)
+        return 2
     with open('/proc/self/cgroup') as handle:
         problem = own_unit(cfg, handle.read(), os.environ)
     if problem:
