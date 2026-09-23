@@ -48,6 +48,48 @@ The runner replaces those pastes with one start command.
   - `submit_job.py` does three more things: it validates the id first, refuses while the queue is
     non-empty or HALTED, and refuses to reuse a transcript copy whose bytes differ.
 
+## r3: answers to review A of `c0a9797c` (HOLD)
+
+**The must-fix: a stopped job read as success.**
+- `systemctl --user stop gc-job-<id>` kills the wrapper with SIGTERM. For a simple service, systemd
+  counts SIGTERM as a clean exit, so `systemd-run --wait` returned 0 and the next queued job could run.
+- Jobs now run as `--service-type=oneshot -p TimeoutStartSec=infinity`, where SIGTERM is a failure.
+- More fundamentally, the runner now halts after EVERY job, whatever its exit code. The exit code is not
+  the verdict, so the coordinator reads the wrapper's log, records the outcome on the Bead, and only then
+  clears `state/HALTED`.
+
+**Should-fixes taken:**
+- PAUSE is re-checked after admission, right before the started record. A job paused during admission
+  stays queued.
+- The started record and the queue directory are fsynced before launch.
+- A cited review must contain an exact `Wrapper: <path>` line, not merely mention the path.
+- Transcripts are parsed with the strict duplicate-key hook, and every record must carry the same
+  `agentId` and `isSidechain: true`.
+- Started records, resolution records, the heartbeat, the lock and `runner.log` are all opened without
+  following links. JOBRUNNER.sh refuses a symlinked stage directory or log.
+- The runner's git calls also pin `gpg.ssh.program` and `gpg.x509.program`. Filter drivers are not
+  neutralized, and the comment says so.
+- `own_unit()` requires the full cgroup line. It is documented as a mistake guard, not an identity
+  proof.
+- A resolution record must be a strict JSON object naming `job_id`, `outcome` and `evidence`. It
+  counts only once `gc-job-<id>.service` is inactive or failed.
+- `submit_job.py` refuses while any job is unfinished.
+
+**From review B of `c0a9797c` (SOURCE_PASS):**
+- The runner and JOBRUNNER.sh require the user D-Bus socket. Before a launch, a missing bus leaves the
+  job queued instead of burning the reviewed (commit, wrapper) pair.
+- `submit_job.py` validates each transcript before filing it.
+- The first heartbeat says `starting`.
+
+**Quiet window (coordinator policy).** The worktree must stay at the job's commit and clean from
+`submit_job.py` until the wrapper's own HEAD check has passed; for CANARY.sh, the `== canary` line in
+its log. A commit or `aegis log` in that window makes the job refuse and burns the pair. So the
+coordinator neither commits nor logs in the worktree until the job's wrapper log shows it has
+started, and records the outcome only after the job ends.
+
+**Policy-only.** The any-HOLD rule sees only transcripts the coordinator files; a HOLD that is never
+filed is invisible to the runner. Filing every review of a job-bound commit is coordinator policy.
+
 ## What it does
 
 `operator/JOBRUNNER.sh` starts it once as the transient user service `gas-city-jobrunner` and execs
@@ -61,8 +103,8 @@ one `cycle()`:
 2. `admit()` the single queued job. A refusal is recorded in `done/<id>.refused-*.json`, the job is
    dequeued, and nothing is retried.
 3. Write `done/<id>.started.json` and remove the queue file.
-4. Launch `systemd-run --user --wait --collect --quiet --unit=gc-job-<id> -p UMask=0022 /bin/sh <wrapper> <commit>`.
-5. Log the exit, write `done/<id>.json`, and set HALTED on anything but exit 0.
+4. Launch `systemd-run --user --wait --collect --quiet --service-type=oneshot --unit=gc-job-<id> -p UMask=0022 -p TimeoutStartSec=infinity /bin/sh <wrapper> <commit>`.
+5. Log the exit, set HALTED (after every job), and write `done/<id>.json`.
 
 `admit()` requires all of these:
 1. **The job file.** A regular, single-link file owned by uid 1000, at most 64 KiB, in strict JSON
@@ -127,7 +169,7 @@ failure.
 | Pause before the next job | `touch ~/.local/share/gas-city-staging/jobs/PAUSE` (only the operator removes it) |
 | Resume | `rm ~/.local/share/gas-city-staging/jobs/PAUSE` |
 | Stop the runner | `systemctl --user stop gas-city-jobrunner` (a running job keeps its own `gc-job-*` unit, and a restart waits for it to be resolved) |
-| Stop a running job | `systemctl --user stop gc-job-<id>`, which halts the runner |
+| Stop a running job | `systemctl --user stop gc-job-<id>` (the oneshot unit fails, and the runner is halted after every job anyway) |
 | Status | `cat ~/.local/share/gas-city-staging/jobs/state/runner.json`, `tail ~/.local/share/gas-city-staging/jobs/runner.log`, `ls ~/.local/share/gas-city-staging/jobs/done` |
 
 `<J>` is this directory. The runner's code is fixed at start. Updating it takes a new reviewed commit

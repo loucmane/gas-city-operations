@@ -1,4 +1,4 @@
-"""Tests for canary-run.py. Run: python3 -m unittest test_canary (from this directory).
+"""Tests for canary-run.py. Run: python3 -B -m unittest test_canary (from this directory).
 
 The pin tests read the live files read-only. Every other test is pure and touches no live state.
 """
@@ -179,7 +179,13 @@ class Deltas(unittest.TestCase):
                 (13, ['bash'], C.RUN_ROOT + '-other'),
                 (14, [C.RUNNER, '--scenario', 'detached-head', '--run-id', C.RUN_ID], C.LAUNCHER),
                 (15, ['python3'], ''),
-                (16, ['sh'], C.LAUNCHER)]
+                (16, ['sh'], C.LAUNCHER),
+                # The job runner's own processes must never match.
+                (17, ['/usr/bin/python3', '-I', '-S', '-B', '/x/gct-m1wh-p6/source-launch.py', '/x/gct-jobrunner/jobrunner.py',
+                      'f' * 64], '/home/loucmane'),
+                (18, ['systemd-run', '--user', '--wait', '--collect', '--quiet', '--service-type=oneshot',
+                      '--unit=gc-job-canary-r2', '-p', 'UMask=0022', '/bin/sh', '/x/operator/CANARY.sh', 'a' * 40], '/home/loucmane'),
+                (19, ['/bin/sh', '/x/gct-m1wh-canary/operator/CANARY.sh', 'a' * 40], '/home/loucmane')]
         self.assertEqual([hit['pid'] for hit in C.leftovers(rows)], [10, 11, 14, 16])
 
     def test_cache_slots_are_present_live(self):
@@ -229,7 +235,11 @@ class MainFlow(unittest.TestCase):
         from unittest import mock
         import subprocess
 
+        real_run = subprocess.run
+
         def fake_run(*args, **kwargs):
+            if args[0][0] != C.GC:
+                return real_run(*args, **kwargs)
             if publish:
                 publish()
             if timeout:
@@ -293,6 +303,14 @@ class MainFlow(unittest.TestCase):
         code, result = self.run_main(rc=0, stdout=self.pass_line(), publish=lambda: self.publish(body=bad))
         self.assertFalse(result['ok'])
         self.assertIn('profile', result['error'])
+
+    def test_live_cache_slot_change_stops_a_published_pass(self):
+        def publish_and_fetch():
+            self.publish()
+            os.makedirs(os.path.join(C.CACHE_REPOS, 'new-slot'))
+        code, result = self.run_main(rc=0, stdout=self.pass_line(), publish=publish_and_fetch)
+        self.assertFalse(result['ok'])
+        self.assertIn('pack-cache slots changed', result['error'])
 
     def test_missing_scenario_evidence_is_refused(self):
         def publish_partial():

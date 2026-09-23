@@ -12,16 +12,19 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 J=$D/gct-jobrunner
 COMMIT=${1:?usage: JOBRUNNER.sh <reviewed commit>}
-RUNNER_SHA=d55d14e685d6e475b9897f5f292700179e2fc2519c3a9e05cc4652c1a31413de
+RUNNER_SHA=107df726dd4f80294312e10f757e129d98789e79fc30f258d878c8a0ca3ea1ad
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
+# Never write through a planted link: the stage directory is also written by the coordinator.
+{ [ ! -L "$S" ] && [ ! -L "$S/runner.log" ]; } || exit 1
 chmod 700 "$S"
 exec >>"$S/runner.log" 2>&1 </dev/null
 echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) start umask=$(umask) mnt=$(readlink /proc/self/ns/mnt) commit=$COMMIT"
 [ "$(umask)" = 0022 ] || { echo "== STOP: umask is not 0022"; exit 1; }
-head=$(git -C "$W" rev-parse HEAD) || head=unreadable
-status=$(git -C "$W" --no-optional-locks status --porcelain --untracked-files=all) || status=unreadable
+[ -S /run/user/1000/bus ] || { echo "== STOP: no user D-Bus socket at /run/user/1000/bus"; exit 1; }
+head=$(git -c core.fsmonitor=false -C "$W" rev-parse HEAD) || head=unreadable
+status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-optional-locks status --porcelain --untracked-files=all) || status=unreadable
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: worktree head=$head not clean or not the reviewed commit"; exit 1
 fi

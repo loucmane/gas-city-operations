@@ -166,7 +166,8 @@ def supervisor_identity():
 
 
 def git(repo, *args):
-    done = subprocess.run(['git', '-C', repo, '--no-optional-locks', *args], capture_output=True,
+    done = subprocess.run(['git', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null',
+                           '-C', repo, '--no-optional-locks', *args], capture_output=True,
                           text=True, timeout=60, env=child_env(), stdin=subprocess.DEVNULL)
     if done.returncode != 0:
         raise Stop('git %s in %s failed: %s' % (' '.join(args), repo, done.stderr.strip()[:300]))
@@ -360,7 +361,11 @@ def settled_leftovers(bound=30):
 
 
 def after_state():
-    return {'supervisor': supervisor_identity(), 'leftovers': settled_leftovers(),
+    try:
+        supervisor = supervisor_identity()
+    except OSError as exc:
+        supervisor = {'error': str(exc)}
+    return {'supervisor': supervisor, 'leftovers': settled_leftovers(),
             'canary_tree': tree(CANARY_DIR), 'cache_repos': sorted(os.listdir(CACHE_REPOS))}
 
 
@@ -400,6 +405,8 @@ def main():
         write('after.json', after)
         if 'pins_error' in after:
             raise Stop('pinned file drift after the run: %s' % after['pins_error'])
+        if after['pins'] != before['pins']:
+            raise Stop('pinned files changed mode or digest during the run')
         added, removed, changed = tree_delta(before['canary_tree'], after['canary_tree'])
         result.update(canary_added=added, canary_removed=removed, canary_changed=changed,
                       cache_added=sorted(set(after['cache_repos']) - set(before['cache_repos'])),
@@ -434,6 +441,10 @@ def main():
             raise Stop('scenario evidence: teardown errors %r, missing scenario.json %r' % (teardown, missing))
         if after['leftovers']:
             raise Stop('scratch processes survived the canary: %r' % after['leftovers'])
+        if result['cache_added'] or result['cache_removed']:
+            raise Stop('live pack-cache slots changed: added %r removed %r' % (result['cache_added'], result['cache_removed']))
+        if git(LAUNCHER, 'rev-parse', 'HEAD').strip() != BASE or git(LAUNCHER, 'status', '--porcelain'):
+            raise Stop('the launcher source changed during the run')
         result.update(ok=True, stage='done')
         say('PASS receipt %s (self %s)' % (result['receipt']['sha256'], receipt_sha))
     except Stop as exc:

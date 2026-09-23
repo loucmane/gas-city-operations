@@ -55,6 +55,10 @@ def main(argv):
     if os.path.lexists(where['halted']):
         print('NOT QUEUED: the runner is HALTED; record the failure and clear %s first' % where['halted'])
         return 1
+    open_jobs = J.unfinished(cfg)
+    if open_jobs:
+        print('NOT QUEUED: unfinished jobs need a resolution first: %s' % open_jobs)
+        return 1
     if any(entry.split('.')[0] == job_id for entry in os.listdir(where['done'])):
         print('NOT QUEUED: job id already used: %s' % job_id)
         return 1
@@ -64,6 +68,15 @@ def main(argv):
     reviews = []
     for source in (first, second):
         real = os.path.realpath(source)
+        # Validate before filing: a filed transcript that does not pass blocks the whole commit.
+        try:
+            _, prompt, verdict = J.read_review(real, commit, cfg['uid'])
+        except J.Refuse as exc:
+            print('NOT QUEUED: %s' % exc)
+            return 1
+        if verdict != 'SOURCE_PASS ' + commit or 'Wrapper: ' + wrapper not in [line.strip() for line in prompt.splitlines()]:
+            print('NOT QUEUED: %s does not pass %s with an exact Wrapper line' % (real, commit))
+            return 1
         target = os.path.join(review_dir, os.path.basename(real))
         copy_review(real, target)
         reviews.append(target)

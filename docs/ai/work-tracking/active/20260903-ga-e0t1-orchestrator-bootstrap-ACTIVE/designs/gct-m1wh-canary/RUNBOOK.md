@@ -92,7 +92,8 @@ It deliberately excludes the following:
 
 1. **Reviews.** Two independent reviews of this package commit.
 2. **Operator start.** From a real WSL terminal, the operator runs once:
-   `systemd-run --user --unit=gct-m1wh-canary --collect -p UMask=0022 sh $C/operator/CANARY.sh <commit>`.
+   `systemd-run --user --unit=gct-m1wh-canary --collect -p UMask=0022 sh $C/operator/CANARY.sh <commit>`
+   (that was the r1 hand start; r2 runs as a job-runner job, see "r1 outcome and r2").
    `C` is this directory. The output goes to
    `~/.local/share/gas-city-staging/gct-m1wh-canary/canary-<ts>.txt`.
 3. **What the run checks.** `canary-run.py` performs these steps:
@@ -171,7 +172,22 @@ this.
 `/home/loucmane/gascity/canary-evidence/m1wh-20260923-r2`. The r1 roots are preserved.
 
 **Entry.** r2 runs as a job of the host job runner (`designs/gct-jobrunner`), unit
-`gc-job-canary-r2`. `CANARY.sh` is unchanged in function: it still checks the reviewed clean HEAD.
+`gc-job-canary-r2`, a oneshot unit. `CANARY.sh` still checks the reviewed clean HEAD. It now exits with
+the canary result, so a refusal is a non-zero job exit. The runner halts after every job anyway, and the
+coordinator reads this log before clearing it. Started by hand instead, the unit name is
+`gct-m1wh-canary-r2`.
+
+**r3 additions** (from review A of `c0a9797c`):
+- a change in the live pack-cache slot names is now a STOP, not a note;
+- the launcher source must still be clean at `796d9a7a` after the run;
+- the git calls in `canary-run.py` and `CANARY.sh` disable fsmonitor and hooks;
+- post-run pins must equal the pre-run pins, modes included, and a vanished supervisor is recorded in
+  `after.json` rather than raised;
+- the leftover matcher is tested not to match the job runner's own processes. The job id `canary-r2`
+  does not contain the run id.
+
+**Evidence review for r2** also checks that no scenario other than clean-launcher consumed
+`GC_STORE_PATH`.
 
 **During and after the run.**
 - Nobody runs gc and nobody touches the run root until the log ends.

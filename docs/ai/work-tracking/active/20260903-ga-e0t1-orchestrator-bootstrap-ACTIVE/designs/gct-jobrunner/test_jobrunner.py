@@ -24,7 +24,7 @@ WRAPPER = J.PREFIX + 'gct-m1wh-canary/operator/CANARY.sh'
 def transcript(agent, commit=COMMIT, verdict='SOURCE_PASS', wrapper=WRAPPER, prompt=None, handbacks=1,
                sidechain=True, extra=None):
     """A reviewer transcript in the Claude subagent JSONL shape."""
-    first = prompt if prompt is not None else 'candidate=%s\n\nReview the package. Wrapper: %s\n' % (commit, wrapper)
+    first = prompt if prompt is not None else 'candidate=%s\n\nReview the package.\nWrapper: %s\n' % (commit, wrapper)
     records = [{'type': 'user', 'agentId': agent, 'isSidechain': sidechain, 'message': {'role': 'user', 'content': first}},
                {'type': 'assistant', 'agentId': agent, 'isSidechain': sidechain,
                 'message': {'content': [{'type': 'text', 'text': 'reading SOURCE_PASS %s maybe' % commit}]}}]
@@ -39,7 +39,11 @@ class Fixture(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
         root = self.tmp.name
-        self.cfg = dict(J.CONFIG, stage=os.path.join(root, 'stage'), worktree=os.path.join(root, 'wt'), uid=os.getuid())
+        import socket
+        self.bus = socket.socket(socket.AF_UNIX)
+        self.bus.bind(os.path.join(root, 'bus'))
+        self.cfg = dict(J.CONFIG, stage=os.path.join(root, 'stage'), worktree=os.path.join(root, 'wt'), uid=os.getuid(),
+                        bus=os.path.join(root, 'bus'))
         self.where = J.paths(self.cfg)
         for name in ('queue', 'done', 'reviews', 'state'):
             os.makedirs(self.where[name])
@@ -54,8 +58,10 @@ class Fixture(unittest.TestCase):
         self.deps = {'head': lambda cfg: COMMIT, 'clean': lambda cfg: True, 'signed': lambda cfg, commit: True,
                      'blob_sha': lambda cfg, commit, rel: self.digest if rel == WRAPPER else None}
         self.launched = []
+        self.state = lambda unit: 'inactive'
 
     def tearDown(self):
+        self.bus.close()
         self.tmp.cleanup()
 
     def file_review(self, agent, name=None, **kwargs):
@@ -162,7 +168,10 @@ class Reviews(Fixture):
         self.refused(self.job(), 'only candidate')
         os.unlink(self.reviews[1])
         self.reviews[1] = self.file_review('cccc2222dddd', wrapper='elsewhere')
-        self.refused(self.job(), 'does not name the wrapper')
+        self.refused(self.job(), 'exact "Wrapper:')
+        os.unlink(self.reviews[1])
+        self.reviews[1] = self.file_review('cccc2222dddd', prompt='candidate=%s\nDo not run %s here.' % (COMMIT, WRAPPER))
+        self.refused(self.job(), 'exact "Wrapper:')
 
     def test_transcript_identity(self):
         os.unlink(self.reviews[1])
@@ -180,6 +189,15 @@ class Reviews(Fixture):
         os.unlink(self.reviews[1])
         self.reviews[1] = self.file_review('cccc2222dddd', extra=[{'type': 'user', 'agentId': 'zzzz9999zzzz'}])
         self.refused(self.job(), 'mixes transcripts')
+        os.unlink(self.reviews[1])
+        self.reviews[1] = self.file_review('cccc2222dddd', extra=[{'type': 'attachment', 'isSidechain': True}])
+        self.refused(self.job(), 'mixes transcripts')
+        os.unlink(self.reviews[1])
+        path = os.path.join(self.review_dir, 'agent-cccc2222dddd.jsonl')
+        with open(path, 'w') as handle:
+            handle.write(transcript('cccc2222dddd').replace('"type": "user"', '"type": "user", "type": "user"', 1))
+        self.reviews[1] = path
+        self.refused(self.job(), 'strict JSONL')
 
     def test_coordinator_transcript_is_refused(self):
         os.unlink(self.reviews[1])
@@ -203,53 +221,81 @@ class Cycle(Fixture):
             self.assertTrue(os.path.exists(os.path.join(self.where['done'], 'canary-r2.started.json')))
             self.assertFalse(os.path.exists(path))
             return self.launch(argv)
-        record = J.cycle(self.cfg, self.deps, launch)
+        record = J.cycle(self.cfg, self.deps, launch, self.state)
         self.assertTrue(record['admitted'])
         self.assertEqual(self.launched, [[
-            'systemd-run', '--user', '--wait', '--collect', '--quiet', '--unit=gc-job-canary-r2', '-p', 'UMask=0022',
+            'systemd-run', '--user', '--wait', '--collect', '--quiet', '--service-type=oneshot',
+            '--unit=gc-job-canary-r2', '-p', 'UMask=0022', '-p', 'TimeoutStartSec=infinity',
             '/bin/sh', self.wrapper, COMMIT]])
-        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch), 'idle')
+        # Every job halts the runner, success included: the exit code is not the verdict.
+        self.assertTrue(os.path.exists(self.where['halted']))
+        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch, self.state), 'halted')
 
     def test_failure_halts_every_later_job(self):
         self.job()
-        J.cycle(self.cfg, self.deps, lambda argv: (1, '', 'failed'))
+        J.cycle(self.cfg, self.deps, lambda argv: (1, '', 'failed'), self.state)
         self.assertTrue(os.path.exists(self.where['halted']))
         self.job('next-job', wrapper=WRAPPER)
-        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch), 'halted')
+        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch, self.state), 'halted')
         self.assertEqual(self.launched, [])
 
     def test_launch_error_halts(self):
         self.job()
-        record = J.cycle(self.cfg, self.deps, lambda argv: ('launch-error', '', 'no systemd-run'))
+        record = J.cycle(self.cfg, self.deps, lambda argv: ('launch-error', '', 'no systemd-run'), self.state)
         self.assertEqual(record['exit'], 'launch-error')
         self.assertTrue(os.path.exists(self.where['halted']))
 
     def test_pause_holds_the_queue(self):
         path = self.job()
         open(self.where['pause'], 'w').close()
-        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch), 'paused')
+        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch, self.state), 'paused')
         self.assertTrue(os.path.exists(path))
         os.unlink(self.where['pause'])
-        self.assertTrue(J.cycle(self.cfg, self.deps, self.launch)['admitted'])
+        self.assertTrue(J.cycle(self.cfg, self.deps, self.launch, self.state)['admitted'])
+
+    def test_pause_during_admission_holds_the_job(self):
+        path = self.job()
+
+        def head_then_pause(cfg):
+            open(self.where['pause'], 'w').close()
+            return COMMIT
+        self.assertEqual(J.cycle(self.cfg, dict(self.deps, head=head_then_pause), self.launch, self.state), 'paused')
+        self.assertTrue(os.path.exists(path))
+        self.assertEqual(self.launched, [])
+        self.assertEqual(os.listdir(self.where['done']), [])
+
+    def test_missing_user_bus_leaves_the_job_queued(self):
+        path = self.job()
+        cfg = dict(self.cfg, bus=os.path.join(self.tmp.name, 'no-bus'))
+        self.assertEqual(J.cycle(cfg, self.deps, self.launch, self.state), 'no user bus')
+        self.assertTrue(os.path.exists(path))
+        self.assertEqual(os.listdir(self.where['done']), [])
 
     def test_more_than_one_queued_job_runs_nothing(self):
         self.job('first')
         self.job('second')
-        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch), 'multiple')
+        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch, self.state), 'multiple')
         self.assertEqual(self.launched, [])
 
     def test_unfinished_job_blocks_until_resolved(self):
         with open(os.path.join(self.where['done'], 'crashed.started.json'), 'w') as handle:
             json.dump({'job': {'commit': 'b' * 40, 'wrapper': WRAPPER}}, handle)
         self.job()
-        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch), 'unfinished crashed')
-        with open(os.path.join(self.where['done'], 'crashed.resolved.json'), 'w') as handle:
+        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch, self.state), 'unfinished crashed')
+        resolution = os.path.join(self.where['done'], 'crashed.resolved.json')
+        with open(resolution, 'w') as handle:
             handle.write('{}')
-        self.assertTrue(J.cycle(self.cfg, self.deps, self.launch)['admitted'])
+        with self.assertRaises(J.Refuse):
+            J.cycle(self.cfg, self.deps, self.launch, self.state)
+        os.unlink(resolution)
+        with open(resolution, 'w') as handle:
+            json.dump({'job_id': 'crashed', 'outcome': 'wrapper log shows STOP', 'evidence': '/x/log.txt'}, handle)
+        self.assertEqual(J.cycle(self.cfg, self.deps, self.launch, lambda unit: 'activating'), 'unfinished crashed')
+        self.assertTrue(J.cycle(self.cfg, self.deps, self.launch, self.state)['admitted'])
 
     def test_replayed_job_id_is_refused(self):
         self.job()
-        J.cycle(self.cfg, self.deps, self.launch)
+        J.cycle(self.cfg, self.deps, self.launch, self.state)
         record = J.process(self.cfg, self.job(), self.deps, self.launch)
         self.assertFalse(record['admitted'])
         self.assertIn('already used', record['refusal'])
@@ -257,7 +303,7 @@ class Cycle(Fixture):
 
     def test_refusal_is_recorded_and_dequeued_without_launch(self):
         path = self.job(wrapper_sha256='c' * 64)
-        record = J.cycle(self.cfg, self.deps, self.launch)
+        record = J.cycle(self.cfg, self.deps, self.launch, self.state)
         self.assertFalse(record['admitted'])
         self.assertFalse(os.path.exists(path))
         self.assertEqual(self.launched, [])
@@ -265,7 +311,7 @@ class Cycle(Fixture):
 
     def test_directory_in_queue_is_moved_aside(self):
         os.mkdir(os.path.join(self.where['queue'], 'weird.json'))
-        record = J.cycle(self.cfg, self.deps, self.launch)
+        record = J.cycle(self.cfg, self.deps, self.launch, self.state)
         self.assertFalse(record['admitted'])
         self.assertEqual(os.listdir(self.where['queue']), [])
 
@@ -278,7 +324,8 @@ class Identity(unittest.TestCase):
                 (good.replace('gas-city-jobrunner', 'gc-job-x'), {'INVOCATION_ID': 'x'}),
                 (good, {}),
                 ('12:pids:/x\n' + good, {'INVOCATION_ID': 'x'}),
-                ('0::/user.slice/user-1000.slice/session-3.scope\n', {'INVOCATION_ID': 'x'})):
+                ('0::/user.slice/user-1000.slice/session-3.scope\n', {'INVOCATION_ID': 'x'}),
+                ('0::/elsewhere/user@1000.service/app.slice/gas-city-jobrunner.service\n', {'INVOCATION_ID': 'x'})):
             self.assertIsNotNone(J.own_unit(J.CONFIG, text, environ))
 
 

@@ -36,11 +36,13 @@ The reviews:
 - The two come from different reviewers.
 - Every transcript filed for the commit passes it.
 
-Before launching, the runner writes the started record and removes the queue file, so a crash can never
-replay a job. Two things set HALTED and stop every later job: a non-zero exit (or failed launch), and
-any runner error. The coordinator clears HALTED only after recording the failure on the Bead.
+Before launching, the runner writes and fsyncs the started record and removes the queue file, so a crash
+can never replay a job. Jobs run as oneshot units: a job stopped with SIGTERM fails rather than reading
+as a clean exit.
 
-A wrapper's exit code is not its verdict. The outcome lives in the wrapper's own log.
+HALTED is set after EVERY job, whatever its exit code, and on any runner error. A wrapper's exit code is
+not its verdict; the outcome lives in the wrapper's own log. So nothing further runs until the
+coordinator has read that log, recorded the outcome on the Bead, and cleared HALTED.
 """
 import fcntl
 import hashlib
@@ -58,7 +60,8 @@ CONFIG = {
     'signer': '7720D1FE503A88EDECA61A6F0C7D823543E01875',
     'uid': 1000,
     'poll': 5,
-    'cgroup_suffix': '/user@1000.service/app.slice/gas-city-jobrunner.service',
+    'bus': '/run/user/1000/bus',
+    'cgroup': '0::/user.slice/user-1000.slice/user@1000.service/app.slice/gas-city-jobrunner.service',
 }
 PREFIX = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/'
 WRAPPER = re.compile(re.escape(PREFIX) + r'(?!gct-jobrunner/)[a-z0-9][a-z0-9-]{0,63}/operator/[A-Z0-9][A-Z0-9-]{0,63}\.sh')
@@ -77,8 +80,12 @@ ENV = {
     'XDG_RUNTIME_DIR': '/run/user/1000', 'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus',
     'GIT_OPTIONAL_LOCKS': '0',
 }
-# Repository config must not be able to run a program from the runner's git calls.
-GIT_SAFE = ['-c', 'core.fsmonitor=false', '-c', 'gpg.program=/usr/bin/gpg', '-c', 'core.hooksPath=/dev/null']
+# Repository config cannot choose the fsmonitor, hooks or signature-verification programs of the runner's
+# git calls. Clean and smudge filter drivers from repository config are not neutralized; the worktree is
+# coordinator-controlled, and that is within the stated trust model.
+GIT_SAFE = ['-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-c', 'gpg.program=/usr/bin/gpg',
+            '-c', 'gpg.ssh.program=/usr/bin/ssh-keygen', '-c', 'gpg.x509.program=/usr/bin/gpgsm']
+RECORD_LIMIT = 1024 * 1024
 
 
 class Refuse(Exception):
@@ -162,6 +169,13 @@ def read_owned(path, uid, limit, name):
         os.close(fd)
 
 
+def unit_state(unit):
+    """ActiveState of a user unit. A collected or unknown unit reads as inactive."""
+    done = subprocess.run(['systemctl', '--user', 'show', '-p', 'ActiveState', '--value', unit], capture_output=True,
+                          timeout=30, env=ENV, stdin=subprocess.DEVNULL)
+    return done.stdout.decode(errors='replace').strip() if done.returncode == 0 else 'unknown'
+
+
 def strict_json(raw):
     def pairs(items):
         seen = {}
@@ -180,9 +194,9 @@ def read_review(path, commit, uid):
     """Parse one reviewer transcript. Returns (agent id, first prompt, first report line) or refuses."""
     raw = read_owned(path, uid, TRANSCRIPT_LIMIT, 'review')
     try:
-        records = [json.loads(line) for line in raw.splitlines() if line.strip()]
-    except ValueError as exc:
-        raise Refuse('review %s is not a JSONL transcript: %s' % (path, exc))
+        records = [strict_json(line) for line in raw.splitlines() if line.strip()]
+    except Refuse as exc:
+        raise Refuse('review %s is not a strict JSONL transcript: %s' % (path, exc))
     if not records or not all(isinstance(record, dict) for record in records):
         raise Refuse('review %s has no transcript records' % path)
     first = records[0]
@@ -190,7 +204,7 @@ def read_review(path, commit, uid):
     if first.get('type') != 'user' or first.get('isSidechain') is not True or not isinstance(agent, str) \
             or not AGENT_ID.fullmatch(agent):
         raise Refuse('review %s does not start as a reviewer subagent transcript' % path)
-    if any(record.get('agentId', agent) != agent or record.get('isSidechain', True) is not True for record in records):
+    if any(record.get('agentId') != agent or record.get('isSidechain') is not True for record in records):
         raise Refuse('review %s mixes transcripts' % path)
     if os.path.basename(path) != 'agent-%s.jsonl' % agent:
         raise Refuse('review %s is not named after its agent id' % path)
@@ -223,8 +237,8 @@ def check_reviews(cfg, commit, wrapper, reviews):
         if os.path.realpath(path) != path or path not in filed:
             raise Refuse('review %s is not a file filed directly under %s' % (path, directory))
         agent, prompt, _ = filed[path]
-        if wrapper not in prompt:
-            raise Refuse('review %s does not name the wrapper %s' % (path, wrapper))
+        if 'Wrapper: ' + wrapper not in [line.strip() for line in prompt.splitlines()]:
+            raise Refuse('review %s has no exact "Wrapper: %s" line' % (path, wrapper))
         agents.add(agent)
     if len(agents) != 2:
         raise Refuse('the two reviews come from the same reviewer')
@@ -235,8 +249,8 @@ def done_records(cfg):
     records = {}
     for entry in os.listdir(done):
         if entry.endswith('.started.json'):
-            with open(os.path.join(done, entry)) as handle:
-                records[entry[:-len('.started.json')]] = json.load(handle)
+            raw = read_owned(os.path.join(done, entry), cfg['uid'], RECORD_LIMIT, 'started record')
+            records[entry[:-len('.started.json')]] = strict_json(raw)
     return records
 
 
@@ -248,12 +262,23 @@ def already_ran(cfg, commit, wrapper):
     return None
 
 
-def unfinished(cfg):
-    """Started jobs with neither a final record nor a coordinator resolution record."""
+def resolved(cfg, job_id, state=unit_state):
+    """A coordinator resolution counts only when its unit is gone and the record states the outcome."""
+    path = os.path.join(paths(cfg)['done'], job_id + '.resolved.json')
+    if not os.path.lexists(path):
+        return False
+    record = strict_json(read_owned(path, cfg['uid'], RECORD_LIMIT, 'resolution record'))
+    if not isinstance(record, dict) or record.get('job_id') != job_id or not record.get('outcome') \
+            or not record.get('evidence'):
+        raise Refuse('resolution record for %s must state job_id, outcome and evidence' % job_id)
+    return state('gc-job-%s.service' % job_id) in ('inactive', 'failed')
+
+
+def unfinished(cfg, state=unit_state):
+    """Started jobs with neither a final record nor a valid coordinator resolution."""
     done = paths(cfg)['done']
     return sorted(job_id for job_id in done_records(cfg)
-                  if not os.path.lexists(os.path.join(done, job_id + '.json'))
-                  and not os.path.lexists(os.path.join(done, job_id + '.resolved.json')))
+                  if not os.path.lexists(os.path.join(done, job_id + '.json')) and not resolved(cfg, job_id, state))
 
 
 def admit(cfg, job_path, deps=REAL):
@@ -293,8 +318,11 @@ def admit(cfg, job_path, deps=REAL):
 
 
 def launch_argv(cfg, job):
-    return ['systemd-run', '--user', '--wait', '--collect', '--quiet', '--unit=gc-job-' + job['job_id'],
-            '-p', 'UMask=0022', '/bin/sh', os.path.join(cfg['worktree'], job['wrapper']), job['commit']]
+    # oneshot: SIGTERM from `systemctl --user stop` is a failure, not the clean exit it is for a simple
+    # service, and oneshot units have no start timeout.
+    return ['systemd-run', '--user', '--wait', '--collect', '--quiet', '--service-type=oneshot',
+            '--unit=gc-job-' + job['job_id'], '-p', 'UMask=0022', '-p', 'TimeoutStartSec=infinity',
+            '/bin/sh', os.path.join(cfg['worktree'], job['wrapper']), job['commit']]
 
 
 def real_launch(argv):
@@ -317,9 +345,20 @@ def remove(cfg, path, safe):
 
 
 def write_new(path, value):
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
     with os.fdopen(fd, 'w') as handle:
         handle.write(json.dumps(value, indent=1, sort_keys=True) + '\n')
+        handle.flush()
+        os.fsync(handle.fileno())
+    sync_dir(os.path.dirname(path))
+
+
+def sync_dir(path):
+    fd = os.open(path, os.O_RDONLY | os.O_DIRECTORY)
+    try:
+        os.fsync(fd)
+    finally:
+        os.close(fd)
 
 
 def stamp():
@@ -355,29 +394,37 @@ def process(cfg, job_path, deps=REAL, launch=real_launch):
         write_new(os.path.join(where['done'], '%s.refused-%d.json' % (safe, time.time_ns())), record)
         remove(cfg, job_path, safe)
         return record
+    if os.path.lexists(where['pause']):
+        # Admission can take a while; the operator may have paused meanwhile. The job stays queued.
+        return 'paused'
+    if not stat.S_ISSOCK(os.stat(cfg['bus']).st_mode if os.path.exists(cfg['bus']) else 0):
+        # systemd-run --wait talks to the manager over the user bus. Without it the launch would fail
+        # after the started record and burn the reviewed (commit, wrapper) pair, so wait instead.
+        return 'no user bus'
     argv = launch_argv(cfg, job)
     record.update(admitted=True, job=job, argv=argv, started=stamp())
     write_new(os.path.join(where['done'], job['job_id'] + '.started.json'), record)
     remove(cfg, job_path, safe)
+    sync_dir(where['queue'])
     log(cfg, 'started %s: %s at %s' % (job['job_id'], job['wrapper'].rsplit('/', 3)[-3], job['commit'][:8]))
     code, out, err = launch(argv)
-    # Log the exit before anything that could fail, so it can never be lost.
-    log(cfg, 'finished %s: exit %s%s' % (job['job_id'], code, '' if code == 0 else '; HALTED'))
-    if code != 0:
-        halt(cfg, 'job %s exited %s' % (job['job_id'], code))
+    # Log the exit before anything that could fail, so it can never be lost. Every job halts the runner:
+    # the exit code is not the verdict, and the coordinator reads the wrapper's log before clearing.
+    log(cfg, 'finished %s: exit %s; HALTED until the coordinator records the outcome' % (job['job_id'], code))
+    halt(cfg, 'job %s finished with exit %s; read its log, record the outcome, then clear' % (job['job_id'], code))
     record.update(ended=stamp(), exit=code, stdout=out, stderr=err)
     write_new(os.path.join(where['done'], job['job_id'] + '.json'), record)
     return record
 
 
-def cycle(cfg, deps=REAL, launch=real_launch):
+def cycle(cfg, deps=REAL, launch=real_launch, state=unit_state):
     """One poll. Every precondition that could hold a job back is checked here, right before it runs."""
     where = paths(cfg)
     if os.path.lexists(where['pause']):
         return 'paused'
     if os.path.lexists(where['halted']):
         return 'halted'
-    open_jobs = unfinished(cfg)
+    open_jobs = unfinished(cfg, state)
     if open_jobs:
         return 'unfinished ' + ','.join(open_jobs)
     names = sorted(os.listdir(where['queue']))
@@ -392,22 +439,23 @@ def heartbeat(cfg, started, state):
     # last_poll is not refreshed while a job runs, because the runner is inside `systemd-run --wait`.
     path = os.path.join(paths(cfg)['state'], 'runner.json')
     temp = path + '.tmp'
-    with open(temp, 'w') as handle:
+    fd = os.open(temp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
+    with os.fdopen(fd, 'w') as handle:
         json.dump({'pid': os.getpid(), 'started': started, 'last_poll': stamp(), 'state': state,
                    'source_sha256': globals().get('_SOURCE_SHA')}, handle, sort_keys=True)
     os.replace(temp, path)
 
 
 def own_unit(cfg, cgroup_text, environ):
-    """Unprivileged proof of identity: exactly the gas-city-jobrunner unit of the uid-1000 user manager.
+    """Mistake guard, not a proof of identity: this process sits in the gas-city-jobrunner unit.
 
     A transient unit without sandboxing runs in the manager's mount namespace. The manager's own
     /proc/<pid>/ns link is deliberately not read: systemd 255 keeps capabilities in the manager, so a
-    ptrace-mode read from an unprivileged child can fail.
+    ptrace-mode read from an unprivileged child can fail. A deliberate uid-1000 process could move itself
+    into this cgroup; the trust model does not defend against that.
     """
-    lines = cgroup_text.strip().splitlines()
-    if len(lines) != 1 or not lines[0].startswith('0::') or not lines[0].endswith(cfg['cgroup_suffix']):
-        return 'cgroup is %r, want a single v2 line ending in %s' % (cgroup_text.strip()[:200], cfg['cgroup_suffix'])
+    if cgroup_text.strip() != cfg['cgroup']:
+        return 'cgroup is %r, want exactly %s' % (cgroup_text.strip()[:200], cfg['cgroup'])
     if not environ.get('INVOCATION_ID'):
         return 'INVOCATION_ID is unset, so this is not a systemd unit'
     return None
@@ -423,7 +471,7 @@ def main():
     if problem:
         print('job runner refused to start: %s' % problem, flush=True)
         return 2
-    lock = open(os.path.join(where['state'], 'runner.lock'), 'w')
+    lock = os.open(os.path.join(where['state'], 'runner.lock'), os.O_RDWR | os.O_CREAT | os.O_NOFOLLOW, 0o600)
     try:
         fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
     except OSError:
@@ -431,18 +479,17 @@ def main():
         return 2
     started = stamp()
     log(cfg, 'runner up pid %d source %s' % (os.getpid(), globals().get('_SOURCE_SHA')))
-    last = None
+    last = 'starting'
     while True:
         heartbeat(cfg, started, last if isinstance(last, str) else 'ran')
         try:
             state = cycle(cfg)
         except Exception as exc:  # noqa: BLE001 - never crash, never loop on a broken job
             state = 'error'
-            log(cfg, 'ERROR, HALTED: %s: %s' % (type(exc).__name__, exc))
             try:
                 halt(cfg, '%s: %s' % (type(exc).__name__, exc))
-            except OSError as inner:
-                log(cfg, 'cannot write HALTED: %s' % inner)
+                log(cfg, 'ERROR, HALTED: %s: %s' % (type(exc).__name__, exc))
+            except OSError:
                 return 3
         if isinstance(state, str) and state != last and state != 'idle':
             log(cfg, 'state %s' % state)

@@ -17,7 +17,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-m1wh-canary
 COMMIT=${1:?usage: CANARY.sh <reviewed commit>}
-RUN_SHA=5cab29ad50834b1b4b2d466d804d2dce8e77901d08906310db75d8dcac470c27
+RUN_SHA=62273a4f21aaf38db2ea81737d78c0aa698c3f8b1fd211e1e0a3de56406af5f6
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 mkdir -p "$S" || exit 1
@@ -25,8 +25,8 @@ LOG="$S/canary-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) mnt=$(readlink /proc/self/ns/mnt) cgroup=$(cat /proc/self/cgroup)"
 [ "$(umask)" = 0022 ] || { echo "== STOP: umask is not 0022"; echo "== end"; exit 1; }
-head=$(git -C "$W" rev-parse HEAD) || head=unreadable
-status=$(git -C "$W" --no-optional-locks status --porcelain --untracked-files=all) || status=unreadable
+head=$(git -c core.fsmonitor=false -C "$W" rev-parse HEAD) || head=unreadable
+status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-optional-locks status --porcelain --untracked-files=all) || status=unreadable
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
