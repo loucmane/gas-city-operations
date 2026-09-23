@@ -27,8 +27,8 @@ retry targets.
 ## Time budget
 
 The window that hosts this session must restore within four hours of its
-preflight, so the coordinator holds scheduling at preflight plus three hours
-whatever the progress. Work steadily: startup proof first, then the implementation
+preflight, so the coordinator holds scheduling at preflight plus two hours and
+forty-five minutes whatever the progress. Work steadily: startup proof first, then the implementation
 as soon as the source release arrives. If scheduling is held before you finish,
 stop at the current safe point and preserve everything; unfinished work is
 evidence, not a reason to hurry past a check.
@@ -67,9 +67,12 @@ session/claim and Core store identity; locating a Bead alone is insufficient.
    GOTOOLCHAIN=local. Do not add leading environment assignments: that command
    shape is denied. No network/install, cache clearing, GOCACHE override or /tmp
    Go cache.
-6. Standalone `git update-index --refresh`: require success. It rewrites only this
-   worktree's index, which lives in the shared Git common directory, and so proves
-   the sandbox lets you stage before any source edit. A refusal is a stop.
+6. Standalone `git update-index --refresh --force-write-index`, then standalone
+   `git hash-object -w .gc/worker-evidence/ga-4z38/<the step-1 fixture file>`: require
+   success of both. The first always rewrites this worktree's index and the second
+   writes one blob into the object store, both inside the shared Git common
+   directory, so together they prove the sandbox lets you stage before any source
+   edit. A refusal of either is a stop.
 
 ## Generated startup artifacts
 

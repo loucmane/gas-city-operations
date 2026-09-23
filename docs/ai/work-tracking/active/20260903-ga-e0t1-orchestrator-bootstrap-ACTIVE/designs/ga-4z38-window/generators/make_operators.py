@@ -101,7 +101,12 @@ def main(package):
         'PREFLIGHT.sh': dict(title='preflight: read-only admission of the window against the fresh integrity\n'
                                    '# observation (OBSERVE.sh). It creates the window root and stages nothing.',
                              pins='WINDOW_SHA=%s' % d['window-r11.py'],
-                             pre=absent(window),
+                             pre=absent(window)
+                                 + '# An object already fresh at FRESHEN may be up to 19 hours old; it must stay under 24\n'
+                                   '# hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.\n'
+                                   'find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 '
+                                   '| grep -q . || { echo "== STOP: no FRESHEN pass in the last 45 minutes"; '
+                                   'echo "== end"; exit 1; }\n',
                              steps=['step preflight "$C/window-r11.py" "$WINDOW_SHA" preflight']),
         'STAGE.sh': dict(title='stage: the single-worker overlay city and its native-finalized receipt, through\n'
                                '# the confined writers and one observed reload. Every rig stays suspended.',

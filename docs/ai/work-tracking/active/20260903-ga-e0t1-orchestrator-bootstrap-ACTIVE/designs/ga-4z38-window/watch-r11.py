@@ -53,7 +53,10 @@ def load():
 
 
 def entry(w, path):
-    s = path.lstat()
+    try:
+        s = path.lstat()
+    except OSError as exc:
+        return dict(path=str(path), lstat_error=str(exc))
     row = dict(path=str(path), mode=oct(stat.S_IMODE(s.st_mode)), uid=s.st_uid, gid=s.st_gid, size=s.st_size)
     if stat.S_ISLNK(s.st_mode):
         row.update(kind='symlink', target=os.readlink(path))
@@ -99,10 +102,13 @@ def main():
     git = ['/usr/bin/git', '-C', str(w.WORK)]
     head = run('git-head', git + ['rev-parse', 'HEAD'])['stdout'].strip()
     branch = run('git-branch', git + ['branch', '--show-current'])['stdout'].strip()
-    status = run('git-status', git + ['status', '--porcelain=v1', '--untracked-files=all'])['stdout']
-    run('git-diff', git + ['diff', '--exit-code'], expected=(0, 1))
-    run('git-staged', git + ['diff', '--cached', '--exit-code'], expected=(0, 1))
-    staged = run('git-staged-names', git + ['diff', '--cached', '--name-status'])['stdout']
+    # -z: NUL-separated, never quoted, so every untracked path is exact.
+    status = run('git-status', git + ['status', '--porcelain=v1', '-z', '--untracked-files=all'])['stdout']
+    # Plumbing only: diff-files and diff-index never refresh or lock the worker's index, so a WATCH can
+    # never collide with the worker's own staging or signing.
+    run('git-diff', git + ['diff-files', '--patch', '--exit-code'], expected=(0, 1))
+    run('git-staged', git + ['diff-index', '--cached', '--patch', '--exit-code', 'HEAD'], expected=(0, 1))
+    staged = run('git-staged-names', git + ['diff-index', '--cached', '--name-status', 'HEAD'])['stdout']
     run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid} #{pane_dead}'],
         expected=(0, 1))
     processes = []
@@ -128,7 +134,8 @@ def main():
                                       argv=[arg.decode(errors='replace') for arg in argv if arg]))
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
-    untracked = [line[3:] for line in status.splitlines() if line.startswith('?? ')]
+    records = [r for r in status.split('\0') if r]
+    untracked = [r[3:] for r in records if r.startswith('?? ')]
     inventory = dict(untracked=[entry(w, w.WORK/path) for path in untracked], evidence=[])
     evidence = w.WORK/EVIDENCE
     if evidence.is_dir() and not evidence.is_symlink():
@@ -148,13 +155,13 @@ def main():
                or (v.get('metadata') or {}).get('gc.work_dir') == str(w.WORK)]
     [bead] = task
     result = dict(ok=True, mutation=False, head=head, branch=branch,
-                  status_lines=status.splitlines(), staged=staged.splitlines(),
+                  status_records=records, staged=staged.splitlines(),
                   live_sessions=sessions.get('sessions'), related_session_beads=related,
                   task=dict(status=bead['status'], assignee=bead.get('assignee'),
                             metadata=bead.get('metadata') or {}),
                   matching_processes=len(processes))
     w.save('result.json', result)
-    print(json.dumps(dict(ok=True, root=str(root), head=head, status_lines=len(result['status_lines']),
+    print(json.dumps(dict(ok=True, root=str(root), head=head, status_records=len(records),
                           live_sessions=len(result['live_sessions'] or []), matching_processes=len(processes))))
 
 

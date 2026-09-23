@@ -189,11 +189,48 @@ class Safety(unittest.TestCase):
             self.assertEqual(regular.read_bytes(), b'content')
         self.assertEqual(f.YOUNG_HOURS, 19)
 
-    def test_hold_acts_only_on_a_stranded_window(self):
+    def test_hold_acts_only_on_a_stranded_window_and_never_blocks_its_suspends(self):
         text = (HERE/'hold-r11.py').read_text()
         self.assertIn("w.require(stranded, 'hold is only for a stranded lifecycle; use CONTAIN.sh')", text)
-        self.assertIn("if before['suspended'] is not True:", text)
-        self.assertIn("if rig['suspended'] is not True:", text)
+        self.assertIn("intent.name.replace('-intent.json', '-event.json')", text)
+        self.assertIn("started.name.replace('-started.json', '-phase.json')", text)
+        self.assertIn("w.phase(name, argv, b, owned, expected=ANY)", text)
+        self.assertIn("w.require(final == (True, True), 'hold did not suspend the city and rig')", text)
+
+    def test_freshen_object_set_covers_every_exact_atime_object(self):
+        f = self.load('freshen-r11.py')
+        w = f.load()
+        b, o, owned = w.load_support()
+        paths = f.objects(w, b)
+        accepted = json.loads((Path('/var/tmp/gct-m1wh-p6-adoption-20260923-r2')/'after.json').read_text())
+        self.assertEqual(len(paths), len(set(paths)))
+        self.assertTrue(set(accepted['pins']) <= set(paths))
+        for root, tree in accepted['protected'].items():
+            self.assertIn(root, paths)
+        self.assertIn('/home/loucmane/.local/share/fnm/node-versions/v22.16.0/installation/bin/claude', paths)
+        for path in ('/home/loucmane/gascity/city', '/home/loucmane/gascity/city/.gc/runtime/provisioning',
+                     '/home/loucmane/gascity/city/.gc/runtime/provisioning/bin/gct-managed-worker-canary'):
+            self.assertIn(path, paths)
+        cache = str(b.CACHE)
+        self.assertFalse([p for p in paths if p == cache or p.startswith(cache + '/')])
+        self.assertFalse([p for p in paths if '/dev/blog' in p or '/dev/hpfetcher' in p])
+
+    def test_worker_environment_inherits_git_optional_locks(self):
+        done = subprocess.run([sys.executable, '-B', str(HERE/'proof'/'worker-env-proof.py')],
+                              capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+        self.assertEqual(done.returncode, 0, done.stdout[-2000:] + done.stderr[-2000:])
+        self.assertTrue(json.loads(done.stdout)['ok'])
+
+    def test_watch_uses_index_free_plumbing(self):
+        text = (HERE/'watch-r11.py').read_text()
+        self.assertIn("['diff-files', '--patch', '--exit-code']", text)
+        self.assertIn("['diff-index', '--cached', '--patch', '--exit-code', 'HEAD']", text)
+        self.assertNotIn("git + ['diff',", text)
+        self.assertIn("'--porcelain=v1', '-z'", text)
+
+    def test_preflight_requires_a_recent_freshen_pass(self):
+        text = (HERE/'operator'/'PREFLIGHT.sh').read_text()
+        self.assertIn('-path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45', text)
 
     def test_restore_requires_the_admission_pass(self):
         text = (HERE/'operator'/'RESTORE.sh').read_text()

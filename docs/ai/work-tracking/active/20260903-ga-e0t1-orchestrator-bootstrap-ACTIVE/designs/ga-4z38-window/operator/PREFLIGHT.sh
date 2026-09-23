@@ -26,6 +26,9 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
 { [ ! -e /var/tmp/ga-4z38-window-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-window-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-window-20260923-r1"; echo "== end"; exit 1; }
+# An object already fresh at FRESHEN may be up to 19 hours old; it must stay under 24
+# hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.
+find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 | grep -q . || { echo "== STOP: no FRESHEN pass in the last 45 minutes"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

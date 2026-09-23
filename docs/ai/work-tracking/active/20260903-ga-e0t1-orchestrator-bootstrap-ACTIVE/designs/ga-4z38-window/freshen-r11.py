@@ -16,9 +16,19 @@ after, requires that nothing but atime changed, and requires every object to end
 its mtime and ctime and younger than YOUNG_HOURS, which leaves the four-hour window a margin before the
 24-hour mark. If any object is still too old, it refuses and lists each one with the UTC time at which
 its 24-hour mark passes; after that time a rerun refreshes it. The pack cache is excluded: the reviewed
-cache-atime policy accounts for its access times. Objects whose mtime the window itself changes (the city root and provisioning
-directory at the atomic renames) cannot be kept fresh by this job; the read-only ADMIT job checks them
-before RESTORE is consumed.
+cache-atime policy accounts for its access times, and no P6 pin may lie under it. Symlinks (the API
+link) are refreshed with readlink, which updates a symlink's atime under the same rule. An object on a
+noatime or read-only mount cannot change atime at all and is recorded, not required to be young.
+
+Objects this job cannot hold, all checked by the read-only ADMIT job before RESTORE is consumed:
+- the city root and provisioning directory, whose mtimes the window's atomic renames change;
+- the five generated route files and their store directories, which the STAGE reload regenerates (the
+  route-chain event model binds them from then on). Two of those stores are the protected blog and
+  hpfetcher checkouts, which this job never reads.
+
+Pass order: PREFLIGHT.sh requires a FRESHEN pass from the last 60 minutes, because an object that was
+already fresh (not refreshable) may be up to YOUNG_HOURS old and must stay under 24 hours until the
+window's T0 plus four hours.
 """
 from datetime import datetime, timezone
 import hashlib
@@ -59,19 +69,27 @@ def image(path):
                 size=s.st_size, mtime_ns=s.st_mtime_ns, ctime_ns=s.st_ctime_ns, atime_ns=s.st_atime_ns)
 
 
-def objects(w):
+def objects(w, b):
+    """Every exact-atime object of the window snapshots. Reads with O_NOATIME only; changes nothing."""
     accepted = json.loads(w.read(w.ACCEPTED, w.ACCEPTED_SHA))
     providers = json.loads(w.read(Path(str(w.ACCEPTED) + '.provider-pins'), w.PROVIDER_SHA))
     r = w.module(w.SUPPORT/'p6-readiness.py', '7b28b3e551e86818a2cdda3e53ed90c7072781e0a9354bd1ebf5d9425d579133')
     paths = list(accepted['pins'])
     for root, tree in accepted['protected'].items():
         paths += [root if rel == '.' else root + '/' + rel for rel in tree['inventory']]
-    paths += [str(r.WORKER_NATIVE), str(r.SUBSCRIPTION), str(r.PROVISIONER), str(r.RUNNER)]
-    paths += list(providers['api_package'])
-    paths += [str(w.CITY)] + [str(w.CITY/name) for name in sorted(os.listdir(w.CITY))]
+    paths += [str(r.WORKER_NATIVE), str(r.SUBSCRIPTION), str(r.PROVISIONER), str(r.RUNNER), str(r.NATIVE_LINK)]
+    w.require(isinstance(providers['api_package'], dict) and len(providers['api_package']) == 2, 'api package shape')
+    paths += sorted(providers['api_package'])
+    fd = os.open(w.CITY, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        children = sorted(os.listdir(fd))
+    finally:
+        os.close(fd)
+    paths += [str(w.CITY)] + [str(w.CITY/name) for name in children]
     provisioning = w.RECEIPT.parent
     paths += [str(provisioning), str(w.RECEIPT), str(provisioning/'bin'), str(provisioning/'bin/gct-managed-worker-canary')]
-    cache = str(w.CACHE)
+    cache = str(b.CACHE)
+    w.require(not [p for p in accepted['pins'] if p == cache or p.startswith(cache + '/')], 'P6 pin under the cache')
     unique = []
     for path in paths:
         if path not in unique and not (path == cache or path.startswith(cache + '/')):
@@ -88,7 +106,17 @@ def touch(path):
         with open(path, 'rb') as handle:
             handle.read(1)
         return 'read'
+    if stat.S_ISLNK(s.st_mode):
+        os.readlink(path)
+        return 'readlink'
     return 'recorded'
+
+
+def atime_fixed(path):
+    """True when the object's mount never updates atime (noatime or read-only)."""
+    target = path if not os.path.islink(path) else os.path.dirname(path)
+    flags = os.statvfs(target).f_flag
+    return bool(flags & (os.ST_NOATIME | os.ST_RDONLY))
 
 
 def main():
@@ -101,7 +129,8 @@ def main():
     root = Path('/var/tmp/ga-4z38-freshen-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     root.mkdir(mode=0o700)
     w.ROOT = root
-    paths = objects(w)
+    b, o, owned = w.load_support()
+    paths = objects(w, b)
     before = {path: image(path) for path in paths}
     w.save('before.json', dict(started=datetime.now(timezone.utc).isoformat(), objects=before))
     actions = {path: touch(path) for path in paths}
@@ -116,15 +145,18 @@ def main():
             changed.append(path)
     now = datetime.now(timezone.utc).timestamp() * 10**9
     old = []
+    fixed = []
     for path in paths:
         z = after[path]
-        if stat.S_ISLNK(z['mode']):
+        if atime_fixed(path):
+            fixed.append(path)
             continue
         age = (now - z['atime_ns']) / 3.6e12
         if not z['atime_ns'] > max(z['mtime_ns'], z['ctime_ns']) or age >= YOUNG_HOURS:
             mark = datetime.fromtimestamp(z['atime_ns'] / 10**9 + 24 * 3600, timezone.utc).isoformat()
             old.append(dict(path=path, age_hours=round(age, 2), stale_after=mark))
     w.save('old.json', old)
+    w.save('atime-fixed.json', fixed)
     w.require(not old, '%d objects not young enough; rerun after the stale_after times in old.json' % len(old))
     result = dict(ok=True, objects=len(paths), atime_refreshed=len(changed), content_changed=False,
                   cache_excluded=True, window_started=False, young_hours=YOUNG_HOURS)

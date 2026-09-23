@@ -5,13 +5,18 @@ suspension-*-refused-after.json exists in the window root (window-base-r11.py li
 CONTAIN.sh cannot suspend after such a failure. The worst case is a city-resume whose command applied
 but whose observation failed: the city stays resumed and the worker stays schedulable.
 
-This job exists only for that state. It runs the same two supported commands the lifecycle suspend
-actions use (`gc suspend --json`, then `gc rig suspend gascity --json`, from suspension-lineage.py
-ACTIONS) through the owned-phase runner, in a fresh timestamped root, with the support environment
-(GIT_OPTIONAL_LOCKS=0). It checks `gc status --json` before and after, and requires the city and the
-gascity rig to be suspended at the end. It uses the base active_epoch() identity check, which is valid
-while a worker is live. It writes nothing in the window root, so every refusal record there stays
-exact. Restoring the window afterwards needs a reviewed successor.
+Stranded means any of: a suspension-*-failure.json or -refused-after.json record; a lifecycle intent
+without its event (an exception after the command, or a killed job); or any *-started.json without its
+*-phase.json (complete_containment then refuses every lifecycle action).
+
+This job exists only for those states, and it is best-effort so that it never blocks the one safety
+action. It records the base active_epoch() identity check and `gc status --json` without requiring
+either. It then runs the same two supported commands the lifecycle suspend actions use (`gc suspend
+--json`, then `gc rig suspend gascity --json`, from suspension-lineage.py ACTIONS) for whatever is not
+known to be suspended, accepting any exit status. It passes only if a final `gc status --json` shows
+the city and the gascity rig suspended. Everything runs through the owned-phase runner, in a fresh
+timestamped root, with the support environment (GIT_OPTIONAL_LOCKS=0). It writes nothing in the window
+root, so every record there stays exact. Restoring the window afterwards needs a reviewed successor.
 """
 from datetime import datetime, timezone
 import hashlib
@@ -53,32 +58,54 @@ def main():
     w.require((WINDOW/'stage-consumed.json').exists(), 'no staged window to hold')
     stranded = sorted(p.name for p in WINDOW.glob('suspension-*-failure.json')) + \
         sorted(p.name for p in WINDOW.glob('suspension-*-refused-after.json'))
+    for intent in WINDOW.glob('suspension-*-intent.json'):
+        if not (WINDOW/intent.name.replace('-intent.json', '-event.json')).exists():
+            stranded.append(intent.name)
+    for started in WINDOW.glob('*-started.json'):
+        if not (WINDOW/started.name.replace('-started.json', '-phase.json')).exists():
+            stranded.append(started.name)
+    stranded = sorted(set(stranded))
     w.require(stranded, 'hold is only for a stranded lifecycle; use CONTAIN.sh')
-    w.active_epoch(o)
+    try:
+        w.active_epoch(o)
+        epoch = 'verified'
+    except Exception as exc:  # recorded; the hold still acts
+        epoch = 'refused: ' + str(exc)[:500]
     root = Path('/var/tmp/ga-4z38-hold-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     root.mkdir(mode=0o700)
     w.ROOT = root
-    w.save('intent.json', dict(executor_sha256=_SOURCE_SHA, stranded_records=stranded, lifecycle_replay=False))
+    w.save('intent.json', dict(executor_sha256=_SOURCE_SHA, stranded_records=stranded, lifecycle_replay=False,
+                               epoch_before=epoch))
+    ANY = tuple(range(256))
 
-    def status(name):
-        return json.loads(w.phase(name, w.GC + ['status', '--json'], b, owned)['stdout'])
-    before = status('status-before')
-    [rig] = [r for r in before['rigs'] if r['name'] == 'gascity']
-    # Suspend only what is still resumed: city first (stop scheduling), then the rig.
-    if before['suspended'] is not True:
-        w.phase('city-suspend', w.GC + ['suspend', '--json'], b, owned)
-    if rig['suspended'] is not True:
-        w.phase('rig-suspend', w.GC + ['rig', 'suspend', 'gascity', '--json'], b, owned)
-    after = status('status-after')
-    [rig] = [r for r in after['rigs'] if r['name'] == 'gascity']
-    w.require(after['suspended'] is True and rig['suspended'] is True, 'hold did not suspend the city and rig')
-    w.ROOT = WINDOW
-    w.active_epoch(o)
-    w.ROOT = root
+    def status(name, required):
+        try:
+            value = json.loads(w.phase(name, w.GC + ['status', '--json'], b, owned)['stdout'])
+            [rig] = [r for r in value['rigs'] if r['name'] == 'gascity']
+            return value['suspended'] is True, rig['suspended'] is True
+        except Exception:
+            if required:
+                raise
+            return None, None
+    city, rig = status('status-before', False)
+    # City first (stop scheduling), then the rig. Each is attempted even if the other refused, with any
+    # exit status; only the final status decides.
+    attempts = {}
+    for name, needed, argv in (('city-suspend', city is not True, w.GC + ['suspend', '--json']),
+                               ('rig-suspend', rig is not True, w.GC + ['rig', 'suspend', 'gascity', '--json'])):
+        if not needed:
+            continue
+        try:
+            attempts[name] = w.phase(name, argv, b, owned, expected=ANY)['exit_code']
+        except Exception as exc:
+            attempts[name] = 'refused: ' + str(exc)[:500]
+    w.save('attempts.json', attempts)
+    final = status('status-after', True)
+    w.require(final == (True, True), 'hold did not suspend the city and rig')
     w.complete_containment()
     result = dict(ok=True, city_suspended=True, gascity_rig_suspended=True, stranded_records=stranded,
-                  city_suspended_before=before.get('suspended'), window_root_written=False,
-                  restore_requires_reviewed_successor=True)
+                  city_suspended_before=city, rig_suspended_before=rig, epoch_before=epoch,
+                  window_root_written=False, restore_requires_reviewed_successor=True)
     w.save('result.json', result)
     print(json.dumps(result))
 
