@@ -40,10 +40,15 @@ def main():
     providers = w.provider_pins(b, o)
     accepted_provider = json.loads(w.read(Path(str(w.ACCEPTED) + '.provider-pins'), w.PROVIDER_SHA))
     provider_diff = list(diff(w.dependency_image(accepted_provider), w.dependency_image(providers)))
+    # The snapshot also records directories(): no city child symlink, the exact provisioning set, and
+    # stable .gc/.beads direct children while listing. O_NOATIME reads only.
+    directories = w.directories(o)
     print(json.dumps(dict(base_sha256=hashlib.sha256(raw).hexdigest(), admission_equal=not differences,
                           differences=[[p, str(a)[:200], str(z)[:200]] for p, a, z in differences[:40]],
                           difference_count=len(differences), providers_equal=not provider_diff,
-                          provider_differences=[[p, str(a)[:200], str(z)[:200]] for p, a, z in provider_diff[:20]]),
+                          provider_differences=[[p, str(a)[:200], str(z)[:200]] for p, a, z in provider_diff[:20]],
+                          directories_ok=True, city_entries=len(directories['city']),
+                          provisioning_entries=sorted(directories['provision'])),
                      indent=1))
     return 0 if not differences and not provider_diff else 1
 

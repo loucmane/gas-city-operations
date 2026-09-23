@@ -44,7 +44,9 @@ def main(package):
         assert sha((L/name).read_bytes()) == digest
         shutil.copyfile(L/name, out/name)
         assert sha((out/name).read_bytes()) == digest
-    obs = edit(L/'window-state-r9.py', sha((L/'window-state-r9.py').read_bytes()), [
+    # Reviewed ga-y49e digests: window-state-r9.py per atime-final-review-and-bindings-r2.md, and
+    # observe-platform-integrity-r2.py per native-integrity-r2-review.md.
+    obs = edit(L/'window-state-r9.py', '0252bc4072f905bb2e8e7f39efd63a3dc12be6c7742227d12efa8a01fbb905d4', [
         ("HERE=Path('/tmp/ga-y49e-launch-20260920')", "HERE=Path('%s')" % package),
         ("BASE_SHA='15f6f4ac010ac600f4f04d2d9a3d8a692b20e1b78a5a93f91adb87c51e8a2fb0'", "BASE_SHA='%s'" % base_sha),
         ("w=load(HERE/'window-state-r6.py',BASE_SHA,'window_r7_base')", "w=load(HERE/'window-base-r11.py',BASE_SHA,'window_r7_base')"),
@@ -54,7 +56,7 @@ def main(package):
     obs_sha = sha((out/'window-obs-r11.py').read_bytes())
     manifest = sha(Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json').read_bytes())
     assert manifest.startswith('2d7eadce')
-    observer = edit(L/'observe-platform-integrity-r2.py', sha((L/'observe-platform-integrity-r2.py').read_bytes()), [
+    observer = edit(L/'observe-platform-integrity-r2.py', '050cb878b46a453da9afc9c197f78a57c6f38ac56439510cd1fd353b9522f839', [
         ('"""Full native integrity read inside read-only mounts, paired with host proof."""',
          '"""Full native integrity read inside read-only mounts, paired with host proof.\n\n'
          'ga-4z38 r11: a rebind of the reviewed ga-y49e observe-platform-integrity-r2.py for a FRESH window on the\n'
@@ -67,6 +69,10 @@ def main(package):
         ("W_SHA='0252bc4072f905bb2e8e7f39efd63a3dc12be6c7742227d12efa8a01fbb905d4'", "W_SHA='%s'" % obs_sha),
         ("MANIFEST_SHA='a6324753cb238f8de5ed3af72eef9e3a425ab491dae62778f462849814eb1852'", "MANIFEST_SHA='%s'" % manifest),
         ("    path=HERE/'window-state-r9.py';raw=path.read_bytes()", "    path=HERE/'window-obs-r11.py';raw=path.read_bytes()"),
+        ("""    if sys.argv[1:]==['inner']:
+        w.mount_proof(None)""",
+         """    if sys.argv[1:]==['inner']:
+        w.ROOT=ROOT;w.mount_proof(None)"""),
         ("""    w.host(o);w.read(w.CITY/'city.toml',w.CITY_SHA[0]);w.read(w.RECEIPT,w.RECEIPT_SHA[0])
     w.verified_lifecycle(terminal=True)
     ROOT.mkdir(mode=0o700);w.ROOT=ROOT""", """    w.host(o);w.read(w.CITY/'city.toml',w.CITY_SHA[0]);w.read(w.RECEIPT,w.RECEIPT_SHA[0])

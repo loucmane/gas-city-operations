@@ -1,23 +1,22 @@
 #!/bin/sh
-# ga-4z38 window observe: the fresh accepted-state admission plus a full native integrity read,
-# immediately before PREFLIGHT.sh. It writes only its root and the log, installs nothing
-# and launches no worker. Outside the read-only sandbox it runs gc status, gc session
-# list and the provisioner go-version probe; the pinned inspector runs in read-only bwrap.
+# ga-4z38 window route: one raw route of the bound task while every rig is suspended, then the
+# read-only sole-task queue audit.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
-# Log: ~/.local/share/gas-city-staging/ga-4z38-window/observe-<timestamp>.txt. Exits with the first failing
+# Log: ~/.local/share/gas-city-staging/ga-4z38-window/route-<timestamp>.txt. Exits with the first failing
 # step's result, or 0.
 S=/home/loucmane/.local/share/gas-city-staging/ga-4z38-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
-COMMIT=${1:?usage: OBSERVE.sh <reviewed commit>}
-OBSERVE_SHA=fe65d72f05c9ca697046dd9379e84288cba7d7e79c1e747ba6245a615fa4a1e1
+COMMIT=${1:?usage: ROUTE.sh <reviewed commit>}
+ROUTE_SHA=357b2b5bc4a65acf52333fb8efca3cc7c31250841ec3542e467d43c50ed054a7
+AUDIT_SHA=1fe311cbb51f0858daca941ee9b811e67152ab85fab9073e3f74e7f8ab20761c
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
 [ ! -L "$S" ] || exit 1
-LOG="$S/observe-$(date -u +%Y%m%dT%H%M%SZ).txt"
+LOG="$S/route-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
 for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
@@ -27,18 +26,20 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-4z38-integrity-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-integrity-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-integrity-20260923-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-4z38-route-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-route-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-route-20260923-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-4z38-audit-route-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-audit-route-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-audit-route-20260923-r1"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== OBSERVE REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== ROUTE REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-step observe "$C/observe-integrity-r11.py" "$OBSERVE_SHA"
-echo "== OBSERVE PASS"
+step route "$C/route-task-r5.py" "$ROUTE_SHA"
+step audit-route "$C/audit-queue-r3.py" "$AUDIT_SHA" route
+echo "== ROUTE PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0

@@ -93,7 +93,7 @@ INPUT_SHA = ('24c1ca751303d5cab12a1605599d13cb5e5a152c977088fbb6869c7a052095ec',
     ]:
         read(HERE/relative,sha)
 """, "    # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.\n"
-       "    read(PREP/'result.json')\n")
+       "    read(PREP/'result.json', '%s')\n" % sha(Path(prep, 'result.json').read_bytes()))
     rep("    read(HERE/'isolation-candidate-r2/city.baseline.toml', CITY_SHA[0])",
         "    read(PREP/'city.baseline.toml', CITY_SHA[0])")
     rep("    read(HERE/'isolation-candidate-r2/city.isolated.toml', CITY_SHA[1])",

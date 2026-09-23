@@ -108,7 +108,7 @@ def load_support():
 
 def pins():
     # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.
-    read(PREP/'result.json')
+    read(PREP/'result.json', 'c0d1959c4e0df67e8f02b8716f43f2adf542c9d2b358d75f4027d92f91480c03')
     read(LAUNCH, '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea')
     read(PROVISIONER, '64425a728fc06a082865f2d53afcc6e4793974f5aadab49492d95f5e0a9f4a35')
     read(WITNESS, WITNESS_SHA)
