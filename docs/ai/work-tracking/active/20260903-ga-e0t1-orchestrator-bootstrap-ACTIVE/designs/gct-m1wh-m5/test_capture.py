@@ -43,7 +43,8 @@ class CaptureBoundTests(unittest.TestCase):
     def test_template_git_bound(self):
         before = {'.': meta(), 'HEAD': meta(), 'config': meta(), 'description': meta(), 'hooks': meta(),
                   'hooks/post-checkout': meta(), 'objects': meta(), 'objects/ab/cd': meta(),
-                  'worktrees': meta(), 'worktrees/x': meta(), 'worktrees/x/index': meta()}
+                  'worktrees': meta(), 'worktrees/x': meta(), 'worktrees/x/index': meta(),
+                  'worktrees/x/commondir': meta()}
         allowed = dict(before, **{'HEAD': meta(mtime=2), 'config': meta(size=5), 'objects/ef/01': meta(),
                                   'worktrees/y/HEAD': meta(), 'rr-cache/zz/preimage': meta(),
                                   'refs/heads/new': meta(), 'logs/HEAD': meta(),
@@ -53,12 +54,38 @@ class CaptureBoundTests(unittest.TestCase):
         for change, removal in (({'hooks/pre-commit': meta()}, None), ({'description': meta(size=9)}, None),
                                 ({'info/exclude': meta()}, None), ({'worktrees/x/config.worktree': meta()}, None),
                                 ({'config.worktree': meta()}, None), ({}, 'hooks/post-checkout'),
-                                ({'modules/sub/HEAD': meta()}, None)):
+                                ({'modules/sub/HEAD': meta()}, None), ({'refs/replace/abc': meta()}, None),
+                                ({'objects/info/alternates': meta()}, None), ({'objects/info/grafts': meta()}, None),
+                                ({'objects/info/http-alternates': meta()}, None), ({'shallow': meta()}, None),
+                                ({'worktrees/x/info/sparse-checkout': meta()}, None),
+                                ({'worktrees/x/commondir': meta(size=7)}, None)):
             now = dict(before, **change)
             if removal:
                 del now[removal]
             with self.subTest(change=change, removal=removal):
                 self.assertTrue(cap.classify('git', before, now)['outside_allowed'])
+
+    def test_template_git_bound_details(self):
+        before = {'.': meta(), 'packed-refs': meta(), 'worktrees': meta(), 'worktrees/x': meta(),
+                  'worktrees/x/commondir': meta(), 'worktrees/x/config.worktree': meta()}
+        unchanged = cap.classify('git', before, dict(before))
+        self.assertEqual(unchanged['outside_allowed'], ['worktrees/x/config.worktree'])
+        before.pop('worktrees/x/config.worktree')
+        grown = dict(before, **{'packed-refs': meta(size=4), 'worktrees/new': meta(),
+                                'worktrees/new/commondir': meta(), 'worktrees/new/gitdir': meta(),
+                                'worktrees/new/HEAD': meta()})
+        self.assertEqual(cap.classify('git', before, grown)['outside_allowed'], [])
+
+    def test_prereqs_source_is_pinned(self):
+        self.assertEqual(hashlib.sha256((HERE/'prereqs.py').read_bytes()).hexdigest(), cap.PREREQS_SHA)
+        saved = cap.PREREQS_SHA
+        cap.PREREQS_SHA = '0'*64
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'prereqs source differs'):
+                cap.load_prereqs()
+        finally:
+            cap.PREREQS_SHA = saved
+        self.assertTrue(callable(cap.load_prereqs().quiet_slot))
 
     def test_config_check_is_complete(self):
         listing = subprocess.run(['/usr/bin/git', '--no-optional-locks', 'config', '--file',
@@ -81,8 +108,11 @@ class CaptureBoundTests(unittest.TestCase):
         for path, expected in cap.M1_TREE_DIGESTS.items():
             self.assertEqual(trees[path]['sha256'], expected)
         self.assertEqual(cap.M1_TREE_DIGESTS[m.R5R], m.REPINNED_TREE_PREDECESSORS[m.R5R])
-        m3 = (Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/'
-                   'gct-m1wh-metadata-20260922-r3/manifest_candidate.py')).read_text()
+        m3_raw = (Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/'
+                       'gct-m1wh-metadata-20260922-r3/manifest_candidate.py')).read_bytes()
+        self.assertEqual(hashlib.sha256(m3_raw).hexdigest(),
+                         'cc918038bbd3c377c55ea397988d6b8ff3c7d9179f40679742a8599924591eaf')
+        m3 = m3_raw.decode()
         self.assertIn("TREE_NEW = '%s'" % cap.M1_TREE_DIGESTS[m.TEMPLATE + '/.git'], m3)
 
     def test_pin_change_guard(self):

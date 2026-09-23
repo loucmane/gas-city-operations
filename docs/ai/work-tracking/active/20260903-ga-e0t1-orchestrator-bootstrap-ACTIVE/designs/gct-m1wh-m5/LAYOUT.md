@@ -1,4 +1,4 @@
-# M5 metadata successor: layout proof and activation plan (r3)
+# M5 metadata successor: layout proof and activation plan (r4)
 
 This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
 Opus 5.5 scope of `gct-er3h`.
@@ -8,8 +8,10 @@ Opus 5.5 scope of `gct-er3h`.
 
 Revision history:
 - r2 answered the two HOLD reviews of r1 (`fb7f01cf`).
-- r3 answers the two reviews of r2 (`c3a49e55`). The manifest-lens run returned SOURCE_PASS
+- r3 answered the two reviews of r2 (`c3a49e55`). The manifest-lens run returned SOURCE_PASS
   with should-fix items; the live-safety run returned HOLD.
+- r4 answers the two HOLD reviews of r3 (`47c490ed`). Both found the same must-fix: the
+  reconciler observer ran without the user-bus environment.
 
 The tables at the end map every finding of both rounds to its disposition.
 
@@ -26,8 +28,8 @@ The tables at the end map every finding of both rounds to its disposition.
 - **Executor:** the operator runs each live command from a terminal on the machine that shares the
   supervisor's namespaces. This session cannot reach those namespaces, and while the operator is
   connected remotely, `!` output does not reach the session. A read-only probe must succeed first.
-- **Still needed:** an explicit operator acknowledgement of the libexpat re-pin. It is a
-  distribution security update, not part of the 2026-09-23 decisions.
+- **libexpat re-pin:** the operator accepted it on 2026-09-23. It is a distribution security
+  update and was not part of the earlier decisions.
 
 ## Why M3 refused, and what M5 changes
 
@@ -72,7 +74,7 @@ against 131,072 bytes.
 | R9 installed | 130,177 | 895 |
 | M3 (refused) | 130,420 | 652 |
 | M5 without dropping the test pins | 136,985 | −5,913 |
-| **M5 r2** | **128,071** | **3,001** |
+| **M5 r4** | **128,071** | **3,001** |
 
 The real build enforces the limit, so a placeholder-length difference cannot slip through. The
 lossless `r5/i` compaction is not used, for two reasons:
@@ -127,7 +129,8 @@ lossless `r5/i` compaction is not used, for two reasons:
   `--no-optional-locks`, run by the read-only M4 investigation, rewrote the `r5/r` index and five
   linked-worktree indexes inside the Template `.git`. HEAD did not change. Every git command the
   package runs at runtime (prereqs, capture, derivation) uses `--no-optional-locks`. The test
-  files only read Git objects. The quiescent window forbids any other reader.
+  files only read Git objects and the Template `.git/config`. The quiescent window forbids any
+  other reader.
 
   Both bounds are anchored and asserted (`test_capture.py`):
   - the `r5/r` M1 baseline is the R9 pin `ad25084c`;
@@ -136,7 +139,13 @@ lossless `r5/i` compaction is not used, for two reasons:
   For the Template `.git`:
   - additions, changes and removals are allowed only in objects, refs, logs, worktree admin, LFS
     locks, rerere and workflow transactions, plus HEAD, index, FETCH_HEAD, ORIG_HEAD,
-    COMMIT_EDITMSG and config;
+    COMMIT_EDITMSG, packed-refs and config;
+  - the following are never admitted, even inside those prefixes:
+    - `refs/replace`;
+    - object alternates and grafts;
+    - `shallow`;
+    - a worktree `info/` directory;
+    - a change to an existing worktree's `commondir` or `gitdir`;
   - no `config.worktree` may exist anywhere;
   - every config key except `branch.<name>.remote|merge` must equal the reviewed set exactly
     (`git config --list`).
@@ -189,14 +198,17 @@ launch, and every rig is suspended.
 
 `gc config show --validate` is weak evidence. It accepts even a bogus agent model, and it accepts
 the unordered state. The package therefore adds its own semantic check, `prereqs.models`: every
-claude-family selection must name an offered model. Its scope:
+claude-family selection must name an offered model. A selection without a provider inherits
+`workspace.provider`. Its scope:
 - providers.claude defaults;
 - city rig overrides;
 - `[[patches.agent]]` in city.toml and in the rig fragment;
 - every `agents/*/agent.toml` option default, resolving each provider through its `base` chain.
 
-The two other included fragments select no model. The check is a pure function and is unit
-tested: it refuses the unordered state and a probe agent that selects `opus-5`.
+The two other included fragments select no model, and pack-imported agent defaults are out of
+scope; the live packs set no model. The check is a pure function and is unit tested. It refuses
+the unordered state, a probe agent that selects `opus-5`, and an agent without a provider that
+selects `opus-5`.
 `validate_states.py` runs both checks on every state, and it runs only before the sequence,
 because `gc` reads the pack cache:
 
@@ -230,24 +242,36 @@ Pass the reviewed `manifest_candidate.py` SHA-256 to every `prereqs.py` and `cap
 **Reconciler quiet slot.** The Obsidian reconciler oneshot runs for about 8 s, about every 65 s,
 from an enabled timer. Nothing may pause that timer outside the executor window. Each quiet check
 therefore first waits, by natural drain only, until the oneshot is idle and the timer's next
-elapse is at least 40 s away. The timer's `NextElapseUSecMonotonic` is read through `busctl`. The
-bound is 180 s, and the timer is never started, stopped or signalled. `capture.py complete` waits
-for the same slot before its scope check.
+elapse is at least 40 s away.
+- The observer uses `systemctl --user` and `busctl --user` (the timer's
+  `NextElapseUSecMonotonic`).
+- It sets the user-bus environment (`XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS`), exactly as
+  the reviewed legacy `observe_recovery.ENV` does.
+- A test calls the real observer against the user bus.
+- The wait is bounded at 180 s, and the timer is never started, stopped or signalled.
+- `capture.py complete` waits for the same slot before its scope check, and loads `prereqs.py`
+  only at its pinned digest.
 
-**Intent and resume.** Each step writes `prereq-<step>.intent.json` just before its mutation.
+**Intent and resume.** Each step writes `prereq-<step>.intent.json` just before its mutation,
+after every precondition check, including the absence of a leftover forward temporary file.
 - If the step is interrupted afterwards (for example, a quiet check fails in `finish`), the same
   step refuses to run again.
-- `prereqs.py <candidate> resume <step>` then proves the exact reviewed postcondition and a quiet
-  host, and writes the missing record with `resumed: true`. It never repeats the mutation.
+- `prereqs.py <candidate> resume <step>` binds the intent's step and candidate. It then proves
+  the exact reviewed postcondition and a quiet host, and writes the missing record with
+  `resumed: true`. It never repeats the mutation.
+- `inputs` accepts an existing empty `m5-inputs` directory, which is what an interruption between
+  its `mkdir` and its intent leaves.
 - If the postcondition does not hold, only `rollback` remains.
 - A refusal before the intent is benign; nothing was changed.
 
-1. **Preconditions.** `prereqs.py` checks these before and after every step:
-   - supervisor identity through `host_observation`;
-   - an empty supervisor scope and no city tmux server (`quiet_scope`);
-   - suspension record `823e4e21`;
-   - installed manifest `a6324753`;
-   - no `reports/m5` root and no rollback record.
+1. **Preconditions.**
+   - `prereqs.py` checks these before every step:
+     - supervisor identity through `host_observation`;
+     - an empty supervisor scope and no city tmux server (`quiet_scope`);
+     - suspension record `823e4e21`;
+     - installed manifest `a6324753`;
+     - no `reports/m5` root and no rollback record.
+   - After every step it re-checks the quiet host: identity, scope and suspension.
 
    The host must be the same before and after each step. No other writer may touch any Template
    worktree or `reports/r5/r` until restoration. Check `/var/log/apt/history.log` first: an
@@ -277,12 +301,17 @@ for the same slot before its scope check.
       entry into it, runs `gc config show --validate` against it, and removes it. That reads the
       pack cache, which is why the capture settles cache access times.
    7. `city-final`: `8e148efa` → `4f7e170f`.
-   8. `authority`: `git worktree add --detach`. The worktree must be clean at 28539934, with
-      every file, link and tree root proved and the exact root entry set.
+   8. `authority`: `git worktree add --detach`. The worktree must be clean at 28539934, with no
+      ignored or untracked file anywhere (`status --ignored --untracked-files=all`). Every file,
+      link and tree root is proved, and the exact root entry set.
 3. **Capture.** Run `capture.py <candidate> audit`, then `complete`, then `settle`, then
    `freeze`. Each stage binds the previous stage's digest.
-   - `audit` refuses on any file, tree, protected, repository, canonical, config, link, absent or
-     host drift, and on any re-pinned tree change outside its bound.
+   - `audit` requires every prerequisite record to carry the capture's candidate digest. It
+     refuses on any of these:
+     - file, tree, protected, repository, canonical, config, link, absent or host drift;
+     - a re-pinned tree root-mode change;
+     - an ignored or untracked file in the authority;
+     - any re-pinned tree change outside its bound.
    - `complete`:
      - requires a stable audit host;
      - carries forward every infrastructure pin of the M3 baseline;
@@ -292,7 +321,8 @@ for the same slot before its scope check.
    - `settle` uses ordinary reads only.
 4. **Pin the baseline:**
    - set `BASELINE_SHA`;
-   - run the three test files; `test_build_against_frozen_baseline` builds from the real file;
+   - run the three test files (17 manifest, 32 prerequisite, 8 capture);
+     `test_build_against_frozen_baseline` builds from the real file;
    - write `source-pins.json`;
    - commit, and have the binding reviewed.
 5. **Transaction.** This is the unchanged reviewed M3 executor.
@@ -321,15 +351,22 @@ role selects `claude-opus-5`. Fable is not probed.
 `prereqs.py <candidate> rollback` runs only while all of the following hold:
 
 - the installed manifest is `a6324753`;
-- no M5 executor window is open: either `reports/m5` does not exist, or its `q/restored.json`
-  records a completed timer restoration and no `commit-consumed.json` exists. The executor's own
-  recovery restores only the reconciler timer; it never reverts the live prerequisites;
+- no M5 executor window may hold the reconciler timer paused or may have launched an apply. The
+  window counts as open when `q/commit-consumed.json` exists, or when
+  `q/preparation-pause-intent.json` exists without `q/restored.json`. A `prepare` that refused
+  before its pause intent never touched the timer. The executor's own recovery restores only the
+  timer; it never reverts the live prerequisites;
 - no rollback has already run.
 
-Rollback first verifies the digest of every backup it will need. It waits for the reconciler slot
-and records the quiet-host result. That result is recorded but not required, so that restoration
-stays possible. Rollback then restores, in an order that never composes the inverse unordered
-state:
+Rollback first verifies the digest of every backup it will need. It then attempts the quiet-host
+observation, including the reconciler slot, and records the result. That result is never
+required, so restoration stays possible even if the user bus or the reconciler misbehaves.
+
+Each restore writes exactly the bytes whose digest it has just verified, through a fresh per-attempt
+temporary name. A crash inside a restore therefore never blocks the next rollback attempt; the
+earlier temporary is reported, not deleted.
+
+Rollback restores in an order that never composes the inverse unordered state:
 
 1. the transitional city.toml, if the final one is installed;
 2. the fragment and the registry, from their `m5-inputs` copies;
@@ -341,20 +378,43 @@ It runs the model check after each config write and at the end, and it proves ev
 digest and the untracked set. This covers an unreviewed render too. It uses a temp-file name
 distinct from the forward steps.
 
-The record lists any leftover temp files and renderer shadow directories. They are reported and
-never deleted. The record also states whether the authority worktree remains; it is left in
-place, clean and unreferenced.
+The record lists leftovers, which are reported and never deleted:
+- temp files;
+- renderer shadow directories;
+- the retained CLI backup. A successor package's `cli` step refuses while that backup exists.
+
+The record also states whether the authority worktree remains; it is left in place, clean and
+unreferenced.
+
+Residual limits:
+- An interrupted `git checkout` that leaves `index.lock` or a half-updated tree is repaired
+  neither by `resume` nor by `rollback`. Its postcondition refuses, and the operator must recover
+  it by hand.
+- Rollback does not restore the Template `.git` tree to its R9 pin, and does not remove the
+  authority worktree. Neither matters while the installed manifest is still R9, because the M5
+  pins exist only in the M5 package.
 
 After a rollback, no forward step can run.
 
-`test_prereqs.py` covers:
+`test_prereqs.py` (32 tests) covers:
 
 - the full forward sequence;
 - a `finish` refusal followed by `resume`;
 - resume without the postcondition;
 - the Git-object check before the checkout moves;
 - both render refusal paths and an apply mismatch;
-- the executor-window gate;
+- the executor-window gate, including a `prepare` that never paused;
+- rollback refused once the successor is installed;
+- the user-bus environment and argv of the reconciler observer, and a call to the real user bus;
+- the composition of `quiet()`;
+- the companion checks before `city-transition` and `render`;
+- the worker and retained-blob checks before the checkout moves;
+- a backup written but not yet replaced;
+- a forward temporary that refuses before the intent;
+- rollback re-entry after a crash inside a restore;
+- resume binding its intent;
+- `inputs` reusing only an empty directory;
+- workspace-provider inheritance;
 - rollback from every partial state through consistent configs;
 - a corrupt backup;
 - leftovers;
@@ -375,6 +435,29 @@ Each dependency is digest-pinned at load time and has a byte-identical durable c
 - The M1 audit and the M3 baseline in the durable staging directory.
 
 If `/tmp` is cleaned, restore those paths byte for byte before running.
+
+## Review dispositions for r3 (47c490ed: two HOLD verdicts)
+
+| Finding | Disposition |
+| --- | --- |
+| Reconciler observer runs `systemctl --user` and `busctl --user` without the user-bus environment, so every quiet check, rollback and `complete` refuses (must-fix, both lenses) | `BUS_ENV` adds `XDG_RUNTIME_DIR` and `DBUS_SESSION_BUS_ADDRESS`, as the reviewed legacy environment does. The failure was reproduced (`Failed to connect to bus: No medium found`) and the fix verified. Tests assert the environment and argv and call the real user bus. |
+| Rollback requires the slot, contrary to the docs | The whole quiet observation, slot included, is recorded and never required (tested through the stubbed context). |
+| Re-pinned tree root-mode drift filtered out of the audit | The filter is removed; any drift left for a re-pinned tree refuses. |
+| `.git` bound admits `refs/replace`, alternates, grafts and worktree files | Denied: `refs/replace`, `objects/info/{alternates,http-alternates,grafts}`, `shallow`, worktree `info/`, and changes to an existing `commondir` or `gitdir` (tested). |
+| `packed-refs` undocumented | Documented in `capture.py` and here. |
+| `capture.py` loads `prereqs.py` unpinned; prerequisite records not bound to the candidate | `PREREQS_SHA` is pinned and tested for consistency. `audit` requires each record's `candidate_sha256`. |
+| Ignored files under authority trees unchecked | `status --ignored --untracked-files=all` must be empty, in both the `authority` step and the audit. |
+| Untested branches | Added: `config.worktree` present but unchanged; Template `.git` predecessor tree; worker and retained-blob refusals; `complete` is covered through its pure guards. |
+| Stale wording; M3 candidate read unpinned in a test | Fixed; the M3 candidate digest `cc918038` is asserted. |
+| Crash inside a rollback write blocks every later rollback | Per-attempt rollback temporary names (tested). |
+| `executor_closed` refuses when `prepare` never paused | The window is open only with a pause intent and no restoration, or with an apply consumed (tested, four cases). |
+| Precondition checks after the intent (leftover temporaries); `inputs` directory before its intent | Forward temporaries are checked before the intent (tested). `inputs` reuses only an empty directory (tested). |
+| CLI backup left behind and unreported | Reported in leftovers. The successor package's `cli` refusal is documented. |
+| `resume` trusts the intent file | It binds the intent's step and candidate (tested). |
+| Rollback verifies a backup, then re-reads it | It writes exactly the bytes it verified. |
+| `models()`: a missing provider is treated as not claude | A selection without a provider inherits `workspace.provider` (tested). Pack-imported defaults are documented out of scope. |
+| Docs: pre-step and post-step checks; interrupted checkout; Template `.git` pin and authority after rollback | Corrected and documented as residual limits. |
+| Test gaps: the real observer, `quiet()` composition, the `city-transition` and `render` companions, the rollback INSTALLED gate, backup written but not replaced | All added. |
 
 ## Review dispositions for r2 (c3a49e55: one SOURCE_PASS, one HOLD)
 

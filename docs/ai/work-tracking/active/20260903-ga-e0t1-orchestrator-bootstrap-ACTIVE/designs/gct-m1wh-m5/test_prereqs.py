@@ -181,7 +181,10 @@ class PrereqTests(unittest.TestCase):
         self._tmp.cleanup()
 
     def run_through(self, last):
-        for name in self.p.STEPS[:self.p.STEPS.index(last) + 1]:
+        self.run_through_from(self.p.STEPS[0], last)
+
+    def run_through_from(self, first, last):
+        for name in self.p.STEPS[self.p.STEPS.index(first):self.p.STEPS.index(last) + 1]:
             if name == 'render':
                 self.box.fake_render(self.m.RIGPERM_NEW)
             self.box.step(name)
@@ -351,22 +354,161 @@ class PrereqTests(unittest.TestCase):
         self.assertFalse(self.inputs('prereq-authority.json').exists())
 
     def test_executor_window_gates_rollback(self):
-        self.box.step('inputs')
-        q = Path(self.m.ROOT)/'q'
-        q.mkdir(parents=True)
-        with self.assertRaisesRegex(RuntimeError, 'M5 package root already exists'):
-            self.box.step('cli')
-        with self.assertRaisesRegex(RuntimeError, 'executor window is open'):
-            self.box.step('rollback')
-        (q/'restored.json').write_text('{}')
-        (q/'commit-consumed.json').write_text('{}')
-        with self.assertRaisesRegex(RuntimeError, 'executor window is open'):
-            self.box.step('rollback')
-        (q/'commit-consumed.json').unlink()
-        self.box.step('rollback')
+        cases = ((('prepare-consumed.json',), True), (('preparation-pause-intent.json',), False),
+                 (('preparation-pause-intent.json', 'restored.json'), True),
+                 (('preparation-pause-intent.json', 'restored.json', 'commit-consumed.json'), False))
+        for records, allowed in cases:
+            with self.subTest(records=records):
+                self.tearDown(); self.setUp()
+                self.run_through('cli')
+                q = Path(self.m.ROOT)/'q'
+                q.mkdir(parents=True)
+                for name in records:
+                    (q/name).write_text('{}')
+                with self.assertRaisesRegex(RuntimeError, 'M5 package root already exists'):
+                    self.box.step('city-transition')
+                if allowed:
+                    self.box.step('rollback')
+                    self.assertEqual(sha(self.p.CLI.read_bytes()), self.m.CLI_OLD)
+                else:
+                    with self.assertRaisesRegex(RuntimeError, 'executor window is open'):
+                        self.box.step('rollback')
+                    self.assertEqual(sha(self.p.CLI.read_bytes()), self.m.CLI_NEW)
+
+    def test_rollback_refuses_once_the_successor_is_installed(self):
+        self.run_through('cli')
         self.p.INSTALLED.write_bytes(b'successor\n')
+        with self.assertRaisesRegex(RuntimeError, 'successor may be installed'):
+            self.box.step('rollback')
         with self.assertRaisesRegex(RuntimeError, 'not the R9 predecessor'):
+            self.box.step('city-transition')
+
+    def test_reconciler_observer_uses_the_user_bus(self):
+        seen = []
+        original = self.p.run
+
+        def run(argv, env, cwd='/'):
+            seen.append((argv, env))
+            if argv[0] == '/usr/bin/busctl':
+                return dict(argv=argv, returncode=0, stdout='t 123456789\n', stderr='')
+            if argv[3].endswith('.timer'):
+                return dict(argv=argv, returncode=0, stdout='ActiveState=active\n', stderr='')
+            return dict(argv=argv, returncode=0, stdout='ActiveState=failed\nExecMainStartTimestampMonotonic=7\n',
+                        stderr='')
+        self.p.run = run
+        try:
+            state = self.p.reconciler_state()
+        finally:
+            self.p.run = original
+        self.assertEqual(state, dict(active='failed', started_us=7, timer='active', next_us=123456789))
+        self.assertEqual(len(seen), 3)
+        for argv, env in seen:
+            self.assertIn('--user', argv)
+            self.assertEqual(env['XDG_RUNTIME_DIR'], '/run/user/1000')
+            self.assertEqual(env['DBUS_SESSION_BUS_ADDRESS'], 'unix:path=/run/user/1000/bus')
+        self.assertEqual(seen[2][0][:4], ['/usr/bin/busctl', '--user', 'get-property', 'org.freedesktop.systemd1'])
+
+    def test_reconciler_observer_reads_the_real_user_bus(self):
+        state = self.p.reconciler_state()
+        self.assertIn(state['timer'], ('active', 'inactive', 'failed'))
+        self.assertIsInstance(state['next_us'], int)
+
+    def test_quiet_composes_slot_host_scope_and_suspension(self):
+        c = self.p.Context.__new__(self.p.Context)
+        calls = []
+        c.slot = lambda: calls.append('slot') or dict(slot=True)
+        c.o = types.SimpleNamespace(host_observation=lambda: calls.append('host') or dict(host='h'))
+        c.s = types.SimpleNamespace(quiet_scope=lambda host: calls.append('scope') or dict(scope=host))
+        self.assertEqual(c.quiet()['reconciler'], dict(slot=True))
+        self.assertEqual(calls, ['slot', 'host', 'scope'])
+        self.p.SUSPENSION.write_bytes(b'resumed\n')
+        with self.assertRaisesRegex(RuntimeError, 'suspension record drift'):
+            c.quiet()
+
+    def test_companion_checks_before_city_transition_and_render(self):
+        self.run_through('cli')
+        self.p.RIG.write_bytes(self.box.rig_new)
+        with self.assertRaisesRegex(RuntimeError, 'city step fragment/registry predecessor'):
+            self.box.step('city-transition')
+        self.assertFalse(self.inputs('prereq-city-transition.intent.json').exists())
+        self.p.RIG.write_bytes(RIG_OLD_BYTES)
+        self.run_through_from('city-transition', 'registry')
+        (self.p.CITY/'city.toml').write_bytes(CITY_OLD_BYTES)
+        self.box.fake_render(self.m.RIGPERM_NEW)
+        with self.assertRaisesRegex(RuntimeError, 'render predecessor'):
+            self.box.step('render')
+        self.assertFalse(self.inputs('prereq-render.intent.json').exists())
+
+    def test_checkout_proves_worker_and_retained_blobs_before_moving(self):
+        for field in ('CHANGED_INPUTS', 'RETAINED_TEMPLATE_PINS'):
+            with self.subTest(field=field):
+                self.tearDown(); self.setUp()
+                self.run_through('city-transition')
+                if field == 'CHANGED_INPUTS':
+                    path, before, _ = self.m.CHANGED_INPUTS[0]
+                    self.m.CHANGED_INPUTS = ((path, before, sha(b'other worker\n')),)
+                    reason = 'target signing worker blob'
+                else:
+                    self.m.RETAINED_TEMPLATE_PINS = {k: sha(b'other\n') for k in self.m.RETAINED_TEMPLATE_PINS}
+                    reason = 'target retained blob'
+                with self.assertRaisesRegex(RuntimeError, reason):
+                    self.box.step('checkout')
+                self.assertEqual(self.p.checkout_state()[0], self.p.OLD_COMMIT)
+                self.assertFalse(self.inputs('prereq-checkout.intent.json').exists())
+
+    def test_backup_written_but_not_replaced(self):
+        self.box.step('inputs')
+        self.box.ctx.intent('cli', dict(host='stable'))
+        self.p.CLI_BACKUP.write_bytes(self.p.CLI.read_bytes())
+        with self.assertRaisesRegex(RuntimeError, 'installed CLI identity'):
+            self.p.resume(self.box.ctx, 'cli')
+        self.box.step('rollback')
+        record = json.loads(self.inputs('rollback.json').read_text())
+        self.assertIn(str(self.p.CLI_BACKUP), record['leftovers'])
+        self.assertEqual(sha(self.p.CLI.read_bytes()), self.m.CLI_OLD)
+
+    def test_forward_temporary_refuses_before_the_intent(self):
+        self.box.step('inputs')
+        (self.p.CLI.parent/'.claude.gct-m1wh-m5.forward.tmp').write_bytes(b'left over\n')
+        with self.assertRaisesRegex(RuntimeError, 'leftover temporary file'):
             self.box.step('cli')
+        self.assertFalse(self.inputs('prereq-cli.intent.json').exists())
+        self.assertFalse(self.p.CLI_BACKUP.exists())
+
+    def test_rollback_reenters_after_a_crash_inside_a_restore(self):
+        self.run_through('cli')
+        (self.p.CLI.parent/'.claude.gct-m1wh-m5.rollback.1.tmp').write_bytes(b'partial\n')
+        self.box.step('rollback')
+        self.assertEqual(sha(self.p.CLI.read_bytes()), self.m.CLI_OLD)
+        self.assertIn(str(self.p.CLI.parent/'.claude.gct-m1wh-m5.rollback.1.tmp'),
+                      json.loads(self.inputs('rollback.json').read_text())['leftovers'])
+
+    def test_resume_binds_its_intent(self):
+        self.box.step('inputs')
+        self.box.step('cli')
+        self.box.ctx.intent('city-transition', dict(host='stable'))
+        intent = self.inputs('prereq-city-transition.intent.json')
+        intent.chmod(0o600)
+        intent.write_text(json.dumps(dict(step='city-transition', candidate_sha256='0'*64,
+                                          quiet_before=dict(host='stable'))))
+        with self.assertRaisesRegex(RuntimeError, 'intent belongs to another step or candidate'):
+            self.p.resume(self.box.ctx, 'city-transition')
+
+    def test_inputs_reuses_only_an_empty_directory(self):
+        self.inputs('').mkdir(parents=True)
+        self.box.step('inputs')
+        self.assertTrue(self.inputs('prereq-inputs.json').exists())
+        self.tearDown(); self.setUp()
+        self.inputs('').mkdir(parents=True)
+        self.inputs('stray').write_text('x')
+        with self.assertRaisesRegex(RuntimeError, 'inputs directory already exists'):
+            self.box.step('inputs')
+
+    def test_models_inherit_the_workspace_provider(self):
+        _, _, final = self.box.ctx.city_bytes()
+        agents = {'/x/agents/probe/agent.toml': 'option_defaults = { model = "opus-5" }\n'}
+        with self.assertRaisesRegex(RuntimeError, 'agents/probe/agent.toml'):
+            self.p.models(final.decode(), self.box.rig_new.decode(), agents)
 
     def test_rollback_from_every_partial_state_through_consistent_configs(self):
         for last in self.p.STEPS[1:]:
@@ -392,11 +534,9 @@ class PrereqTests(unittest.TestCase):
             self.box.step('rollback')
         self.assertEqual(sha(self.p.CLI.read_bytes()), self.m.CLI_NEW)
 
-    def test_leftover_temporary_file_refuses_and_is_reported(self):
+    def test_leftover_temporary_file_is_reported(self):
         self.box.step('inputs')
         (self.p.CLI.parent/'.claude.gct-m1wh-m5.forward.tmp').write_bytes(b'left over\n')
-        with self.assertRaisesRegex(RuntimeError, 'leftover temporary file'):
-            self.box.step('cli')
         self.assertIn(str(self.p.CLI.parent/'.claude.gct-m1wh-m5.forward.tmp'), self.p.leftovers())
 
     def test_host_change_refuses_record(self):

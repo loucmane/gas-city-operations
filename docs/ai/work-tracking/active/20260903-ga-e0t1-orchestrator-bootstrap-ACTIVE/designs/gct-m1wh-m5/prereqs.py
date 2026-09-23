@@ -27,12 +27,15 @@ that a claude-family selection names. The transitional city.toml adds
 opus-5-5 before anything selects it, and the final city.toml removes opus-5
 only after nothing selects it.
 
-`rollback` restores every changed live file from digest-verified backups. It
+`rollback` restores every changed live file from digest-verified bytes. It
 goes through the transitional city first, so it never composes the inverse
-unordered state, and it returns the canonical checkout. It runs only while the
-installed platform manifest is still the R9 predecessor, and only when no M5
-executor window is open: either no reports/m5 root exists, or that root
-records a completed timer restoration and no apply.
+unordered state, and it returns the canonical checkout.
+- It runs only while the installed platform manifest is still the R9
+  predecessor, and only while no M5 executor window may hold the reconciler
+  timer paused or may have launched an apply.
+- Its quiet observation is recorded but never required.
+- Each attempt writes through a fresh temporary name, so a crash inside a
+  restore never blocks the next attempt.
 
 No lifecycle, timer, worker, signer or Bead action.
 """
@@ -70,6 +73,9 @@ SLOT_DEADLINE_S = 180
 GIT_ENV = {'PATH': '/usr/bin:/bin', 'HOME': '/home/loucmane', 'LANG': 'C', 'GIT_CONFIG_NOSYSTEM': '1'}
 CITY_ENV = {'PATH': '/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin', 'HOME': '/home/loucmane',
             'LANG': 'C', 'GC_HOME': '/home/loucmane/gascity/home'}
+# systemctl --user and busctl --user need the user bus, exactly as the reviewed legacy observe_recovery.ENV sets it.
+BUS_ENV = dict(CITY_ENV, USER='loucmane', LOGNAME='loucmane', XDG_RUNTIME_DIR='/run/user/1000',
+               DBUS_SESSION_BUS_ADDRESS='unix:path=/run/user/1000/bus')
 EDITS = {21: ('model = "opus-5"\n', 'model = "opus-5-5"\n'),
          28: ('default = "opus-5"\n', 'default = "opus-5-5"\n'),
          31: ('value = "opus-5"\n', 'value = "opus-5-5"\n'),
@@ -152,8 +158,16 @@ def temporary(path, operation):
     return Path(path).parent/('.' + Path(path).name + '.gct-m1wh-m5.' + operation + '.tmp')
 
 
+def rollback_temporary(path):
+    for attempt in range(1, 10):
+        tmp = temporary(path, 'rollback.%d' % attempt)
+        if not os.path.lexists(tmp):
+            return tmp
+    raise RuntimeError('nine rollback attempts left temporaries; inspect ' + str(path))
+
+
 def replace_atomic(path, data, mode, operation):
-    tmp = temporary(path, operation)
+    tmp = rollback_temporary(path) if operation == 'rollback' else temporary(path, operation)
     require(not os.path.lexists(tmp), 'leftover temporary file needs inspection: ' + str(tmp))
     write_exclusive(tmp, data, mode)
     os.replace(tmp, path)
@@ -190,12 +204,12 @@ def checkout_state():
 
 def reconciler_state():
     shown = run(['/usr/bin/systemctl', '--user', 'show', RECONCILER, '-p', 'ActiveState',
-                 '-p', 'ExecMainStartTimestampMonotonic'], CITY_ENV)
+                 '-p', 'ExecMainStartTimestampMonotonic'], BUS_ENV)
     fields = dict(line.split('=', 1) for line in shown['stdout'].splitlines() if '=' in line)
     timer = run(['/usr/bin/systemctl', '--user', 'show', RECONCILER.replace('.service', '.timer'),
-                 '-p', 'ActiveState'], CITY_ENV)
+                 '-p', 'ActiveState'], BUS_ENV)
     elapse = run(['/usr/bin/busctl', '--user', 'get-property', 'org.freedesktop.systemd1', RECONCILER_TIMER_OBJECT,
-                  'org.freedesktop.systemd1.Timer', 'NextElapseUSecMonotonic'], CITY_ENV)
+                  'org.freedesktop.systemd1.Timer', 'NextElapseUSecMonotonic'], BUS_ENV)
     parts = elapse['stdout'].split()
     require(shown['returncode'] == timer['returncode'] == elapse['returncode'] == 0
             and len(parts) == 2 and parts[0] == 't' and parts[1].isdigit(), 'reconciler observation')
@@ -231,13 +245,16 @@ def models(city_text, rig_text, agent_texts=None):
     """Every model value a claude-family selection names must be offered by the claude picker.
 
     Scope: providers.claude defaults, city rig overrides, [[patches.agent]] in
-    city.toml and in the rig fragment, and agent.toml option_defaults. The two
-    other included fragments select no model.
+    city.toml and in the rig fragment, and agent.toml option_defaults. A
+    selection without a provider inherits workspace.provider. The two other
+    included fragments select no model. Pack-imported agent defaults are out of
+    scope; the live packs set no model.
     """
     city = tomllib.loads(city_text)
     rig = tomllib.loads(rig_text)
     providers = dict(city.get('providers', {}))
     providers.update(rig.get('providers', {}))
+    default_provider = city.get('workspace', {}).get('provider', '')
 
     def claude_family(name):
         seen = set()
@@ -261,17 +278,17 @@ def models(city_text, rig_text, agent_texts=None):
     for rig_row in city.get('rigs', []):
         for index, override in enumerate(rig_row.get('overrides', [])):
             model = override.get('option_defaults', {}).get('model')
-            if model is not None and claude_family(override.get('provider', '')):
+            if model is not None and claude_family(override.get('provider', default_provider)):
                 selected['rigs.%s.overrides.%d' % (rig_row['name'], index)] = model
     for origin, document in (('city', city), ('fragment', rig)):
         for index, patch in enumerate(document.get('patches', {}).get('agent', [])):
             model = patch.get('option_defaults', {}).get('model')
-            if model is not None and claude_family(patch.get('provider', '')):
+            if model is not None and claude_family(patch.get('provider', default_provider)):
                 selected['%s.patches.agent.%d' % (origin, index)] = model
     for path, text in sorted((agent_texts or {}).items()):
         agent = tomllib.loads(text)
         model = agent.get('option_defaults', {}).get('model')
-        if model is not None and claude_family(agent.get('provider', '')):
+        if model is not None and claude_family(agent.get('provider', default_provider)):
             selected[path] = model
     require(any(k.startswith('fragment.patches.agent.') for k in selected), 'claude-signing patch not found')
     missing = {k: v for k, v in selected.items() if v not in offered}
@@ -299,12 +316,17 @@ class Context:
         return dict(host=host, scope=scope, suspension_sha256=SUSPENSION_SHA, reconciler=slot)
 
     def executor_closed(self):
-        """True when no M5 executor window is open: no package root, or a restored one without apply."""
+        """False while an M5 executor window may hold the timer paused or may have launched an apply."""
         root = Path(self.m.ROOT)
         if not os.path.lexists(root):
             return True
         q = root/'q'
-        return os.path.lexists(q/'restored.json') and not os.path.lexists(q/'commit-consumed.json')
+        if os.path.lexists(q/'commit-consumed.json'):
+            return False
+        if os.path.lexists(q/'restored.json'):
+            return True
+        # prepare can refuse before its pause intent; then the timer was never touched.
+        return not os.path.lexists(q/'preparation-pause-intent.json')
 
     def record_path(self, step, suffix=''):
         return self.inputs/('prereq-' + step + suffix + '.json')
@@ -408,9 +430,9 @@ def post_render(c):
 def post_authority(c):
     auth = Path(c.m.AUTHORITY)
     head = git(auth, 'rev-parse', 'HEAD')
-    status = git(auth, 'status', '--porcelain', '--untracked-files=normal')
+    status = git(auth, 'status', '--porcelain', '--ignored', '--untracked-files=all')
     require(head['stdout'].strip() == c.m.TEMPLATE_COMMIT and status['returncode'] == 0
-            and status['stdout'] == '', 'authority HEAD/clean')
+            and status['stdout'] == '', 'authority HEAD/clean, no ignored or untracked file')
     files = {}
     for relative, value, mode in c.m.AUTH_INPUTS:
         files[relative] = identity(auth/relative)
@@ -432,9 +454,17 @@ POST = {'inputs': post_inputs, 'cli': post_cli,
         'city-final': lambda c: post_city(c, c.m.CITY_NEW), 'authority': post_authority}
 
 
+def no_forward_temporary(*paths):
+    for path in paths:
+        require(not os.path.lexists(temporary(path, 'forward')),
+                'leftover temporary file needs inspection: ' + str(temporary(path, 'forward')))
+
+
 def step_inputs(c):
     c.common('inputs')
-    require(not os.path.lexists(c.inputs), 'inputs directory already exists')
+    # An empty directory is what an interruption between mkdir and the intent leaves; nothing else is accepted.
+    require(not os.path.lexists(c.inputs) or (c.inputs.is_dir() and not any(c.inputs.iterdir())),
+            'inputs directory already exists')
     registry_old, rig_old = REGISTRY.read_bytes(), RIG.read_bytes()
     require(digest(rig_old) == c.m.RIGPERM_OLD and sha(CITY/'city.toml') == c.m.CITY_OLD
             and digest(registry_old) == c.m.REGISTRY_OLD, 'live predecessor bytes')
@@ -442,8 +472,9 @@ def step_inputs(c):
     registry_new = c.registry_bytes(registry_old)
     before = c.quiet()
     # Every byte is derived and verified before the directory is consumed.
-    os.mkdir(c.inputs, 0o700)
-    fsync_dir(c.inputs.parent)
+    if not os.path.lexists(c.inputs):
+        os.mkdir(c.inputs, 0o700)
+        fsync_dir(c.inputs.parent)
     c.intent('inputs', before)
     for name, data in (('city.toml', final), ('city.toml.transition', transition),
                        ('rig-permissions.json.new', registry_new), ('rig-permissions.json.before', registry_old),
@@ -458,6 +489,7 @@ def step_cli(c):
     staged = STAGED.read_bytes()
     require(digest(staged) == c.m.CLI_NEW, 'staged CLI bytes')
     require(not os.path.lexists(CLI_BACKUP), 'CLI backup already exists')
+    no_forward_temporary(CLI)
     current = CLI.read_bytes()
     require(digest(current) == c.m.CLI_OLD, 'live CLI predecessor bytes')
     c.intent('cli', before)
@@ -475,6 +507,7 @@ def replace_city(c, step, before_sha, source, after_sha, fragment_sha, registry_
     require(digest(data) == after_sha, 'city source bytes')
     models_before = model_consistency()
     models_candidate = model_consistency(city_text=data.decode())
+    no_forward_temporary(path)
     c.intent(step, before)
     replace_atomic(path, data, 0o644, 'forward')
     c.finish(step, before, dict(post_city(c, after_sha), before_sha256=before_sha, models_before=models_before,
@@ -511,6 +544,7 @@ def step_registry(c):
     require(identity(REGISTRY) == owned(c.m.REGISTRY_OLD, 0o644), 'live registry predecessor identity')
     data = (c.inputs/'rig-permissions.json.new').read_bytes()
     require(digest(data) == c.m.REGISTRY_NEW, 'registry source bytes')
+    no_forward_temporary(REGISTRY)
     c.intent('registry', before)
     replace_atomic(REGISTRY, data, 0o644, 'forward')
     c.finish('registry', before, dict(post_registry(c), before_sha256=c.m.REGISTRY_OLD))
@@ -561,7 +595,10 @@ def resume(c, step):
     c.common(step)
     intent = c.record_path(step, '.intent')
     require(os.path.lexists(intent), 'no interrupted intent for ' + step)
-    before = json.loads(intent.read_text())['quiet_before']
+    recorded = json.loads(intent.read_text())
+    require(recorded.get('step') == step and recorded.get('candidate_sha256') == c.expected,
+            'intent belongs to another step or candidate')
+    before = recorded['quiet_before']
     verified = POST[step](c)
     c.finish(step, before, dict(verified, resumed_from_intent=str(intent)), resumed=True)
 
@@ -572,6 +609,8 @@ def leftovers():
         found += sorted(str(p) for p in directory.glob('.*.gct-m1wh-m5.*.tmp'))
     found += sorted(str(p) for p in (CITY/'managed').glob('.rig-permissions.toml.tmp.*'))
     found += sorted(str(p) for p in CITY.parent.glob('.' + CITY.name + '.gct-validate.*'))
+    if os.path.lexists(CLI_BACKUP):
+        found.append(str(CLI_BACKUP))
     return found
 
 
@@ -579,7 +618,6 @@ def rollback(c):
     require(sha(INSTALLED) == c.m.OLD_MANIFEST_SHA, 'successor may be installed; rollback refused')
     require(c.executor_closed(), 'M5 executor window is open; restore it through the executor first')
     require(os.path.isdir(c.inputs) and not os.path.lexists(c.inputs/'rollback.json'), 'rollback state')
-    slot = c.slot()
     try:
         observed = c.quiet()
     except Exception as exc:  # restoration must remain possible; record why the host was not quiet
@@ -597,8 +635,10 @@ def rollback(c):
             require(os.path.lexists(path) and sha(path) == wanted[name], 'backup bytes differ: ' + str(path))
     actions, models_seen = [], []
 
-    def restore(live, source, mode, label):
-        replace_atomic(live, Path(source).read_bytes(), mode, 'rollback')
+    def restore(live, source, mode, label, expected):
+        data = Path(source).read_bytes()
+        require(digest(data) == expected, 'backup bytes differ: ' + str(source))
+        replace_atomic(live, data, mode, 'rollback')
         actions.append(label)
         try:
             models_seen.append(dict(after=label, models=model_consistency()))
@@ -607,15 +647,17 @@ def rollback(c):
 
     # Reverse order through consistent states: transition city, fragment, registry, predecessor city.
     if needed['transition']:
-        restore(CITY/'city.toml', backups['transition'], 0o644, 'city-transition')
+        restore(CITY/'city.toml', backups['transition'], 0o644, 'city-transition', CITY_TRANSITION)
     if needed['rig']:
-        restore(RIG, backups['rig'], 0o644, 'rig-permissions.toml')
+        restore(RIG, backups['rig'], 0o644, 'rig-permissions.toml', c.m.RIGPERM_OLD)
     if needed['registry']:
-        restore(REGISTRY, backups['registry'], 0o644, 'rig-permissions.json')
+        restore(REGISTRY, backups['registry'], 0o644, 'rig-permissions.json', c.m.REGISTRY_OLD)
     if sha(CITY/'city.toml') != c.m.CITY_OLD:
-        restore(CITY/'city.toml', backups['city'], 0o644, 'city.toml')
+        restore(CITY/'city.toml', backups['city'], 0o644, 'city.toml', c.m.CITY_OLD)
     if needed['cli']:
-        replace_atomic(CLI, CLI_BACKUP.read_bytes(), 0o755, 'rollback')
+        data = CLI_BACKUP.read_bytes()
+        require(digest(data) == c.m.CLI_OLD, 'backup bytes differ: ' + str(CLI_BACKUP))
+        replace_atomic(CLI, data, 0o755, 'rollback')
         actions.append('cli')
     if checkout_state()[0] != OLD_COMMIT:
         moved = git(TEMPLATE, 'checkout', '--detach', OLD_COMMIT)
@@ -628,7 +670,7 @@ def rollback(c):
             and identity(REGISTRY) == owned(c.m.REGISTRY_OLD, 0o644)
             and identity(CLI) == owned(c.m.CLI_OLD, 0o755)
             and head == OLD_COMMIT and status == UNTRACKED, 'rollback postcondition')
-    value = dict(actions=actions, candidate_sha256=c.expected, reconciler=slot, quiet=observed,
+    value = dict(actions=actions, candidate_sha256=c.expected, quiet=observed,
                  models_after_each=models_seen, models_final=final, leftovers=leftovers(),
                  authority_left_in_place=os.path.lexists(c.m.AUTHORITY))
     write_exclusive(c.inputs/'rollback.json', (json.dumps(value, sort_keys=True, indent=1) + '\n').encode(), 0o600)

@@ -17,8 +17,11 @@ ignoring access times:
 - r5/r may differ only in .git/index. Its M1 digest is the R9 pin ad25084c.
 - The Template .git may add, change or remove only Git object, ref, log,
   worktree-admin, LFS lock, rerere and workflow-transaction state, plus HEAD,
-  index, FETCH_HEAD, ORIG_HEAD, COMMIT_EDITMSG and config. Its M1 digest is the
-  M3-reviewed cbe4982a.
+  index, FETCH_HEAD, ORIG_HEAD, COMMIT_EDITMSG, packed-refs and config. Its M1
+  digest is the M3-reviewed cbe4982a.
+- Never admitted, even inside those prefixes: refs/replace, object alternates
+  and grafts, shallow, a worktree info/ directory, and a change to an existing
+  worktree's commondir or gitdir.
 - No config.worktree may exist anywhere in it.
 - Every config key other than branch.<name>.remote and branch.<name>.merge must
   equal the reviewed set exactly.
@@ -47,6 +50,10 @@ M1_AUDIT_SHA = '942583964ff1bac9bd9bb9e343b7c5323f7d986edf9b71a40df3e2bb2bec2930
 GIT_EXACT = {'.', 'HEAD', 'index', 'FETCH_HEAD', 'ORIG_HEAD', 'COMMIT_EDITMSG', 'config', 'packed-refs',
              'objects', 'refs', 'logs', 'worktrees', 'lfs', 'lfs/cache', 'gas-city-workflow', 'rr-cache'}
 GIT_PREFIXES = ('objects/', 'refs/', 'logs/', 'worktrees/', 'lfs/cache/locks/', 'gas-city-workflow/', 'rr-cache/')
+# Entries that change how objects or refs resolve are never admitted, even inside an allowed prefix.
+GIT_DENIED = {'objects/info/alternates', 'objects/info/http-alternates', 'objects/info/grafts', 'refs/replace',
+              'shallow', 'info/grafts'}
+GIT_DENIED_PREFIXES = ('refs/replace/',)
 M1_TREE_DIGESTS = {
     '/home/loucmane/gas-city-template/.git': 'cbe4982a3117d7212de86092031a81586b20667a4437fcb143a7ad3f78578c9b',
     '/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/r5/r':
@@ -62,14 +69,26 @@ CONFIG_EXPECTED = (
     'user.signingkey=FD5585922F5335BC378AD8D42ECF4432C7E7982D!')
 
 
+CANDIDATE_SHA = None
+# prereqs.py supplies the reconciler quiet slot; its reviewed bytes are pinned here and by test_capture.py.
+PREREQS_SHA = 'd0b2e7dfecc0c94fe60d09219590731b210647f891d104bf55f9afb2c69b4c59'
+
+
 def load_candidate(expected):
-    global m
+    global m, CANDIDATE_SHA
     path = HERE/'manifest_candidate.py'
     raw = path.read_bytes()
     require(hashlib.sha256(raw).hexdigest() == expected, 'candidate source differs from the reviewed digest')
     m = types.ModuleType('m5_candidate'); m.__file__ = str(path)
     exec(compile(raw, str(path), 'exec', dont_inherit=True), m.__dict__)
     require(Path(m.O + '/reports/m5-capture') == OUT, 'capture root binding')
+    CANDIDATE_SHA = expected
+
+
+def load_prereqs():
+    raw = (HERE/'prereqs.py').read_bytes()
+    require(hashlib.sha256(raw).hexdigest() == PREREQS_SHA, 'prereqs source differs from the reviewed digest')
+    return load_source('prereqs.py', 'm5_prereqs')
 
 
 PREREQS = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5-inputs')
@@ -126,10 +145,21 @@ def classify(kind, before, now):
     if kind == 'r5r':
         outside = [k for k in changed if k not in ('.git', '.git/index')] + added + removed
     else:
-        allowed = lambda k: (k in GIT_EXACT or k.startswith(GIT_PREFIXES)) and \
-            k.rsplit('/', 1)[-1] != 'config.worktree'
+        def allowed(k):
+            parts = k.split('/')
+            if not (k in GIT_EXACT or k.startswith(GIT_PREFIXES)) or k.startswith(GIT_DENIED_PREFIXES):
+                return False
+            if k in GIT_DENIED or parts[-1] == 'config.worktree':
+                return False
+            # A linked worktree admin directory may gain entries, but never info/ or a redirected common dir.
+            if parts[0] == 'worktrees' and len(parts) >= 3 and parts[2] == 'info':
+                return False
+            return True
         outside = [k for k in changed + added + removed if not allowed(k)]
+        outside += [k for k in changed if k.split('/')[0] == 'worktrees' and k.rsplit('/', 1)[-1]
+                    in ('commondir', 'gitdir') and k not in outside]
         outside += [k for k in now if k.rsplit('/', 1)[-1] == 'config.worktree' and k not in outside]
+        outside += [k for k in now if (k in GIT_DENIED or k.startswith(GIT_DENIED_PREFIXES)) and k not in outside]
     return dict(changed=changed, added=added, removed=removed, outside_allowed=outside)
 
 
@@ -194,7 +224,10 @@ def audit():
     o.GC_SHA = m.NEW
     for step in ('inputs', 'cli', 'city-transition', 'checkout', 'registry', 'render', 'city-final',
                  'authority'):
-        require(os.path.lexists(PREREQS/('prereq-' + step + '.json')), 'live prerequisite missing: ' + step)
+        record = PREREQS/('prereq-' + step + '.json')
+        require(os.path.lexists(record), 'live prerequisite missing: ' + step)
+        require(json.loads(record.read_text()).get('candidate_sha256') == CANDIDATE_SHA,
+                'live prerequisite ran with another candidate: ' + step)
     require(not os.path.lexists(OUT) and not os.path.lexists(m.ROOT)
             and not os.path.lexists(PREREQS/'rollback.json'), 'capture, package or rollback consumed')
     manifest = s.read(o.CITY/'.gc/platform/install-manifest.json', m.OLD_MANIFEST_SHA)
@@ -238,6 +271,10 @@ def audit():
         if head['stdout'].strip() != repo['commit'] or status['returncode'] != 0 or status['stdout']:
             drifts.append(dict(kind='repository', name=repo['name'], expected=repo,
                                actual=repositories[repo['name']]))
+    ignored = git(o, m.AUTHORITY, 'status', '--porcelain', '--ignored', '--untracked-files=all')
+    repositories[m.AUTHORITY_NAME]['ignored_and_untracked'] = ignored
+    if ignored['returncode'] != 0 or ignored['stdout']:
+        drifts.append(dict(kind='authority-ignored-or-untracked', actual=ignored))
     bounds = {path: bounded_tree_diff(path, trees[path]['inventory']) for path in m.REPINNED_TREES}
     for path, diff in bounds.items():
         if diff['outside_allowed']:
@@ -251,7 +288,8 @@ def audit():
     if canonical['head']['stdout'].strip() != m.TEMPLATE_COMMIT or canonical['status']['stdout'] != UNTRACKED:
         drifts.append(dict(kind='canonical-checkout', actual=canonical))
     after_host = o.host_observation()
-    unexpected = [d for d in drifts if not (d['kind'] == 'tree' and d['path'] in m.REPINNED_TREES)]
+    # Re-pinned trees carry no expected digest, so any tree drift left for them is a root-mode change.
+    unexpected = list(drifts)
     result = dict(schema='gct.m5-capture-audit.v1', preparation_only=True, live_acceptance=False,
                   worker_release=False, manifest=manifest, receipt=receipt, host=host, host_after=after_host,
                   pins=pins, trees=trees, protected=protected, links=links, absent=absent, drifts=drifts,
@@ -285,7 +323,7 @@ def complete(audit_sha):
     host = o.host_observation()
     require(host == a['host'] and runtime == prior['runtime'] and mount == prior['mount'],
             'host/runtime/mount changed')
-    slot = load_source('prereqs.py', 'm5_prereqs').quiet_slot()
+    slot = load_prereqs().quiet_slot()
     scope = s.quiet_scope(host)
     trees = {path: {k: v[k] for k in ('sha256', 'entries', 'file_bytes')} for path, v in a['trees'].items()}
     closure = dict(host=host, pins=pins, suspension=a['suspension'], trees=trees,

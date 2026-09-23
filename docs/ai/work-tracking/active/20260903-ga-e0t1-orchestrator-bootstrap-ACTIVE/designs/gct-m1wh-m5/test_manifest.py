@@ -368,6 +368,8 @@ class SuccessorTests(unittest.TestCase):
             (lambda v: v['metadata']['trees'].remove(first(v['metadata']['trees'], 'path', m.R5R)),
              'repinned tree cardinality'),
             (lambda v: first(v['metadata']['trees'], 'path', m.R5R).update(sha256='0'*64), 'exact predecessor tree'),
+            (lambda v: first(v['metadata']['trees'], 'path', m.TEMPLATE + '/.git').update(sha256='0'*64),
+             'exact predecessor tree'),
             (lambda v: v['previous_metadata'].update(manifest_backup_path='/elsewhere'), 'previous backup binding'),
             (lambda v: v['metadata']['preimages'].pop(0), 'preimage cardinality'),
             (lambda v: v['metadata']['inputs'].append(dict(name='', path=m.AUTHORITY + '/stray', sha256='0'*64,
