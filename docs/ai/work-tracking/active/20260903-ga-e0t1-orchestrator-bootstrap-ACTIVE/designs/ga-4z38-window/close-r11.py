@@ -11,8 +11,9 @@ template. Steps, each through the owned-phase runner with the support environmen
 1. Once only, guarded by the exclusive marker /var/tmp/ga-4z38-close-drain.requested:
    `gc runtime drain <id> --json` (any exit status), then up to 60 seconds of session-list polling.
 2. `gc session close <id> --json` (must succeed), only while that session is still open.
-3. Up to 120 seconds until: no open session for the template, no city tmux pane for it, and no
-   process whose argv names the worktree or whose cwd is inside it.
+3. Up to 120 seconds until: no open session for the template, no pane at all in the city tmux server
+   (every other agent stays suspended in this window; exit 1 counts only when tmux reports no server),
+   and no process whose argv names the worktree or whose cwd is inside it.
 It never signals a process, never touches tmux directly, and never replays a lifecycle action. Each run
 uses a fresh timestamped root, so a refusal can be followed by another run, which never repeats the
 drain. Identity is the base active_epoch() check.
@@ -111,10 +112,15 @@ def main():
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline and session.get('state') not in ('stopped', 'asleep', 'drained', 'closed'):
             time.sleep(5)
-            rows = open_sessions()
+            try:
+                rows = open_sessions()
+            except Exception as exc:  # recorded; the close below still runs
+                w.save('drain-poll-refused-%d.json' % counter['n'], dict(error=str(exc)[:1000]))
+                break
             session = rows[0] if rows else dict(session, state='closed')
         w.save('drain-observed.json', dict(state=session.get('state')))
     still = open_sessions()
+    w.require(len(still) <= 1, 'more than one open worker session before close')
     if still:
         closed = json.loads(run('close', w.GC + ['session', 'close', still[0]['id'], '--json'])['stdout'].splitlines()[-1])
         w.require(closed.get('ok') is True and closed.get('session_id') == still[0]['id'], 'close not acknowledged')
@@ -123,11 +129,10 @@ def main():
         remaining = open_sessions()
         listed = run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid}'],
                      expected=(0, 1))
-        # Exit 1 is accepted only as "no server": then there are no panes at all.
-        w.require(listed['exit_code'] == 0 or not listed['stdout'].strip(), 'tmux listing failed with output')
-        panes = listed['stdout'].split('\n')
-        worker_panes = [p for p in panes if p.strip() and first and first[0].get('session_name')
-                        and p.startswith(first[0]['session_name'] + ' ')]
+        # Exit 1 counts only when tmux says there is no server (no socket, or nothing listening on it).
+        w.require(listed['exit_code'] == 0 or 'no server running' in listed['stderr']
+                  or 'error connecting to' in listed['stderr'], 'tmux listing failed')
+        worker_panes = [p for p in listed['stdout'].split('\n') if p.strip()] if listed['exit_code'] == 0 else []
         residue = processes(w.WORK)
         if not remaining and not worker_panes and not residue:
             break
@@ -138,8 +143,8 @@ def main():
     w.active_epoch(o)
     w.ROOT = ROOT
     w.complete_containment()
-    result = dict(ok=True, closed_session=first[0]['id'] if first else None, open_sessions=0, worker_panes=0,
-                  worktree_processes=0, signals_sent=False)
+    result = dict(ok=True, closed_session=first[0]['id'] if first else None, open_sessions=0, city_panes=0,
+                  worktree_processes=0, signals_sent=False, executor_sha256=_SOURCE_SHA)
     w.save('result.json', result)
     print(json.dumps(result))
 

@@ -99,7 +99,7 @@ def main():
     census = json.loads(run('session-beads', w.GC + ['bd', 'list', '--type', 'session', '--include-infra', '--all',
                                                     '--json', '--limit', '0'])['stdout'])
     run('trace', w.GC + ['trace', 'show', '--template', TEMPLATE, '--since', '30m', '--json'])
-    git = ['/usr/bin/git', '-C', str(w.WORK)]
+    git = ['/usr/bin/git', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-C', str(w.WORK)]
     head = run('git-head', git + ['rev-parse', 'HEAD'])['stdout'].strip()
     branch = run('git-branch', git + ['branch', '--show-current'])['stdout'].strip()
     # -z: NUL-separated, never quoted, so every untracked path is exact.

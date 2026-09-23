@@ -199,8 +199,8 @@ replacement is asserted.
 
 **Written for this window.**
 - `worker-brief.md`: the reviewed ga-y49e brief, rebound to ga-4z38 and Opus 5.5.
-  - Releases arrive as gc mail beads, which the worker reads with the policy-allowed `bd show`. The
-    control policy `16022d04` allows no `gc mail`.
+  - Releases arrive as lines in ga-4z38's own notes (from r6), which the worker reads with the
+    policy-allowed `bd show ga-4z38 --json`. The control policy `16022d04` allows no `gc mail`.
   - The runtime's generated artifacts are inventoried instead of predicted, and the source release
     names the exact `.gitignore` entries.
   - The four-hour budget is stated.
@@ -467,6 +467,48 @@ Both reviews of `f68b0f3d` held, and both transcripts are filed. r6 answers them
 - A budget refusal: the window stays contained, and restoring needs a reviewed successor.
 - A lifecycle strand: run HOLD, then CLOSE; restoring needs a reviewed successor.
 
+### Round 2b r7 (after both 4da50bdf reviews held)
+
+Both reviews of `4da50bdf` held, and both transcripts are filed. r7 answers them:
+- **A later release slot only verifies and nudges.** The release job now has two checks:
+  - `validate_live` checks the release shape, that `gc status` shows the city resumed, the one named
+    live session, and its claim. It runs on every slot.
+  - `validate_worktree` checks the startup-proof digest, the untracked set, and HEAD with the staged
+    paths and the staged-patch digest. It runs only before the post.
+
+  Before the post, no line with the release prefix may exist. After it, the posted line must be the
+  LAST line with that prefix. bd joins appended notes with one newline, as seen in these notes. That
+  last line is the one the worker takes. The signing release also requires the source release line.
+- **The nudge wakes the worker for certain.** `--delivery immediate` is used, and only the outcome
+  `delivered` passes.
+  - Immediate types the text into the session's tmux pane now (tmux provider NudgeNow). An idle
+    Claude session gets a new prompt; a busy one keeps the text in Claude's own input queue.
+  - `wait-idle` would queue the nudge for a later dispatcher delivery whenever the session is not idle
+    within 30 seconds.
+  - `proof/cli-proof.py` now checks both paths in Core source.
+  - The nudge text no longer starts with the release prefix.
+- **CLOSE requires zero panes in the city tmux server.** Every other agent stays suspended in this
+  window. Exit 1 is accepted only when tmux says no server is running or it cannot connect. The drain
+  poll is wrapped, and exactly one open session is required before the close. The result records its
+  executor digest, and ADMIT requires a passing CLOSE result carrying the pinned CLOSE digest.
+- **Slots and gates.**
+  - `HOLD-1..2` are slots now, and HOLD polls its final status for up to 30 seconds.
+  - There are three slots per release.
+  - `SOURCE-RELEASE` needs 100 minutes left and `SIGNING-RELEASE` needs 85, so the signature has at
+    least 10 minutes before the T0 + 2 h 45 min hold.
+- **The signing release carries the staged-patch digest** that the candidate reviews saw. The job
+  recomputes it from `git diff-index --cached --patch HEAD`.
+- **Git calls on the worker worktree** from release and WATCH pass
+  `-c core.fsmonitor=false -c core.hooksPath=/dev/null`.
+
+**In-window review binding.** The startup and candidate reviews happen before the worker's change
+exists as a commit. They are bound to this package commit, the only valid candidate there, and they
+are NEVER filed with the job runner. The runner refuses every job at a commit that has any filed
+non-PASS review, so filing an in-window HOLD would block CONTAIN through TERMINAL. Their verdicts go
+to the ga-4z38 and ga-e0t1 records and into the release `reviews` field. Only job-admission reviews
+are filed. The delivery review of the signed commit binds to the Core worktree with a `worktree=`
+token.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,
@@ -492,11 +534,12 @@ commit from RECONCILE until TERMINAL; every job, CONTAIN and HOLD included, chec
    SIGNED_CANDIDATE_READY):
    1. Observe one session and its claim.
    2. Startup review.
-   3. `SOURCE-RELEASE-1.sh`, or the next slot.
+   3. `SOURCE-RELEASE-1.sh`, or the next slot (at least 100 minutes left).
    4. Candidate review.
-   5. `SIGNING-RELEASE-1.sh`, or the next slot.
+   5. `SIGNING-RELEASE-1.sh`, or the next slot (at least 85 minutes left).
    6. The worker's managed signature.
-10. `CONTAIN.sh`; if the lifecycle is stranded, `HOLD.sh` instead, and the window stops there.
+10. `CONTAIN.sh`; if the lifecycle is stranded, `HOLD-1.sh` (or `HOLD-2.sh`) instead, and the window stops
+    there.
 11. `CLOSE-1.sh`, or the next slot, then a `WATCH` slot.
 12. `ADMIT.sh`: a passing CLOSE, and at least 40 minutes left.
 13. `RESTORE.sh`: at least 25 minutes left.

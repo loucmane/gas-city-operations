@@ -2,8 +2,13 @@
 
 Transport: the release is appended as one line to ga-4z38's own notes (`<MODE>_RELEASE ga-4z38 <json>`),
 in the gascity rig store the worker already reads for its claim (`bd show ga-4z38 --json`, allowed by
-the control policy), so the worker never reads another store. A short `gc session nudge` then wakes the
-waiting worker; the note, not the nudge text, carries the release.
+the control policy), so the worker never reads another store. A short `gc session nudge --delivery
+immediate` then wakes the waiting worker, and only an outcome of delivered passes. Immediate types the
+text into the session's tmux pane now (tmux provider NudgeNow), which submits a new prompt to an idle
+session and waits in Claude's own input queue if it is mid-turn; wait-idle would instead queue the
+nudge for a later dispatcher delivery whenever the session is not idle within 30 seconds (Core
+cmd/gc/cmd_nudge.go). proof/cli-proof.py checks both paths. The nudge text does not start with the
+release prefix; the note, not the nudge, carries the release.
 
 Input: the coordinator writes the release body, after its in-window reviews, to
 ~/.local/share/gas-city-staging/ga-4z38-window/release/<mode>-release.json. It is untrusted input and is
@@ -11,17 +16,25 @@ validated against the live state before anything is posted:
 - source: {schema ga-4z38.source-release.v1, task, session, base, startup_proof_sha256,
   gitignore_entries, reviews}; the startup proof digest must equal the worker's evidence file, and
   the .gitignore entries must be exactly the untracked paths git reports (root-anchored);
-- signing: {schema ga-4z38.signing-release.v1, task, session, base, head, tree, reviews}; HEAD must be
-  unchanged and the index must stage only allowed paths, with no unstaged or untracked change (the
-  signer independently re-verifies the tree).
-In both modes: the city is resumed and not suspended; exactly one open session exists for the template
-and it is the named session; ga-4z38 is in_progress and assigned to that session.
+- signing: {schema ga-4z38.signing-release.v1, task, session, base, head, tree, staged_patch_sha256,
+  reviews}; HEAD must be unchanged, the index must stage only allowed paths with no unstaged or
+  untracked change, and the staged patch (`git diff-index --cached --patch HEAD`) must have the digest
+  the candidate reviews saw (the signer independently re-verifies the tree).
+In both modes: `gc status` shows the city resumed; exactly one open session exists for the template
+and it is the named session; ga-4z38 is in_progress and assigned to that session. The signing release
+also requires the source release line to be present in the notes.
 
-Once and only once: an exclusive marker /var/tmp/ga-4z38-<mode>-release.posted is created right before
-the single notes append. Every run uses a fresh timestamped evidence root, so a refusal before the
-marker leaves nothing consumed and the job can run again after the input is fixed. A run after the
-marker exists posts nothing: it verifies the posted line is in the notes and nudges again, so a failed
-nudge is recoverable without a second post.
+Once and only once: before the post, no line with this release's prefix may exist in the notes. An
+exclusive marker /var/tmp/ga-4z38-<mode>-release.posted is created right before the single notes append,
+and the readback requires the posted line to be the LAST line with that prefix (bd joins appended notes
+with one newline, and the JSON line has none), which is the line the worker takes as authoritative.
+Every run uses a fresh timestamped evidence root, so a refusal before the marker leaves nothing
+consumed and the job can run again after the input is fixed.
+
+After the marker exists, a later slot posts nothing and reads no worktree state: it checks only that
+the input still gives the posted line's digest, that the named session is live and holds the claim,
+and that the posted line is still the last one with its prefix; then it nudges again. A failed nudge
+is therefore recoverable even after the worker has started changing its worktree.
 
 Every gc and git call runs through the owned-phase runner with the support environment
 (GIT_OPTIONAL_LOCKS=0). Identity is the base active_epoch() check, valid while the worker is live.
@@ -47,7 +60,7 @@ TEMPLATE = 'gascity/gc.implementation-worker'
 BASE_COMMIT = 'e6366b9ececd3a4ceab2bcaa264a5e317e6eab88'
 ALLOWED = {'internal/sling/cycle.go', 'internal/sling/cycle_test.go', 'internal/sling/sling_core_test.go', '.gitignore'}
 KEYS = dict(source={'schema', 'task', 'session', 'base', 'startup_proof_sha256', 'gitignore_entries', 'reviews'},
-            signing={'schema', 'task', 'session', 'base', 'head', 'tree', 'reviews'})
+            signing={'schema', 'task', 'session', 'base', 'head', 'tree', 'staged_patch_sha256', 'reviews'})
 
 
 def load():
@@ -75,14 +88,24 @@ def line_for(mode, release):
     return '%s_RELEASE %s %s' % (mode.upper(), TASK, json.dumps(release, sort_keys=True, separators=(',', ':')))
 
 
-def validate(w, mode, release, run):
-    """Every live check, before anything is posted. Returns the session row."""
+def last_json(stdout):
+    return json.loads([line for line in stdout.splitlines() if line.strip()][-1])
+
+
+def release_lines(notes, mode):
+    return [line for line in (notes or '').split('\n') if line.startswith('%s_RELEASE %s ' % (mode.upper(), TASK))]
+
+
+def validate_live(w, mode, release, run):
+    """Release shape, resumed city, the one named live session and its claim. Returns (session, task)."""
     w.require(isinstance(release, dict) and set(release) == KEYS[mode], 'release fields')
     w.require(release['schema'] == 'ga-4z38.%s-release.v1' % mode and release['task'] == TASK
               and release['base'] == BASE_COMMIT, 'release identity')
     w.require(isinstance(release['reviews'], list) and len(release['reviews']) == 2
               and all(isinstance(r, str) and r for r in release['reviews']), 'release reviews')
-    sessions = json.loads(run('sessions', w.GC + ['session', 'list', '--json'])['stdout'])['sessions'] or []
+    status = last_json(run('status', w.GC + ['status', '--json'])['stdout'])
+    w.require(status.get('ok') is True and status.get('suspended') is False, 'city is not resumed')
+    sessions = last_json(run('sessions', w.GC + ['session', 'list', '--json'])['stdout'])['sessions'] or []
     live = [s for s in sessions if s.get('template') == TEMPLATE and not s.get('closed')]
     w.require(len(live) == 1 and live[0]['id'] == release['session'], 'exactly the named worker session is live')
     # gc hook --claim writes the first non-empty of session name, session id, alias, agent and template
@@ -90,7 +113,12 @@ def validate(w, mode, release, run):
     identities = ({live[0].get(k) for k in ('id', 'alias', 'name', 'session_name', 'agent_name')} | {TEMPLATE}) - {None, ''}
     [task] = json.loads(run('task', w.GC + ['--rig', 'gascity', 'bd', 'show', TASK, '--json'])['stdout'])
     w.require(task['status'] == 'in_progress' and task.get('assignee') in identities, 'task claimed by the session')
-    git = ['/usr/bin/git', '-C', str(w.WORK)]
+    return live[0], task
+
+
+def validate_worktree(w, mode, release, run):
+    """The worker's evidence and git state, checked only before the post."""
+    git = ['/usr/bin/git', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-C', str(w.WORK)]
     status = run('git-status', git + ['status', '--porcelain=v1', '-z', '--untracked-files=all'])['stdout']
     records = [r for r in status.split('\0') if r]
     if mode == 'source':
@@ -107,7 +135,9 @@ def validate(w, mode, release, run):
         staged = run('git-staged-names', git + ['diff-index', '--cached', '--name-only', 'HEAD'])['stdout'].split()
         w.require(staged and set(staged) <= ALLOWED, 'staged paths')
         w.require(all(r[1] == ' ' and r[0] in 'MA' and r[3:] in ALLOWED for r in records), 'clean apart from staged paths')
-    return live[0]
+        patch = run('git-staged-patch', git + ['diff-index', '--cached', '--patch', 'HEAD'])['stdout']
+        w.require(hexdigest(release['staged_patch_sha256'], 64)
+                  and w.digest(patch.encode()) == release['staged_patch_sha256'], 'staged patch digest')
 
 
 def main():
@@ -124,8 +154,8 @@ def main():
               and not (WINDOW/'suspension-city-suspend-intent.json').exists(), 'window is not live')
     w.ROOT = WINDOW
     w.active_epoch(o)
+    w.require((INPUT/(mode + '-release.json')).lstat().st_size < 8192, 'release input size')
     raw = w.read(INPUT/(mode + '-release.json'))
-    w.require(len(raw) < 8192, 'release input size')
     release = json.loads(raw)
     root = Path('/var/tmp/ga-4z38-%s-release-%s' % (mode, datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')))
     root.mkdir(mode=0o700)
@@ -134,13 +164,17 @@ def main():
 
     def run(name, args, expected=(0,)):
         return w.phase(name, args, b, owned, expected=expected, timeout=90)
-    session = validate(w, mode, release, run)
+    session, task = validate_live(w, mode, release, run)
     line = line_for(mode, release)
+    if mode == 'signing':
+        w.require(release_lines(task.get('notes'), 'source'), 'source release line absent from the notes')
     if marker.exists():
-        # Already posted: verify, then only nudge again.
+        # Already posted: no worktree read, no post; verify the posted line, then only nudge again.
         w.require(json.loads(w.read(marker))['line_sha256'] == w.digest(line.encode()), 'posted release differs')
         posted = False
     else:
+        validate_worktree(w, mode, release, run)
+        w.require(not release_lines(task.get('notes'), mode), 'a %s release line already exists' % mode)
         fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'w') as out:
             json.dump(dict(root=str(root), line_sha256=w.digest(line.encode())), out)
@@ -149,12 +183,14 @@ def main():
         run('post', w.GC + ['--rig', 'gascity', 'bd', 'update', TASK, '--append-notes', line])
         posted = True
     [task] = json.loads(run('readback', w.GC + ['--rig', 'gascity', 'bd', 'show', TASK, '--json'])['stdout'])
-    w.require(line in (task.get('notes') or '').split('\n'), 'the release line is in the task notes')
-    nudge = json.loads(run('nudge', w.GC + ['session', 'nudge', session['id'],
-                                            '%s_RELEASE %s posted: read the latest %s_RELEASE line in bd show %s --json'
-                                            % (mode.upper(), TASK, mode.upper(), TASK),
-                                            '--delivery', 'wait-idle', '--json'])['stdout'])
-    w.require(nudge.get('ok') is True and nudge.get('outcome') in ('delivered', 'queued'), 'nudge not accepted')
+    lines = release_lines(task.get('notes'), mode)
+    w.require(lines and lines[-1] == line, 'the release line is the last one with its prefix')
+    nudge = last_json(run('nudge', w.GC + ['session', 'nudge', session['id'],
+                                            'Coordinator note for ga-4z38: a new %s release line is in the task notes. '
+                                            'Read the latest %s_RELEASE line with bd show %s --json.'
+                                            % (mode, mode.upper(), TASK),
+                                            '--delivery', 'immediate', '--json'])['stdout'])
+    w.require(nudge.get('ok') is True and nudge.get('outcome') == 'delivered', 'nudge not delivered')
     w.ROOT = WINDOW
     w.active_epoch(o)
     w.ROOT = root

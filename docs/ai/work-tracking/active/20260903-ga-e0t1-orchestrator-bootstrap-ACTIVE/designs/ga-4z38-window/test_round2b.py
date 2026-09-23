@@ -264,17 +264,23 @@ class Safety(unittest.TestCase):
 
     def test_release_validates_everything_before_its_single_post(self):
         text = (HERE/'release-r11.py').read_text()
-        validate = text.index('    session = validate(w, mode, release, run)')
+        validate = text.index('    session, task = validate_live(w, mode, release, run)')
         marker = text.index('fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)')
         post = text.index("run('post'")
         self.assertLess(validate, marker)
         self.assertLess(marker, post)
-        body = text[text.index('def validate('):text.index('def main(')]
+        body = text[text.index('def validate_live('):text.index('def main(')]
         for check in ("'exactly the named worker session is live'", "'task claimed by the session'",
                       "'startup proof digest'", "'gitignore entries are exactly the untracked paths'",
                       "'signing head and tree'", "'staged paths'"):
             self.assertIn(check, body)
-        self.assertIn("'the release line is in the task notes'", text)
+        self.assertIn("'the release line is the last one with its prefix'", text)
+        self.assertIn("'--delivery', 'immediate', '--json'", text)
+        self.assertIn("nudge.get('outcome') == 'delivered', 'nudge not delivered'", text)
+        self.assertIn("validate_worktree(w, mode, release, run)\n        w.require(not release_lines(task.get('notes'), mode)", text)
+        after = text[text.index('    if marker.exists():'):text.index('    else:\n        validate_worktree')]
+        self.assertNotIn('validate_worktree', after)
+        self.assertNotIn("run('post'", after)
         self.assertIn("root = Path('/var/tmp/ga-4z38-%s-release-%s'", text)
         self.assertEqual(text.count("run('post'"), 1)
 
@@ -282,23 +288,32 @@ class Safety(unittest.TestCase):
         text = (HERE/'close-r11.py').read_text()
         self.assertIn('if session and not DRAIN.exists():', text)
         self.assertIn('fd = os.open(DRAIN, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)', text)
-        self.assertIn('    still = open_sessions()\n    if still:', text)
+        self.assertIn("    still = open_sessions()\n    w.require(len(still) <= 1, 'more than one open worker session before close')", text)
+        self.assertIn("'no server running' in listed['stderr']", text)
         self.assertIn("ROOT = Path('/var/tmp/ga-4z38-close-' + datetime.now(timezone.utc)", text)
         self.assertIn("glob('ga-4z38-hold-*/result.json')", text)
 
     def test_repeatable_steps_have_numbered_slots_and_no_unnumbered_wrapper(self):
         names = set(WRAPPERS)
-        for base, count in (('FRESHEN', 3), ('WATCH', 8), ('SOURCE-RELEASE', 2), ('SIGNING-RELEASE', 2), ('CLOSE', 2)):
+        for base, count in (('FRESHEN', 3), ('WATCH', 8), ('SOURCE-RELEASE', 3), ('SIGNING-RELEASE', 3), ('CLOSE', 2),
+                            ('HOLD', 2)):
             self.assertNotIn(base + '.sh', names)
             for slot in range(1, count + 1):
                 self.assertIn('%s-%d.sh' % (base, slot), names)
-        for single in ('RECONCILE', 'BIND', 'OBSERVE', 'PREFLIGHT', 'STAGE', 'ROUTE', 'RESUME', 'CONTAIN', 'HOLD',
+        for single in ('RECONCILE', 'BIND', 'OBSERVE', 'PREFLIGHT', 'STAGE', 'ROUTE', 'RESUME', 'CONTAIN',
                        'ADMIT', 'RESTORE', 'TERMINAL'):
             self.assertIn(single + '.sh', names)
 
     def test_admit_requires_a_passing_close(self):
         text = (HERE/'operator'/'ADMIT.sh').read_text()
         self.assertIn('-path "/var/tmp/ga-4z38-close-*/result.json"', text)
+        self.assertIn('xargs -r grep -l "$CLOSE_SHA"', text)
+        [pin] = re.findall(r'^CLOSE_SHA=([0-9a-f]{64})$', text, re.M)
+        self.assertEqual(pin, sha(HERE/'close-r11.py'))
+        for name, minutes in (('SOURCE-RELEASE-1.sh', 100), ('SIGNING-RELEASE-1.sh', 85)):
+            body = (HERE/'operator'/name).read_text()
+            self.assertLess(body.index('step budget "$C/budget-r11.py" "$BUDGET_SHA" %d' % minutes),
+                            body.index('step %s' % name.split('-1')[0].lower()), name)
 
     def test_cli_shapes_the_jobs_use(self):
         done = subprocess.run([sys.executable, '-B', str(HERE/'proof'/'cli-proof.py')],
@@ -382,6 +397,8 @@ class Task(unittest.TestCase):
         self.assertIn("WORK='/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles'", text)
 
     def test_task_still_meets_the_binding_preconditions(self):
+        if os.path.lexists('/var/tmp/ga-4z38-bind-20260923-r1'):
+            self.skipTest('BIND has run; the route checks the bound image instead')
         done = subprocess.run(['/home/loucmane/gascity/bin/gc', '--city', '/home/loucmane/gascity/city', '--rig', 'gascity',
                                'bd', 'show', 'ga-4z38', '--json'], env=GC_ENV, capture_output=True, text=True,
                               timeout=60, stdin=subprocess.DEVNULL, check=True)

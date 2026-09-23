@@ -152,16 +152,18 @@ def main(package):
         'SOURCE-RELEASE.sh': dict(title='source release: validate the coordinator source release against the live\n'
                                         '# worker session, post it once to the ga-4z38 notes, read it back and nudge.\n'
                                         '# Repeatable: a run after the post only verifies and nudges again.',
-                                  pins='RELEASE_SHA=%s' % d['release-r11.py'],
+                                  pins='RELEASE_SHA=%s\nBUDGET_SHA=%s' % (d['release-r11.py'], d['budget-r11.py']),
                                   pre='',
-                                  steps=['step source-release "$C/release-r11.py" "$RELEASE_SHA" source']),
+                                  steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 100',
+                                         'step source-release "$C/release-r11.py" "$RELEASE_SHA" source']),
         'SIGNING-RELEASE.sh': dict(title='signing release: validate the coordinator signing release against the live\n'
                                          '# worker session and the staged index, post it once, read it back and nudge.\n'
                                          '# Repeatable: a run after the post only verifies and nudges again.',
-                                   pins='RELEASE_SHA=%s' % d['release-r11.py'],
+                                   pins='RELEASE_SHA=%s\nBUDGET_SHA=%s' % (d['release-r11.py'], d['budget-r11.py']),
                                    pre='[ -e /var/tmp/ga-4z38-source-release.posted ] || '
                                        '{ echo "== STOP: no source release posted"; echo "== end"; exit 1; }\n',
-                                   steps=['step signing-release "$C/release-r11.py" "$RELEASE_SHA" signing']),
+                                   steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 85',
+                                          'step signing-release "$C/release-r11.py" "$RELEASE_SHA" signing']),
         'CLOSE.sh': dict(title='close: after CONTAIN (or a passing HOLD), drain once (best-effort) and close the one\n'
                                '# worker session, then prove zero session, pane and worktree-process residue.\n'
                                '# Repeatable: a rerun never repeats the drain and closes only a still-open session.',
@@ -181,9 +183,10 @@ def main(package):
                              '{ echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }\n'
                              % (window, window) + absent(window + '/restore-admission.json')
                              + 'find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-close-*/result.json" '
-                               '-exec grep -l \'"ok": true\' {} + | grep -q . || '
+                               '-exec grep -l \'"ok": true\' {} + | xargs -r grep -l "$CLOSE_SHA" | grep -q . || '
                                '{ echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }\n',
-                         pins='ADMIT_SHA=%s\nBUDGET_SHA=%s' % (d['restore-admission-r3.py'], d['budget-r11.py']),
+                         pins='ADMIT_SHA=%s\nBUDGET_SHA=%s\nCLOSE_SHA=%s' % (d['restore-admission-r3.py'], d['budget-r11.py'],
+                                                                         d['close-r11.py']),
                          steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 40',
                                 'step admit "$C/restore-admission-r3.py" "$ADMIT_SHA"']),
         'RESTORE.sh': dict(title='restore: the exact baseline city and receipt, once, after terminal suspension\n'
@@ -204,7 +207,8 @@ def main(package):
     }
     # The job runner starts a wrapper path at most once per commit (gct-jobrunner A4). Steps that must be
     # able to run more than once get numbered slots: identical steps, distinct reviewed wrapper paths.
-    for base, count in (('FRESHEN', 3), ('WATCH', 8), ('SOURCE-RELEASE', 2), ('SIGNING-RELEASE', 2), ('CLOSE', 2)):
+    for base, count in (('FRESHEN', 3), ('WATCH', 8), ('SOURCE-RELEASE', 3), ('SIGNING-RELEASE', 3), ('CLOSE', 2),
+                        ('HOLD', 2)):
         spec = wrappers.pop(base + '.sh')
         for slot in range(1, count + 1):
             wrappers['%s-%d.sh' % (base, slot)] = dict(

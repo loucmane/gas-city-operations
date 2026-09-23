@@ -2,21 +2,22 @@
 # ga-4z38 window hold: emergency scheduling hold for a STRANDED window only (a lifecycle failure record
 # exists, so CONTAIN.sh cannot act). Suspends the city and the gascity rig; never
 # replays lifecycle, never restores, writes nothing in the window root.
+# Slot 2 of 2: the job runner starts each wrapper path once per commit.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
-# Log: ~/.local/share/gas-city-staging/ga-4z38-window/hold-<timestamp>.txt. Exits with the first failing
+# Log: ~/.local/share/gas-city-staging/ga-4z38-window/hold-2-<timestamp>.txt. Exits with the first failing
 # step's result, or 0.
 S=/home/loucmane/.local/share/gas-city-staging/ga-4z38-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
-COMMIT=${1:?usage: HOLD.sh <reviewed commit>}
-HOLD_SHA=3b29cd7b9e2634ea454643346aab93cf48da16fc1994de9b3afb985ec36e7aa5
+COMMIT=${1:?usage: HOLD-2.sh <reviewed commit>}
+HOLD_SHA=d41bbe5601caa64a22951ab3e83fd2e3ef0f88e287ec32938fc13b46e36d80dc
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
 [ ! -L "$S" ] || exit 1
-LOG="$S/hold-$(date -u +%Y%m%dT%H%M%SZ).txt"
+LOG="$S/hold-2-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
 for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
@@ -33,11 +34,11 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== HOLD REFUSED at $label rc=$rc: read this log and the named roots before any further step"
+    echo "== HOLD-2 REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
 step hold "$C/hold-r11.py" "$HOLD_SHA"
-echo "== HOLD PASS"
+echo "== HOLD-2 PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0

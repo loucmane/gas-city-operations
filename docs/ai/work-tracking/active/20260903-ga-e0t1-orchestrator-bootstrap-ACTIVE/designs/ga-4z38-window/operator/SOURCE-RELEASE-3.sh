@@ -1,21 +1,24 @@
 #!/bin/sh
-# ga-4z38 window watch: read-only in-window observation; repeatable, one fresh root per run.
-# Slot 6 of 8: the job runner starts each wrapper path once per commit.
+# ga-4z38 window source release: validate the coordinator source release against the live
+# worker session, post it once to the ga-4z38 notes, read it back and nudge.
+# Repeatable: a run after the post only verifies and nudges again.
+# Slot 3 of 3: the job runner starts each wrapper path once per commit.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
-# Log: ~/.local/share/gas-city-staging/ga-4z38-window/watch-6-<timestamp>.txt. Exits with the first failing
+# Log: ~/.local/share/gas-city-staging/ga-4z38-window/source-release-3-<timestamp>.txt. Exits with the first failing
 # step's result, or 0.
 S=/home/loucmane/.local/share/gas-city-staging/ga-4z38-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
-COMMIT=${1:?usage: WATCH-6.sh <reviewed commit>}
-WATCH_SHA=7a3fbbf30c32d4fdc8138813b8a0939015fbe9c6f6eec01c14bea9ac5ffa0ddc
+COMMIT=${1:?usage: SOURCE-RELEASE-3.sh <reviewed commit>}
+RELEASE_SHA=6d9a8593e697449e1c83dbfa8efdb0dcc7fd27036889c9ed0cbd4ea6a602dc0f
+BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
 [ ! -L "$S" ] || exit 1
-LOG="$S/watch-6-$(date -u +%Y%m%dT%H%M%SZ).txt"
+LOG="$S/source-release-3-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
 for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
@@ -31,11 +34,12 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== WATCH-6 REFUSED at $label rc=$rc: read this log and the named roots before any further step"
+    echo "== SOURCE-RELEASE-3 REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-step watch "$C/watch-r11.py" "$WATCH_SHA"
-echo "== WATCH-6 PASS"
+step budget "$C/budget-r11.py" "$BUDGET_SHA" 100
+step source-release "$C/release-r11.py" "$RELEASE_SHA" source
+echo "== SOURCE-RELEASE-3 PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0

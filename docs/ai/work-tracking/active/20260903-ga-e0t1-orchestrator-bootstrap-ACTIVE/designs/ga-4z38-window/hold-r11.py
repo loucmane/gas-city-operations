@@ -26,6 +26,7 @@ import json
 import os
 from pathlib import Path
 import stat
+import time
 import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
@@ -118,7 +119,15 @@ def main():
         except Exception as exc:
             attempts[name] = 'refused: ' + str(exc)[:500]
     w.save('attempts.json', attempts)
-    final = status('status-after', True)
+    # Poll the final status like the lifecycle barrier does: up to 30 seconds for both to read suspended.
+    deadline = time.monotonic() + 30
+    index = 0
+    while True:
+        final = status('status-after-%d' % index, True)
+        if final == (True, True) or time.monotonic() >= deadline:
+            break
+        index += 1
+        time.sleep(3)
     w.require(final == (True, True), 'hold did not suspend the city and rig')
     w.complete_containment()
     result = dict(ok=True, city_suspended=True, gascity_rig_suspended=True, stranded_records=records,

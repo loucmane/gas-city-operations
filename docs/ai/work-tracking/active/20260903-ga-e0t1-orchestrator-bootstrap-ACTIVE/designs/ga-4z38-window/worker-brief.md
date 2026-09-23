@@ -101,13 +101,14 @@ evidence, not permission to repair policy or proceed.
 
 Each release is one line the coordinator appends to this task's notes,
 `SOURCE_RELEASE ga-4z38 <json>` or `SIGNING_RELEASE ga-4z38 <json>`, announced by a
-short nudge. Read it with the same standalone
+short coordinator note typed into your session. Read it with the same standalone
 `/home/loucmane/gascity/bin/bd show ga-4z38 --json` you use for the claim; the
 latest line that starts with that release name is authoritative. Its JSON is one
 object. Verify that it names this task, your exact ci-* session and the base, plus:
 - source release: the SHA256 of your startup-proof.json and the exact root-anchored
   .gitignore entries for the observed generated artifacts;
-- signing release: your inspected HEAD and `git write-tree` value.
+- signing release: your inspected HEAD, your `git write-tree` value and the SHA256 of
+  your staged patch (`git diff --cached`, the bytes you wrote to candidate.patch).
 Write the JSON bytes verbatim to source-release.json or signing-release.json in
 the evidence directory. A missing, truncated or mismatched release is a stop; wait
 for the coordinator, never proceed on a partial message.

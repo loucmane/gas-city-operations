@@ -2,7 +2,7 @@
 # ga-4z38 window source release: validate the coordinator source release against the live
 # worker session, post it once to the ga-4z38 notes, read it back and nudge.
 # Repeatable: a run after the post only verifies and nudges again.
-# Slot 2 of 2: the job runner starts each wrapper path once per commit.
+# Slot 2 of 3: the job runner starts each wrapper path once per commit.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
 # Log: ~/.local/share/gas-city-staging/ga-4z38-window/source-release-2-<timestamp>.txt. Exits with the first failing
@@ -12,7 +12,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: SOURCE-RELEASE-2.sh <reviewed commit>}
-RELEASE_SHA=a9f249a01940a83e429a52245629eac7fa5429577121edea1d85567ecb393c8f
+RELEASE_SHA=6d9a8593e697449e1c83dbfa8efdb0dcc7fd27036889c9ed0cbd4ea6a602dc0f
+BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -37,6 +38,7 @@ step() {
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
+step budget "$C/budget-r11.py" "$BUDGET_SHA" 100
 step source-release "$C/release-r11.py" "$RELEASE_SHA" source
 echo "== SOURCE-RELEASE-2 PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
