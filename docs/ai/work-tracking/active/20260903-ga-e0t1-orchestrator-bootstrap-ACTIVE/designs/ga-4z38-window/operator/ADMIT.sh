@@ -12,7 +12,7 @@ C=$D/ga-4z38-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
 ADMIT_SHA=471de7cfc0825ebad8b862d7b9e52812f9298916f8d6aab05c8f68d4bf9d107b
 BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
-CLOSE_SHA=aea4649074eac8fff8168776c53f4abfe8237a8efd61ab4b74c8e1b154ecbc67
+CLOSE_SHA=3e31844c3a86b1a3509dec402c524a39f30f215a1adc34b2b8e0bc952202af02
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -29,7 +29,7 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
 fi
 [ -e /var/tmp/ga-4z38-window-20260923-r1/stage-consumed.json ] && [ ! -e /var/tmp/ga-4z38-window-20260923-r1/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
 { [ ! -e /var/tmp/ga-4z38-window-20260923-r1/restore-admission.json ] && [ ! -L /var/tmp/ga-4z38-window-20260923-r1/restore-admission.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-window-20260923-r1/restore-admission.json"; echo "== end"; exit 1; }
-find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-close-*/result.json" -exec grep -l '"ok": true' {} + | xargs -r grep -l "$CLOSE_SHA" | grep -q . || { echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }
+find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-4z38-close-*/result.json" -exec grep -l '"ok": true' {} + | xargs -r grep -l "$CLOSE_SHA" | grep -q . || { echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

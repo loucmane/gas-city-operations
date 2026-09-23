@@ -17,11 +17,17 @@ validated against the live state before anything is posted:
   gitignore_entries, reviews}; the startup proof digest must equal the worker's evidence file, and
   the .gitignore entries must be exactly the untracked paths git reports (root-anchored);
 - signing: {schema ga-4z38.signing-release.v1, task, session, base, head, tree, staged_patch_sha256,
-  reviews}; HEAD must be unchanged, the index must stage only allowed paths with no unstaged or
-  untracked change, and the staged patch (`git diff-index --cached --patch HEAD`) must have the digest
-  the candidate reviews saw (the signer independently re-verifies the tree).
+  reviews}; head, tree and patch digest must equal the worker's candidate.json checkpoint; HEAD must be
+  unchanged, the index must stage only allowed paths with no unstaged or
+  untracked change, and the staged patch must have the digest the candidate reviews saw. Worker and job
+  produce the patch with the same plumbing command, `git diff-index --cached --patch --output=<file>
+  HEAD` (plumbing ignores diff.* and color config), and both hash the file's raw bytes. The signer
+  independently re-verifies the tree.
 In both modes: `gc status` shows the city resumed; exactly one open session exists for the template
-and it is the named session; ga-4z38 is in_progress and assigned to that session. The signing release
+and it is the named session, in state active (a managed session that is not running would get a
+queued wake instead of an immediate delivery, Core cmd/gc/cmd_nudge.go shouldQueueManagedNudgeWake; the
+session list reports the reconciler's running states awake and active both as active, Core
+internal/session normalizeInfoState); ga-4z38 is in_progress and assigned to that session. The signing release
 also requires the source release line to be present in the notes.
 
 Once and only once: before the post, no line with this release's prefix may exist in the notes. An
@@ -87,9 +93,9 @@ def hexdigest(value, size):
 def line_for(mode, release):
     return '%s_RELEASE %s %s' % (mode.upper(), TASK, json.dumps(release, sort_keys=True, separators=(',', ':')))
 
-
-def last_json(stdout):
-    return json.loads([line for line in stdout.splitlines() if line.strip()][-1])
+def document(stdout):
+    """One JSON document from a gc --json command: status prints it indented over many lines."""
+    return json.loads(stdout)
 
 
 def release_lines(notes, mode):
@@ -103,11 +109,12 @@ def validate_live(w, mode, release, run):
               and release['base'] == BASE_COMMIT, 'release identity')
     w.require(isinstance(release['reviews'], list) and len(release['reviews']) == 2
               and all(isinstance(r, str) and r for r in release['reviews']), 'release reviews')
-    status = last_json(run('status', w.GC + ['status', '--json'])['stdout'])
+    status = document(run('status', w.GC + ['status', '--json'])['stdout'])
     w.require(status.get('ok') is True and status.get('suspended') is False, 'city is not resumed')
-    sessions = last_json(run('sessions', w.GC + ['session', 'list', '--json'])['stdout'])['sessions'] or []
+    sessions = document(run('sessions', w.GC + ['session', 'list', '--json'])['stdout'])['sessions'] or []
     live = [s for s in sessions if s.get('template') == TEMPLATE and not s.get('closed')]
     w.require(len(live) == 1 and live[0]['id'] == release['session'], 'exactly the named worker session is live')
+    w.require(live[0].get('state') == 'active', 'the worker session is not active')
     # gc hook --claim writes the first non-empty of session name, session id, alias, agent and template
     # (Core cmd/gc/cmd_hook.go at e6366b9e); with exactly one live session, each form names it.
     identities = ({live[0].get(k) for k in ('id', 'alias', 'name', 'session_name', 'agent_name')} | {TEMPLATE}) - {None, ''}
@@ -116,7 +123,7 @@ def validate_live(w, mode, release, run):
     return live[0], task
 
 
-def validate_worktree(w, mode, release, run):
+def validate_worktree(w, mode, release, run, root):
     """The worker's evidence and git state, checked only before the post."""
     git = ['/usr/bin/git', '-c', 'core.fsmonitor=false', '-c', 'core.hooksPath=/dev/null', '-C', str(w.WORK)]
     status = run('git-status', git + ['status', '--porcelain=v1', '-z', '--untracked-files=all'])['stdout']
@@ -135,9 +142,14 @@ def validate_worktree(w, mode, release, run):
         staged = run('git-staged-names', git + ['diff-index', '--cached', '--name-only', 'HEAD'])['stdout'].split()
         w.require(staged and set(staged) <= ALLOWED, 'staged paths')
         w.require(all(r[1] == ' ' and r[0] in 'MA' and r[3:] in ALLOWED for r in records), 'clean apart from staged paths')
-        patch = run('git-staged-patch', git + ['diff-index', '--cached', '--patch', 'HEAD'])['stdout']
+        checkpoint = json.loads(w.read(w.WORK/'.gc/worker-evidence/ga-4z38/candidate.json'))
+        w.require(checkpoint.get('head') == release['head'] and checkpoint.get('tree') == release['tree']
+                  and checkpoint.get('staged_patch_sha256') == release['staged_patch_sha256'],
+                  'release differs from the worker candidate checkpoint')
+        run('git-staged-patch', git + ['diff-index', '--cached', '--patch', '--output=' + str(root/'staged.patch'), 'HEAD'])
+        patch = w.read(root/'staged.patch')
         w.require(hexdigest(release['staged_patch_sha256'], 64)
-                  and w.digest(patch.encode()) == release['staged_patch_sha256'], 'staged patch digest')
+                  and w.digest(patch) == release['staged_patch_sha256'], 'staged patch digest')
 
 
 def main():
@@ -173,7 +185,7 @@ def main():
         w.require(json.loads(w.read(marker))['line_sha256'] == w.digest(line.encode()), 'posted release differs')
         posted = False
     else:
-        validate_worktree(w, mode, release, run)
+        validate_worktree(w, mode, release, run, root)
         w.require(not release_lines(task.get('notes'), mode), 'a %s release line already exists' % mode)
         fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'w') as out:
@@ -185,9 +197,9 @@ def main():
     [task] = json.loads(run('readback', w.GC + ['--rig', 'gascity', 'bd', 'show', TASK, '--json'])['stdout'])
     lines = release_lines(task.get('notes'), mode)
     w.require(lines and lines[-1] == line, 'the release line is the last one with its prefix')
-    nudge = last_json(run('nudge', w.GC + ['session', 'nudge', session['id'],
+    nudge = document(run('nudge', w.GC + ['session', 'nudge', session['id'],
                                             'Coordinator note for ga-4z38: a new %s release line is in the task notes. '
-                                            'Read the latest %s_RELEASE line with bd show %s --json.'
+                                            'Read the latest %s_RELEASE line with /home/loucmane/gascity/bin/bd show %s --json.'
                                             % (mode, mode.upper(), TASK),
                                             '--delivery', 'immediate', '--json'])['stdout'])
     w.require(nudge.get('ok') is True and nudge.get('outcome') == 'delivered', 'nudge not delivered')

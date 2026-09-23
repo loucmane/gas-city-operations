@@ -105,7 +105,7 @@ def main(package):
                              pre=absent(window)
                                  + '# An object already fresh at FRESHEN may be up to 19 hours old; it must stay under 24\n'
                                    '# hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.\n'
-                                   'find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 '
+                                   'find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 '
                                    '-exec grep -l \'"ok": true\' {} + | xargs -r grep -l "$FRESHEN_SHA" | grep -q . || '
                                    '{ echo "== STOP: no FRESHEN pass in the last 45 minutes"; '
                                    'echo "== end"; exit 1; }\n',
@@ -182,7 +182,7 @@ def main(package):
                          pre='[ -e %s/stage-consumed.json ] && [ ! -e %s/restore-consumed.json ] || '
                              '{ echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }\n'
                              % (window, window) + absent(window + '/restore-admission.json')
-                             + 'find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-close-*/result.json" '
+                             + 'find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-4z38-close-*/result.json" '
                                '-exec grep -l \'"ok": true\' {} + | xargs -r grep -l "$CLOSE_SHA" | grep -q . || '
                                '{ echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }\n',
                          pins='ADMIT_SHA=%s\nBUDGET_SHA=%s\nCLOSE_SHA=%s' % (d['restore-admission-r3.py'], d['budget-r11.py'],
@@ -208,7 +208,7 @@ def main(package):
     # The job runner starts a wrapper path at most once per commit (gct-jobrunner A4). Steps that must be
     # able to run more than once get numbered slots: identical steps, distinct reviewed wrapper paths.
     for base, count in (('FRESHEN', 3), ('WATCH', 8), ('SOURCE-RELEASE', 3), ('SIGNING-RELEASE', 3), ('CLOSE', 2),
-                        ('HOLD', 2)):
+                        ('HOLD', 2), ('CONTAIN', 2)):
         spec = wrappers.pop(base + '.sh')
         for slot in range(1, count + 1):
             wrappers['%s-%d.sh' % (base, slot)] = dict(

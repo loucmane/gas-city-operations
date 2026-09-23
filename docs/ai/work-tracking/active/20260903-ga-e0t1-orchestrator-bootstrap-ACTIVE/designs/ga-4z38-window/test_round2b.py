@@ -192,7 +192,7 @@ class Safety(unittest.TestCase):
 
     def test_hold_acts_only_on_a_stranded_window_and_never_blocks_its_suspends(self):
         text = (HERE/'hold-r11.py').read_text()
-        self.assertIn("w.require(records, 'hold is only for a stranded lifecycle; use CONTAIN.sh')", text)
+        self.assertIn("w.require(records, 'hold is only for a stranded lifecycle; use CONTAIN')", text)
         self.assertIn("intent.name.replace('-intent.json', '-event.json')", text)
         self.assertIn("started.name.replace('-started.json', '-phase.json')", text)
         self.assertIn("w.phase(name, argv, b, owned, expected=ANY)", text)
@@ -239,11 +239,13 @@ class Safety(unittest.TestCase):
             self.assertEqual(h.stranded(window, done), ['suspension-city-suspend-failure.json'])
             (window/'suspension-city-suspend-failure.json').unlink()
             wrapper = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/operator/'
-            (done/'ok.json').write_text(json.dumps(dict(exit=0, job=dict(wrapper=wrapper + 'CONTAIN.sh'))))
+            (done/'ok.json').write_text(json.dumps(dict(exit=0, job=dict(wrapper=wrapper + 'CONTAIN-1.sh'))))
             (done/'other.json').write_text(json.dumps(dict(exit=1, job=dict(wrapper=wrapper + 'STAGE.sh'))))
             self.assertEqual(h.stranded(window, done), [])
-            (done/'contain.json').write_text(json.dumps(dict(exit=1, job=dict(wrapper=wrapper + 'CONTAIN.sh'))))
+            (done/'contain.json').write_text(json.dumps(dict(exit=1, job=dict(wrapper=wrapper + 'CONTAIN-1.sh'))))
             self.assertEqual(h.stranded(window, done), ['runner:contain.json'])
+            (done/'contain-2.json').write_text(json.dumps(dict(exit=1, job=dict(wrapper=wrapper + 'CONTAIN-2.sh'))))
+            self.assertEqual(h.stranded(window, done), ['runner:contain-2.json', 'runner:contain.json'])
 
     def test_budget_gate_counts_the_four_hour_bound_from_before_json(self):
         g = self.load('budget-r11.py')
@@ -272,12 +274,17 @@ class Safety(unittest.TestCase):
         body = text[text.index('def validate_live('):text.index('def main(')]
         for check in ("'exactly the named worker session is live'", "'task claimed by the session'",
                       "'startup proof digest'", "'gitignore entries are exactly the untracked paths'",
-                      "'signing head and tree'", "'staged paths'"):
+                      "'signing head and tree'", "'staged paths'", "'the worker session is not active'",
+                      "'release differs from the worker candidate checkpoint'", "'staged patch digest'"):
             self.assertIn(check, body)
         self.assertIn("'the release line is the last one with its prefix'", text)
         self.assertIn("'--delivery', 'immediate', '--json'", text)
         self.assertIn("nudge.get('outcome') == 'delivered', 'nudge not delivered'", text)
-        self.assertIn("validate_worktree(w, mode, release, run)\n        w.require(not release_lines(task.get('notes'), mode)", text)
+        self.assertIn("validate_worktree(w, mode, release, run, root)\n        w.require(not release_lines(task.get('notes'), mode)", text)
+        self.assertIn("['diff-index', '--cached', '--patch', '--output=' + str(root/'staged.patch'), 'HEAD']", text)
+        self.assertIn('with /home/loucmane/gascity/bin/bd show %s --json.', text)
+        self.assertNotIn('last_json', text)
+        self.assertNotIn('splitlines()', text)
         after = text[text.index('    if marker.exists():'):text.index('    else:\n        validate_worktree')]
         self.assertNotIn('validate_worktree', after)
         self.assertNotIn("run('post'", after)
@@ -289,18 +296,20 @@ class Safety(unittest.TestCase):
         self.assertIn('if session and not DRAIN.exists():', text)
         self.assertIn('fd = os.open(DRAIN, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)', text)
         self.assertIn("    still = open_sessions()\n    w.require(len(still) <= 1, 'more than one open worker session before close')", text)
-        self.assertIn("'no server running' in listed['stderr']", text)
+        self.assertIn("listed['exit_code'] == 0 or 'no server running' in stderr", text)
+        self.assertIn("('error connecting to' in stderr and ('No such file or directory' in stderr", text)
+        self.assertIn("or 'Connection refused' in stderr))", text)
         self.assertIn("ROOT = Path('/var/tmp/ga-4z38-close-' + datetime.now(timezone.utc)", text)
         self.assertIn("glob('ga-4z38-hold-*/result.json')", text)
 
     def test_repeatable_steps_have_numbered_slots_and_no_unnumbered_wrapper(self):
         names = set(WRAPPERS)
         for base, count in (('FRESHEN', 3), ('WATCH', 8), ('SOURCE-RELEASE', 3), ('SIGNING-RELEASE', 3), ('CLOSE', 2),
-                            ('HOLD', 2)):
+                            ('HOLD', 2), ('CONTAIN', 2)):
             self.assertNotIn(base + '.sh', names)
             for slot in range(1, count + 1):
                 self.assertIn('%s-%d.sh' % (base, slot), names)
-        for single in ('RECONCILE', 'BIND', 'OBSERVE', 'PREFLIGHT', 'STAGE', 'ROUTE', 'RESUME', 'CONTAIN',
+        for single in ('RECONCILE', 'BIND', 'OBSERVE', 'PREFLIGHT', 'STAGE', 'ROUTE', 'RESUME',
                        'ADMIT', 'RESTORE', 'TERMINAL'):
             self.assertIn(single + '.sh', names)
 
@@ -332,7 +341,7 @@ class Safety(unittest.TestCase):
             window.mkdir()
             done.mkdir()
             record = json.loads(json.dumps(real))
-            record['job']['wrapper'] = record['job']['wrapper'].replace('operator/PREP.sh', 'operator/CONTAIN.sh')
+            record['job']['wrapper'] = record['job']['wrapper'].replace('operator/PREP.sh', 'operator/CONTAIN-2.sh')
             record['exit'] = 1
             (done/'contain.json').write_text(json.dumps(record))
             self.assertEqual(h.stranded(window, done), ['runner:contain.json'])
@@ -373,10 +382,12 @@ class Safety(unittest.TestCase):
         self.assertIn("assert not (w.ROOT / 'restore-consumed.json').exists()", (HERE/'restore-admission-r3.py').read_text())
 
     def test_contain_runs_each_suspend_only_once_and_only_after_its_resume(self):
-        text = (HERE/'operator'/'CONTAIN.sh').read_text()
-        for action, resume in (('city-suspend', 'city-resume'), ('rig-suspend', 'rig-resume')):
-            self.assertIn('[ -e /var/tmp/ga-4z38-window-20260923-r1/suspension-%s-event.json ] && '
-                          '[ ! -e /var/tmp/ga-4z38-window-20260923-r1/suspension-%s-event.json ]' % (resume, action), text)
+        for slot in ('CONTAIN-1.sh', 'CONTAIN-2.sh'):
+            text = (HERE/'operator'/slot).read_text()
+            for action, resume in (('city-suspend', 'city-resume'), ('rig-suspend', 'rig-resume')):
+                self.assertIn('[ -e /var/tmp/ga-4z38-window-20260923-r1/suspension-%s-event.json ] && '
+                              '[ ! -e /var/tmp/ga-4z38-window-20260923-r1/suspension-%s-event.json ]' % (resume, action),
+                              text)
 
     def test_resume_requires_route_and_route_audit(self):
         text = (HERE/'operator'/'RESUME.sh').read_text()
@@ -387,6 +398,25 @@ class Safety(unittest.TestCase):
         text = (HERE/'watch-r11.py').read_text()
         self.assertIn('w.active_epoch(o)', text)
         self.assertNotIn('w.host(o)', text)
+
+    def test_watch_compares_routes_with_the_stage_reload_capture(self):
+        text = (HERE/'watch-r11.py').read_text()
+        self.assertIn("w.module(BASE.parent/'restore-r9-routes-r3.py', '%s')" % sha(HERE/'restore-r9-routes-r3.py'), text)
+        self.assertIn("WINDOW/'stage-reload-generated-routes.json'", text)
+        self.assertIn("staged = json.loads(w.read(stage_event))['after']", text)
+        self.assertIn('routes_unchanged_since_stage=routes_unchanged', text)
+
+    def test_release_line_selection_and_json_documents(self):
+        r = self.load('release-r11.py')
+        source = r.line_for('source', dict(b=1, a=2))
+        self.assertEqual(source, 'SOURCE_RELEASE ga-4z38 {"a":2,"b":1}')
+        notes = '\n'.join(['old note', source, 'SIGNING_RELEASE ga-4z38 {}', 'SOURCE_RELEASE ga-4z38x {}',
+                           ' SOURCE_RELEASE ga-4z38 {}', 'SOURCE_RELEASE ga-4z38 {"later":1}'])
+        self.assertEqual(r.release_lines(notes, 'source'), [source, 'SOURCE_RELEASE ga-4z38 {"later":1}'])
+        self.assertEqual(r.release_lines(notes, 'signing'), ['SIGNING_RELEASE ga-4z38 {}'])
+        self.assertEqual(r.release_lines(None, 'source'), [])
+        self.assertEqual(r.document('{\n  "ok": true,\n  "suspended": false\n}\n'), dict(ok=True, suspended=False))
+        self.assertEqual(r.document('{"sessions":[]}\n'), dict(sessions=[]))
 
 
 class Task(unittest.TestCase):

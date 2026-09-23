@@ -7,9 +7,9 @@ but whose observation failed: the city stays resumed and the worker stays schedu
 
 Stranded means any of: a suspension-*-failure.json or -refused-after.json record; a lifecycle intent
 without its event (an exception after the command, or a killed job); any *-started.json without its
-*-phase.json; or a CONTAIN.sh job that ended non-zero in the job runner's done records (a lifecycle
-refusal before any intent, such as the active-epoch or lineage check, writes nothing in the window
-root). In each of these states CONTAIN.sh cannot complete the suspension.
+*-phase.json; or a CONTAIN-1.sh or CONTAIN-2.sh job that ended non-zero in the job runner's done
+records (a lifecycle refusal before any intent, such as the active-epoch or lineage check, writes
+nothing in the window root). In each of these states CONTAIN cannot complete the suspension.
 
 This job exists only for those states, and it is best-effort so that it never blocks the one safety
 action. It records the base active_epoch() identity check and `gc status --json` without requiring
@@ -34,11 +34,11 @@ BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstra
 BASE_SHA = 'cad1d660b872a352bce7e8c3c5bffda5ca7ac663a732575f48a3b7a9847926cd'
 WINDOW = Path('/var/tmp/ga-4z38-window-20260923-r1')
 DONE = Path('/home/loucmane/.local/share/gas-city-staging/jobs/done')
-CONTAIN = 'designs/ga-4z38-window/operator/CONTAIN.sh'
+CONTAIN = tuple('designs/ga-4z38-window/operator/CONTAIN-%d.sh' % slot for slot in (1, 2))
 
 
 def stranded(window, done):
-    """Every record that shows CONTAIN.sh cannot complete the suspension."""
+    """Every record that shows CONTAIN cannot complete the suspension."""
     found = sorted(p.name for p in window.glob('suspension-*-failure.json'))
     found += sorted(p.name for p in window.glob('suspension-*-refused-after.json'))
     for intent in window.glob('suspension-*-intent.json'):
@@ -83,7 +83,7 @@ def main():
     w.ROOT = WINDOW
     w.require((WINDOW/'stage-consumed.json').exists(), 'no staged window to hold')
     records = stranded(WINDOW, DONE)
-    w.require(records, 'hold is only for a stranded lifecycle; use CONTAIN.sh')
+    w.require(records, 'hold is only for a stranded lifecycle; use CONTAIN')
     try:
         w.active_epoch(o)
         epoch = 'verified'

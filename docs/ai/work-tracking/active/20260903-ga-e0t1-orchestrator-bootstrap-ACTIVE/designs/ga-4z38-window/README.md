@@ -509,6 +509,56 @@ to the ga-4z38 and ga-e0t1 records and into the release `reviews` field. Only jo
 are filed. The delivery review of the signed commit binds to the Core worktree with a `worktree=`
 token.
 
+### Round 2b r8 (after both e3b01b2c reviews held)
+
+Both reviews of `e3b01b2c` held on the staged-patch digest contract, and both transcripts are filed. r8:
+- **One patch definition.** The worker and the signing release job both write the staged patch with
+  `git diff-index --cached --patch --output=<file> HEAD` and hash the file's bytes. The worker also
+  writes `candidate.json` with head, tree and patch digest. The signing release must equal it, and
+  the job derives all three again from the live index.
+- **Whole-document JSON.** `gc status --json` prints one indented document over many lines. r7 parsed
+  only the last line, which would have failed. The release job now parses every gc JSON output as one
+  document.
+- **The worker session must be active before a post.** The nudge gives a managed session that is not
+  running a queued wake instead of an immediate delivery (Core `shouldQueueManagedNudgeWake`). The
+  session list reports a running session as `active`, because Core `normalizeInfoState` maps the
+  reconciler's `awake` to `active`. city.toml has no `[api]` section, so the list takes the direct
+  store path with one-line rows. `proof/cli-proof.py` checks all three in Core source and in
+  city.toml, and passes live.
+- **The nudge text names the absolute bd path** that the brief uses.
+- **`CONTAIN-1..2` are slots.** If CONTAIN refuses before any lifecycle intent (umask, HEAD or epoch),
+  the second slot retries it. HOLD counts a non-zero run of either slot as stranded.
+- **WATCH compares the route files** with the STAGE reload's after-capture, which ADMIT later requires
+  exactly, and records any field that differs. It only records, as an early warning of an ADMIT
+  refusal. The route files' atimes have equalled their mtimes since 10:45 CEST today, through the
+  day's gc and bd calls, so ordinary calls do not read them.
+- **CLOSE** accepts tmux exit 1 only for "no server running", or for a connect error with "No such file
+  or directory" or "Connection refused".
+- **The PREFLIGHT and ADMIT gates** only accept results owned by uid 1000.
+- **Erratum to the r7 CLOSE bullet above**, which says "exactly one open session is required before
+  the close". The job requires at most one, and closes it only if it is still open.
+
+**Operating limits.**
+- **Budget refusal.** A budget refusal while the worker is live never ends the window without
+  containment. Contain at once with `CONTAIN-1.sh`, or `CONTAIN-2.sh` if the first refused before
+  any intent, then CLOSE. A release slot past its cutoff can neither post nor nudge again.
+- **RESUME refusal.** A RESUME refusal before its first intent is a stop, because nothing was resumed.
+  CONTAIN has nothing to suspend, and CLOSE requires a suspension record. The staged city stays
+  suspended, which is safe, and its restoration needs a reviewed successor. After a partial RESUME,
+  CONTAIN suspends whatever resumed.
+- **Queued nudge.** If a nudge comes back queued, the release job fails after its post, and the posted
+  line stands. A WATCH shows the session state, and the next slot nudges again once the session is
+  active. With no slot or budget left, contain.
+- **Review binding is policy-only.** The startup and candidate reviews bind to this package commit.
+  Their prompts carry no `Wrapper:` lines, so they can never admit a job, and they are never filed.
+  The release job checks only that two non-empty review records are named. The verdicts are recorded
+  on ga-4z38 and ga-e0t1.
+- **Core worktree.** No operator shell, editor or other process may use the Core worktree during the
+  window. WATCH lists every process whose argv or cwd names it, and CLOSE refuses while any remains.
+- **WATCH baselines.** One WATCH slot runs after ROUTE and before RESUME, as the baseline with zero
+  panes on the city tmux server. The first WATCH after RESUME must show the worker pane under
+  `tmux -L city`.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,
@@ -529,17 +579,17 @@ commit from RECONCILE until TERMINAL; every job, CONTAIN and HOLD included, chec
 5. `PREFLIGHT.sh`: T0, the start of the four-hour cache-atime window.
 6. `STAGE.sh`.
 7. `ROUTE.sh`.
-8. `RESUME.sh`.
-9. In-window, with `WATCH-1..8.sh`, one slot per observation (none between SIGNING_RELEASE and
-   SIGNED_CANDIDATE_READY):
-   1. Observe one session and its claim.
+8. A `WATCH` slot (the zero-pane baseline), then `RESUME.sh`.
+9. In-window, with the remaining `WATCH-1..8.sh`, one slot per observation (none between SIGNING_RELEASE
+   and SIGNED_CANDIDATE_READY):
+   1. Observe one session, active, with its claim and its pane under `tmux -L city`.
    2. Startup review.
    3. `SOURCE-RELEASE-1.sh`, or the next slot (at least 100 minutes left).
    4. Candidate review.
    5. `SIGNING-RELEASE-1.sh`, or the next slot (at least 85 minutes left).
    6. The worker's managed signature.
-10. `CONTAIN.sh`; if the lifecycle is stranded, `HOLD-1.sh` (or `HOLD-2.sh`) instead, and the window stops
-    there.
+10. `CONTAIN-1.sh` (or `CONTAIN-2.sh` after a refusal before any intent); if the lifecycle is stranded,
+    `HOLD-1.sh` (or `HOLD-2.sh`) instead, and the window stops there.
 11. `CLOSE-1.sh`, or the next slot, then a `WATCH` slot.
 12. `ADMIT.sh`: a passing CLOSE, and at least 40 minutes left.
 13. `RESTORE.sh`: at least 25 minutes left.

@@ -130,8 +130,11 @@ def main():
         listed = run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid}'],
                      expected=(0, 1))
         # Exit 1 counts only when tmux says there is no server (no socket, or nothing listening on it).
-        w.require(listed['exit_code'] == 0 or 'no server running' in listed['stderr']
-                  or 'error connecting to' in listed['stderr'], 'tmux listing failed')
+        stderr = listed['stderr']
+        w.require(listed['exit_code'] == 0 or 'no server running' in stderr
+                  or ('error connecting to' in stderr and ('No such file or directory' in stderr
+                                                           or 'Connection refused' in stderr)),
+                  'tmux listing failed')
         worker_panes = [p for p in listed['stdout'].split('\n') if p.strip()] if listed['exit_code'] == 0 else []
         residue = processes(w.WORK)
         if not remaining and not worker_panes and not residue:

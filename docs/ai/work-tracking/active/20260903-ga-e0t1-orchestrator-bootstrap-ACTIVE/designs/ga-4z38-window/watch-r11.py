@@ -146,6 +146,23 @@ def main():
     w.save('processes.json', processes)
     w.save('inventory.json', inventory)
     epoch()
+    # Early warning for ADMIT: the route files must still equal the stage-reload after-capture
+    # (route-chain-r1 compares them exactly). Evidence only; O_NOATIME reads.
+    routes = w.module(BASE.parent/'restore-r9-routes-r3.py', '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2')
+    stage_event = WINDOW/'stage-reload-generated-routes.json'
+    routes_unchanged = None
+    if stage_event.exists():
+        try:
+            now = routes.capture_routes(w, o)
+            staged = json.loads(w.read(stage_event))['after']
+            # Exact equality is what ADMIT needs; the differing fields name the cause (an atime
+            # moved by a reader, or a regenerated file).
+            routes_unchanged = now == staged or sorted(
+                '%s %s.%s' % (root, section, key) for root in staged for section in ('metadata', 'parent')
+                for key in set(staged[root][section]) | set(now[root][section])
+                if staged[root][section].get(key) != now[root][section].get(key))
+        except RuntimeError as exc:  # route authority refused: recorded, since WATCH only observes
+            routes_unchanged = 'refused: ' + str(exc)
     w.complete_containment()
     related = [dict(id=v['id'], status=v['status'], state=(v.get('metadata') or {}).get('state'),
                     template=(v.get('metadata') or {}).get('template'))
@@ -159,10 +176,11 @@ def main():
                   live_sessions=sessions.get('sessions'), related_session_beads=related,
                   task=dict(status=bead['status'], assignee=bead.get('assignee'),
                             metadata=bead.get('metadata') or {}),
-                  matching_processes=len(processes))
+                  matching_processes=len(processes), routes_unchanged_since_stage=routes_unchanged)
     w.save('result.json', result)
     print(json.dumps(dict(ok=True, root=str(root), head=head, status_records=len(records),
-                          live_sessions=len(result['live_sessions'] or []), matching_processes=len(processes))))
+                          live_sessions=len(result['live_sessions'] or []), matching_processes=len(processes),
+                          routes_unchanged_since_stage=routes_unchanged)))
 
 
 if __name__ == '__main__':

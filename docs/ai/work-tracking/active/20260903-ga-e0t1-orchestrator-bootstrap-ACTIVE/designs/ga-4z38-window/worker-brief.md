@@ -108,7 +108,7 @@ object. Verify that it names this task, your exact ci-* session and the base, pl
 - source release: the SHA256 of your startup-proof.json and the exact root-anchored
   .gitignore entries for the observed generated artifacts;
 - signing release: your inspected HEAD, your `git write-tree` value and the SHA256 of
-  your staged patch (`git diff --cached`, the bytes you wrote to candidate.patch).
+  candidate.patch (below).
 Write the JSON bytes verbatim to source-release.json or signing-release.json in
 the evidence directory. A missing, truncated or mismatched release is a stop; wait
 for the coordinator, never proceed on a partial message.
@@ -156,10 +156,14 @@ Include Summary, Intended Behavior, Changed Files, Verification, Remaining Risks
 Any coverage IDs require matching coverage rows. Controller runs the real checker.
 
 After all tests, stage ONLY the three allowed source paths and .gitignore, with no
-other staged paths or unstaged tracked changes. Write the staged patch
-(`git diff --cached`) to candidate.patch in the evidence directory. Reverify
-generated artifacts and record sandbox masks separately. Capture HEAD and
-`git write-tree`. Report CANDIDATE_REVIEW_READY and wait for independent candidate
+other staged paths or unstaged tracked changes. Write the staged patch with exactly
+`git diff-index --cached --patch --output=.gc/worker-evidence/ga-4z38/candidate.patch HEAD`
+(plumbing, so no diff or color configuration changes the bytes). Capture HEAD and
+`git write-tree`, and write candidate.json in the evidence directory as
+{"head": ..., "tree": ..., "staged_patch_sha256": <SHA256 of candidate.patch>}; the
+coordinator hashes the same command's output and compares all three. Reverify
+generated artifacts and record sandbox masks separately. Report
+CANDIDATE_REVIEW_READY and wait for independent candidate
 review plus the signing release. This hold prevents source PASS being mistaken
 for authorization to sign changed bytes.
 

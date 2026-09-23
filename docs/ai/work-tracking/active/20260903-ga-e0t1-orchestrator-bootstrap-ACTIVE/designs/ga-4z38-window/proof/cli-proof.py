@@ -3,12 +3,18 @@
 The installed gc binary (69d00186) documents each command's result with `--json-schema=result`, which
 prints the schema and exits without acting. This proof asks the binary itself, so it does not depend on
 which source commit the binary was built from:
-- `session list`: sessions[] rows carry id, template, closed and session_name (WATCH, release, CLOSE);
+- `session list`: sessions[] rows carry id, template, closed, session_name and state (WATCH, release,
+  CLOSE). city.toml has no [api] section, so with the controller socket alive gc takes the direct-store
+  path (cmd/gc/apiroute.go standaloneControllerClient returns nil), whose one-line rows carry the
+  normalized state: the reconciler's running state awake is reported as active
+  (internal/session/manager.go normalizeInfoState);
 - `session nudge`: requires ok and an outcome, and accepts --delivery immediate (release). Core source
   shows why the release uses immediate: wait-idle delivers live only when the session is idle within
   30 seconds and otherwise queues the nudge for a later dispatcher delivery (cmd/gc/cmd_nudge.go,
   internal/worker/runtime_handle.go nudgeWaitIdle), whereas immediate always types the text into the
-  session's tmux pane now (RuntimeHandle.nudgeNow to the tmux provider NudgeNow) and reports delivered;
+  session's tmux pane now (RuntimeHandle.nudgeNow to the tmux provider NudgeNow) and reports delivered,
+  provided the session is running (a managed session that is not running gets a queued wake instead,
+  shouldQueueManagedNudgeWake, which is why the release job requires the session active before it posts);
   text that lands while Claude is mid-turn waits in Claude's own input queue (tmux provider Nudge
   comment). The worker's receipt provider is claude;
 - `session close`: requires ok and session_id (CLOSE);
@@ -24,6 +30,7 @@ Nothing is written.
 Usage: python3 -B cli-proof.py   (prints one JSON object; exit 0 only if every check holds)
 """
 import json
+import os
 import re
 import subprocess
 import sys
@@ -64,8 +71,25 @@ def main():
                                 env=ENV, capture_output=True, text=True, timeout=60).stdout
     cli_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':cmd/gc/cmd_nudge.go'],
                             env=ENV, capture_output=True, text=True, timeout=60).stdout
-    receipt = json.loads(open('/home/loucmane/gascity/city/.gc/runtime/provisioning/receipt.json').read())
+    fd = os.open('/home/loucmane/gascity/city/.gc/runtime/provisioning/receipt.json',
+                 os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        receipt = json.loads(os.read(fd, 1 << 20))
+    finally:
+        os.close(fd)
     provider = receipt['profiles'][0]['provider']
+    manager_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':internal/session/manager.go'],
+                                env=ENV, capture_output=True, text=True, timeout=60).stdout
+    apiroute_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':cmd/gc/apiroute.go'],
+                                 env=ENV, capture_output=True, text=True, timeout=60).stdout
+    fd = os.open('/home/loucmane/gascity/city/city.toml', os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        city_toml = b''
+        while chunk := os.read(fd, 65536):
+            city_toml += chunk
+    finally:
+        os.close(fd)
+    normalize = re.search(r'func normalizeInfoState\(state State\) State \{.*?\n}\n', manager_go, re.S)
     result = dict(
         session_list=all(k in row for k in ('id', 'template', 'closed', 'session_name', 'alias', 'state')),
         nudge=set(nudge['required']) >= {'ok', 'outcome'}
@@ -79,7 +103,13 @@ def main():
         immediate_types_now=bool(now) and 'immediate.NudgeNow(h.sessionName, content)' in now.group(0)
         and 'func (p *Provider) NudgeNow(name string, content []runtime.ContentBlock) error {' in adapter_go
         and "Claude's cooperative queue will handle it at the next turn" in adapter_go,
-        worker_provider_is_claude=provider.get('name') == 'claude')
+        worker_provider_is_claude=provider.get('name') == 'claude',
+        running_state_is_active=bool(normalize) and 'case "awake":\n\t\treturn StateActive' in normalize.group(0)
+        and '\tStateActive State = "active"\n' in manager_go,
+        list_takes_direct_store_path=not any(line.strip().startswith(b'[api') for line in city_toml.splitlines())
+        and 'if err != nil || cfg.API.Port <= 0 {\n\t\treturn nil\n\t}' in apiroute_go
+        and '\t\treturn standaloneControllerClient(cityPath)\n' in apiroute_go,
+        not_running_gets_a_queued_wake='\treturn !obs.Running, nil\n' in cli_go)
     result['ok'] = all(result.values())
     result['emitted_signals'] = emitted
     print(json.dumps(result, indent=1, sort_keys=True))

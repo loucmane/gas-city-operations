@@ -1,24 +1,22 @@
 #!/bin/sh
-# ga-4z38 window signing release: validate the coordinator signing release against the live
-# worker session and the staged index, post it once, read it back and nudge.
-# Repeatable: a run after the post only verifies and nudges again.
-# Slot 3 of 3: the job runner starts each wrapper path once per commit.
+# ga-4z38 window contain: hold scheduling. city-suspend (only if the city was resumed), then
+# rig-suspend, once each, through the reviewed lifecycle.
+# Slot 1 of 2: the job runner starts each wrapper path once per commit.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
-# Log: ~/.local/share/gas-city-staging/ga-4z38-window/signing-release-3-<timestamp>.txt. Exits with the first failing
+# Log: ~/.local/share/gas-city-staging/ga-4z38-window/contain-1-<timestamp>.txt. Exits with the first failing
 # step's result, or 0.
 S=/home/loucmane/.local/share/gas-city-staging/ga-4z38-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
-COMMIT=${1:?usage: SIGNING-RELEASE-3.sh <reviewed commit>}
-RELEASE_SHA=365a38924bcd00def4aca8959ad8ded3b50fb3a89c7e0e88b6a7f001778e9b0c
-BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
+COMMIT=${1:?usage: CONTAIN-1.sh <reviewed commit>}
+WINDOW_SHA=1accf5c9859cc57dc7e7a5ded83cdf1218c2a1f043de0294ba15042d67168f4f
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
 [ ! -L "$S" ] || exit 1
-LOG="$S/signing-release-3-$(date -u +%Y%m%dT%H%M%SZ).txt"
+LOG="$S/contain-1-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
 for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
@@ -28,19 +26,23 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-4z38-source-release.posted ] || { echo "== STOP: no source release posted"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-4z38-window-20260923-r1/stage-pass.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== SIGNING-RELEASE-3 REFUSED at $label rc=$rc: read this log and the named roots before any further step"
+    echo "== CONTAIN-1 REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-step budget "$C/budget-r11.py" "$BUDGET_SHA" 85
-step signing-release "$C/release-r11.py" "$RELEASE_SHA" signing
-echo "== SIGNING-RELEASE-3 PASS"
+if [ -e /var/tmp/ga-4z38-window-20260923-r1/suspension-city-resume-event.json ] && [ ! -e /var/tmp/ga-4z38-window-20260923-r1/suspension-city-suspend-event.json ]; then
+  step city-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle city-suspend
+fi
+if [ -e /var/tmp/ga-4z38-window-20260923-r1/suspension-rig-resume-event.json ] && [ ! -e /var/tmp/ga-4z38-window-20260923-r1/suspension-rig-suspend-event.json ]; then
+  step rig-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-suspend
+fi
+echo "== CONTAIN-1 PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0
