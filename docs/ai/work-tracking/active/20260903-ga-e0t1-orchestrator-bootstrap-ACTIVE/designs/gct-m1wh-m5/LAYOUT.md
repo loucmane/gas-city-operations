@@ -1,4 +1,4 @@
-# M5 metadata successor: layout proof and activation plan (r8)
+# M5 metadata successor: layout proof and activation plan (r9)
 
 This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
 Opus 5.5 scope of `gct-er3h`.
@@ -582,6 +582,40 @@ file. `manifest_candidate.py` stays at the r5 bytes `29cee991`.
     executor's own deadline checks remain authoritative.
 - **With a 13:33:50Z horizon,** the executor wrapper accepts `prepare` until about 12:43Z (14:43
   Stockholm).
+
+**r8 dispositions and r9 (the binding step).** Both r8 reviews returned SOURCE_PASS with no
+must-fix. The recapture then ran once, from 10:46:58Z to 10:49:14Z, as the operator entry
+`operator/M5-CAPTURE.sh cc3c52c7…`:
+- audit `cef3d4ad`, with no unexpected drift and a stable host;
+- complete `7a7a56d0`: exactly the six `CHANGED_INPUTS` changed, over a clean scope with no city
+  tmux server;
+- settle `1d06ca72`;
+- freeze `baseline.json` `68cbee54`;
+- horizon 13:33:50Z, so the latest executor start the wrapper accepts is 12:43:40Z.
+
+r9 changes:
+- `manifest_candidate.py` pins `BASELINE_PATH = reports/m5-capture-r2/baseline.json` and
+  `BASELINE_SHA = 68cbee54`, with a comment. Its digest is `1362860d`.
+- `source-pins.json` is regenerated (`c3cded5a`).
+- The operator wrappers take the r8 should-fixes:
+  - a git status failure counts as dirty;
+  - before `prepare`, the wrapper refuses if a HOLD marker is left over or `reports/m5` exists;
+  - `recover-preparation` is suggested only after a successful stop record;
+  - a pause failure with `window.json` present gets `restore-preapply`;
+  - an observe that is consumed without a result gets "inspect";
+  - the SOURCE_PASS wait ends at 660 s of window left, so the PAIRING_PASS reviews keep time;
+  - the paired gate is derived from the measured pause (167 s plus twice the pause plus 30 s, and
+    at least 300 s);
+  - waits count wall-clock time;
+  - the horizon is rechecked before `restore-accepted`;
+  - `GATE-PROMPTS.md` puts drafts in staging and forbids checkout writes and gc calls during the
+    transaction.
+
+Checks at r9:
+- 73 tests pass;
+- the launch.py loader replay passes for `c3cded5a` and all six sources;
+- the real-baseline build gives 685 inputs, 49 trees and 23 links, frame 128071 of 131072, and the
+  authority last at `28539934`.
 
 **Rollback digest (A should-fix 2).** `prereqs.py <digest> rollback` needs the digest of the
 current `manifest_candidate.py` bytes: `29cee991` at r7 and r8, and the r9 digest after the pin.

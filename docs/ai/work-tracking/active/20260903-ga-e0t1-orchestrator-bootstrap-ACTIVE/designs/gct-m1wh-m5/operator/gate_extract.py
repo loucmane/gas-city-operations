@@ -3,7 +3,7 @@
   gate_extract.py SOURCE_PASS | PAIRING_PASS | COMMIT_PASS
 
 Writes gate-<kind>-<utc>.json into the staging directory OUT_DIR, never into the package (O_EXCL) and prints its path and digest. It holds:
-- every checklist fact from M5-WINDOW-REVIEWS.md, computed from reports/m5/q;
+- every checklist fact from operator/GATE-PROMPTS.md, computed from reports/m5/q;
 - the exact bindings from the committed record_review.py.
 Reviewers must confirm the decisive facts against the originals, so this is a claim, not evidence.
 It touches no timer, city, native CLI or Bead.

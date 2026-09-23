@@ -5,12 +5,18 @@ parallel through the Agent tool (`aegis-reviewer`). Put only the candidate token
 no path token is used for this Operations checkout.
 
 **Outcome handling (coordinator).**
-- Two passes: write both drafts with the Write tool, then run `record_review.py record <KIND>`.
+- Two passes: write both drafts with the Write tool into the staging directory
+  `/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922`, never into the
+  package checkout. Then run `record_review.py record <KIND>`.
   `operator/M5-EXECUTE.sh` sees `q/<kind>.json` and continues.
 - Any HOLD, a refusal or a missing verdict: create
   `/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/HOLD-<kind>.json`, for
   example `HOLD-source-pass.json`. The wrapper stops and prints the recovery for that point.
 - Never write a HOLD marker and a pass record for the same gate.
+- From `prepare` until `restore-accepted`, write nothing into the package checkout: no commit,
+  no aegis or workflow log, no draft. The wrapper stops at any tracked or unignored change.
+  Staging files are fine. Bead notes and every gc call wait until after restore-accepted (the
+  quiescent-window rule).
 
 - Q = `/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5/q`
 - PKG = `/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-m5`

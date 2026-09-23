@@ -14,7 +14,10 @@
 #   -> paired -> verify -> [COMMIT_PASS record] -> restore-accepted
 #
 # The coordinator writes each review record, and the executor re-verifies every record. A file
-# $S/HOLD-<record name> (for example HOLD-source-pass.json) makes the matching wait stop. The
+# $S/HOLD-<record name> (for example HOLD-source-pass.json) makes the matching wait stop. Before
+# prepare, the script refuses if any HOLD marker is left over or reports/m5 already exists.
+# During the transaction, NOTHING may write into the package checkout T: no commit, no aegis
+# or workflow log, no draft. Any tracked or unignored change stops the next stage. The
 # script never replays a stage and never runs a recovery on its own. On any refusal, HOLD, timeout
 # or too-short window it stops, and prints the one recovery command that fits that point.
 #
@@ -23,10 +26,11 @@
 # - Window: prepare's pause intent fixes a 900 s window (metadata_window.build). A native phase
 #   writes <phase>-consumed.json BEFORE admit() reserves its 66 s. A refusal after that is not
 #   terminal, and restore-preapply then refuses. So observe starts only with more than 180 s of
-#   window left, and paired (two probes plus the commit spawn) only with more than 300 s. The
+#   window left, and paired only above its derived gate. The
 #   remaining window is computed exactly as admit() does: the minimum of the monotonic deadline,
 #   the boot-time deadline, and the renewal horizon minus 10 s.
-#   The SOURCE_PASS wait ends at 540 s of window left; the PAIRING_PASS wait at 300 s.
+#   The SOURCE_PASS wait ends at 660 s of window left and the PAIRING_PASS wait at 300 s. The
+#   paired gate is derived from the measured pause, and is at least 300 s. Waits count wall-clock time.
 # - Horizon: restore-accepted still needs the exact cache metadata, atimes included, so it must
 #   run before the renewal horizon (oldest frozen atime plus 24 h). The gate before prepare
 #   reserves 900 + 10 + 1800 (COMMIT_PASS reviews and restoration) + 300 s of slack. The
@@ -42,11 +46,12 @@ export PATH XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/r
 LOG="$S/execute-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 
+# Fails closed: a failed git status counts as dirty.
 clean() {
-  head=$(git -C "$W" rev-parse HEAD)
-  dirty=$(git -C "$W" --no-optional-locks status --porcelain | wc -l)
-  [ "$head" = "$COMMIT" ] && [ "$dirty" = 0 ] && return 0
-  echo "== STOP: package worktree head=$head dirty=$dirty"; return 1
+  head=$(git -C "$W" rev-parse HEAD) || head=unreadable
+  status=$(git -C "$W" --no-optional-locks status --porcelain) || status=unreadable
+  [ "$head" = "$COMMIT" ] && [ -z "$status" ] && return 0
+  echo "== STOP: package worktree head=$head status=$(printf '%s' "$status" | wc -l) lines"; return 1
 }
 stage() {
   clean || return 1
@@ -60,11 +65,11 @@ stage() {
 # Waits for q/<name> or $S/HOLD-<name>, for at most $2 seconds.
 await() {
   echo "== waiting for $1, at most $2 s, from $(date -u +%H:%M:%SZ)"
-  n=0
-  while [ "$n" -lt "$2" ]; do
+  end=$(( $(date +%s) + $2 ))
+  while [ "$(date +%s)" -lt "$end" ]; do
     [ -f "$Q/$1" ] && { echo "== found $1 $(date -u +%H:%M:%SZ)"; return 0; }
     [ -f "$S/HOLD-$1" ] && { echo "== HOLD marker for $1 $(date -u +%H:%M:%SZ)"; return 1; }
-    sleep 2; n=$((n + 2))
+    sleep 2
   done
   echo "== TIMEOUT waiting for $1 $(date -u +%H:%M:%SZ)"; return 1
 }
@@ -74,10 +79,12 @@ recovery() {
   echo "   systemd-run --user --wait --collect --pipe --quiet -p UMask=0022 /usr/bin/python3 -I -B $P/launch.py --expect-sources $EXPECT $*"
 }
 preparation_recovery() {
-  if [ -f "$Q/preparation-pause-command.json" ]; then
+  if [ -f "$Q/preparation-pause-command.json" ] && /usr/bin/python3 -I -B -c "
+import json, sys
+sys.exit(0 if json.load(open('$Q/preparation-pause-command.json')).get('returncode') == 0 else 1)"; then
     recovery recover-preparation "$(sha "$Q/preparation-pause-intent.json")"
   else
-    echo "== NO stop record: recover-preparation would refuse. Confirm the timer state by hand, as LAYOUT.md requires for an interrupted preparation."
+    echo "== NO successful stop record: recover-preparation would refuse. Confirm the timer state by hand, as LAYOUT.md requires for an interrupted preparation."
   fi
 }
 # Seconds to the cache-renewal horizon of the pinned baseline (min atime + 86400 s). BASELINE_PATH is
@@ -91,7 +98,8 @@ rel = re.search(r\"^BASELINE_PATH = O \+ '([^']+)'\$\", text, re.M).group(1)
 inv = json.load(open(o + rel))['closure']['cache']['inventory']
 print(int(min(v['atime_ns'] for v in inv.values()) / 1e9 + 86400 - time.time()))"
 }
-# Seconds of window left, exactly as metadata_window.admit computes it, from the recorded deadline.
+# Seconds of window left as metadata_window.admit computes it, from the recorded deadline. The
+# sample span (under 1 s) is ignored, and the gates below have far larger margins.
 window_left() {
   /usr/bin/python3 -I -B -c "
 import json, time
@@ -105,26 +113,43 @@ run() {
   echo "== context umask=$(umask) mnt=$(readlink /proc/self/ns/mnt) cgroup=$(cat /proc/self/cgroup)"
   [ "$(umask)" = 0022 ] || { echo "== STOP: umask is not 0022"; return; }
   clean || return
+  [ ! -e "$W/reports/m5" ] || { echo "== STOP: reports/m5 already exists; this attempt root is consumed"; return; }
+  for marker in "$S"/HOLD-*; do
+    [ -e "$marker" ] && { echo "== STOP: leftover HOLD marker $marker"; return; }
+  done
   left=$(horizon_left) || { echo "== STOP: horizon unreadable"; return; }
   echo "== horizon in $left s; prepare needs more than $((900 + 10 + 1800 + 300)) s"
   [ "$left" -gt $((900 + 10 + 1800 + 300)) ] || { echo "== STOP before prepare: horizon too near; recapture instead"; return; }
   echo "== apt history tail (informational)"; tail -4 /var/log/apt/history.log
   stage prepare || { [ -f "$Q/preparation-pause-intent.json" ] && preparation_recovery; return; }
   X=$(sha "$Q/prepared.json"); echo "== prepared $X; window left $(window_left) s"
-  if ! await source-pass.json "$(budget 540)"; then preparation_recovery; return; fi
+  if ! await source-pass.json "$(budget 660)"; then preparation_recovery; return; fi
+  t0=$(date +%s)
   stage pause "$X" || {
-    if [ -f "$Q/pause-consumed.json" ]; then recovery recover-pause "$X"; else preparation_recovery; fi
+    if [ -f "$Q/window.json" ]; then recovery restore-preapply "$X"
+    elif [ -f "$Q/pause-consumed.json" ]; then recovery recover-pause "$X"
+    else preparation_recovery; fi
     return; }
+  pause_s=$(( $(date +%s) - t0 )); echo "== pause took $pause_s s"
   w=$(window_left); echo "== window left $w s before observe"
   [ "$w" -gt 180 ] || { echo "== STOP: window too short to start observe"; recovery restore-preapply "$X"; return; }
-  stage observe "$X" || { recovery restore-preapply "$X"; return; }
+  stage observe "$X" || {
+    if [ -f "$Q/observe-consumed.json" ] && [ ! -f "$Q/observe-result.json" ]; then
+      echo "== observe consumed without a terminal result: run NOTHING; the coordinator must inspect"
+    else recovery restore-preapply "$X"; fi
+    return; }
   if ! await pairing-pass.json "$(budget 300)"; then recovery restore-preapply "$X"; return; fi
   w=$(window_left); echo "== window left $w s before paired"
-  [ "$w" -gt 300 ] || { echo "== STOP: window too short to start paired"; recovery restore-preapply "$X"; return; }
+  # Probe 1 up to 65 s, probe 2 up to 36 s, and the commit admission reserve of 66 s. On top of
+  # that, the three current() snapshots in paired, bounded by twice the measured pause (which takes
+  # the same kind of snapshots), plus 30 s. Never below 300 s.
+  need=$(( 167 + 2 * pause_s + 30 )); [ "$need" -ge 300 ] || need=300
+  [ "$w" -gt "$need" ] || { echo "== STOP: window $w s is not above $need s for paired"; recovery restore-preapply "$X"; return; }
   stage paired "$X" || { echo "== paired refused: run NOTHING; the coordinator must inspect the probe and commit records first"; return; }
   stage verify "$X" || { echo "== verify refused: run NOTHING; the coordinator must inspect first"; return; }
   c=$(( $(horizon_left) - 10 - 300 )); [ "$c" -gt 0 ] || c=0
   if ! await commit-pass.json "$c"; then echo "== no COMMIT_PASS before the horizon margin: the timer stays paused; the coordinator decides"; return; fi
+  h=$(horizon_left); [ "$h" -gt 70 ] || { echo "== STOP: horizon $h s is too near for restore-accepted; the coordinator decides"; return; }
   stage restore-accepted "$X" || { echo "== restore-accepted refused: the coordinator must inspect"; return; }
   echo "== ACCEPTED"
 }
