@@ -1,8 +1,9 @@
 """Tests for prep-r11.py. Run: python3 -B -m unittest test_prep (from this directory).
 
 These read live files and run read-only `gc config show` and `gc order list` with
-GIT_OPTIONAL_LOCKS=0, which leaves the pack cache untouched. Nothing is written outside a
-temporary directory.
+GIT_OPTIONAL_LOCKS=0, which leaves the pack cache untouched. The R3 proof test also runs, all in
+read-only bwrap: gc under the pinned overlay, the Template provisioner through the source launcher,
+and Core `compose finalize`. Nothing is written outside a temporary directory.
 """
 import hashlib
 import importlib.util
@@ -56,9 +57,14 @@ class Pins(unittest.TestCase):
         self.assertEqual(subprocess.run(git + ['status', '--porcelain', '--untracked-files=all'],
                                         capture_output=True, text=True).stdout, '')
 
-    def test_root_is_fresh_and_outside_repositories(self):
-        self.assertFalse(os.path.lexists(P.ROOT))
+    def test_root_is_outside_repositories_and_holds_the_job_result(self):
+        # Job ga-4z38-prep-r3 (e508fe84) consumed the root at 16:37Z with PREP PASS.
         self.assertTrue(str(P.ROOT).startswith('/var/tmp/'))
+        with open(P.ROOT/'result.json') as handle:
+            result = json.load(handle)
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['city_after_sha256'], P.OVERLAY_SHA)
+        self.assertEqual(result['receipt_after_sha256'], '392ea0b6c0a9a3c0cb88971b04c45b1326de50e9ea35c4e63c83bf1a602a3e46')
 
 
 class Overlay(unittest.TestCase):
