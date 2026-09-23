@@ -54,14 +54,28 @@ def load():
     return w
 
 
-ASSIGNMENT = re.compile(r'([A-Za-z_][A-Za-z0-9_]*)=[^\s\'"]*')
+KEY = re.compile(r'[A-Za-z_][A-Za-z0-9_]*')
+# Inside a command string: KEY= then a value made of quoted and unquoted runs up to unquoted whitespace.
+ASSIGNMENT = re.compile(r'([A-Za-z_][A-Za-z0-9_]*)=(?:\'[^\']*\'?|"[^"]*"?|[^\s\'"]+)*')
 
 
 def redacted(argv):
-    """argv with the value of every KEY=VALUE token removed, wherever it appears: tmux -e values and
-    assignments inside a pane command string (Core expects `exec env KEY=VALUE ...` there). The city tmux
-    server keeps Core's new-session argv, which carries the session environment; only key names stay."""
-    return [ASSIGNMENT.sub(lambda m: m.group(1) + '=<redacted>', arg) for arg in argv]
+    """argv with every assigned value removed; only key names stay. Core writes each tmux -e element as
+    one argv entry KEY=VALUE whatever VALUE holds (tmux.go new-session), and expects `exec env KEY=VALUE`
+    in the pane command string. So: the element after -e, an -eKEY=VALUE element and any element that is
+    itself KEY=VALUE lose everything after the first '='; inside any other element, each KEY= loses its
+    value up to the next unquoted whitespace, quoted runs included."""
+    out, value_next = [], False
+    for arg in argv:
+        whole = KEY.match(arg)
+        if value_next or (whole and arg[whole.end():whole.end() + 1] == '='):
+            out.append(arg.split('=', 1)[0] + '=<redacted>' if '=' in arg else '<redacted>')
+        elif arg.startswith('-e') and '=' in arg:
+            out.append(arg.split('=', 1)[0] + '=<redacted>')
+        else:
+            out.append(ASSIGNMENT.sub(lambda m: m.group(1) + '=<redacted>', arg))
+        value_next = arg == '-e'
+    return out
 
 
 def routes_since_stage(w, o, routes, stage_event):
@@ -119,6 +133,28 @@ def runtime_children_since_before(w, o, before_path):
                       if then[child].get(key) != current[child].get(key)
                       and not (name == '.beads' and child == 'routes.jsonl' and key == 'inode')]
         return not found or found
+    except Exception as exc:  # any refusal or read error is recorded, since WATCH only observes
+        return 'refused: ' + str(exc)
+
+
+def directories_since_before(w, o, before_path):
+    """None before PREFLIGHT's before.json; True when the city directories pass the base
+    directory_preservation that ADMIT's preservation applies (full metadata of every city child, the
+    provisioning inventory, runtime child names and identities), after the one alignment the route chain
+    makes for STAGE's reload (routes.jsonl inode, .beads mtime and ctime; route-chain-r1 project);
+    otherwise the refusal. Evidence only: the WATCH after CLOSE is the one that matters for ADMIT."""
+    if not before_path.exists():
+        return None
+    try:
+        a = json.loads(json.dumps(json.loads(w.read(before_path))['directories']))
+        z = json.loads(json.dumps(w.directories(o)))
+        routes = z['runtime_children'].get('.beads', {}).get('routes.jsonl')
+        if routes is not None and 'routes.jsonl' in a['runtime_children'].get('.beads', {}):
+            routes['inode'] = a['runtime_children']['.beads']['routes.jsonl']['inode']
+        for key in ('mtime_ns', 'ctime_ns'):
+            z['city']['.beads'][key] = a['city']['.beads'][key]
+        w.directory_preservation(a, z)
+        return True
     except Exception as exc:  # any refusal or read error is recorded, since WATCH only observes
         return 'refused: ' + str(exc)
 
@@ -222,6 +258,7 @@ def main():
     routes = w.module(BASE.parent/'restore-r9-routes-r3.py', '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2')
     routes_unchanged = routes_since_stage(w, o, routes, WINDOW/'stage-reload-generated-routes.json')
     children_unchanged = runtime_children_since_before(w, o, WINDOW/'before.json')
+    directories_unchanged = directories_since_before(w, o, WINDOW/'before.json')
     w.complete_containment()
     related = [dict(id=v['id'], status=v['status'], state=(v.get('metadata') or {}).get('state'),
                     template=(v.get('metadata') or {}).get('template'))
@@ -236,12 +273,14 @@ def main():
                   task=dict(status=bead['status'], assignee=bead.get('assignee'),
                             metadata=bead.get('metadata') or {}),
                   matching_processes=len(processes), routes_unchanged_since_stage=routes_unchanged,
-                  runtime_children_unchanged_since_preflight=children_unchanged)
+                  runtime_children_unchanged_since_preflight=children_unchanged,
+                  directories_pass_admission_check=directories_unchanged)
     w.save('result.json', result)
     print(json.dumps(dict(ok=True, root=str(root), head=head, status_records=len(records),
                           live_sessions=len(result['live_sessions'] or []), matching_processes=len(processes),
                           routes_unchanged_since_stage=routes_unchanged,
-                          runtime_children_unchanged_since_preflight=children_unchanged)))
+                          runtime_children_unchanged_since_preflight=children_unchanged,
+                          directories_pass_admission_check=directories_unchanged)))
 
 
 if __name__ == '__main__':

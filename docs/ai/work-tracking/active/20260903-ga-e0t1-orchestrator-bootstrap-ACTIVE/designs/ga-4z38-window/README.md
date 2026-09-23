@@ -758,6 +758,68 @@ text, which r11 adds. Its should-fixes:
 - **Declared and not fixable in this package:** an automatic context compaction runs the PreCompact
   handoff, which ends the attempt. The brief keeps output short for that reason.
 
+### Round 2b r12 (after the 8d45c6b4 review A HOLD)
+
+Review A of `8d45c6b4` held, and its transcript is filed.
+- **The r11 redaction weakened r10's.** It ended a value at the first space or quote, so `K=a b` in an
+  `-e` element and `K='v w'` in a command string kept part or all of the value.
+  - Now the element after `-e`, an `-eKEY=VALUE` element and any element that is itself `KEY=VALUE`
+    lose everything after the first `=`.
+  - Inside any other element, each `KEY=` loses its value up to the next unquoted whitespace, quoted
+    runs included.
+  - The test covers spaced, quoted, mixed and missing values.
+  - **Erratum** to the r11 WATCH bullet: its "every KEY=VALUE token" did not hold for quoted or spaced
+    values.
+- **The tmux gate now stops on any running city server, empty or not.** The worker's pane must inherit
+  the supervisor's environment (proof/worker-env-proof.py). A server that is already running would
+  hand it that server's environment instead, and CLOSE can end only an empty server.
+  - Only the no-server answers that CLOSE also accepts pass: "no server running on …", or "error
+    connecting to …" with no such file or connection refused.
+  - The test runs the exact gate text on a throwaway socket with:
+    - no socket;
+    - a live session, with and without TMUX_TMPDIR in the environment;
+    - a live empty server;
+    - a stale socket after kill-server;
+    - a stand-in tmux printing unknown errors.
+  - Tonight's read-only check, the same command: no server is running on the city socket.
+- **The singleton proof** now also requires that no cmd/gc code reads the mark's metadata keys except
+  the stall-signature de-duplication. Its stdlib-import check also sees indented imports.
+- **Wording.**
+  - **Erratum** to the r11 hooks bullet: a WATCH comparison of the runtime children is an early
+    warning only, since children created later by a release nudge, the drain or the close are not
+    forecast. The WATCH after CLOSE is the one that matters for ADMIT.
+  - **Erratum** to the r11 tmux-binary bullet: worker-env-proof reads the supervisor's whole environ,
+    but records only key names and PATH-derived booleans.
+  - cli-proof writes a phase record into a temporary directory.
+  - The CLOSE wrapper title says tmux-session residue.
+
+### Round 2b r12, continued (review B of 8d45c6b4 passed it)
+
+Review B of `8d45c6b4` returned SOURCE_PASS, and its transcript is filed. Review A held that commit, so
+it is not admitted. r12 also takes review B's should-fixes:
+- **The tmux gate uses Core's own rule** for a socket a session may be created on
+  (server_socket_probe.go observeNamedSocket). Either the path is absent, and tmux answers "error
+  connecting to … (No such file or directory)". Or it is this user's unix socket, not a symlink, that
+  no server answers ("no server running on …").
+  - Anything else stops: a regular file at the path, an unknown answer, or a running server.
+  - The passing state is logged.
+  - The test adds the regular-file case.
+  - Tonight's read-only run of both gates: "stale city socket, no server" and "no process names the
+    Core worktree".
+- **A worktree-process gate in PREFLIGHT and RESUME.** CLOSE refuses on a process of this user whose
+  argv names the Core worktree, or whose cwd is inside it, and never signals one. Both wrappers now
+  stop on such a process before their step. The test runs the exact gate text against a real process
+  with its cwd inside, then one naming the path in argv.
+- **WATCH runs ADMIT's directory check.** It applies the base `directory_preservation`, which ADMIT's
+  preservation applies. It first makes the one alignment the route chain makes for STAGE's reload:
+  the routes.jsonl inode, and `.beads` mtime and ctime. This covers the full metadata of every city
+  child, the provisioning inventory, and the runtime child names and identities. It is recorded as
+  `directories_pass_admission_check`. The test uses the real base function.
+- **The singleton proof** also pins the actionable-work collector that feeds the resume tier. It lists
+  in_progress work by status, and keeps it by assignee only.
+- **Wording.** **Erratum** to the r11 bullet "PREFLIGHT, before anything is consumed": RECONCILE and
+  BIND have written their Beads by then, so "before STAGE" is accurate.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,

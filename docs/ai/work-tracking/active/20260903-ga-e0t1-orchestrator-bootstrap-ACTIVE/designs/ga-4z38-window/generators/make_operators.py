@@ -65,21 +65,46 @@ def absent(*paths):
     return lines
 
 
-# CLOSE can end only an empty city tmux server: a session there before RESUME would make CLOSE unpassable.
-# PREFLIGHT (before anything is consumed) and RESUME both stop on one. Read-only and fail closed: only an
-# empty listing or a no-server answer passes. TMUX_TMPDIR and TMUX are removed so the socket directory is
-# Core's default whatever the user manager's environment holds.
+# No city tmux server may run before the worker's session starts it: the worker's pane must inherit the
+# supervisor's environment (proof/worker-env-proof.py), and CLOSE can end only an empty server. PREFLIGHT
+# (before STAGE) and RESUME both stop on a running server, empty or not. Read-only and fail closed, with
+# Core's own rule for a socket it may create a session on (internal/runtime/tmux/server_socket_probe.go
+# observeNamedSocket): the path is absent, or it is a unix socket (here: not a symlink, owned by this user)
+# that no server answers. TMUX_TMPDIR and TMUX are removed so the socket directory is Core's default
+# whatever the user manager's environment holds. The passing state is logged.
 TMUX_GATE = ('tmux_out=$(/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions '
              '-F "#{session_name}" 2>&1); tmux_rc=$?\n'
+             'tmux_sock=/tmp/tmux-$(id -u)/city\n'
              'if [ "$tmux_rc" = 0 ]; then\n'
-             '  [ -z "$tmux_out" ] || { echo "== STOP: the city tmux server already holds a session"; '
-             'echo "== end"; exit 1; }\n'
-             'else\n'
+             '  echo "== STOP: a city tmux server is already running"; echo "== end"; exit 1\n'
+             'elif [ ! -e "$tmux_sock" ] && [ ! -L "$tmux_sock" ]; then\n'
              '  case "$tmux_out" in\n'
-             '    *"no server running on "*|*"error connecting to "*) ;;\n'
+             '    *"error connecting to "*"(No such file or directory)"*) echo "== tmux gate: no city socket" ;;\n'
              '    *) echo "== STOP: unrecognised city tmux answer"; echo "== end"; exit 1 ;;\n'
              '  esac\n'
+             'elif [ -S "$tmux_sock" ] && [ ! -L "$tmux_sock" ] && [ "$(stat -c %u "$tmux_sock")" = "$(id -u)" ]; then\n'
+             '  case "$tmux_out" in\n'
+             '    *"no server running on "*) echo "== tmux gate: stale city socket, no server" ;;\n'
+             '    *) echo "== STOP: unrecognised city tmux answer"; echo "== end"; exit 1 ;;\n'
+             '  esac\n'
+             'else\n'
+             '  echo "== STOP: the city tmux socket path is not a stale socket of this user"; echo "== end"; exit 1\n'
              'fi\n')
+
+# CLOSE refuses on any process of this user whose argv names the Core worktree or whose cwd is inside it,
+# and never signals one. PREFLIGHT and RESUME stop on such a process first, with the same rule (read-only).
+WORK_GATE = ('work=/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles\n'
+             'for proc in /proc/[0-9]*; do\n'
+             '  [ -O "$proc" ] && [ "${proc#/proc/}" != "$$" ] || continue\n'
+             '  cwd=$(readlink "$proc/cwd" 2>/dev/null) || cwd=\n'
+             '  named=\n'
+             '  case "$cwd" in "$work"|"$work"/*) named=cwd ;; esac\n'
+             '  [ -n "$named" ] || { tr "\\000" "\\n" < "$proc/cmdline" 2>/dev/null | grep -qF -- "$work" && named=argv; }\n'
+             '  if [ -n "$named" ]; then\n'
+             '    echo "== STOP: process ${proc#/proc/} names the Core worktree ($named)"; echo "== end"; exit 1\n'
+             '  fi\n'
+             'done\n'
+             'echo "== worktree gate: no process names the Core worktree"\n')
 
 
 def main(package):
@@ -125,7 +150,7 @@ def main(package):
                                    'find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 '
                                    '-exec grep -l \'"ok": true\' {} + | xargs -r grep -l "$FRESHEN_SHA" | grep -q . || '
                                    '{ echo "== STOP: no FRESHEN pass in the last 45 minutes"; '
-                                   'echo "== end"; exit 1; }\n' + TMUX_GATE,
+                                   'echo "== end"; exit 1; }\n' + TMUX_GATE + WORK_GATE,
                              steps=['step preflight "$C/window-r11.py" "$WINDOW_SHA" preflight']),
         'STAGE.sh': dict(title='stage: the single-worker overlay city and its native-finalized receipt, through\n'
                                '# the confined writers and one observed reload. Every rig stays suspended.',
@@ -145,7 +170,7 @@ def main(package):
                           pre='[ -e /var/tmp/ga-4z38-route-20260923-r1/result.json ] && '
                               '[ -e /var/tmp/ga-4z38-audit-route-20260923-r1/result.json ] || '
                               '{ echo "== STOP: ROUTE has not passed"; echo "== end"; exit 1; }\n'
-                              + TMUX_GATE
+                              + TMUX_GATE + WORK_GATE
                               + absent('/var/tmp/ga-4z38-audit-resume-20260923-r1', window + '/rig-resume-started.json'),
                           steps=['step rig-resume "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-resume',
                                  'step audit-resume "$C/audit-queue-r3.py" "$AUDIT_SHA" resume',
@@ -183,7 +208,7 @@ def main(package):
                                    steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 85',
                                           'step signing-release "$C/release-r11.py" "$RELEASE_SHA" signing']),
         'CLOSE.sh': dict(title='close: after CONTAIN (or a passing HOLD), drain once (best-effort) and close the one\n'
-                               '# worker session, then prove zero session, pane and worktree-process residue.\n'
+                               '# worker session, then prove zero session, tmux-session and worktree-process residue.\n'
                                '# Repeatable: a rerun never repeats the drain and closes only a still-open session.',
                          pins='CLOSE_SHA=%s' % d['close-r11.py'],
                          pre='',

@@ -31,14 +31,34 @@ fi
 # hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.
 find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 -exec grep -l '"ok": true' {} + | xargs -r grep -l "$FRESHEN_SHA" | grep -q . || { echo "== STOP: no FRESHEN pass in the last 45 minutes"; echo "== end"; exit 1; }
 tmux_out=$(/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>&1); tmux_rc=$?
+tmux_sock=/tmp/tmux-$(id -u)/city
 if [ "$tmux_rc" = 0 ]; then
-  [ -z "$tmux_out" ] || { echo "== STOP: the city tmux server already holds a session"; echo "== end"; exit 1; }
-else
+  echo "== STOP: a city tmux server is already running"; echo "== end"; exit 1
+elif [ ! -e "$tmux_sock" ] && [ ! -L "$tmux_sock" ]; then
   case "$tmux_out" in
-    *"no server running on "*|*"error connecting to "*) ;;
+    *"error connecting to "*"(No such file or directory)"*) echo "== tmux gate: no city socket" ;;
     *) echo "== STOP: unrecognised city tmux answer"; echo "== end"; exit 1 ;;
   esac
+elif [ -S "$tmux_sock" ] && [ ! -L "$tmux_sock" ] && [ "$(stat -c %u "$tmux_sock")" = "$(id -u)" ]; then
+  case "$tmux_out" in
+    *"no server running on "*) echo "== tmux gate: stale city socket, no server" ;;
+    *) echo "== STOP: unrecognised city tmux answer"; echo "== end"; exit 1 ;;
+  esac
+else
+  echo "== STOP: the city tmux socket path is not a stale socket of this user"; echo "== end"; exit 1
 fi
+work=/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles
+for proc in /proc/[0-9]*; do
+  [ -O "$proc" ] && [ "${proc#/proc/}" != "$$" ] || continue
+  cwd=$(readlink "$proc/cwd" 2>/dev/null) || cwd=
+  named=
+  case "$cwd" in "$work"|"$work"/*) named=cwd ;; esac
+  [ -n "$named" ] || { tr "\000" "\n" < "$proc/cmdline" 2>/dev/null | grep -qF -- "$work" && named=argv; }
+  if [ -n "$named" ]; then
+    echo "== STOP: process ${proc#/proc/} names the Core worktree ($named)"; echo "== end"; exit 1
+  fi
+done
+echo "== worktree gate: no process names the Core worktree"
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

@@ -694,6 +694,7 @@ class Safety(unittest.TestCase):
                 self.assertTrue(summary['ok'])
                 self.assertEqual(summary['routes_unchanged_since_stage'], True if stage else None)
                 self.assertIs(summary['runtime_children_unchanged_since_preflight'], True)
+                self.assertIn('directories_pass_admission_check', summary)
                 result = json.loads((Path(summary['root'])/'result.json').read_text())
                 self.assertEqual(result['staged'], [])
                 self.assertEqual(result['status_records'], ['?? .claude/settings.local.json'])
@@ -789,16 +790,19 @@ class Safety(unittest.TestCase):
     def test_watch_redacts_tmux_session_environment(self):
         watch = self.load('watch-r11.py')
         argv = ['tmux', '-u', '-L', 'city', 'new-session', '-d', '-s', 'gc-ci-1', '-e', 'GC_TOKEN=secret',
-                '-eOTHER=value', '-c', '/work', "exec env GC_KEY=abc 'claude' --model=x"]
+                '-eOTHER=value', '-e', 'SPACED=a b', '-eQUOTED=x y', '-c', '/work', 'LOOSE=m n',
+                "exec env GC_KEY=abc 'claude' --model=x", "exec env K='v w' J=\"a b\"c claude", '-e', 'NOEQ']
         self.assertEqual(watch.redacted(argv), ['tmux', '-u', '-L', 'city', 'new-session', '-d', '-s', 'gc-ci-1', '-e',
-                                                'GC_TOKEN=<redacted>', '-eOTHER=<redacted>', '-c', '/work',
-                                                "exec env GC_KEY=<redacted> 'claude' --model=<redacted>"])
+                                                'GC_TOKEN=<redacted>', '-eOTHER=<redacted>', '-e', 'SPACED=<redacted>',
+                                                '-eQUOTED=<redacted>', '-c', '/work', 'LOOSE=<redacted>',
+                                                "exec env GC_KEY=<redacted> 'claude' --model=<redacted>",
+                                                'exec env K=<redacted> J=<redacted> claude', '-e', '<redacted>'])
         self.assertIn('argv=redacted([arg.decode(', (HERE/'watch-r11.py').read_text())
 
     def test_resume_gate_runs_fail_closed_against_real_tmux(self):
         text = (HERE/'operator'/'RESUME.sh').read_text()
         start = text.index('tmux_out=$(')
-        gate = text[start:text.index('  esac\nfi\n', start) + len('  esac\nfi\n')]
+        gate = text[start:text.index('work=/home/loucmane/gascity-core-worktrees/', start)]
         self.assertLess(start, text.index('step rig-resume'))
         self.assertIn('/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions', gate)
         socket = 'ga4z38-gate-probe'
@@ -807,23 +811,104 @@ class Safety(unittest.TestCase):
         tmux = ['/usr/bin/tmux', '-u', '-f', '/dev/null', '-L', socket]
         env = dict(PATH='/usr/bin:/bin', HOME='/home/loucmane', LC_ALL='C.UTF-8')
 
-        def gate_says():
-            done = subprocess.run(['/bin/sh', '-c', gate.replace('-L city', '-L ' + socket) + 'echo "== PASS"\n'],
-                                  capture_output=True, text=True, timeout=30, env=env, stdin=subprocess.DEVNULL)
-            return done.stdout.strip().splitlines()[0]
+        def gate_says(extra_env=None, text=None):
+            script = (text or gate).replace('-L city', '-L ' + socket).replace('tmux-$(id -u)/city', 'tmux-$(id -u)/' + socket)
+            script += 'echo "== PASS"\n'
+            done = subprocess.run(['/bin/sh', '-c', script], capture_output=True, text=True, timeout=30,
+                                  env=dict(env, **(extra_env or {})), stdin=subprocess.DEVNULL)
+            lines = done.stdout.strip().splitlines()
+            return lines[1] if lines[0].startswith('== tmux gate: ') else lines[0]
         try:
-            self.assertEqual(gate_says(), '== PASS')                       # no server at all
+            self.assertEqual(gate_says(), '== PASS')                       # no socket: error connecting, ENOENT
             subprocess.run(tmux + ['new-session', '-d', '-s', 'probe', '-c', '/tmp', 'sleep 300'], check=True, env=env)
             subprocess.run(tmux + ['set-option', '-g', 'exit-empty', 'off'], check=True, env=env)
-            self.assertEqual(gate_says(), '== STOP: the city tmux server already holds a session')
+            self.assertEqual(gate_says(), '== STOP: a city tmux server is already running')
+            # TMUX_TMPDIR in the job environment cannot hide the server: the gate removes it.
+            self.assertEqual(gate_says({'TMUX_TMPDIR': '/nonexistent-ga4z38'}), '== STOP: a city tmux server is already running')
             subprocess.run(tmux + ['kill-session', '-t', 'probe'], check=True, env=env)
-            self.assertEqual(gate_says(), '== PASS')                       # live empty server
+            self.assertEqual(gate_says(), '== STOP: a city tmux server is already running')   # live empty server
+            subprocess.run(tmux + ['kill-server'], check=True, env=env)
+            self.assertTrue(os.path.lexists(path))
+            self.assertEqual(gate_says(), '== PASS')                       # stale socket: no server running on
         finally:
             subprocess.run(tmux + ['kill-server'], env=env, capture_output=True)
             if os.path.lexists(path):
                 os.unlink(path)
         self.assertEqual(gate_says(), '== PASS')                           # socket gone again
         self.assertFalse(os.path.lexists(path))
+        # A regular file at the socket path is not a socket Core may use: stop.
+        try:
+            Path(path).write_text('')
+            self.assertEqual(gate_says(), '== STOP: the city tmux socket path is not a stale socket of this user')
+        finally:
+            if os.path.lexists(path):
+                os.unlink(path)
+        # Any other answer stops: a stand-in tmux that prints an unknown error.
+        with tempfile.TemporaryDirectory() as tmp:
+            fake = Path(tmp)/'tmux'
+            fake.write_text('#!/bin/sh\necho "error connecting to /tmp/x (Permission denied)" >&2\nexit 1\n')
+            fake.chmod(0o755)
+            self.assertEqual(gate_says(text=gate.replace('/usr/bin/tmux', str(fake))), '== STOP: unrecognised city tmux answer')
+            fake.write_text('#!/bin/sh\necho "protocol version mismatch" >&2\nexit 1\n')
+            self.assertEqual(gate_says(text=gate.replace('/usr/bin/tmux', str(fake))), '== STOP: unrecognised city tmux answer')
+
+    def test_worktree_gate_stops_on_a_process_in_the_core_worktree(self):
+        text = (HERE/'operator'/'PREFLIGHT.sh').read_text()
+        start = text.index('work=/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles\n')
+        end = text.index('echo "== worktree gate: no process names the Core worktree"\n', start)
+        gate = text[start:end + len('echo "== worktree gate: no process names the Core worktree"\n')]
+        self.assertIn(gate, (HERE/'operator'/'RESUME.sh').read_text())
+        self.assertLess(end, text.index('step preflight'))
+        with tempfile.TemporaryDirectory() as tmp:
+            # Run from a file, as the wrappers do (sh -c would put the path in the gate's own argv).
+            script = Path(tmp)/'gate.sh'
+            script.write_text(gate.replace('/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles', tmp + '/w'))
+            (Path(tmp)/'w').mkdir()
+
+            def gate_says():
+                done = subprocess.run(['/bin/sh', str(script)], capture_output=True, text=True, timeout=60,
+                                      env=dict(PATH='/usr/bin:/bin'), stdin=subprocess.DEVNULL)
+                return done.stdout.strip().splitlines()[0]
+            self.assertEqual(gate_says(), '== worktree gate: no process names the Core worktree')
+            sleeper = subprocess.Popen(['/bin/sleep', '60'], cwd=tmp + '/w')
+            try:
+                time.sleep(0.2)
+                self.assertEqual(gate_says(), '== STOP: process %d names the Core worktree (cwd)' % sleeper.pid)
+            finally:
+                sleeper.kill()
+                sleeper.wait()
+            sleeper = subprocess.Popen(['/bin/sh', '-c', 'sleep 60 # ' + tmp + '/w/x'])
+            try:
+                time.sleep(0.2)
+                self.assertEqual(gate_says(), '== STOP: process %d names the Core worktree (argv)' % sleeper.pid)
+            finally:
+                sleeper.kill()
+                sleeper.wait()
+            self.assertEqual(gate_says(), '== worktree gate: no process names the Core worktree')
+
+    def test_watch_directories_pass_the_admission_check(self):
+        watch = self.load('watch-r11.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            w = real_base(tmp, None)
+            before = tmp/'before.json'
+            self.assertIsNone(watch.directories_since_before(w, None, before))
+            meta = dict(device=1, inode=2, type=3, uid=1000, gid=1000, mode=0o644, atime_ns=5, mtime_ns=6, ctime_ns=7)
+            then = dict(city={'.': dict(meta), '.beads': dict(meta), 'city.toml': dict(meta), 'pack.toml': dict(meta)},
+                        provision={'.': dict(meta), 'receipt.json': dict(meta)},
+                        runtime_children={'.gc': {'a': dict(meta)}, '.beads': {'routes.jsonl': dict(meta)}})
+            before.write_text(json.dumps(dict(directories=then)))
+            now = json.loads(json.dumps(then))
+            now['city']['city.toml']['inode'] = 9                  # staged city.toml: popped by the check
+            now['city']['.']['mtime_ns'] = 99                      # atomic rename: the parent time only
+            now['city']['.beads']['mtime_ns'] = 99                 # the reload regenerates routes.jsonl
+            now['runtime_children']['.beads']['routes.jsonl']['inode'] = 9
+            now['provision']['receipt.json']['inode'] = 9
+            w.directories = lambda o: json.loads(json.dumps(now))
+            self.assertIs(watch.directories_since_before(w, None, before), True)
+            now['city']['pack.toml']['atime_ns'] = 8               # any other child metadata change fails ADMIT
+            self.assertEqual(watch.directories_since_before(w, None, before),
+                             'refused: unrelated writable directory authority drift')
 
     def test_bounded_read_refuses_a_fifo_without_blocking(self):
         r = self.load('release-r11.py')
@@ -886,7 +971,7 @@ class Safety(unittest.TestCase):
         resume = (HERE/'operator'/'RESUME.sh').read_text()
         preflight = (HERE/'operator'/'PREFLIGHT.sh').read_text()
         start = resume.index('tmux_out=$(')
-        gate = resume[start:resume.index('  esac\nfi\n', start) + len('  esac\nfi\n')]
+        gate = resume[start:resume.index('work=/home/loucmane/gascity-core-worktrees/', start)]
         self.assertIn(gate, preflight)
         self.assertLess(preflight.index(gate), preflight.index('step preflight'))
 

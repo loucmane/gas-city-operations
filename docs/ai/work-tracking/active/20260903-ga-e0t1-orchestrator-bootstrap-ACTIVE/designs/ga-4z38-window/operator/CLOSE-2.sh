@@ -1,6 +1,6 @@
 #!/bin/sh
 # ga-4z38 window close: after CONTAIN (or a passing HOLD), drain once (best-effort) and close the one
-# worker session, then prove zero session, pane and worktree-process residue.
+# worker session, then prove zero session, tmux-session and worktree-process residue.
 # Repeatable: a rerun never repeats the drain and closes only a still-open session.
 # Slot 2 of 2: the job runner starts each wrapper path once per commit.
 #

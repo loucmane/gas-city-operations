@@ -27,7 +27,11 @@ waits for a release. This proof checks that the session is still preserved:
    So the mark cannot refuse the signature. The mark does not end the session either: the resume tier
    that keeps a claim holder's session (pool_desired_state.go) filters its work only by status, assignee
    and route, never by label or metadata, and no non-test Core code reads needs/operator except the
-   provider-failure writer's own de-duplication.
+   provider-failure writer's own de-duplication. Nor does any cmd/gc code read the mark's metadata keys
+   except the stall-signature de-duplication (the internal/api run view and internal/dispatch workflow
+   rows read failure_reason and controller_error for display and workflow roots, not sessions). The
+   actionable-work collector that feeds the resume tier lists in_progress work by status and keeps it
+   by assignee only (build_desired_state.go appendInProgressWorkUnique).
 All reads are git object reads (GIT_OPTIONAL_LOCKS=0), an O_NOATIME read of the prep evidence file, and
 plain reads of the two root-owned signer sources (O_NOATIME needs ownership). The proof runs before
 PREFLIGHT, never in the window. Nothing is written.
@@ -72,7 +76,7 @@ def noatime(path):
 
 
 def imports_are_stdlib(text):
-    names = re.findall(rb'^(?:from|import) ([A-Za-z_][A-Za-z0-9_]*)', text, re.M)
+    names = re.findall(rb'^\s*(?:from|import) ([A-Za-z_][A-Za-z0-9_]*)', text, re.M)
     return bool(names) and all(name.decode() in sys.stdlib_module_names or name == b'__future__' for name in names)
 
 
@@ -108,8 +112,15 @@ def main():
     update = re.search(r'item\.store\.Update\(item\.bead\.ID, beads\.UpdateOpts\{.*?\n\t\t\}\)', mark.group(0), re.S) if mark else None
     signer = [noatime(path) for path in SIGNER]
     tier = desired[desired.index('// Resume tier: actionable assigned work beads'):desired.index('resumeRequests = append(resumeRequests')]
+    build = show('cmd/gc/build_desired_state.go')
+    collector = re.search(r'func appendInProgressWorkUnique\(.*?\n}\n', build, re.S)
     readers = subprocess.run(['/usr/bin/git', '-C', CORE, 'grep', '-n', '"needs/operator"', BASE, '--', '*.go',
                               ':(exclude)*_test.go'], env=ENV, capture_output=True, text=True, timeout=60).stdout.splitlines()
+    keys = ('ControllerErrorMetadataKey', 'FailureOwnerMetadataKey', 'FailureReasonMetadataKey',
+            'FailureSubjectMetadataKey', 'ProgressStallSignatureMetadataKey', 'ProgressLastObservedMetadataKey')
+    key_lines = subprocess.run(['/usr/bin/git', '-C', CORE, 'grep', '-n', '-E', 'beadmeta\\.(' + '|'.join(keys) + ')', BASE,
+                                '--', 'cmd/gc/*.go', ':(exclude)*_test.go'], env=ENV, capture_output=True, text=True,
+                               timeout=60).stdout.splitlines()
     survival_core = dict(
         idle_timeout_empty_disables='// Empty (default) disables idle checking.\n\tIdleTimeout string' in config_go,
         max_age_empty_disables='Empty (default) disables preemptive restarts.' in config_go,
@@ -119,12 +130,19 @@ def main():
         claim_holder_needs_threshold='if threshold <= 0 || !holdsClaim || !providerHealthy || exempt || lastProgress.IsZero() {\n\t\treturn false' in progress_go,
         attention_mark_keeps_status_and_assignee=bool(update) and 'Labels: []string{"needs/operator"}' in update.group(0)
         and 'Status' not in update.group(0) and 'Assignee' not in update.group(0),
+        collector_keeps_in_progress_by_assignee='listBothTiersForControllerDemand(source.store, beads.ListQuery{Status: "in_progress"})' in build
+        and bool(collector) and 'if strings.TrimSpace(b.Assignee) == "" && !isRecoverableUnassignedInProgressPoolWork(cfg, b) {' in collector.group(0)
+        and 'Labels' not in collector.group(0) and 'Metadata' not in collector.group(0),
         resume_tier_ignores_labels_and_metadata='wb.Status' in tier and 'wb.Assignee' in tier
         and 'Labels' not in tier and 'Metadata[' not in tier and 'beadmeta.' not in tier,
         needs_operator_has_no_reader=bool(readers) and all(
             'Labels: []string{"needs/operator"},' in line
             or ('build_desired_state.go' in line and 'containsString(work.Labels, "needs/operator")' in line)
             for line in readers),
+        mark_metadata_has_no_session_reader=bool(key_lines) and all(
+            re.search(r'beadmeta\.\w+:\s', line)
+            or 'item.bead.Metadata[beadmeta.ProgressStallSignatureMetadataKey] == signature' in line
+            for line in key_lines),
         signer_bead_is_identity_only=all(
             imports_are_stdlib(text) and b'/gascity/bin' not in text and b"'bd'" not in text and b'"bd"' not in text
             and b"'gc'" not in text and b'"gc"' not in text

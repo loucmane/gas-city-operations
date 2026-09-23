@@ -48,7 +48,7 @@ which source commit the binary was built from:
   why CLOSE ends an empty city server itself.
 The release transport posts to ga-4z38's own notes in the rig store and the worker reads them with the
 same `bd show ga-4z38 --json` it uses for its claim, so no cross-store message read is involved.
-Nothing is written.
+Nothing is written outside a temporary directory (the owned-phase runner records its phase there).
 
 Usage: python3 -B cli-proof.py   (prints one JSON object; exit 0 only if every check holds)
 """
