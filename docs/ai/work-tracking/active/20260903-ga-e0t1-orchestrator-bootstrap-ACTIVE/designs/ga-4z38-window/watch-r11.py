@@ -9,9 +9,14 @@ window-base-r11.py. Each run creates /var/tmp/ga-4z38-watch-<UTC>/ exclusively a
 - worktree HEAD, branch, full status, unstaged and staged diffs, and the staged patch;
 - an inventory of every untracked path and every evidence file (kind, mode, owner, size, SHA256,
   link target);
-- city tmux panes, processes whose argv names the worktree, and the host epochs.
+- city tmux panes and the processes whose argv names the worktree or whose cwd is inside it, each with
+  one boolean: whether its environment carries GIT_OPTIONAL_LOCKS=0 (nothing else from the environment is
+  read into evidence);
+- the live host identity through the base active_epoch() check, which is the lifecycle check made for a
+  running worker (the quiescent host observer refuses while the worker is live), bound to the window
+  before.json.
 Every command runs through the owned-phase runner with the support environment (GIT_OPTIONAL_LOCKS=0).
-It asserts only containment and unchanged host epochs; everything else is evidence for the coordinator.
+It asserts only containment and the active epoch; everything else is evidence for the coordinator.
 """
 from datetime import datetime, timezone
 import hashlib
@@ -25,6 +30,7 @@ BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstra
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/window-base-r11.py')
 BASE_SHA = 'cad1d660b872a352bce7e8c3c5bffda5ca7ac663a732575f48a3b7a9847926cd'
 TASK = 'ga-4z38'
+WINDOW = Path('/var/tmp/ga-4z38-window-20260923-r1')
 TEMPLATE = 'gascity/gc.implementation-worker'
 EVIDENCE = '.gc/worker-evidence/ga-4z38'
 
@@ -70,9 +76,17 @@ def main():
     w.read(Path(__file__), _SOURCE_SHA)
     b, o, owned = w.load_support()
     root = Path('/var/tmp/ga-4z38-watch-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+
+    def epoch():
+        # active_epoch() reads the window before.json through the base ROOT.
+        w.ROOT = WINDOW
+        try:
+            w.active_epoch(o)
+        finally:
+            w.ROOT = root
+    w.require((WINDOW/'preflight-pass.json').exists(), 'watch observes a preflighted window only')
     root.mkdir(mode=0o700)
-    w.ROOT = root
-    host = w.host(o)
+    epoch()
 
     def run(name, args, expected=(0,)):
         return w.phase(name, args, b, owned, expected=expected, timeout=90)
@@ -99,9 +113,19 @@ def main():
             if proc.stat().st_uid != 1000:
                 continue
             argv = (proc/'cmdline').read_bytes().split(b'\0')
+            try:
+                cwd = os.readlink(proc/'cwd')
+            except OSError:
+                cwd = ''
             # The worktree path only: this observer's own argv names the package, not the worktree.
-            if any(str(w.WORK).encode() in arg for arg in argv):
-                processes.append(dict(pid=int(proc.name), argv=[arg.decode(errors='replace') for arg in argv if arg]))
+            if any(str(w.WORK).encode() in arg for arg in argv) or cwd == str(w.WORK) \
+                    or cwd.startswith(str(w.WORK) + '/'):
+                try:
+                    locks = b'GIT_OPTIONAL_LOCKS=0' in (proc/'environ').read_bytes().split(b'\0')
+                except OSError:
+                    locks = None
+                processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks,
+                                      argv=[arg.decode(errors='replace') for arg in argv if arg]))
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
     untracked = [line[3:] for line in status.splitlines() if line.startswith('?? ')]
@@ -114,8 +138,7 @@ def main():
                 inventory['evidence'].append(entry(w, Path(dirpath)/name))
     w.save('processes.json', processes)
     w.save('inventory.json', inventory)
-    w.save('host.json', host)
-    w.require(w.host(o) == host, 'host changed during observation')
+    epoch()
     w.complete_containment()
     related = [dict(id=v['id'], status=v['status'], state=(v.get('metadata') or {}).get('state'),
                     template=(v.get('metadata') or {}).get('template'))

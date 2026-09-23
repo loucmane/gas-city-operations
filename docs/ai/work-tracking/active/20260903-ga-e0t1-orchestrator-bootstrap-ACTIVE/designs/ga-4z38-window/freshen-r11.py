@@ -1,0 +1,136 @@
+"""Refresh relatime access times before the window, so no read during it can change them. Reads only.
+
+The city and home filesystems are mounted relatime: a read updates an object's atime only when that
+atime is not newer than its mtime or ctime, or is older than 24 hours. The window compares exact atime
+on the P6 pinned files, the protected platform trees, the provider files, the city root and its direct
+children, and the provisioning tree. On 2026-09-23 about 70 of those carried access times about 22
+hours old, so the first runtime read after their 24-hour mark would change them mid-window and the
+exact comparisons before restore would refuse. The R9 restore needed a reviewed accounting of exactly
+such reads (restore-r9-routes-r3.py account_recorded_reads).
+
+A read cannot refresh an atime that is still younger than 24 hours, so reading alone is not enough:
+this job requires every object to END young, not only fresh. It runs before OBSERVE and before any
+window root exists, and is repeatable (one fresh timestamped root per run). For each object it reads one
+byte of a regular file or lists a directory (symlinks are only recorded). It records lstat before and
+after, requires that nothing but atime changed, and requires every object to end with an atime newer than
+its mtime and ctime and younger than YOUNG_HOURS, which leaves the four-hour window a margin before the
+24-hour mark. If any object is still too old, it refuses and lists each one with the UTC time at which
+its 24-hour mark passes; after that time a rerun refreshes it. The pack cache is excluded: the reviewed
+cache-atime policy accounts for its access times. Objects whose mtime the window itself changes (the city root and provisioning
+directory at the atomic renames) cannot be kept fresh by this job; the read-only ADMIT job checks them
+before RESTORE is consumed.
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+import types
+
+BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
+            '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/window-base-r11.py')
+BASE_SHA = 'cad1d660b872a352bce7e8c3c5bffda5ca7ac663a732575f48a3b7a9847926cd'
+YOUNG_HOURS = 19
+WINDOW = Path('/var/tmp/ga-4z38-window-20260923-r1')
+INTEGRITY = Path('/var/tmp/ga-4z38-integrity-20260923-r1')
+
+
+def load():
+    fd = os.open(BASE, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        s = os.fstat(fd)
+        assert stat.S_ISREG(s.st_mode) and s.st_uid == 1000 and s.st_nlink == 1
+        raw = b''
+        while chunk := os.read(fd, 65536):
+            raw += chunk
+        assert os.fstat(fd) == s and hashlib.sha256(raw).hexdigest() == BASE_SHA, 'base source drift'
+    finally:
+        os.close(fd)
+    w = types.ModuleType('freshen_base')
+    w.__file__ = str(BASE)
+    exec(compile(raw, str(BASE), 'exec', dont_inherit=True), w.__dict__)
+    return w
+
+
+def image(path):
+    s = os.lstat(path)
+    return dict(mode=s.st_mode, uid=s.st_uid, gid=s.st_gid, inode=s.st_ino, device=s.st_dev, nlink=s.st_nlink,
+                size=s.st_size, mtime_ns=s.st_mtime_ns, ctime_ns=s.st_ctime_ns, atime_ns=s.st_atime_ns)
+
+
+def objects(w):
+    accepted = json.loads(w.read(w.ACCEPTED, w.ACCEPTED_SHA))
+    providers = json.loads(w.read(Path(str(w.ACCEPTED) + '.provider-pins'), w.PROVIDER_SHA))
+    r = w.module(w.SUPPORT/'p6-readiness.py', '7b28b3e551e86818a2cdda3e53ed90c7072781e0a9354bd1ebf5d9425d579133')
+    paths = list(accepted['pins'])
+    for root, tree in accepted['protected'].items():
+        paths += [root if rel == '.' else root + '/' + rel for rel in tree['inventory']]
+    paths += [str(r.WORKER_NATIVE), str(r.SUBSCRIPTION), str(r.PROVISIONER), str(r.RUNNER)]
+    paths += list(providers['api_package'])
+    paths += [str(w.CITY)] + [str(w.CITY/name) for name in sorted(os.listdir(w.CITY))]
+    provisioning = w.RECEIPT.parent
+    paths += [str(provisioning), str(w.RECEIPT), str(provisioning/'bin'), str(provisioning/'bin/gct-managed-worker-canary')]
+    cache = str(w.CACHE)
+    unique = []
+    for path in paths:
+        if path not in unique and not (path == cache or path.startswith(cache + '/')):
+            unique.append(path)
+    return unique
+
+
+def touch(path):
+    s = os.lstat(path)
+    if stat.S_ISDIR(s.st_mode):
+        os.listdir(path)
+        return 'listed'
+    if stat.S_ISREG(s.st_mode):
+        with open(path, 'rb') as handle:
+            handle.read(1)
+        return 'read'
+    return 'recorded'
+
+
+def main():
+    w = load()
+    w.require(globals().get('_SOURCE_SHA') and os.getuid() == os.geteuid() == 1000, 'bound source launcher required')
+    w.read(Path(__file__), _SOURCE_SHA)
+    w.require(not os.path.lexists(WINDOW) and not os.path.lexists(INTEGRITY), 'freshen precedes OBSERVE and the window')
+    w.read(w.CITY/'city.toml', w.CITY_SHA[0])
+    w.read(w.RECEIPT, w.RECEIPT_SHA[0])
+    root = Path('/var/tmp/ga-4z38-freshen-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    root.mkdir(mode=0o700)
+    w.ROOT = root
+    paths = objects(w)
+    before = {path: image(path) for path in paths}
+    w.save('before.json', dict(started=datetime.now(timezone.utc).isoformat(), objects=before))
+    actions = {path: touch(path) for path in paths}
+    after = {path: image(path) for path in paths}
+    w.save('after.json', dict(finished=datetime.now(timezone.utc).isoformat(), objects=after, actions=actions))
+    changed = []
+    for path in paths:
+        a = dict(before[path]); z = dict(after[path])
+        a.pop('atime_ns'); z.pop('atime_ns')
+        w.require(a == z, 'non-atime change during freshen: ' + path)
+        if before[path]['atime_ns'] != after[path]['atime_ns']:
+            changed.append(path)
+    now = datetime.now(timezone.utc).timestamp() * 10**9
+    old = []
+    for path in paths:
+        z = after[path]
+        if stat.S_ISLNK(z['mode']):
+            continue
+        age = (now - z['atime_ns']) / 3.6e12
+        if not z['atime_ns'] > max(z['mtime_ns'], z['ctime_ns']) or age >= YOUNG_HOURS:
+            mark = datetime.fromtimestamp(z['atime_ns'] / 10**9 + 24 * 3600, timezone.utc).isoformat()
+            old.append(dict(path=path, age_hours=round(age, 2), stale_after=mark))
+    w.save('old.json', old)
+    w.require(not old, '%d objects not young enough; rerun after the stale_after times in old.json' % len(old))
+    result = dict(ok=True, objects=len(paths), atime_refreshed=len(changed), content_changed=False,
+                  cache_excluded=True, window_started=False, young_hours=YOUNG_HOURS)
+    w.save('result.json', result)
+    print(json.dumps(result))
+
+
+if __name__ == '__main__':
+    main()

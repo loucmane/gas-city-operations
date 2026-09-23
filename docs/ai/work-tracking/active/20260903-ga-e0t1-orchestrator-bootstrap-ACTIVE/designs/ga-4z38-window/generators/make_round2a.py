@@ -55,7 +55,7 @@ def main(package):
     (out/'window-obs-r11.py').write_text(obs)
     obs_sha = sha((out/'window-obs-r11.py').read_bytes())
     manifest = sha(Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json').read_bytes())
-    assert manifest.startswith('2d7eadce')
+    assert manifest == '2d7eadce62c4e567697813cc9122414f1e94c3bd9d389aef92015adef7f36319'
     observer = edit(L/'observe-platform-integrity-r2.py', '050cb878b46a453da9afc9c197f78a57c6f38ac56439510cd1fd353b9522f839', [
         ('"""Full native integrity read inside read-only mounts, paired with host proof."""',
          '"""Full native integrity read inside read-only mounts, paired with host proof.\n\n'

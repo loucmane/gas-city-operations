@@ -8,13 +8,14 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import stat
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window')
 ROOT=Path('/var/tmp/ga-4z38-route-20260923-r1')
 BIND=Path('/var/tmp/ga-4z38-bind-20260923-r1')
-BIND_SHA='6a1f4de004659e2bf06ef068a706f88172d424ff41d8a30e145579c35380aede'
-BRIEF_SHA='e4ab34bce7f0065f067b4cc16d9ec90ab03ad98ddec8e494e3fa676744e6c974'
+BIND_SHA='08d96f39e82a87883544d95f2fd00d1a01d9386c2984b3337c0b9c25350f5739'
+BRIEF_SHA='7bfe154a8d321c9f051509e824a79aa40c7ecab7e20b179bbe5d374d24e457f3'
 HELPER=HERE/'window-r11.py'
 SHA='1accf5c9859cc57dc7e7a5ded83cdf1218c2a1f043de0294ba15042d67168f4f'
 TARGET='gascity/gc.implementation-worker'
@@ -27,6 +28,8 @@ def main():
     exec(compile(raw,str(HELPER),'exec',dont_inherit=True),m.__dict__)
     w=m.w;b,o,owned=w.load_support();w.pins()
     assert json.loads(w.read(w.ROOT/'stage-pass.json'))==dict(ok=True,worker_launched=False)
+    s=BIND.lstat()
+    assert stat.S_ISDIR(s.st_mode) and s.st_uid==1000 and stat.S_IMODE(s.st_mode)==0o700,'bind root authority'
     intent=json.loads(w.read(BIND/'binding-intent.json'))
     assert intent['executor_sha256']==BIND_SHA and intent['brief_sha256']==BRIEF_SHA
     assert intent['worker_launched'] is False

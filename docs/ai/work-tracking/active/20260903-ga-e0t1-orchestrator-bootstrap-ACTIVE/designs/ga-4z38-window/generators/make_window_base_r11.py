@@ -33,6 +33,17 @@ def main(package, prep):
     assert result['receipt_before_sha256'] == '0b30c23f4484382fd4918f394599268f4f4005ac71118e8a7f82ca72eb9615ff'
     assert result['revision_before'] == 'd6ca85cd96c7aab4ea0b6a7954d2d74e5e6bb211cde0bb820f3b6f815023bd88'
     assert result['changed_receipt_fields'] == ['permission_revision', 'receipt_sha256']
+    # Full reviewed digests of every input this generator reads (P6 adoption, prep result, P6 modules).
+    for path, digest in ((Path(prep, 'result.json'), 'c0d1959c4e0df67e8f02b8716f43f2adf542c9d2b358d75f4027d92f91480c03'),
+                         (Path('/var/tmp/gct-m1wh-p6-adoption-20260923-r2/typed-support.json'),
+                          '5a630443b7b47c0054b96f593b18d3012ac671d4124c25eae3afa54bcfe8cfeb'),
+                         (Path('/var/tmp/gct-m1wh-p6-adoption-20260923-r2/after.json'),
+                          '1c025ef9ef31d75f7becb6e6ed1fd426f3d318eb53913cf8e24888f163900b70'),
+                         (Path('/var/tmp/gct-m1wh-p6-adoption-20260923-r2/after.json.provider-pins'),
+                          'a5f7f8c11a95b48d01f910c5c4668828d61a587a5942545f27d403ebadfeac8f'),
+                         (Path(P6, 'p6-observe-compose.py'), '43b94ce677dcaa80b6937f7205362063da151f0608a99874b18b692ab8f2c8d6'),
+                         (Path(P6, 'p6-readiness.py'), '7b28b3e551e86818a2cdda3e53ed90c7072781e0a9354bd1ebf5d9425d579133')):
+        assert sha(path.read_bytes()) == digest, path
     receipt_after = result['receipt_after_sha256']
     revision_after = result['revision_after']
     assert sha(Path(prep, 'receipt.final.json').read_bytes()) == receipt_after

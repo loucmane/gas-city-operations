@@ -36,10 +36,12 @@ step() {
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-if [ -e /var/tmp/ga-4z38-window-20260923-r1/suspension-city-resume-event.json ]; then
+if [ -e /var/tmp/ga-4z38-window-20260923-r1/suspension-city-resume-event.json ] && [ ! -e /var/tmp/ga-4z38-window-20260923-r1/suspension-city-suspend-event.json ]; then
   step city-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle city-suspend
 fi
-step rig-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-suspend
+if [ -e /var/tmp/ga-4z38-window-20260923-r1/suspension-rig-resume-event.json ] && [ ! -e /var/tmp/ga-4z38-window-20260923-r1/suspension-rig-suspend-event.json ]; then
+  step rig-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-suspend
+fi
 echo "== CONTAIN PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0

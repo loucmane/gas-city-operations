@@ -1,22 +1,22 @@
 #!/bin/sh
-# ga-4z38 window route: one raw route of the bound task while every rig is suspended, then the
-# read-only sole-task queue audit.
+# ga-4z38 window freshen: refresh relatime access times of every exact-compared object, before
+# OBSERVE. Reads only; repeatable, one fresh root per run; refuses while any object is
+# still too old to refresh (see its old.json).
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
-# Log: ~/.local/share/gas-city-staging/ga-4z38-window/route-<timestamp>.txt. Exits with the first failing
+# Log: ~/.local/share/gas-city-staging/ga-4z38-window/freshen-<timestamp>.txt. Exits with the first failing
 # step's result, or 0.
 S=/home/loucmane/.local/share/gas-city-staging/ga-4z38-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
-COMMIT=${1:?usage: ROUTE.sh <reviewed commit>}
-ROUTE_SHA=89c4db720b0a5ecd930af59ab00ac5fbe664cc3692fbee056eccdb68db72cb62
-AUDIT_SHA=1fe311cbb51f0858daca941ee9b811e67152ab85fab9073e3f74e7f8ab20761c
+COMMIT=${1:?usage: FRESHEN.sh <reviewed commit>}
+FRESHEN_SHA=97d573419a0a36d78324db3ea15b8206e9f1f2506b52d9c3a3c8bd9faf9e3ba1
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
 [ ! -L "$S" ] || exit 1
-LOG="$S/route-$(date -u +%Y%m%dT%H%M%SZ).txt"
+LOG="$S/freshen-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
 for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
@@ -26,20 +26,19 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-4z38-route-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-route-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-route-20260923-r1"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/ga-4z38-audit-route-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-audit-route-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-audit-route-20260923-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-4z38-integrity-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-integrity-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-integrity-20260923-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-4z38-window-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-window-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-window-20260923-r1"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== ROUTE REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
+    echo "== FRESHEN REFUSED at $label rc=$rc: read this log and the named roots; run nothing else"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-step route "$C/route-task-r5.py" "$ROUTE_SHA"
-step audit-route "$C/audit-queue-r3.py" "$AUDIT_SHA" route
-echo "== ROUTE PASS"
+step freshen "$C/freshen-r11.py" "$FRESHEN_SHA"
+echo "== FRESHEN PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0

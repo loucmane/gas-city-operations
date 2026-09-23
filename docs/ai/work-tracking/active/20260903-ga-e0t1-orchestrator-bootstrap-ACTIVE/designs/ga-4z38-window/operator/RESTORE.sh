@@ -25,7 +25,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-4z38-window-20260923-r1/stage-consumed.json ] && [ ! -e /var/tmp/ga-4z38-window-20260923-r1/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-4z38-window-20260923-r1/restore-admission-pass.json ] && [ ! -e /var/tmp/ga-4z38-window-20260923-r1/restore-consumed.json ] || { echo "== STOP: restore admission has not passed or restore already consumed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

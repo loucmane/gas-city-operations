@@ -26,11 +26,12 @@ retry targets.
 
 ## Time budget
 
-The window that hosts this session has a fixed four-hour limit from its preflight.
-Work steadily: startup proof first, then the implementation as soon as the source
-release arrives. If the controller holds scheduling before you finish, stop at the
-current safe point and preserve everything; unfinished work is evidence, not a
-reason to hurry past a check.
+The window that hosts this session must restore within four hours of its
+preflight, so the coordinator holds scheduling at preflight plus three hours
+whatever the progress. Work steadily: startup proof first, then the implementation
+as soon as the source release arrives. If scheduling is held before you finish,
+stop at the current safe point and preserve everything; unfinished work is
+evidence, not a reason to hurry past a check.
 
 ## Claim and capability proof, before any source edit
 
@@ -46,7 +47,8 @@ claim/identity mismatch means stop; do not select or reassign another task.
 Read AGENTS.md, CLAUDE.md and TESTING.md. Verify branch, HEAD, tree, common Git
 directory and empty tracked/index diffs. Record only named non-secret
 GC_SESSION_ID, GC_SESSION_NAME, GC_ALIAS, GC_TEMPLATE, GC_SESSION, GC_AGENT,
-GC_WORK_DIR, GC_RIG_ROOT, GC_BEAD_ID and GC_STORE_PATH if present. Never dump
+GC_WORK_DIR, GC_RIG_ROOT, GC_BEAD_ID, GC_STORE_PATH and GIT_OPTIONAL_LOCKS if
+present. Never dump
 environment or credentials. The coordinator independently proves the native
 session/claim and Core store identity; locating a Bead alone is insufficient.
 
@@ -65,6 +67,9 @@ session/claim and Core store identity; locating a Bead alone is insufficient.
    GOTOOLCHAIN=local. Do not add leading environment assignments: that command
    shape is denied. No network/install, cache clearing, GOCACHE override or /tmp
    Go cache.
+6. Standalone `git update-index --refresh`: require success. It rewrites only this
+   worktree's index, which lives in the shared Git common directory, and so proves
+   the sandbox lets you stage before any source edit. A refusal is a stop.
 
 ## Generated startup artifacts
 

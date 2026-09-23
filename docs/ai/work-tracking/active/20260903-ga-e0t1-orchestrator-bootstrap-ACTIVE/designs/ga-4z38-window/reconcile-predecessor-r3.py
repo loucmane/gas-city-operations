@@ -86,6 +86,9 @@ assert new['status']=='open' and not new.get('assignee') and not new.get('metada
 prior=ready(['--rig','gascity']);cityprior=ready([])
 save('ready.before.json',dict(core=prior,city=cityprior))
 assert {v['id'] for v in prior}=={'ga-y49e'} and cityprior==[]
+# No dependency edge names ga-y49e, so no joined view of another Bead changes with this write.
+for row in (other,new):
+    assert 'ga-y49e' not in json.dumps([row.get('dependencies'),row.get('dependents')]),row['id']
 assert bead('ga-y49e')==before,'pre-mutation ledger drift'
 save('mutation-intent.json',dict(task='ga-y49e',status='blocked',append_notes=NOTE,
     before_sha256=hashlib.sha256(json.dumps(before,sort_keys=True,separators=(',',':')).encode()).hexdigest()))

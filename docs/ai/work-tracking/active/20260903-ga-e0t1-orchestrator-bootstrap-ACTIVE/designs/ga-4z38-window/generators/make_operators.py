@@ -69,6 +69,7 @@ def main(package):
     package = Path(package)
     out = Path(os.environ.get('GA4Z38_OUT', package))
     d = {name: sha(out/name) for name in ('reconcile-predecessor-r3.py', 'observe-integrity-r11.py', 'window-r11.py',
+                                          'freshen-r11.py', 'hold-r11.py', 'restore-admission-r3.py',
                                           'bind-task-r3.py', 'route-task-r5.py',
                                           'audit-queue-r3.py', 'observe-terminal-r11.py', 'watch-r11.py')}
     window = '/var/tmp/ga-4z38-window-20260923-r1'
@@ -78,6 +79,12 @@ def main(package):
                              pins='RECONCILE_SHA=%s' % d['reconcile-predecessor-r3.py'],
                              pre=absent('/var/tmp/ga-4z38-reconcile-20260923-r1'),
                              steps=['step reconcile "$C/reconcile-predecessor-r3.py" "$RECONCILE_SHA"']),
+        'FRESHEN.sh': dict(title='freshen: refresh relatime access times of every exact-compared object, before\n'
+                                 '# OBSERVE. Reads only; repeatable, one fresh root per run; refuses while any object is\n'
+                                 '# still too old to refresh (see its old.json).',
+                           pins='FRESHEN_SHA=%s' % d['freshen-r11.py'],
+                           pre=absent('/var/tmp/ga-4z38-integrity-20260923-r1', window),
+                           steps=['step freshen "$C/freshen-r11.py" "$FRESHEN_SHA"']),
         'OBSERVE.sh': dict(title='observe: the fresh accepted-state admission plus a full native integrity read,\n'
                                  '# immediately before PREFLIGHT.sh. It writes only its root and the log, installs nothing\n'
                                  '# and launches no worker. Outside the read-only sandbox it runs gc status, gc session\n'
@@ -111,7 +118,10 @@ def main(package):
                                 'step audit-route "$C/audit-queue-r3.py" "$AUDIT_SHA" route']),
         'RESUME.sh': dict(title='resume: rig-resume, the read-only queue audit, then city-resume, once each.',
                           pins='WINDOW_SHA=%s\nAUDIT_SHA=%s' % (d['window-r11.py'], d['audit-queue-r3.py']),
-                          pre=absent('/var/tmp/ga-4z38-audit-resume-20260923-r1', window + '/rig-resume-started.json'),
+                          pre='[ -e /var/tmp/ga-4z38-route-20260923-r1/result.json ] && '
+                              '[ -e /var/tmp/ga-4z38-audit-route-20260923-r1/result.json ] || '
+                              '{ echo "== STOP: ROUTE has not passed"; echo "== end"; exit 1; }\n'
+                              + absent('/var/tmp/ga-4z38-audit-resume-20260923-r1', window + '/rig-resume-started.json'),
                           steps=['step rig-resume "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-resume',
                                  'step audit-resume "$C/audit-queue-r3.py" "$AUDIT_SHA" resume',
                                  'step city-resume "$C/window-r11.py" "$WINDOW_SHA" lifecycle city-resume']),
@@ -124,15 +134,34 @@ def main(package):
                            pins='WINDOW_SHA=%s' % d['window-r11.py'],
                            pre='[ -e %s/stage-pass.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }\n'
                                % window,
-                           steps=['if [ -e %s/suspension-city-resume-event.json ]; then\n'
+                           steps=['if [ -e %s/suspension-city-resume-event.json ] && '
+                                  '[ ! -e %s/suspension-city-suspend-event.json ]; then\n'
                                   '  step city-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle city-suspend\n'
-                                  'fi' % window,
-                                  'step rig-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-suspend']),
+                                  'fi' % (window, window),
+                                  'if [ -e %s/suspension-rig-resume-event.json ] && '
+                                  '[ ! -e %s/suspension-rig-suspend-event.json ]; then\n'
+                                  '  step rig-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-suspend\n'
+                                  'fi' % (window, window)]),
+        'HOLD.sh': dict(title='hold: emergency scheduling hold for a STRANDED window only (a lifecycle failure record\n'
+                              '# exists, so CONTAIN.sh cannot act). Suspends the city and the gascity rig; never\n'
+                              '# replays lifecycle, never restores, writes nothing in the window root.',
+                        pins='HOLD_SHA=%s' % d['hold-r11.py'],
+                        pre='[ -e %s/stage-consumed.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }\n'
+                            % window,
+                        steps=['step hold "$C/hold-r11.py" "$HOLD_SHA"']),
+        'ADMIT.sh': dict(title='admit: the read-only restore admission (full preservation check, terminal lifecycle,\n'
+                               '# quiescent host) after CONTAIN and the session close. RESTORE.sh requires its pass.',
+                         pins='ADMIT_SHA=%s' % d['restore-admission-r3.py'],
+                         pre='[ -e %s/stage-consumed.json ] && [ ! -e %s/restore-consumed.json ] || '
+                             '{ echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }\n'
+                             % (window, window) + absent(window + '/restore-admission.json'),
+                         steps=['step admit "$C/restore-admission-r3.py" "$ADMIT_SHA"']),
         'RESTORE.sh': dict(title='restore: the exact baseline city and receipt, once, after terminal suspension\n'
                                  '# and containment.',
                            pins='WINDOW_SHA=%s' % d['window-r11.py'],
-                           pre='[ -e %s/stage-consumed.json ] && [ ! -e %s/restore-consumed.json ] || '
-                               '{ echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }\n'
+                           pre='[ -e %s/restore-admission-pass.json ] && [ ! -e %s/restore-consumed.json ] || '
+                               '{ echo "== STOP: restore admission has not passed or restore already consumed"; '
+                               'echo "== end"; exit 1; }\n'
                                % (window, window),
                            steps=['step restore "$C/window-r11.py" "$WINDOW_SHA" restore']),
         'TERMINAL.sh': dict(title='terminal: the full native integrity observation of the restored baseline,\n'

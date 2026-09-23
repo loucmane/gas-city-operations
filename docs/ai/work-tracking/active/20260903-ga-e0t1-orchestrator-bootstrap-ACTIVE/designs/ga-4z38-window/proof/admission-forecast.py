@@ -43,12 +43,17 @@ def main():
     # The snapshot also records directories(): no city child symlink, the exact provisioning set, and
     # stable .gc/.beads direct children while listing. O_NOATIME reads only.
     directories = w.directories(o)
+    # The window snapshots also capture the five generated route files (restore-r9-routes-r3.py) and
+    # check their authority; run that capture read-only here too.
+    routes = w.module(PKG/'restore-r9-routes-r3.py', '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2')
+    captured = routes.capture_routes(w, o)
     print(json.dumps(dict(base_sha256=hashlib.sha256(raw).hexdigest(), admission_equal=not differences,
                           differences=[[p, str(a)[:200], str(z)[:200]] for p, a, z in differences[:40]],
                           difference_count=len(differences), providers_equal=not provider_diff,
                           provider_differences=[[p, str(a)[:200], str(z)[:200]] for p, a, z in provider_diff[:20]],
                           directories_ok=True, city_entries=len(directories['city']),
-                          provisioning_entries=sorted(directories['provision'])),
+                          provisioning_entries=sorted(directories['provision']),
+                          route_stores=sorted(captured)),
                      indent=1))
     return 0 if not differences and not provider_diff else 1
 

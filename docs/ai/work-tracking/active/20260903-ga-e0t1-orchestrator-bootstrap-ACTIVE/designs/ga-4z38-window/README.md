@@ -208,39 +208,129 @@ replacement is asserted.
   fresh root per run.
 - `generators/make_operators.py`: generates every wrapper with its digests pinned.
 
-**Read-only forecasts, 2026-09-23.**
-- All 1504 session Beads of the worker template are closed.
-- Before reconciliation, ga-y49e is the only open or in-progress Bead that is routed or assigned to
-  the worker, in both stores.
+### Round 2b r3 (after the a4f6d410 review HOLD)
+
+`a4f6d410` got a SOURCE_PASS from reviewer A (rebind fidelity) and a HOLD from reviewer B (live
+sequence). Both transcripts are filed with the runner. The four must-fix items are settled as follows.
+
+1. **WATCH used the quiescent host observer, which refuses while the worker runs.** `watch-r11.py` now
+   uses the base `active_epoch()` check, the identity check the lifecycle already uses while a worker
+   is live, bound to the window `before.json`. It also matches the worker by its cwd inside the
+   worktree. For each matching process it records one boolean, whether GIT_OPTIONAL_LOCKS=0 is in its
+   environment; nothing else from the environment is read into evidence.
+2. **A real worker can drift what RESTORE compares.** Three sources:
+   - **Pack-cache `.git` times.** Every gc config load runs `git status --porcelain` in the pack cache
+     (Core `internal/config/pack_include.go` validateLockedRemoteCache), with the caller's
+     environment passed through.
+     - The supervisor's environment carries GIT_OPTIONAL_LOCKS=0, checked by name only, never
+       printed.
+     - The signing-worker wrapper passes its parent environment through, removing only
+       ANTHROPIC_API_KEY (Template `lib/gct_claude_subscription.py` subscription_environment).
+     - The R10 window ran resume, session creation, suspend and a passing restore over half an hour,
+       and kept all four cache `.git` directories exact.
+     - In the window, WATCH records the worker's own GIT_OPTIONAL_LOCKS, and the brief asks the
+       worker to record it.
+   - **Exact atime on the compared objects.** Relatime refreshes an atime only when it is not newer
+     than mtime or ctime, or is older than 24 hours. On 2026-09-23 about 70 compared objects carried
+     atimes about 22 hours old: the protected platform trees, half the city children and the
+     provisioning tree. They would go stale mid-window, and the R9 restore already needed a reviewed
+     accounting of exactly such reads.
+     - New `freshen-r11.py` (`FRESHEN.sh`) runs before OBSERVE and before any window root exists, and
+       is repeatable with a fresh root per run. It reads one byte of each file and lists each
+       directory. It requires that nothing but atime changed, and that every object ends fresh and
+       younger than 19 hours. Otherwise it refuses and lists when each old object passes its
+       24-hour mark, so a rerun after that time refreshes it.
+     - The city root and the provisioning directory get new mtimes at the atomic renames, so no
+       freshening can hold them. ADMIT checks them.
+   - **Route files.** The route chain already binds route-file metadata between reloads. ADMIT checks
+     it before RESTORE is consumed.
+
+   New `restore-admission-r3.py` (`ADMIT.sh`) is the R10 `restore-admission-r1.py` (`90328ee7`),
+   rebound to `window-r11.py`. R10 ran it before its passing restore. It is read-only:
+   - complete containment and the terminal lifecycle;
+   - the quiescent host, meaning city and rigs suspended and zero sessions;
+   - a full `restore-admission.json` snapshot with the window preservation check.
+
+   `RESTORE.sh` now requires `restore-admission-pass.json`. So a drift refuses before RESTORE is
+   consumed, with the evidence kept for a reviewed successor.
+3. **A failed lifecycle step strands containment.** New `hold-r11.py` (`HOLD.sh`) acts only when a
+   `suspension-*-failure.json` or `-refused-after.json` exists:
+   - it runs the same supported `gc suspend --json` and `gc rig suspend gascity --json`, only for
+     whatever is still resumed;
+   - it checks `gc status` before and after, and uses the active-epoch identity check;
+   - it writes nothing in the window root.
+
+   `CONTAIN.sh` now runs each suspend only after its resume event exists and only while its own
+   event is absent.
+4. **Sandboxed `git add`.** Refuted.
+   - The worker starts with `--add-dir /home/loucmane/gascity/city/rigs/gascity/.git` (receipt
+     `profiles[0].argv`).
+   - The Claude Code sandbox docs say sandboxed commands may write to `--add-dir` directories.
+   - Separately: "when the working directory is a linked git worktree, the sandbox also allows writes
+     to the main repository's shared `.git` directory so commands such as `git commit` can update refs
+     and the index. Writes to `hooks/` and `config` inside that directory remain denied."
+   - The Template's own finding (docs/native-findings.md) is why that directory is a writable root.
+   - The brief adds startup probe 6, a standalone `git update-index --refresh`, which proves index
+     writes before any source edit.
+
+Should-fixes taken:
+- `RESUME.sh` requires the ROUTE and route-audit results.
+- `route-task-r5.py` checks the BIND root authority (0700, uid 1000).
+- The reconcile script asserts, before its write, that no dependency or dependent of ga-e0t1.14 or
+  ga-4z38 names ga-y49e.
+- The generators assert full digests for every P6, prep and module input.
+- The forecast also runs `capture_routes` over the five route stores.
+- The brief states the three-hour hold.
+- WATCH records evidence; the coordinator judges residue.
+
+Should-fixes checked instead of changed:
+- `pin_inputs` pins only recorded P6 evidence and binaries, never the live city or receipt
+  (`p6-readiness.py` composition, and `p6-input.py` proven_draft "Independent of the live
+  receipt"). So the staged snapshots cannot refuse on it.
+- Claude trust for the Core worktree resolves through the trusted main repository
+  `/home/loucmane/gascity/city/rigs/gascity`.
+
+Known stop conditions that stay stops:
+- A STAGE failure before its reload event.
+- An audit-route refusal after the single sling. ga-4z38 stays routed, and there is a disposition.
+- A drain of the singleton while it waits for a release.
+
+**Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
+unchanged throughout):
+- Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,
+  and all five route stores captured and stable.
+- Audit rules in both stores: the only stop row is ga-y49e, which RECONCILE handles.
+- All 1504 template session Beads are closed.
+- The ready queue is exactly ga-y49e.
+- No dependency edge names ga-y49e.
 
 **Jobs, in order.** All jobs run at one reviewed commit. The ga-e0t1 worktree stays clean at that
-commit from RECONCILE until TERMINAL.
+commit from RECONCILE until TERMINAL; every job, CONTAIN and HOLD included, checks this.
 1. `RECONCILE.sh`: ga-y49e to `blocked`.
-2. `BIND.sh`: appends the brief and the requested attempt metadata to ga-4z38. From here until ROUTE,
-   no coordinator note goes to ga-4z38, since ROUTE requires the Bead to equal the bound image.
-   Coordinator notes go to ga-e0t1 and staging.
-3. `OBSERVE.sh`: admission against P6 plus the disposition, and the native integrity read.
-4. `PREFLIGHT.sh`: starts the four-hour clock at `before.json`.
-5. `STAGE.sh`: the overlay city `5f3b60e1` and receipt `392ea0b6`, with one observed reload.
-6. `ROUTE.sh`: one raw `gc sling` of ga-4z38 to `gascity/gc.implementation-worker`, then the route
-   audit.
-7. `RESUME.sh`: rig-resume, the resume audit, then city-resume.
-8. In-window, with `WATCH.sh` as host evidence. Coordinator writes are Bead notes on ga-e0t1, gc mail
-   releases, and the supported drain and close.
+2. `BIND.sh`: the brief and the requested attempt metadata on ga-4z38. From here until ROUTE, no
+   coordinator note goes to ga-4z38.
+3. `FRESHEN.sh`: repeat until it passes. The ~22-hour group passes its 24-hour mark around
+   19:30Z, which is 21:30 CEST.
+4. `OBSERVE.sh`.
+5. `PREFLIGHT.sh`: T0, the start of the four-hour cache-atime window.
+6. `STAGE.sh`.
+7. `ROUTE.sh`.
+8. `RESUME.sh`.
+9. In-window, with repeated `WATCH.sh`:
    1. Observe one session and its claim.
    2. Startup review.
-   3. SOURCE_RELEASE.
+   3. SOURCE_RELEASE by gc mail.
    4. Candidate review.
    5. SIGNING_RELEASE.
    6. The worker's managed signature.
-9. `CONTAIN.sh`: city-suspend, then rig-suspend. Then the supported drain and `gc session close`,
-   and a `WATCH.sh` that proves zero residue.
-10. `RESTORE.sh`.
-11. `TERMINAL.sh`.
-12. Delivery of the signed branch.
+10. `CONTAIN.sh`; if the lifecycle is stranded, `HOLD.sh` instead, and the window stops there.
+11. The supported `gc runtime drain` and `gc session close` of the one session, then a `WATCH.sh`.
+12. `ADMIT.sh`.
+13. `RESTORE.sh`.
+14. `TERMINAL.sh`.
+15. Delivery of the signed branch.
 
-**Deadline.** At preflight plus three hours, the coordinator contains and restores regardless of the
-worker's progress. That keeps RESTORE and TERMINAL inside the reviewed four-hour cache-atime window.
+**Deadline.** At T0 plus three hours, the coordinator contains regardless of the worker's progress.
 
 ## Quiet window
 

@@ -20,8 +20,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 GENERATED = ('window-r11.py', 'bind-task-r3.py', 'route-task-r5.py', 'audit-queue-r3.py', 'observe-terminal-r11.py',
-             'reconcile-predecessor-r3.py', 'restore-r9-routes-r3.py', 'route-chain-r1.py')
-WRAPPERS = ('RECONCILE.sh', 'OBSERVE.sh', 'BIND.sh', 'PREFLIGHT.sh', 'STAGE.sh', 'ROUTE.sh', 'RESUME.sh', 'WATCH.sh', 'CONTAIN.sh',
+             'reconcile-predecessor-r3.py', 'restore-admission-r3.py', 'restore-r9-routes-r3.py', 'route-chain-r1.py')
+WRAPPERS = ('RECONCILE.sh', 'FRESHEN.sh', 'HOLD.sh', 'ADMIT.sh', 'OBSERVE.sh', 'BIND.sh', 'PREFLIGHT.sh', 'STAGE.sh', 'ROUTE.sh', 'RESUME.sh', 'WATCH.sh', 'CONTAIN.sh',
             'RESTORE.sh', 'TERMINAL.sh')
 LAUNCH = 'gct-m1wh-p6/source-launch.py'
 GC_ENV = dict(HOME='/home/loucmane', GC_HOME='/home/loucmane/gascity/home', GIT_OPTIONAL_LOCKS='0',
@@ -84,8 +84,11 @@ class Pins(unittest.TestCase):
         self.assertEqual(constant(terminal, 'WINDOW_SHA'), sha(HERE/'window-r11.py'))
         self.assertEqual(constant(terminal, 'MANIFEST_SHA'),
                          sha('/home/loucmane/gascity/city/.gc/platform/install-manifest.json'))
-        watch = self.text('watch-r11.py')
-        self.assertEqual(re.findall(r"^BASE_SHA = '([0-9a-f]{64})'$", watch, re.M), [sha(HERE/'window-base-r11.py')])
+        for name in ('watch-r11.py', 'freshen-r11.py', 'hold-r11.py'):
+            self.assertEqual(re.findall(r"^BASE_SHA = '([0-9a-f]{64})'$", self.text(name), re.M),
+                             [sha(HERE/'window-base-r11.py')], name)
+        admission = self.text('restore-admission-r3.py')
+        self.assertEqual(re.findall(r"^SHA = '([0-9a-f]{64})'$", admission, re.M), [sha(HERE/'window-r11.py')])
         audit = self.text('audit-queue-r3.py')
         self.assertIn(sha(HERE/'..'/'gct-m1wh-p6'/'p6-observe-compose.py'), audit)
 
@@ -160,6 +163,58 @@ class Layer(unittest.TestCase):
         self.assertTrue(rule('route', suspended) and not rule('route', resumed))
         self.assertTrue(rule('resume', resumed) and not rule('resume', suspended))
         self.assertIn("r['suspended'] == (MODE == 'route' or r['name'] != 'gascity')", (HERE/'audit-queue-r3.py').read_text())
+
+
+class Safety(unittest.TestCase):
+    def load(self, name):
+        m = types.ModuleType(name.replace('-', '_')[:-3])
+        m.__file__ = str(HERE/name)
+        exec(compile((HERE/name).read_bytes(), m.__file__, 'exec', dont_inherit=True), m.__dict__)
+        return m
+
+    def test_freshen_touch_changes_nothing_but_atime(self):
+        f = self.load('freshen-r11.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            directory = Path(tmp)/'d'
+            directory.mkdir()
+            regular = directory/'f'
+            regular.write_bytes(b'content')
+            for path, action in ((regular, 'read'), (directory, 'listed')):
+                before = f.image(str(path))
+                self.assertEqual(f.touch(str(path)), action)
+                after = f.image(str(path))
+                before.pop('atime_ns')
+                after.pop('atime_ns')
+                self.assertEqual(before, after)
+            self.assertEqual(regular.read_bytes(), b'content')
+        self.assertEqual(f.YOUNG_HOURS, 19)
+
+    def test_hold_acts_only_on_a_stranded_window(self):
+        text = (HERE/'hold-r11.py').read_text()
+        self.assertIn("w.require(stranded, 'hold is only for a stranded lifecycle; use CONTAIN.sh')", text)
+        self.assertIn("if before['suspended'] is not True:", text)
+        self.assertIn("if rig['suspended'] is not True:", text)
+
+    def test_restore_requires_the_admission_pass(self):
+        text = (HERE/'operator'/'RESTORE.sh').read_text()
+        self.assertIn('[ -e /var/tmp/ga-4z38-window-20260923-r1/restore-admission-pass.json ]', text)
+        self.assertIn("assert not (w.ROOT / 'restore-consumed.json').exists()", (HERE/'restore-admission-r3.py').read_text())
+
+    def test_contain_runs_each_suspend_only_once_and_only_after_its_resume(self):
+        text = (HERE/'operator'/'CONTAIN.sh').read_text()
+        for action, resume in (('city-suspend', 'city-resume'), ('rig-suspend', 'rig-resume')):
+            self.assertIn('[ -e /var/tmp/ga-4z38-window-20260923-r1/suspension-%s-event.json ] && '
+                          '[ ! -e /var/tmp/ga-4z38-window-20260923-r1/suspension-%s-event.json ]' % (resume, action), text)
+
+    def test_resume_requires_route_and_route_audit(self):
+        text = (HERE/'operator'/'RESUME.sh').read_text()
+        self.assertIn('/var/tmp/ga-4z38-route-20260923-r1/result.json', text)
+        self.assertIn('/var/tmp/ga-4z38-audit-route-20260923-r1/result.json', text)
+
+    def test_watch_uses_the_active_epoch_not_the_quiescent_host(self):
+        text = (HERE/'watch-r11.py').read_text()
+        self.assertIn('w.active_epoch(o)', text)
+        self.assertNotIn('w.host(o)', text)
 
 
 class Task(unittest.TestCase):
