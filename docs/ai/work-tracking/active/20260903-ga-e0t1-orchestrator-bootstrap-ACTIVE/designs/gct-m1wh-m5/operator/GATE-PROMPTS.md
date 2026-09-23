@@ -1,8 +1,16 @@
 # M5 in-window gate prompts (templates)
 
-Fill in `{COMMIT}`, `{EXTRACT}` and `{PACKAGE}` from `gate_extract.py`, then launch both reviewers in
+Fill in `{COMMIT}`, `{EXTRACT}`, `{PACKAGE}` and `{BASELINE}` (the pinned `BASELINE_SHA`) from `gate_extract.py`, then launch both reviewers in
 parallel through the Agent tool (`aegis-reviewer`). Put only the candidate token on the first line;
 no path token is used for this Operations checkout.
+
+**Outcome handling (coordinator).**
+- Two passes: write both drafts with the Write tool, then run `record_review.py record <KIND>`.
+  `operator/M5-EXECUTE.sh` sees `q/<kind>.json` and continues.
+- Any HOLD, a refusal or a missing verdict: create
+  `/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/HOLD-<kind>.json`, for
+  example `HOLD-source-pass.json`. The wrapper stops and prints the recovery for that point.
+- Never write a HOLD marker and a pass record for the same gate.
 
 - Q = `/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5/q`
 - PKG = `/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-m5`
@@ -23,7 +31,7 @@ Coordinator extract (a claim): {EXTRACT}
 
 1. Read the extract. It must show all of the following:
    - flags preparation_only true, live_acceptance false, timer_paused true and native_launched false;
-   - accepted_recovery_sha256 equal to baseline_pin 8f980d2e…;
+   - accepted_recovery_sha256 equal to baseline_pin {BASELINE};
    - broker_receipt_sha256 equal to candidate_receipt_sha;
    - sources_count 13 and sources_equal_expected true;
    - release_id template-pr69-opus55-metadata-m5-20260923;
@@ -37,7 +45,7 @@ Coordinator extract (a claim): {EXTRACT}
    - manifest_file_sha256 equal to prepared_manifest_file_sha256.
 2. Confirm in the originals with Grep -o (the files are single-line JSON):
    - Q/prepared.json has "preparation_only":true, "native_launched":false and
-     "accepted_recovery_sha256":"8f980d2ed80a8b779c0dff4e59474ed669f74c5ed20a43883e6ac762f7edc349";
+     "accepted_recovery_sha256":"{BASELINE}";
    - Q/manifest.json has "release_id":"template-pr69-opus55-metadata-m5-20260923" and the authority
      repository at 28539934, and no match for python3\.12/test/.
 3. Confirm that PKG/source-pins.json lists the six package sources the extract expects.
@@ -65,8 +73,11 @@ Coordinator extract (a claim): {EXTRACT}
      stderr "";
    - argv exactly [gc, platform, adopt, --metadata-only, --dry-run, --manifest, Q/manifest.json],
      where gc is /home/loucmane/gascity/bin/gc;
-   - mutate_only_allowed true, with exactly 4 MUTATE steps: the two backups under reports/m5/b,
-     publish-manifest and write-activation-receipt;
+   - mutate_only_allowed true: exactly the four MUTATE actions, each once on its own target.
+     write-previous-manifest-backup and write-previous-receipt-backup write under reports/m5/b;
+     publish-manifest and write-activation-receipt write under
+     /home/loucmane/gascity/city/.gc/platform;
+   - unparsed_plan_lines empty;
    - after_matches true and observe_baseline_is_window true;
    - window_deadline_equals_prepared true and window_closure_equals_preparation true;
    - no_later_records true;
@@ -82,12 +93,12 @@ digest, the observation_result_sha256 and window_sha256 from the bindings, and w
 directly. Note the gate audit reason read_only_reviewer_delegation.
 ```
 
-## COMMIT_PASS (no deadline)
+## COMMIT_PASS (no window deadline, but before the cache horizon)
 
 ```
 candidate={COMMIT}
 
-Gate: COMMIT_PASS after the native metadata commit and verify (Bead ga-0t04). There is no deadline,
+Gate: COMMIT_PASS after the native metadata commit and verify (Bead ga-0t04). There is no window deadline, but restore-accepted must run before the cache-renewal horizon,
 so be thorough. Read-only. Package digest {PACKAGE}.
 Q = /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5/q
 Coordinator extract (a claim): {EXTRACT}

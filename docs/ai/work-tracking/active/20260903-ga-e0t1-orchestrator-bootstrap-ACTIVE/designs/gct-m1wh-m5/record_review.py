@@ -1,4 +1,4 @@
-"""M5 in-window review recorder (staged; joins designs/gct-m1wh-m5 at the pin-baseline step).
+"""M5 in-window review recorder (part of the package since r6; the binding review covers it).
 
   record_review.py bindings <KIND>
       Print the exact bindings the executor will demand for KIND, computed from reports/m5/q. Writes nothing.

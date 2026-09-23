@@ -2,7 +2,7 @@
 
   gate_extract.py SOURCE_PASS | PAIRING_PASS | COMMIT_PASS
 
-Writes gate-<kind>-<utc>.json beside this script (O_EXCL) and prints its path and digest. It holds:
+Writes gate-<kind>-<utc>.json into the staging directory OUT_DIR, never into the package (O_EXCL) and prints its path and digest. It holds:
 - every checklist fact from M5-WINDOW-REVIEWS.md, computed from reports/m5/q;
 - the exact bindings from the committed record_review.py.
 Reviewers must confirm the decisive facts against the originals, so this is a claim, not evidence.
@@ -20,7 +20,8 @@ import types
 O = '/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap'
 PKG = Path(O + '/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-m5')
 Q = Path(O + '/reports/m5/q')
-HERE = Path(__file__).parent
+# Never inside the package: a new file there would dirty the worktree and stop the executor wrapper.
+OUT_DIR = Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922')
 
 
 def module(path, name):
@@ -73,18 +74,27 @@ if kind == 'SOURCE_PASS':
         deadline=paused['deadline'])
 elif kind == 'PAIRING_PASS':
     r = load('observe-result.json')
-    steps = [line.split(None, 3) for line in r['stdout'].splitlines() if re.match(r'^\d\d (CHECK|MUTATE) ', line)]
+    lines = r['stdout'].splitlines()
+    steps = [line.split(None, 3) for line in lines if re.match(r'^\d\d (CHECK|MUTATE) \S+ path=', line)]
+    unparsed = [line for line in lines[1:] if not re.match(r'^\d\d (CHECK|MUTATE) \S+ path=', line)]
     mutate = [s for s in steps if s[1] == 'MUTATE']
-    allowed = re.compile(r'^path=(%s/reports/m5/b/install-(manifest|receipt)\.before\.json'
-                         r'|/home/loucmane/gascity/city/\.gc/platform/install-(manifest|receipt)\.json)(\s|$)'
-                         % re.escape(O))
+    platform = '/home/loucmane/gascity/city/.gc/platform/'
+    # Exactly these four MUTATE actions, each once, each on its own target, and nothing else.
+    expected_mutations = {
+        'write-previous-manifest-backup': O + '/reports/m5/b/install-manifest.before.json',
+        'write-previous-receipt-backup': O + '/reports/m5/b/install-receipt.before.json',
+        'publish-manifest': platform + 'install-manifest.json',
+        'write-activation-receipt': platform + 'install-receipt.json',
+    }
+    observed_mutations = {s[2]: s[3].split()[0][len('path='):] for s in mutate}
     window = load('window.json')
     paused = load('preparation-paused.json')
     facts.update(
         observe={k: r[k] for k in ('phase', 'exit_code', 'terminal_pidfd', 'errors', 'record_error', 'stderr', 'argv')},
         plan_header=r['stdout'].splitlines()[0] if r['stdout'] else None,
         step_count=len(steps), mutate_steps=[' '.join(s) for s in mutate],
-        mutate_only_allowed=all(allowed.match(s[3]) for s in mutate) and len(mutate) == 4,
+        mutate_only_allowed=len(mutate) == 4 and observed_mutations == expected_mutations,
+        unparsed_plan_lines=unparsed,
         check_actions=sorted({s[2] for s in steps if s[1] == 'CHECK'}),
         after_observation=load('after-observation.json'),
         after_matches=load('after-observation.json') == dict(
@@ -112,7 +122,7 @@ else:
     raise SystemExit(__doc__)
 
 stamp = datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')
-out = HERE/('gate-%s-%s.json' % (kind.lower().replace('_', '-'), stamp))
+out = OUT_DIR/('gate-%s-%s.json' % (kind.lower().replace('_', '-'), stamp))
 fd = os.open(out, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o644)
 with os.fdopen(fd, 'w') as stream:
     json.dump(facts, stream, indent=1, sort_keys=True, default=str)

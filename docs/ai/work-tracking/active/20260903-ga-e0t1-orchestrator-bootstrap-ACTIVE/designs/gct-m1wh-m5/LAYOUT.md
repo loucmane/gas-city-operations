@@ -1,4 +1,4 @@
-# M5 metadata successor: layout proof and activation plan (r7)
+# M5 metadata successor: layout proof and activation plan (r8)
 
 This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
 Opus 5.5 scope of `gct-er3h`.
@@ -536,18 +536,61 @@ r7 changes:
 
 **Recapture schedule.** Yesterday's cache atimes cluster at 09:29 (1994 entries), 10:42 (177) and
 13:33 (13191). A capture at 10:44:00Z or later refreshes the first two clusters on its settle
-reads. That puts the horizon at 13:33Z, so `prepare` must start before about 13:18Z. r8 then
-pins `BASELINE_PATH` (`reports/m5-capture-r2/baseline.json`) and `BASELINE_SHA`, and gets its
-binding reviewed.
+reads. That puts the horizon at 13:33:50Z. r9 then pins `BASELINE_PATH`
+(`reports/m5-capture-r2/baseline.json`) and `BASELINE_SHA`, regenerates `source-pins.json`, fills
+`{BASELINE}` in `operator/GATE-PROMPTS.md`, and gets its binding reviewed.
+
+**r7 dispositions and r8.** Both r7 reviews returned HOLD on the in-window tooling. Neither found
+a defect in the recapture path. They agreed on three must-fixes. One review added a fourth:
+- **The window gates.** `observe` and `paired` started without checking the remaining window. A
+  native phase writes `<phase>-consumed.json` before `admit()` reserves its 66 s. If admission
+  then refuses, the result is not terminal and `restore-preapply` refuses.
+- **The fix.** `operator/M5-EXECUTE.sh` computes the remaining window exactly as `admit()` does,
+  from the recorded deadline: the minimum of the monotonic deadline, the boot-time deadline, and
+  the renewal horizon minus 10 s. It then:
+  - starts `observe` only with more than 180 s left, and `paired` only with more than 300 s;
+  - bounds the SOURCE_PASS wait at 540 s of window left and the PAIRING_PASS wait at 300 s.
+  Stopping at a gate leaves `restore-preapply` valid.
+
+The review's should-fixes are also taken:
+- `horizon_left` parses `BASELINE_PATH` as text, so no package code runs before the clean check;
+- `gate_extract.py` checks the exact four MUTATE actions and targets, and lists every unparsed plan
+  line;
+- a missing stop record points to the manual timer check;
+- `GATE-PROMPTS.md` documents the HOLD marker convention. r8 changes only `operator/`, `record_review.py`'s docstring and this
+file. `manifest_candidate.py` stays at the r5 bytes `29cee991`.
+- **Must-fix: extract location.** `gate_extract.py` wrote into `operator/`, which is not ignored.
+  The new file dirtied the worktree, so `pause`'s clean check would stop the run. It now writes
+  only into the staging directory.
+- **Must-fix: pause recovery.** A `pause` failure printed `recover-pause` even before
+  `pause-consumed.json` existed, where `recover_pause` refuses. The wrapper now prints
+  `recover-pause` only when that file exists, and `recover-preparation` with the intent digest
+  otherwise.
+- **Must-fix: the COMMIT_PASS deadline.** `restore-accepted` has no window deadline, but it still
+  needs the exact cache metadata. Snapshot reads refresh atimes older than 24 h, so it must run
+  before the renewal horizon. Both limits changed:
+  - The gate before `prepare` now requires the horizon to leave the window (900 s), its margin
+    (10 s), 1800 s for the COMMIT_PASS reviews and restoration, and 300 s of slack: 3010 s in
+    all. It runs after the clean check (should-fix).
+  - The COMMIT_PASS wait ends 310 s before the horizon.
+- **Should-fixes answered.**
+  - `GATE-PROMPTS.md` takes the pinned baseline as `{BASELINE}` and no longer names `8f980d2e`.
+  - `M5-CAPTURE.sh` refuses outside 10:44:00Z–12:30:00Z. A settle near the horizon would refuse
+    and consume the root. It prints the latest executor start with the same 3010 s reserve.
+  - Log locations are stated as the staging directory.
+  - The review waits end at 540 s and 300 s of window left (see the window gates above). The
+    executor's own deadline checks remain authoritative.
+- **With a 13:33:50Z horizon,** the executor wrapper accepts `prepare` until about 12:43Z (14:43
+  Stockholm).
 
 **Rollback digest (A should-fix 2).** `prereqs.py <digest> rollback` needs the digest of the
-current `manifest_candidate.py` bytes: `29cee991` at r7, and the r8 digest after the pin.
+current `manifest_candidate.py` bytes: `29cee991` at r7 and r8, and the r9 digest after the pin.
 `rollback()` reads no step or intent record, so any digest mismatch refuses cleanly and consumes
 nothing.
 
 **Launcher loader (A should-fix 4).** On 2026-09-23 the coordinator replayed launch.py's
 source-inventory checks outside any stage. `source-pins.json` `7656a92f` and all six sources
-passed: digest, mode 0644, uid/gid 1000 and nlink 1. r8 regenerates `source-pins.json` and
+passed: digest, mode 0644, uid/gid 1000 and nlink 1. r9 regenerates `source-pins.json` and
 repeats that check.
 
 **Executor entry, found live.** "Host terminal" in the live sequence means this exact form, typed in

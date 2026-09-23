@@ -6,9 +6,14 @@
 # its own `systemd-run --user -p UMask=0022` unit. The script stops at the first refusal. Never
 # re-run a refused stage.
 #
-# Timing: the settle reads must refresh yesterday's 09:29 and 10:42 cache-access clusters, so the
-# script refuses to start before 10:44:00Z on 2026-09-23. The resulting horizon is the 13:33
-# cluster plus 24 h; freeze prints it. Output is saved beside this script as capture-<timestamp>.txt.
+# Timing, on 2026-09-23:
+# - It starts only from 10:44:00Z (12:44 Stockholm), so the settle reads refresh yesterday's 09:29
+#   and 10:42 cache-access clusters. The horizon then becomes the 13:33:50Z cluster plus 24 h.
+# - It starts only until 12:30:00Z (14:30 Stockholm). A later settle would come too near that
+#   horizon: between about 13:18:40Z and 13:33:50Z the settle renewal check refuses and consumes
+#   the root, and a capture that late leaves no time for the binding review and the executor.
+# It prints the horizon and the latest executor start that operator/M5-EXECUTE.sh will accept.
+# Output goes to capture-<timestamp>.txt in the staging directory $S.
 S=/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 P=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-m5
@@ -33,13 +38,15 @@ horizon() {
   /usr/bin/python3 -I -B -c "
 import json, datetime
 inv = json.load(open('$R/baseline.json'))['closure']['cache']['inventory']
-low = min(v['atime_ns'] for v in inv.values())
-print('== horizon', datetime.datetime.fromtimestamp(low / 1e9 + 86400, datetime.timezone.utc).isoformat(),
-      'latest prepare start', datetime.datetime.fromtimestamp(low / 1e9 + 86400 - 910, datetime.timezone.utc).isoformat())"
+low = min(v['atime_ns'] for v in inv.values()) / 1e9
+at = lambda s: datetime.datetime.fromtimestamp(s, datetime.timezone.utc).isoformat()
+print('== horizon', at(low + 86400), 'latest executor start (window, margin, commit review, slack)',
+      at(low + 86400 - 900 - 10 - 1800 - 300))"
 }
 run() {
-  if [ "$(date -u +%Y%m%d%H%M%S)" -lt 20260923104400 ]; then
-    echo "== STOP: too early; start at or after 10:44:00Z so the 09:29 and 10:42 clusters refresh"; return
+  now=$(date -u +%Y%m%d%H%M%S)
+  if [ "$now" -lt 20260923104400 ] || [ "$now" -gt 20260923123000 ]; then
+    echo "== STOP: start only from 10:44:00Z to 12:30:00Z (12:44 to 14:30 Stockholm) on 2026-09-23"; return
   fi
   echo "== apt history tail"
   tail -4 /var/log/apt/history.log
