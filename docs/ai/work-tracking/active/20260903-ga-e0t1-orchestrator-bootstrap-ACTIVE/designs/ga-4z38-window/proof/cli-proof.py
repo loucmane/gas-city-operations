@@ -27,12 +27,21 @@ which source commit the binary was built from:
   emits exactly three health signals: city_suspended, controller_not_running and no_agents_running
   (cmd/gc/city_status_snapshot.go). The window allows the first and third, and requires the
   controller running, so a live worker cannot add an unexpected signal.
+- the source checked here is the binary's source: gc 69d00186 was built reproducibly (two
+  byte-identical builds, recorded on ga-mutg) from signed commit 796d9a7a, and the worker base e6366b9e
+  (the PR 45 merge) has the same tree f2c120a5;
+- the window runs the overlay city.toml (CITY_SHA[1] 5f3b60e1, the prep root's city.isolated.toml), which
+  also has no [api] section, no [session] socket and no workspace name, so the socket stays `city`;
+- the city tmux server outlives its last session: Core sets exit-empty off on every create
+  (ConfigureServer) and ends the server with kill-server only in `gc stop` (TeardownServer), which is
+  why CLOSE ends an empty city server itself.
 The release transport posts to ga-4z38's own notes in the rig store and the worker reads them with the
 same `bd show ga-4z38 --json` it uses for its claim, so no cross-store message read is involved.
 Nothing is written.
 
 Usage: python3 -B cli-proof.py   (prints one JSON object; exit 0 only if every check holds)
 """
+import hashlib
 import json
 import os
 import re
@@ -44,6 +53,27 @@ ENV = dict(HOME='/home/loucmane', GC_HOME='/home/loucmane/gascity/home', GIT_OPT
            BD_DISABLE_METRICS='1', PATH='/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin', LC_ALL='C.UTF-8')
 CORE = '/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles'
 BASE = 'e6366b9ececd3a4ceab2bcaa264a5e317e6eab88'
+BUILD = '796d9a7a67c42294fdc467c107bb59b76e482301'
+TREE = 'f2c120a5ac9ea25ebc395c1b3cfa4eb30dcafd13'
+GC_SHA = '69d00186c098b84efe6658c03d888ce07f6d6528d6c446671b53d92f7bde89f9'
+OVERLAY = '/var/tmp/ga-4z38-prep-20260923-r2/city.isolated.toml'
+OVERLAY_SHA = '5f3b60e1c1e391b5a1f66de62a2e767ea226570ce7549c6dfb526cd072e6530d'
+
+
+def noatime(path):
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        raw = b''
+        while chunk := os.read(fd, 1 << 20):
+            raw += chunk
+    finally:
+        os.close(fd)
+    return raw
+
+
+def section(toml, name):
+    parts = (b'\n' + toml).split(b'\n[' + name + b']\n', 1)
+    return parts[1].split(b'\n[', 1)[0] if len(parts) == 2 else b''
 
 
 def schema(*command):
@@ -98,7 +128,12 @@ def main():
                                   env=ENV, capture_output=True, text=True, timeout=60).stdout
     tmux_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':internal/runtime/tmux/tmux.go'],
                              env=ENV, capture_output=True, text=True, timeout=60).stdout
-    session_section = city_toml.split(b'\n[session]\n', 1)[1].split(b'\n[', 1)[0]
+    session_section = section(city_toml, b'session')
+    overlay = noatime(OVERLAY)
+    trees = subprocess.run(['/usr/bin/git', '-C', CORE, 'rev-parse', BUILD + '^{tree}', BASE + '^{tree}'],
+                           env=ENV, capture_output=True, text=True, timeout=60).stdout.split()
+    stop_go = subprocess.run(['/usr/bin/git', '-C', CORE, 'show', BASE + ':cmd/gc/cmd_stop.go'],
+                             env=ENV, capture_output=True, text=True, timeout=60).stdout
     status = json.loads(subprocess.run(GC + ['status', '--json'], env=ENV, capture_output=True, text=True, timeout=60,
                                        stdin=subprocess.DEVNULL).stdout)
     result = dict(
@@ -125,7 +160,17 @@ def main():
         and not any(line.strip().startswith(b'socket') for line in session_section.splitlines())
         and status.get('city_name') == 'city' and status.get('city_path') == '/home/loucmane/gascity/city'
         and 'allArgs = append(allArgs, "-L", t.cfg.SocketName)' in tmux_go
-        and 't.run("capture-pane", "-p", "-t", session, "-S"' in tmux_go)
+        and 't.run("capture-pane", "-p", "-t", session, "-S"' in tmux_go
+        and 'allArgs := []string{"-u"}' in tmux_go,
+        binary_source_is_base=trees == [TREE, TREE] and hashlib.sha256(noatime('/home/loucmane/gascity/bin/gc')).hexdigest() == GC_SHA,
+        overlay_keeps_socket_and_path=hashlib.sha256(overlay).hexdigest() == OVERLAY_SHA
+        and not any(line.strip().startswith(b'[api') for line in overlay.splitlines())
+        and not any(line.strip().startswith(b'socket') for line in section(overlay, b'session').splitlines())
+        and not any(line.strip().startswith(b'name') for line in section(overlay, b'workspace').splitlines())
+        and not any(line.strip().startswith(b'name') for line in section(city_toml, b'workspace').splitlines()),
+        server_outlives_sessions='func (t *Tmux) ConfigureServer() error {\n\treturn t.SetExitEmpty(false)\n}' in tmux_go
+        and 'func (t *Tmux) TeardownServer() error {\n\treturn t.KillServer()\n}' in tmux_go
+        and 'lifecycle.TeardownServer()' in stop_go)
     result['ok'] = all(result.values())
     result['emitted_signals'] = emitted
     print(json.dumps(result, indent=1, sort_keys=True))

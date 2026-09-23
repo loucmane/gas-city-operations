@@ -570,6 +570,64 @@ Both reviews of `e3b01b2c` held on the staged-patch digest contract, and both tr
   panes on the city tmux server. The first WATCH after RESUME must show the worker pane under
   `tmux -L city`.
 
+### Round 2b r9 (after both 4a81d704 reviews held)
+
+Both reviews of `4a81d704` held, and both transcripts are filed. Both named the same defect, and
+review B named a second. r9 fixes them, and each fix now has a test that runs the real code.
+- **The release job ran two phases under one name.** The base refuses a phase name used twice in one
+  root. So every release would have failed after its post, before the nudge, and every later slot
+  would have failed the same way. The two captures are now `pane-before-post` and
+  `pane-before-nudge`.
+  - A new test runs release `main()` against the real `window-base-r11.py`, with only the owned-phase
+    runner faked. It covers a refusal on a dialog, both slots of both modes, one post per mode, and a
+    tree refusal.
+- **WATCH reused a variable name.** The route check overwrote `staged`, so every WATCH after STAGE
+  would have crashed. The check is now its own function, `routes_since_stage`, with a test. A second
+  test runs WATCH `main()` on the real base, both before and after STAGE.
+- **Mutation check.** Each new `main()` test fails on its exact r8 defect, applied to a temporary copy
+  of the r9 package:
+  - one phase name used twice fails with `phase already consumed`;
+  - CLOSE without the kill fails with `residue remains ... processes=1`;
+  - the reused WATCH variable fails with an AttributeError on `splitlines`.
+- **The city tmux server outlives the worker session.** Core sets exit-empty off on every session
+  create. The server started by the worker's `new-session -c <worktree>` keeps the worktree in its
+  argv, so CLOSE would count it as residue forever. The ga-5ot6 R10 restore needed a manual
+  `kill-server` for exactly this.
+  - When no open session remains and the city server has no pane, CLOSE now runs
+    `tmux -u -L city kill-server`, at most once per run. Core's own `gc stop` ends the server the same
+    way (`TeardownServer`).
+  - A test runs CLOSE `main()`. It kills an empty server exactly once, and it never kills a server that
+    still has a pane.
+- **The tree is derived, read-only.** The signing release's tree must list exactly the staged index:
+  `git ls-tree -r -z --full-tree <tree>` must equal `git ls-files -s -z`, all at stage 0.
+  - A test checks this in a real temporary repository.
+  - **Erratum** to the r8 "One patch definition" bullet above: r8 compared the tree only with the
+    worker's `candidate.json`. It did not derive it, as that bullet claimed.
+- **Full object names in the patch.** Worker and job both pass `--binary --full-index`. A test shows
+  the patch bytes are identical with an empty HOME, with a HOME that sets noprefix, patience,
+  context 9, abbrev 4 and color always, and with the job's `-c` overrides.
+- **The pane check.**
+  - It uses Core's exact form, `tmux -u -L city capture-pane -p -t <session_name>`.
+  - It also refuses a selection cursor on any numbered option, which covers AskUserQuestion and the
+    usage-limit menu.
+  - A capture that exits 0 proves the session's pane is running.
+  - Residual gaps:
+    - a dialog can still appear between the capture and the nudge's Enter;
+    - a dialog drawn without these markers is not seen;
+    - a persistent false positive would use up the release slots, and would then be recorded as a stop.
+- **CLOSE parses `gc session close --json` as JSONL.** Exactly one record must name the session.
+- **Worker-written files are read only as regular files of at most 1 MiB.**
+- **`proof/cli-proof.py` now proves three more facts, and passes live:**
+  - the Core source it checks is the binary's source: gc 69d00186 was built from signed 796d9a7a,
+    recorded on ga-mutg, and the worker base e6366b9e has the same tree, f2c120a5;
+  - the overlay city.toml the window runs (5f3b60e1) has no `[api]` section, no `[session]` socket
+    and no workspace name;
+  - Core keeps the tmux server alive between sessions.
+- **Erratum** to the Jobs list: after HOLD, CLOSE still runs, because it accepts a passing HOLD. The
+  window then stops before ADMIT, and restoring needs a reviewed successor. The Dispositions line
+  "run HOLD, then CLOSE" was right.
+- The job runner README now records the in-window review exception.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,
@@ -600,7 +658,7 @@ commit from RECONCILE until TERMINAL; every job, CONTAIN and HOLD included, chec
    5. `SIGNING-RELEASE-1.sh`, or the next slot (at least 85 minutes left).
    6. The worker's managed signature.
 10. `CONTAIN-1.sh` (or `CONTAIN-2.sh` after a refusal before any intent); if the lifecycle is stranded,
-    `HOLD-1.sh` (or `HOLD-2.sh`) instead, and the window stops there.
+    `HOLD-1.sh` (or `HOLD-2.sh`) instead, then `CLOSE`, and the window stops before ADMIT.
 11. `CLOSE-1.sh`, or the next slot, then a `WATCH` slot.
 12. `ADMIT.sh`: a passing CLOSE, and at least 40 minutes left.
 13. `RESTORE.sh`: at least 25 minutes left.

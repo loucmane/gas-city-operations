@@ -14,8 +14,8 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window')
 ROOT=Path('/var/tmp/ga-4z38-route-20260923-r1')
 BIND=Path('/var/tmp/ga-4z38-bind-20260923-r1')
-BIND_SHA='b013381e4b6c0c4d3279c0f15107a19c9202147c9bd3d6350e76330d7868f50e'
-BRIEF_SHA='23faf866cff1e0265c16c0f1c16a83188200bd954e8683cb0e6b1ca973efe452'
+BIND_SHA='6b97f4864409c1c90786bb0cd77f0bb3a4c9ec1c4c70f27c9179909028e77dc2'
+BRIEF_SHA='6102b44a43b3210a61e880b303ac1ee81f5aeb007fbef2eb5b611e96b2410bf7'
 HELPER=HERE/'window-r11.py'
 SHA='1accf5c9859cc57dc7e7a5ded83cdf1218c2a1f043de0294ba15042d67168f4f'
 TARGET='gascity/gc.implementation-worker'

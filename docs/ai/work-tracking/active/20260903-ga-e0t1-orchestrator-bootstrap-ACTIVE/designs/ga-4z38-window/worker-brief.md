@@ -157,8 +157,9 @@ Any coverage IDs require matching coverage rows. Controller runs the real checke
 
 After all tests, stage ONLY the three allowed source paths and .gitignore, with no
 other staged paths or unstaged tracked changes. Write the staged patch with exactly
-`git diff-index --cached --patch --output=.gc/worker-evidence/ga-4z38/candidate.patch HEAD`
-(plumbing, so no diff or color configuration changes the bytes). Capture HEAD and
+`git diff-index --cached --patch --binary --full-index --output=.gc/worker-evidence/ga-4z38/candidate.patch HEAD`
+(plumbing with full object names, so no diff, color or abbreviation configuration changes
+the bytes). Capture HEAD and
 `git write-tree`, and write candidate.json in the evidence directory as
 {"head": ..., "tree": ..., "staged_patch_sha256": <SHA256 of candidate.patch>}; the
 coordinator hashes the same command's output and compares all three. Reverify

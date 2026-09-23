@@ -31,6 +31,7 @@ BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstra
 BASE_SHA = 'cad1d660b872a352bce7e8c3c5bffda5ca7ac663a732575f48a3b7a9847926cd'
 TASK = 'ga-4z38'
 WINDOW = Path('/var/tmp/ga-4z38-window-20260923-r1')
+VAR = Path('/var/tmp')
 TEMPLATE = 'gascity/gc.implementation-worker'
 EVIDENCE = '.gc/worker-evidence/ga-4z38'
 
@@ -50,6 +51,22 @@ def load():
     w.__file__ = str(BASE)
     exec(compile(raw, str(BASE), 'exec', dont_inherit=True), w.__dict__)
     return w
+
+
+def routes_since_stage(w, o, routes, stage_event):
+    """None before STAGE; True when the route files still equal the stage-reload after-capture (what
+    ADMIT requires exactly, route-chain-r1); otherwise the sorted differing fields, or the refusal."""
+    if not stage_event.exists():
+        return None
+    try:
+        now = routes.capture_routes(w, o)
+        after = json.loads(w.read(stage_event))['after']
+        return now == after or sorted(
+            '%s %s.%s' % (root, section, key) for root in after for section in ('metadata', 'parent')
+            for key in set(after[root][section]) | set(now[root][section])
+            if after[root][section].get(key) != now[root][section].get(key))
+    except RuntimeError as exc:  # route authority refused: recorded, since WATCH only observes
+        return 'refused: ' + str(exc)
 
 
 def entry(w, path):
@@ -78,7 +95,7 @@ def main():
     w.require(globals().get('_SOURCE_SHA') and os.getuid() == os.geteuid() == 1000, 'bound source launcher required')
     w.read(Path(__file__), _SOURCE_SHA)
     b, o, owned = w.load_support()
-    root = Path('/var/tmp/ga-4z38-watch-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    root = VAR/('ga-4z38-watch-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
 
     def epoch():
         # active_epoch() reads the window before.json through the base ROOT.
@@ -149,20 +166,7 @@ def main():
     # Early warning for ADMIT: the route files must still equal the stage-reload after-capture
     # (route-chain-r1 compares them exactly). Evidence only; O_NOATIME reads.
     routes = w.module(BASE.parent/'restore-r9-routes-r3.py', '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2')
-    stage_event = WINDOW/'stage-reload-generated-routes.json'
-    routes_unchanged = None
-    if stage_event.exists():
-        try:
-            now = routes.capture_routes(w, o)
-            staged = json.loads(w.read(stage_event))['after']
-            # Exact equality is what ADMIT needs; the differing fields name the cause (an atime
-            # moved by a reader, or a regenerated file).
-            routes_unchanged = now == staged or sorted(
-                '%s %s.%s' % (root, section, key) for root in staged for section in ('metadata', 'parent')
-                for key in set(staged[root][section]) | set(now[root][section])
-                if staged[root][section].get(key) != now[root][section].get(key))
-        except RuntimeError as exc:  # route authority refused: recorded, since WATCH only observes
-            routes_unchanged = 'refused: ' + str(exc)
+    routes_unchanged = routes_since_stage(w, o, routes, WINDOW/'stage-reload-generated-routes.json')
     w.complete_containment()
     related = [dict(id=v['id'], status=v['status'], state=(v.get('metadata') or {}).get('state'),
                     template=(v.get('metadata') or {}).get('template'))

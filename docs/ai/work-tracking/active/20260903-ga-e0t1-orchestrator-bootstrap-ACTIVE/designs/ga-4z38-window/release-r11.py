@@ -19,18 +19,22 @@ validated against the live state before anything is posted:
 - signing: {schema ga-4z38.signing-release.v1, task, session, base, head, tree, staged_patch_sha256,
   reviews}; head, tree and patch digest must equal the worker's candidate.json checkpoint; HEAD must be
   unchanged, the index must stage only allowed paths with no unstaged or
-  untracked change, and the staged patch must have the digest the candidate reviews saw. Worker and job
-  produce the patch with the same plumbing command, `git diff-index --cached --patch --output=<file>
-  HEAD` (plumbing ignores diff.* and color config), and both hash the file's raw bytes. The signer
-  independently re-verifies the tree.
+  untracked change, the tree must list exactly the staged index (`git ls-tree -r -z --full-tree
+  <tree>` equals `git ls-files -s -z`, all at stage 0; both only read), and the staged patch must have
+  the digest the candidate reviews saw. Worker and job produce the patch with the same plumbing
+  command, `git diff-index --cached --patch --binary --full-index --output=<file> HEAD` (plumbing
+  ignores diff.* and color config, and full object names do not depend on core.abbrev), and both hash
+  the file's raw bytes. The signer independently re-verifies the tree. Worker-written files are read
+  only as regular files of at most 1 MiB.
 In both modes: `gc status` shows the city resumed; exactly one open session exists for the template
 and it is the named session, in state active (a managed session that is not running would get a
 queued wake instead of an immediate delivery, Core cmd/gc/cmd_nudge.go shouldQueueManagedNudgeWake; the
 session list reports the reconciler's running states awake and active both as active, Core
 internal/session normalizeInfoState); ga-4z38 is in_progress and assigned to that session. The signing release
 also requires the source release line to be present in the notes. The worker's visible tmux pane must
-show no permission dialog, both before the post and right before the nudge, because the nudge's Enter
-would answer one.
+show no permission dialog or numbered menu, both before the post and right before the nudge, because
+the nudge's Enter would answer one. The two captures are separate phases (pane-before-post and
+pane-before-nudge); a capture that exits 0 also proves the session's tmux pane is running.
 
 Once and only once: before the post, no line with this release's prefix may exist in the notes. An
 exclusive marker /var/tmp/ga-4z38-<mode>-release.posted is created right before the single notes append,
@@ -67,12 +71,17 @@ INPUT = Path('/home/loucmane/.local/share/gas-city-staging/ga-4z38-window/releas
 TASK = 'ga-4z38'
 TEMPLATE = 'gascity/gc.implementation-worker'
 BASE_COMMIT = 'e6366b9ececd3a4ceab2bcaa264a5e317e6eab88'
+VAR = Path('/var/tmp')
+WORKER_FILE_LIMIT = 1 << 20
 ALLOWED = {'internal/sling/cycle.go', 'internal/sling/cycle_test.go', 'internal/sling/sling_core_test.go', '.gitignore'}
 # Claude Code permission dialogs, plus the two markers Core's own tmux approval parser reads
 # (internal/runtime/tmux/interaction.go requiresApprovalRe). The immediate nudge ends with Enter, which
 # would answer a visible dialog, so a release never nudges over one.
 DIALOG_MARKERS = ('Do you want to proceed?', 'Do you want to make this edit', 'Do you want to create',
                   'This command requires approval', 'Approve edits?')
+# A `1. Yes` choice line, or a selection cursor on any numbered option (AskUserQuestion, the usage-limit
+# menu): Enter would choose it.
+CHOICE_LINES = (r'\s*[\u276f\u203a>]?\s*1\. Yes\b', r'\s*[\u276f\u203a]\s*\d+\.\s')
 KEYS = dict(source={'schema', 'task', 'session', 'base', 'startup_proof_sha256', 'gitignore_entries', 'reviews'},
             signing={'schema', 'task', 'session', 'base', 'head', 'tree', 'staged_patch_sha256', 'reviews'})
 
@@ -109,15 +118,48 @@ def document(stdout):
 
 def dialog_showing(pane):
     """True when the visible pane shows a permission dialog or its first choice line."""
-    return any(m in line for line in pane.splitlines() for m in DIALOG_MARKERS) or any(
-        re.match(r'\s*[\u276f\u203a>]?\s*1\. Yes\b', line) for line in pane.splitlines())
+    lines = pane.splitlines()
+    return any(m in line for line in lines for m in DIALOG_MARKERS) or any(
+        re.match(pattern, line) for line in lines for pattern in CHOICE_LINES)
 
 
-def pane_clear(w, run, session):
-    """The worker's visible pane, captured the way Core captures it (tmux -L <city> capture-pane -p -t
-    <session_name>, internal/runtime/tmux/tmux.go), shows no permission dialog. Read-only."""
-    pane = run('pane', ['/usr/bin/tmux', '-L', 'city', 'capture-pane', '-p', '-t', session['session_name']])['stdout']
-    w.require(not dialog_showing(pane), 'the worker pane shows a permission dialog')
+def pane_clear(w, run, session, name):
+    """The worker's visible pane, captured the way Core captures it (tmux -u -L <city> capture-pane -p -t
+    <session_name>, internal/runtime/tmux/tmux.go runCtx and CapturePane), shows no dialog. Read-only.
+    Each call is its own phase: the base refuses a phase name twice in one root."""
+    pane = run(name, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', session['session_name']])['stdout']
+    w.require(not dialog_showing(pane), 'the worker pane shows a permission dialog or menu')
+
+
+def worker_file(w, path):
+    """A worker-written file: a regular file of at most WORKER_FILE_LIMIT bytes, then the base read."""
+    s = path.lstat()
+    w.require(stat.S_ISREG(s.st_mode) and s.st_size <= WORKER_FILE_LIMIT, 'worker file shape or size: ' + path.name)
+    return w.read(path)
+
+
+def tree_entries(listing):
+    """`git ls-tree -r -z` records as a set of (mode, object, path)."""
+    rows = set()
+    for record in listing.split('\0'):
+        if record:
+            meta, path = record.split('\t', 1)
+            mode, _kind, name = meta.split(' ')
+            rows.add((mode, name, path))
+    return rows
+
+
+def index_entries(listing):
+    """`git ls-files -s -z` records as a set of (mode, object, path); None if any entry is unmerged."""
+    rows = set()
+    for record in listing.split('\0'):
+        if record:
+            meta, path = record.split('\t', 1)
+            mode, name, number = meta.split(' ')
+            if number != '0':
+                return None
+            rows.add((mode, name, path))
+    return rows
 
 
 def release_lines(notes, mode):
@@ -151,7 +193,7 @@ def validate_worktree(w, mode, release, run, root):
     status = run('git-status', git + ['status', '--porcelain=v1', '-z', '--untracked-files=all'])['stdout']
     records = [r for r in status.split('\0') if r]
     if mode == 'source':
-        proof = w.read(w.WORK/'.gc/worker-evidence/ga-4z38/startup-proof.json')
+        proof = worker_file(w, w.WORK/'.gc/worker-evidence/ga-4z38/startup-proof.json')
         w.require(w.digest(proof) == release['startup_proof_sha256'], 'startup proof digest')
         w.require([r for r in records if not r.startswith('?? ')] == [], 'tracked change before source release')
         untracked = sorted('/' + r[3:] for r in records)
@@ -164,11 +206,15 @@ def validate_worktree(w, mode, release, run, root):
         staged = run('git-staged-names', git + ['diff-index', '--cached', '--name-only', 'HEAD'])['stdout'].split()
         w.require(staged and set(staged) <= ALLOWED, 'staged paths')
         w.require(all(r[1] == ' ' and r[0] in 'MA' and r[3:] in ALLOWED for r in records), 'clean apart from staged paths')
-        checkpoint = json.loads(w.read(w.WORK/'.gc/worker-evidence/ga-4z38/candidate.json'))
+        checkpoint = json.loads(worker_file(w, w.WORK/'.gc/worker-evidence/ga-4z38/candidate.json'))
         w.require(checkpoint.get('head') == release['head'] and checkpoint.get('tree') == release['tree']
                   and checkpoint.get('staged_patch_sha256') == release['staged_patch_sha256'],
                   'release differs from the worker candidate checkpoint')
-        run('git-staged-patch', git + ['diff-index', '--cached', '--patch', '--output=' + str(root/'staged.patch'), 'HEAD'])
+        # Read-only tree derivation: the named tree lists exactly the staged index.
+        listed = tree_entries(run('git-tree', git + ['ls-tree', '-r', '-z', '--full-tree', release['tree']])['stdout'])
+        staged_index = index_entries(run('git-index', git + ['ls-files', '-s', '-z'])['stdout'])
+        w.require(staged_index is not None and listed == staged_index, 'release tree differs from the staged index')
+        run('git-staged-patch', git + ['diff-index', '--cached', '--patch', '--binary', '--full-index', '--output=' + str(root/'staged.patch'), 'HEAD'])
         patch = w.read(root/'staged.patch')
         w.require(hexdigest(release['staged_patch_sha256'], 64)
                   and w.digest(patch) == release['staged_patch_sha256'], 'staged patch digest')
@@ -180,9 +226,9 @@ def main():
     w.read(Path(__file__), _SOURCE_SHA)
     w.require(len(sys.argv) == 2 and sys.argv[1] in KEYS, 'mode: source or signing')
     mode = sys.argv[1]
-    marker = Path('/var/tmp/ga-4z38-%s-release.posted' % mode)
+    marker = VAR/('ga-4z38-%s-release.posted' % mode)
     if mode == 'signing':
-        w.require(Path('/var/tmp/ga-4z38-source-release.posted').exists(), 'no source release posted')
+        w.require((VAR/'ga-4z38-source-release.posted').exists(), 'no source release posted')
     b, o, owned = w.load_support()
     w.require((WINDOW/'suspension-city-resume-event.json').exists()
               and not (WINDOW/'suspension-city-suspend-intent.json').exists(), 'window is not live')
@@ -191,7 +237,7 @@ def main():
     w.require((INPUT/(mode + '-release.json')).lstat().st_size < 8192, 'release input size')
     raw = w.read(INPUT/(mode + '-release.json'))
     release = json.loads(raw)
-    root = Path('/var/tmp/ga-4z38-%s-release-%s' % (mode, datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')))
+    root = VAR/('ga-4z38-%s-release-%s' % (mode, datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')))
     root.mkdir(mode=0o700)
     w.ROOT = root
     w.save('input.json', dict(mode=mode, release=release))
@@ -199,7 +245,7 @@ def main():
     def run(name, args, expected=(0,)):
         return w.phase(name, args, b, owned, expected=expected, timeout=90)
     session, task = validate_live(w, mode, release, run)
-    pane_clear(w, run, session)
+    pane_clear(w, run, session, 'pane-before-post')
     line = line_for(mode, release)
     if mode == 'signing':
         w.require(release_lines(task.get('notes'), 'source'), 'source release line absent from the notes')
@@ -220,7 +266,7 @@ def main():
     [task] = json.loads(run('readback', w.GC + ['--rig', 'gascity', 'bd', 'show', TASK, '--json'])['stdout'])
     lines = release_lines(task.get('notes'), mode)
     w.require(lines and lines[-1] == line, 'the release line is the last one with its prefix')
-    pane_clear(w, run, session)
+    pane_clear(w, run, session, 'pane-before-nudge')
     nudge = document(run('nudge', w.GC + ['session', 'nudge', session['id'],
                                             'Coordinator note for ga-4z38: a new %s release line is in the task notes. '
                                             'Read the latest %s_RELEASE line with /home/loucmane/gascity/bin/bd show %s --json.'

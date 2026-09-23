@@ -90,6 +90,12 @@ started, and records the outcome only after the job ends.
 **Policy-only.** The any-HOLD rule sees only transcripts the coordinator files; a HOLD that is never
 filed is invisible to the runner. Filing every review of a job-bound commit is coordinator policy.
 
+**One recorded exception, the ga-4z38 in-window reviews.** In a live worker window, the startup and
+candidate reviews judge the worker's evidence, not the package. They bind to the package commit because
+the worker's change is not yet a commit. Their prompts carry no `Wrapper:` line, so they can never admit
+a job. They are recorded on the Beads and are not filed: a filed in-window HOLD would refuse every
+later job at that commit, CONTAIN included. See `designs/ga-4z38-window/README.md` r7 and r8.
+
 ## r4: a persistent service with visible status (operator request, 2026-09-23)
 
 The operator asked for something longer-lived than the transient runner, and one they could see.

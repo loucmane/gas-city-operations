@@ -14,9 +14,16 @@ template. Steps, each through the owned-phase runner with the support environmen
 3. Up to 120 seconds until: no open session for the template, no pane at all in the city tmux server
    (every other agent stays suspended in this window; exit 1 counts only when tmux reports no server),
    and no process whose argv names the worktree or whose cwd is inside it.
-It never signals a process, never touches tmux directly, and never replays a lifecycle action. Each run
-uses a fresh timestamped root, so a refusal can be followed by another run, which never repeats the
-drain. Identity is the base active_epoch() check.
+4. The one tmux action, at most once per run: when no open session remains and the city tmux server is
+   up with no pane, `tmux -u -L city kill-server`. Core sets exit-empty off on every session create
+   (internal/runtime/tmux/tmux.go ConfigureServer), so a server started by the worker's `new-session -c
+   <worktree>` outlives the session with the worktree in its argv. Core's own `gc stop` ends the server
+   the same way once sessions are drained (cmd/gc/cmd_stop.go TeardownServer, KillServer). The ga-5ot6
+   R10 restore needed this by hand. An empty server holds no agent work, and scheduling is held.
+It never signals a process itself and never replays a lifecycle action. `gc session close --json`
+emits JSONL; exactly one record must name the session. Each run uses a fresh timestamped root, so a
+refusal can be followed by another run, which never repeats the drain. Identity is the base
+active_epoch() check.
 """
 from datetime import datetime, timezone
 import hashlib
@@ -31,7 +38,7 @@ BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstra
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/window-base-r11.py')
 BASE_SHA = 'cad1d660b872a352bce7e8c3c5bffda5ca7ac663a732575f48a3b7a9847926cd'
 WINDOW = Path('/var/tmp/ga-4z38-window-20260923-r1')
-DRAIN = Path('/var/tmp/ga-4z38-close-drain.requested')
+VAR = Path('/var/tmp')
 TEMPLATE = 'gascity/gc.implementation-worker'
 ANY = tuple(range(256))
 
@@ -78,13 +85,14 @@ def main():
     w.require(globals().get('_SOURCE_SHA') and os.getuid() == os.geteuid() == 1000, 'bound source launcher required')
     w.read(Path(__file__), _SOURCE_SHA)
     b, o, owned = w.load_support()
+    drain = VAR/'ga-4z38-close-drain.requested'
     held = (WINDOW/'suspension-rig-suspend-event.json').exists()
-    for result in sorted(Path('/var/tmp').glob('ga-4z38-hold-*/result.json')):
+    for result in sorted(VAR.glob('ga-4z38-hold-*/result.json')):
         held = held or json.loads(w.read(result)).get('ok') is True
     w.require(held, 'scheduling is not held (no CONTAIN rig-suspend event and no passing HOLD)')
     w.ROOT = WINDOW
     w.active_epoch(o)
-    ROOT = Path('/var/tmp/ga-4z38-close-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    ROOT = VAR/('ga-4z38-close-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     ROOT.mkdir(mode=0o700)
     w.ROOT = ROOT
     counter = {'n': 0}
@@ -101,8 +109,8 @@ def main():
     w.require(len(first) <= 1, 'more than one open worker session')
     session = first[0] if first else None
     w.save('session.json', dict(session=session))
-    if session and not DRAIN.exists():
-        fd = os.open(DRAIN, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    if session and not drain.exists():
+        fd = os.open(drain, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
         with os.fdopen(fd, 'w') as out:
             json.dump(dict(root=str(ROOT), session=session['id']), out)
         try:
@@ -122,12 +130,15 @@ def main():
     still = open_sessions()
     w.require(len(still) <= 1, 'more than one open worker session before close')
     if still:
-        closed = json.loads(run('close', w.GC + ['session', 'close', still[0]['id'], '--json'])['stdout'].splitlines()[-1])
-        w.require(closed.get('ok') is True and closed.get('session_id') == still[0]['id'], 'close not acknowledged')
+        stdout = run('close', w.GC + ['session', 'close', still[0]['id'], '--json'])['stdout']
+        records = [json.loads(line) for line in stdout.splitlines() if line.strip()]
+        acks = [r for r in records if r.get('session_id') == still[0]['id']]
+        w.require(len(acks) == 1 and acks[0].get('ok') is True, 'close not acknowledged')
     deadline = time.monotonic() + 120
+    server_killed = False
     while True:
         remaining = open_sessions()
-        listed = run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid}'],
+        listed = run('tmux', ['/usr/bin/tmux', '-u', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid}'],
                      expected=(0, 1))
         # Exit 1 counts only when tmux says there is no server (no socket, or nothing listening on it).
         stderr = listed['stderr']
@@ -136,6 +147,11 @@ def main():
                                                            or 'Connection refused' in stderr)),
                   'tmux listing failed')
         worker_panes = [p for p in listed['stdout'].split('\n') if p.strip()] if listed['exit_code'] == 0 else []
+        if listed['exit_code'] == 0 and not remaining and not worker_panes and not server_killed:
+            # An empty city server kept alive by exit-empty off: end it the way `gc stop` does.
+            run('tmux-kill-server', ['/usr/bin/tmux', '-u', '-L', 'city', 'kill-server'])
+            server_killed = True
+            continue
         residue = processes(w.WORK)
         if not remaining and not worker_panes and not residue:
             break
@@ -147,7 +163,8 @@ def main():
     w.ROOT = ROOT
     w.complete_containment()
     result = dict(ok=True, closed_session=first[0]['id'] if first else None, open_sessions=0, city_panes=0,
-                  worktree_processes=0, signals_sent=False, executor_sha256=_SOURCE_SHA)
+                  worktree_processes=0, tmux_server_killed=server_killed, signals_sent=False,
+                  executor_sha256=_SOURCE_SHA)
     w.save('result.json', result)
     print(json.dumps(result))
 
