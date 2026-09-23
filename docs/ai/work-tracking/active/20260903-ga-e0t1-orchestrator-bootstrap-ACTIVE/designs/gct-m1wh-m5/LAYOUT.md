@@ -1,4 +1,4 @@
-# M5 metadata successor: layout proof and activation plan (r9)
+# M5 metadata successor: layout proof and activation plan (r10)
 
 This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
 Opus 5.5 scope of `gct-er3h`.
@@ -616,6 +616,44 @@ Checks at r9:
 - the launch.py loader replay passes for `c3cded5a` and all six sources;
 - the real-baseline build gives 685 inputs, 49 trees and 23 links, frame 128071 of 131072, and the
   authority last at `28539934`.
+
+**r9 dispositions and r10.** r9 (`cb8bf293`) got one HOLD and one SOURCE_PASS, so it is HOLD. The
+executor was never started.
+- **Must-fix: observe recovery.** An `admit()` refusal at the observe spawn writes a non-terminal
+  `observe-result.json`, so "result absent" was the wrong test for inspection. The wrapper now
+  says inspect whenever `observe-consumed.json` exists without `after-observation.json`. The
+  legacy controller writes that file only after a terminal result and a fresh preservation check.
+- **Critical finding, from the passing review.** The frozen r2 baseline recorded a
+  `cache/repos/954ed…/.git` mtime of 10:21:26Z. The live directory then changed again at 10:51:26Z,
+  after the 10:49:14Z freeze. Both times match the coordinator's own gc Bead calls:
+  - `bd create` for ga-684c at 10:21:26Z;
+  - `bd update` on this Bead at 10:51:26Z. `rigs/gascity/.beads/last-touched` shows 10:51:26.99Z.
+  (The first capture's 08:48:55Z matches a coordinator `gc trace show`.)
+  These gc invocations briefly lock the pack cache repo. `gc status` and `gc session list` do not,
+  because the capture's own audit left no mark. The r2 baseline is therefore invalid.
+  `reports/m5-capture-r2` is preserved unmodified.
+- **The rule.** From capture freeze until `restore-accepted`, nobody runs gc: not the coordinator,
+  not the operator, not a Bead note. Bead notes wait in a staging file.
+- **The guard.** `operator/M5-EXECUTE.sh` `cache_unchanged` lstats every baseline cache entry and
+  compares type, mode, uid, gid, size, nlink, inode, device and all three times. lstat reads no
+  content and changes no atime. Any difference stops the run before `prepare`. Tested read-only
+  against the invalidated r2 baseline: 15413 entries checked, exactly 1 differing (that `.git`
+  directory, mtime and ctime).
+- **Should-fixes taken.**
+  - The observe gate is derived from the pause: at least 180 s, or 66 + pause + 30 s.
+  - The PAIRING_PASS wait ends at the derived paired requirement.
+  - Restoration has a real reserve: two snapshots, the 30 s timer wait, the 10 s margin and 60 s
+    of slack. It is checked before the COMMIT_PASS wait ends and again before `restore-accepted`.
+  - A prerequisite `rollback.json` stops the run before `prepare`.
+  - A `prepare` refusal before `reports/m5` exists (for example, a busy reconciler) says the same
+    start command may be run again.
+  - The wording is now "no tracked or unignored write".
+  - `{BASELINE}` in `GATE-PROMPTS.md` is filled at gate time from `gate_extract.py`, not in a
+    revision.
+- **Recapture.** r10 returns `manifest_candidate.py` to the r5 bytes `29cee991` (bound by the
+  prerequisite records) and writes the third root `reports/m5-capture-r3`. The capture window is
+  still 10:44:00Z–12:30:00Z, with horizon 13:33:50Z. r11 then pins it and regenerates
+  `source-pins.json`, which is stale at r10.
 
 **Rollback digest (A should-fix 2).** `prereqs.py <digest> rollback` needs the digest of the
 current `manifest_candidate.py` bytes: `29cee991` at r7 and r8, and the r9 digest after the pin.

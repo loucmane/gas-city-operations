@@ -5,7 +5,10 @@ settle-cache.py, freeze-baseline.py) over the M5 target coverage instead of the
 installed R9 coverage. Must run in the supervisor host namespaces as UID 1000,
 after every live prerequisite record exists and before any M5 preparation.
 Each stage binds the previous stage by exact digest and writes one exclusive
-record under reports/m5-capture-r2. No timer, lifecycle, worker, signer or Bead action.
+record under reports/m5-capture-r3. No timer, lifecycle, worker, signer or Bead action.
+The second root, reports/m5-capture-r2 (baseline 68cbee54, 10:49Z), was invalidated at 10:51:26Z by a
+coordinator gc Bead call, which touched the pack cache repo .git directory. It is preserved unmodified.
+From freeze until restore-accepted, nobody may run gc: not the coordinator, not the operator.
 The first capture root, reports/m5-capture (frozen baseline 8f980d2e, 2026-09-23 08:51Z), expired
 unused at its cache-renewal horizon. It is preserved unmodified and is never written again.
 
@@ -49,7 +52,7 @@ import types
 
 HERE = Path(__file__).parent
 m = None
-OUT = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5-capture-r2')
+OUT = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5-capture-r3')
 M1_AUDIT = Path('/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/'
                 'gct-m1wh-metadata-20260922-r1/audit.json')
 M1_AUDIT_SHA = '942583964ff1bac9bd9bb9e343b7c5323f7d986edf9b71a40df3e2bb2bec2930'
@@ -87,7 +90,7 @@ def load_candidate(expected):
     require(hashlib.sha256(raw).hexdigest() == expected, 'candidate source differs from the reviewed digest')
     m = types.ModuleType('m5_candidate'); m.__file__ = str(path)
     exec(compile(raw, str(path), 'exec', dont_inherit=True), m.__dict__)
-    require(Path(m.O + '/reports/m5-capture-r2') == OUT, 'capture root binding')
+    require(Path(m.O + '/reports/m5-capture-r3') == OUT, 'capture root binding')
     CANDIDATE_SHA = expected
 
 

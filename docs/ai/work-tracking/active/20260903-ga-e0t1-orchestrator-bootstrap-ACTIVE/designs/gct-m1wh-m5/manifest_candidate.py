@@ -22,10 +22,9 @@ OLD_ROOT = O + '/reports/r9'
 ROOT = O + '/reports/m5'
 OLD_MANIFEST_SHA = 'a6324753cb238f8de5ed3af72eef9e3a425ab491dae62778f462849814eb1852'
 OLD_RECEIPT_SHA = '482b5daf642881e268b33eba3b0814c4148d040a9d3bc3480819e3c9a5b0212b'
-BASELINE_PATH = O + '/reports/m5-capture-r2/baseline.json'
-# Frozen by the 2026-09-23 10:49Z recapture (capture.py over audit cef3d4ad, baseline-audit 7a7a56d0,
-# settle 1d06ca72). Cache-renewal horizon 13:33:50Z. The first capture root is expired and unused.
-BASELINE_SHA = '68cbee543fdb4c79cc0a372725f1b4727e72f825c8bdaa96c2802afde029591c'
+BASELINE_PATH = O + '/reports/m5-capture/baseline.json'
+# Filled only after the quiet capture; the reviewed build refuses until then.
+BASELINE_SHA = None
 TEMPLATE = '/home/loucmane/gas-city-template'
 TEMPLATE_COMMIT = '28539934fa742056e0a65710d5638ff559a21175'
 AUTHORITY = '/home/loucmane/gas-city-template-worktrees/gct-m1wh-pr69-authority'

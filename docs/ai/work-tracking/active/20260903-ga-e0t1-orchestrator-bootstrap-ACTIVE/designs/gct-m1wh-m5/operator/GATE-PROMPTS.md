@@ -13,8 +13,9 @@ no path token is used for this Operations checkout.
   `/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922/HOLD-<kind>.json`, for
   example `HOLD-source-pass.json`. The wrapper stops and prints the recovery for that point.
 - Never write a HOLD marker and a pass record for the same gate.
-- From `prepare` until `restore-accepted`, write nothing into the package checkout: no commit,
-  no aegis or workflow log, no draft. The wrapper stops at any tracked or unignored change.
+- From `prepare` until `restore-accepted`, make no tracked or unignored write in the package
+  checkout: no commit, no aegis or workflow log, no draft. The recorder writes only ignored files
+  under `reports/`. The wrapper stops at any tracked or unignored change.
   Staging files are fine. Bead notes and every gc call wait until after restore-accepted (the
   quiescent-window rule).
 

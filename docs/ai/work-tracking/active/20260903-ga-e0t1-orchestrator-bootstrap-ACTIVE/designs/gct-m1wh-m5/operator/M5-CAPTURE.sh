@@ -1,6 +1,6 @@
 #!/bin/sh
 # M5 recapture (ga-0t04, LAYOUT.md live sequence step 3, second capture root). Read-only except its
-# own records under reports/m5-capture-r2. It runs capture.py audit, complete, settle and freeze in
+# own records under reports/m5-capture-r3. It runs capture.py audit, complete, settle and freeze in
 # order. Each stage gets the SHA-256 of the record the previous stage wrote exclusively. Before each
 # stage it verifies that the package worktree is clean at the reviewed commit. Each stage runs as
 # its own `systemd-run --user -p UMask=0022` unit. The script stops at the first refusal. Never
@@ -17,7 +17,7 @@
 S=/home/loucmane/.local/share/gas-city-staging/gct-m1wh-metadata-20260922
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 P=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-m5
-R=$W/reports/m5-capture-r2
+R=$W/reports/m5-capture-r3
 C=29cee9919a9977323637728da84719b80ad9f58c62c0742fe7c313c957e433c4
 COMMIT=${1:?usage: sh M5-CAPTURE.sh <reviewed package commit>}
 LOG="$S/capture-$(date -u +%Y%m%dT%H%M%SZ).txt"
@@ -54,7 +54,8 @@ run() {
   && stage complete "$(sha audit.json)" \
   && B=$(sha baseline-audit.json) && stage settle "$B" \
   && stage freeze "$B" "$(sha settle-result.json)" \
-  && echo "== baseline.json $(sha baseline.json)" && horizon
+  && echo "== baseline.json $(sha baseline.json)" && horizon \
+  && echo "== FROZEN: from now until restore-accepted, nobody runs gc (it touches the pack cache)"
   echo "== end $(date -u +%H:%M:%SZ)"
 }
 run 2>&1 | tee "$LOG"
