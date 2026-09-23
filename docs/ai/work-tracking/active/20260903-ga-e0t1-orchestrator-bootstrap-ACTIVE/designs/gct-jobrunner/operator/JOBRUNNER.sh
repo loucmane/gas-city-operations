@@ -12,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 J=$D/gct-jobrunner
 COMMIT=${1:?usage: JOBRUNNER.sh <reviewed commit>}
-RUNNER_SHA=f123370d5a559d78a98ef9a5b1ae12fc88b3b27bd0e9a6ef5d4dc71a72ee0df9
+RUNNER_SHA=d55d14e685d6e475b9897f5f292700179e2fc2519c3a9e05cc4652c1a31413de
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -21,7 +21,7 @@ exec >>"$S/runner.log" 2>&1 </dev/null
 echo "== $(date -u +%Y-%m-%dT%H:%M:%SZ) start umask=$(umask) mnt=$(readlink /proc/self/ns/mnt) commit=$COMMIT"
 [ "$(umask)" = 0022 ] || { echo "== STOP: umask is not 0022"; exit 1; }
 head=$(git -C "$W" rev-parse HEAD) || head=unreadable
-status=$(git -C "$W" --no-optional-locks status --porcelain) || status=unreadable
+status=$(git -C "$W" --no-optional-locks status --porcelain --untracked-files=all) || status=unreadable
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: worktree head=$head not clean or not the reviewed commit"; exit 1
 fi

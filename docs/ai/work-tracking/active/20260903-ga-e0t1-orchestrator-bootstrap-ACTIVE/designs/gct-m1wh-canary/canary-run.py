@@ -3,7 +3,8 @@
 Runs `gc platform canary` once for the signing profile gascity/gc.implementation-worker:
 - It checks the exact live pins, then records a before state.
 - It runs the canary and then verifies the receipt that Core publishes.
-- It confirms that nothing else in the live city changed.
+- It compares, before and after, only these: the live canary tree, the pinned files, the supervisor
+  identity and the pack-cache slot names. Nothing else in the live city is compared.
 
 Its only intended live writes are the two files Core publishes, and only on PASS:
 - .gc/runtime/canary/profiles/<sha256(profile)>.json
@@ -16,7 +17,13 @@ How the nine scenarios run:
 - It signs with a throwaway ed25519 key made in scratch.
 So nothing performs inference and nothing reaches the real signer.
 
-Evidence goes to OUT. On a refusal Core publishes nothing, so nothing is rolled back.
+Evidence goes to OUT. If gc itself fails, Core publishes nothing. If this script refuses after gc
+passed, Core has already published the receipt. It stays in place, no work is routed to the profile,
+and the coordinator stops and reports; this script never deletes it.
+
+r2 difference: GC_STORE_PATH is set to the clean-launcher scratch rig store. Runner v3's controller
+gate omits it (gct-7np4), but the pinned pack check requires it, and Core supplies exactly this value:
+the store the bead was found in, i.e. the rig subtree.
 """
 import hashlib
 import json
@@ -59,14 +66,22 @@ PROFILE_RECEIPT = CANARY_DIR + '/profiles/' + hashlib.sha256(PROFILE.encode()).h
 LAUNCHER = '/tmp/ga-mutg-build-20260919/repro-source'
 BASE = '796d9a7a67c42294fdc467c107bb59b76e482301'
 SCRATCH = '/home/loucmane/gascity/canary-evidence'
-RUN_ID = 'm1wh-20260923-r1'
+RUN_ID = 'm1wh-20260923-r2'
 RUN_ROOT = SCRATCH + '/' + RUN_ID
-OUT = '/var/tmp/gct-m1wh-canary-20260923-r1'
+OUT = '/var/tmp/gct-m1wh-canary-20260923-r2'
+# Core's convergence env passes GC_STORE_PATH as the store the bead lives in: the rig subtree, here the
+# clean-launcher scratch launcher clone. Only the clean-launcher controller gate consumes it.
+STORE_PATH = RUN_ROOT + '/clean-launcher/launcher'
 MAX_WALL = '30m0s'
 TIMEOUT = 2400
 SUPERVISOR_PID = 3150812
 SUPERVISOR_START = 8461901
 CACHE_REPOS = GC_HOME + '/cache/repos'
+# The live cache slots the scratch city's pack imports resolve to. The one live-GC_HOME call in the
+# runner (bd show) must find them present, never fetch them.
+CACHE_SLOTS = ['a21cc0a2fbf22c14fbe59cf508d05bcc230774f5c0d9cd386215369d43a2410a',
+               'af5bc8992ed2965413edcc17674aafcc9b5c28c53f8b4178f8e63316d044af38',
+               'c5f076a22b07b5049e4c8fecf630b4e83c74d660a106e63873292034af699252']
 # RequiredCanaryScenariosFor(signing) in Core 796d9a7a internal/managedworker, in its order.
 SCENARIOS = ['clean-launcher', 'validator-absent', 'detached-head', 'unreadable-mail',
              'denied-subprocess-socket', 'stale-session-killed-tmux', 'missing-provider',
@@ -124,6 +139,7 @@ def child_env():
         'DBUS_SESSION_BUS_ADDRESS': 'unix:path=/run/user/1000/bus',
         'GC_HOME': GC_HOME, 'GC_BIN': GC,
         'GC_DISABLE_USAGE_METRICS': '1', 'GIT_OPTIONAL_LOCKS': '0',
+        'GC_STORE_PATH': STORE_PATH,
     }
 
 
@@ -196,19 +212,23 @@ def process_table(proc='/proc'):
         try:
             with open('%s/%s/cmdline' % (proc, entry), 'rb') as handle:
                 argv = [part.decode(errors='replace') for part in handle.read().split(b'\0') if part]
-            cwd = os.readlink('%s/%s/cwd' % (proc, entry))
         except OSError:
             continue
+        try:
+            cwd = os.readlink('%s/%s/cwd' % (proc, entry))
+        except OSError:
+            cwd = ''
         rows.append((int(entry), argv, cwd))
     return rows
 
 
 def leftovers(rows):
-    """Processes that still reference this run's scratch root or its tmux socket."""
-    marks = (RUN_ROOT, 'canary-' + RUN_ID)
+    """Processes that still reference this run's scratch root, tmux socket or runner."""
+    marks = (RUN_ROOT, 'canary-' + RUN_ID, RUNNER)
     hits = []
     for pid, argv, cwd in rows:
-        if cwd == RUN_ROOT or cwd.startswith(RUN_ROOT + '/') or any(mark in arg for arg in argv for mark in marks):
+        if cwd == RUN_ROOT or cwd.startswith(RUN_ROOT + '/') or cwd == LAUNCHER \
+                or any(mark in arg for arg in argv for mark in marks):
             hits.append({'pid': pid, 'argv': argv[:8], 'cwd': cwd})
     return hits
 
@@ -297,6 +317,9 @@ def precheck():
     for path in (PROFILE_RECEIPT, os.path.dirname(PROFILE_RECEIPT), RUN_ROOT):
         if os.path.lexists(path):
             raise Stop('already exists: %s' % path)
+    missing_slots = [slot for slot in CACHE_SLOTS if not os.path.isdir(os.path.join(CACHE_REPOS, slot))]
+    if missing_slots:
+        raise Stop('live pack-cache slots missing (the runner would fetch into the live cache): %r' % missing_slots)
     if not os.path.isdir(SCRATCH) or os.path.islink(SCRATCH):
         raise Stop('scratch root is not a directory: %s' % SCRATCH)
     if git(LAUNCHER, 'rev-parse', 'HEAD').strip() != BASE:
@@ -356,8 +379,9 @@ def main():
         started = time.time()
         try:
             done = subprocess.run(canary_argv(), env=child_env(), cwd=OUT, stdin=subprocess.DEVNULL,
-                                  capture_output=True, text=True, timeout=TIMEOUT)
-            rc, stdout, stderr = done.returncode, done.stdout, done.stderr
+                                  capture_output=True, timeout=TIMEOUT)
+            rc = done.returncode
+            stdout, stderr = done.stdout.decode(errors='replace'), done.stderr.decode(errors='replace')
         except subprocess.TimeoutExpired as exc:
             rc = 'timeout'
             stdout = exc.stdout.decode(errors='replace') if isinstance(exc.stdout, bytes) else (exc.stdout or '')
@@ -369,8 +393,13 @@ def main():
         say('canary exit %s after %ss' % (rc, result['seconds']))
         result['stage'] = 'verify'
         after = after_state()
-        after['pins'] = pins()
+        try:
+            after['pins'] = pins()
+        except (Stop, OSError) as exc:
+            after['pins_error'] = str(exc)
         write('after.json', after)
+        if 'pins_error' in after:
+            raise Stop('pinned file drift after the run: %s' % after['pins_error'])
         added, removed, changed = tree_delta(before['canary_tree'], after['canary_tree'])
         result.update(canary_added=added, canary_removed=removed, canary_changed=changed,
                       cache_added=sorted(set(after['cache_repos']) - set(before['cache_repos'])),

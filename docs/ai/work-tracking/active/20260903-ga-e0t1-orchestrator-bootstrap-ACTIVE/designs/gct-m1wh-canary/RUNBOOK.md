@@ -71,8 +71,8 @@ The 2026-08-28 canary (runner `09b50333`, v1 receipt `ff10fbe7`) passed all nine
 | profile | `gascity/gc.implementation-worker`, signing, `218675da`, control policy `16022d04` |
 | launcher source | `/tmp/ga-mutg-build-20260919/repro-source`, clean at base `796d9a7a`; the reviewed ga-mutg build input. The August canary likewise cloned the Core build tree at its gc binary commit. |
 | scratch root | `/home/loucmane/gascity/canary-evidence` (existing, not a Git worktree) |
-| run id | `m1wh-20260923-r1`; the longest scratch supervisor socket is 102 of 107 bytes |
-| evidence root | `/var/tmp/gct-m1wh-canary-20260923-r1` (fresh) |
+| run id | `m1wh-20260923-r2` (r1 consumed); the longest scratch supervisor socket is 102 of 107 bytes |
+| evidence root | `/var/tmp/gct-m1wh-canary-20260923-r2` (fresh; r1 preserved) |
 | legacy receipt | `receipt.json` and `history/ad9c3eeb….json`, both `ff10fbe7`, must stay unchanged |
 
 The process environment is fixed. It mirrors the live supervisor's locale, `SHELL`,
@@ -123,6 +123,62 @@ It deliberately excludes the following:
 Nobody runs gc from the start of the unit until its log ends. The canary compares no cache
 timestamps, but a quiet run keeps the evidence unambiguous.
 
+## r1 outcome and r2
+
+**r1** was package `249a72ba`, with two SOURCE_PASS reviews. The operator started it at 13:38:07Z.
+- It ran in the supervisor mount namespace with umask 0022, and the precheck passed.
+- gc exited 3 after 80.6 s. clean-launcher failed at the runner's controller gate with
+  `build-artifact-check: GC_STORE_PATH is required`.
+- Nothing was published. The live canary tree, cache slots, pins and supervisor were unchanged. A
+  post-unit /proc scan found no residue.
+- The worker itself had got through to a signed candidate. Only the gate check failed.
+
+**Root cause (gct-7np4).** The pack check that the provisioning receipt pins, `71f17450` from pack
+`17bf05cc`, sets `BEADS_DIR=$GC_STORE_PATH/.beads` and requires `GC_STORE_PATH`.
+- Core supplies that variable: `internal/convergence/condition.go:121`. It uses the store the bead was
+  found in (`findBeadAcrossStores`), which for a rig bead is the rig subtree.
+- Runner v3 `3beeedb2`, byte-identical at Template main, emulates the gate with only `GC_BEAD_ID`,
+  `GC_HOME`, `GC_WORK_DIR` and `PATH`.
+- The August canary passed only because its pack check `b2fb7bce` had no such requirement.
+- The Template fix is worker-owned (gct-7np4). It changes the runner digest, and so the provisioning
+  receipt's `canary_runner` pin.
+
+**r2 supplies the value Core would supply.**
+- `GC_STORE_PATH=<RUN_ROOT>/clean-launcher/launcher`: the scratch rig's store. The r1 tree confirms
+  it: `launcher/.beads` holds prefix `cy` and dolt database `cy` in server mode.
+- It is set in the fixed environment, which the runner passes through its `os.environ` copy to the
+  gate's check.
+- Nothing else in the scratch cities reads it. Core's own convergence environment appends its value
+  last, and the scripted worker ignores it.
+
+No check is weakened: the gate runs the same pinned script, with the variable the real controller
+provides. The receipt therefore certifies runner v3 plus that variable, and the evidence review states
+this.
+
+**Also in r2** (from the r1 reviews):
+- stdout and stderr are captured as bytes and decoded with replacement;
+- `after.json` is written even when a pin drifts after the run;
+- the leftover scan also matches the runner path and a cwd equal to the launcher source, and keeps
+  processes whose cwd cannot be read;
+- the three live pack-cache slots must exist before the run;
+- `CANARY.sh` creates its log directory;
+- the wording no longer claims more than is compared;
+- seven `main()` flow tests run against a fake gc: failure, failure with additions, timeout, pin
+  drift, a good pass, a wrong published receipt, and missing scenario evidence.
+
+**Roots.** The run id is `m1wh-20260923-r2`, the evidence root is
+`/var/tmp/gct-m1wh-canary-20260923-r2`, and the scratch run root is
+`/home/loucmane/gascity/canary-evidence/m1wh-20260923-r2`. The r1 roots are preserved.
+
+**Entry.** r2 runs as a job of the host job runner (`designs/gct-jobrunner`), unit
+`gc-job-canary-r2`. `CANARY.sh` is unchanged in function: it still checks the reviewed clean HEAD.
+
+**During and after the run.**
+- Nobody runs gc and nobody touches the run root until the log ends.
+- After the unit ends, a read-only /proc scan checks for the run root, the socket and the runner.
+- The evidence review confirms from each scenario's `commands.jsonl` that no claude or codex process
+  ran and that signing used ssh-keygen with the scratch key.
+
 ## Stop conditions
 
 Stop on any of these:
@@ -136,6 +192,9 @@ Stop on any of these:
 - a pinentry prompt;
 - any need to widen network policy or `PATH`.
 
-A refused canary has published nothing. Its scratch tree and evidence stay in place for diagnosis.
+If gc itself fails, Core has published nothing. If `canary-run.py` refuses after gc passed, Core
+has already published the receipt. The receipt stays in place, nothing is routed to the profile, and
+the coordinator stops and reports; the script never deletes it. The scratch tree and evidence stay in
+place for diagnosis.
 Never retry into a used run id or evidence root: a retry takes a new run id, a new root and a new
 review.

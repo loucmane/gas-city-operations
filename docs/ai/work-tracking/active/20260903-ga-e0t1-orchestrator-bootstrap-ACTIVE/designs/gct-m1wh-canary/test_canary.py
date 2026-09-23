@@ -75,7 +75,7 @@ class LivePins(unittest.TestCase):
 class Invocation(unittest.TestCase):
     def test_argv_is_exact(self):
         self.assertEqual(C.canary_argv(), [
-            C.GC, '--city', C.CITY, 'platform', 'canary', '--run-id', 'm1wh-20260923-r1',
+            C.GC, '--city', C.CITY, 'platform', 'canary', '--run-id', 'm1wh-20260923-r2',
             '--runner', C.RUNNER, '--runner-sha256', C.RUNNER_SHA,
             '--launcher-source', '/tmp/ga-mutg-build-20260919/repro-source', '--base-commit', C.BASE,
             '--scratch-root', '/home/loucmane/gascity/canary-evidence',
@@ -87,6 +87,8 @@ class Invocation(unittest.TestCase):
         self.assertEqual(env['GC_HOME'], '/home/loucmane/gascity/home')
         self.assertEqual(env['GC_BIN'], C.GC)
         self.assertTrue(env['PATH'].startswith('/home/loucmane/gascity/bin:'))
+        self.assertEqual(env['GC_STORE_PATH'],
+                         '/home/loucmane/gascity/canary-evidence/m1wh-20260923-r2/clean-launcher/launcher')
         for key in env:
             self.assertFalse(key.startswith('GCT_'), key)
         for key in ('SSH_AUTH_SOCK', 'GC_SUPERVISOR_PRESERVE_SESSIONS_ON_SIGNAL', 'TMUX'):
@@ -174,8 +176,130 @@ class Deltas(unittest.TestCase):
         rows = [(10, ['tmux', '-L', 'canary-' + C.RUN_ID, 'new-session'], '/'),
                 (11, ['dolt', 'sql-server'], C.RUN_ROOT + '/clean-launcher/city'),
                 (12, ['gc', 'supervisor', 'run'], '/home/loucmane/gascity/city'),
-                (13, ['bash'], C.RUN_ROOT + '-other')]
-        self.assertEqual([hit['pid'] for hit in C.leftovers(rows)], [10, 11])
+                (13, ['bash'], C.RUN_ROOT + '-other'),
+                (14, [C.RUNNER, '--scenario', 'detached-head', '--run-id', C.RUN_ID], C.LAUNCHER),
+                (15, ['python3'], ''),
+                (16, ['sh'], C.LAUNCHER)]
+        self.assertEqual([hit['pid'] for hit in C.leftovers(rows)], [10, 11, 14, 16])
+
+    def test_cache_slots_are_present_live(self):
+        for slot in C.CACHE_SLOTS:
+            self.assertTrue(os.path.isdir(os.path.join(C.CACHE_REPOS, slot)), slot)
+
+
+class MainFlow(unittest.TestCase):
+    """Drive main() with a fake gc and a temporary canary tree; no live state is touched."""
+
+    def setUp(self):
+        import tempfile
+        from unittest import mock
+        self.tmp = tempfile.TemporaryDirectory()
+        root = self.tmp.name
+        self.canary = os.path.join(root, 'canary')
+        os.makedirs(os.path.join(self.canary, 'history'))
+        with open(os.path.join(self.canary, 'receipt.json'), 'w') as handle:
+            handle.write('{}')
+        self.run_root = os.path.join(root, 'run')
+        os.makedirs(os.path.join(root, 'cache', 'slot'))
+        self.receipt = os.path.join(self.canary, 'profiles', 'p.json')
+        self.patches = [
+            mock.patch.object(C, 'OUT', os.path.join(root, 'out')),
+            mock.patch.object(C, 'CANARY_DIR', self.canary),
+            mock.patch.object(C, 'PROFILE_RECEIPT', self.receipt),
+            mock.patch.object(C, 'RUN_ROOT', self.run_root),
+            mock.patch.object(C, 'CACHE_REPOS', os.path.join(root, 'cache')),
+            mock.patch.object(C, 'supervisor_identity', lambda: {'pid': 1, 'starttime': 2, 'mnt': 'm'}),
+            mock.patch.object(C, 'process_table', lambda: []),
+            mock.patch.object(C, 'precheck', self.fake_precheck),
+            mock.patch.object(C, 'pins', lambda: {}),
+        ]
+        for patch in self.patches:
+            patch.start()
+
+    def tearDown(self):
+        for patch in reversed(self.patches):
+            patch.stop()
+        self.tmp.cleanup()
+
+    def fake_precheck(self):
+        return {'supervisor': C.supervisor_identity(), 'pins': {}, 'canary_tree': C.tree(C.CANARY_DIR),
+                'cache_repos': sorted(os.listdir(C.CACHE_REPOS)), 'sockets': {}}
+
+    def run_main(self, rc=0, stdout=b'', stderr=b'', publish=None, timeout=False):
+        from unittest import mock
+        import subprocess
+
+        def fake_run(*args, **kwargs):
+            if publish:
+                publish()
+            if timeout:
+                raise subprocess.TimeoutExpired('gc', 1, output=b'', stderr=b'slow')
+            return subprocess.CompletedProcess(args, rc, stdout, stderr)
+        with mock.patch.object(C.subprocess, 'run', fake_run):
+            code = C.main()
+        with open(os.path.join(C.OUT, 'result.json')) as handle:
+            return code, json.load(handle)
+
+    def publish(self, receipt_sha='e' * 64, body=None):
+        os.makedirs(os.path.dirname(self.receipt), mode=0o700)
+        raw = json.dumps(body if body is not None else good_receipt(receipt_sha)).encode()
+        for path in (self.receipt, os.path.join(self.canary, 'history', receipt_sha + '.json')):
+            with open(path, 'wb') as handle:
+                handle.write(raw)
+            os.chmod(path, 0o600)
+        for name in C.SCENARIOS:
+            os.makedirs(os.path.join(self.run_root, name, 'evidence'), exist_ok=True)
+            with open(os.path.join(self.run_root, name, 'evidence', 'scenario.json'), 'w') as handle:
+                handle.write('{}')
+
+    def pass_line(self, receipt_sha='e' * 64):
+        return ('platform canary result=pass run_id="%s" receipt_sha256=%s receipt=%s\n'
+                % (C.RUN_ID, receipt_sha, self.receipt)).encode()
+
+    def test_failed_gc_publishes_nothing_and_stops(self):
+        code, result = self.run_main(rc=3, stderr=b'\xff broken utf-8 GC_STORE_PATH is required')
+        self.assertEqual((code, result['ok'], result['stage']), (1, False, 'verify'))
+        self.assertIn('did not pass', result['error'])
+        for name in ('canary.stdout', 'canary.stderr', 'canary.exit', 'after.json'):
+            self.assertTrue(os.path.exists(os.path.join(C.OUT, name)), name)
+
+    def test_failed_gc_with_live_additions_stops_loudly(self):
+        code, result = self.run_main(rc=3, publish=self.publish)
+        self.assertFalse(result['ok'])
+        self.assertIn('live canary files appeared', result['error'])
+
+    def test_timeout_is_not_a_pass(self):
+        code, result = self.run_main(timeout=True)
+        self.assertFalse(result['ok'])
+
+    def test_pin_drift_after_the_run_keeps_after_json(self):
+        from unittest import mock
+
+        def drift():
+            raise C.Stop('runner digest drift')
+        with mock.patch.object(C, 'pins', drift):
+            code, result = self.run_main(rc=3)
+        self.assertIn('pinned file drift', result['error'])
+        self.assertTrue(os.path.exists(os.path.join(C.OUT, 'after.json')))
+
+    def test_good_run_passes(self):
+        code, result = self.run_main(rc=0, stdout=self.pass_line(), publish=self.publish)
+        self.assertEqual((code, result['ok'], result['stage']), (0, True, 'done'), result.get('error'))
+        self.assertEqual(result['receipt']['receipt_sha256'], 'e' * 64)
+
+    def test_published_but_wrong_receipt_is_refused(self):
+        bad = good_receipt('e' * 64)
+        bad['profile']['profile_kind'] = 'candidate'
+        code, result = self.run_main(rc=0, stdout=self.pass_line(), publish=lambda: self.publish(body=bad))
+        self.assertFalse(result['ok'])
+        self.assertIn('profile', result['error'])
+
+    def test_missing_scenario_evidence_is_refused(self):
+        def publish_partial():
+            self.publish()
+            os.unlink(os.path.join(self.run_root, 'missing-provider', 'evidence', 'scenario.json'))
+        code, result = self.run_main(rc=0, stdout=self.pass_line(), publish=publish_partial)
+        self.assertIn('missing scenario.json', result['error'])
 
 
 if __name__ == '__main__':
