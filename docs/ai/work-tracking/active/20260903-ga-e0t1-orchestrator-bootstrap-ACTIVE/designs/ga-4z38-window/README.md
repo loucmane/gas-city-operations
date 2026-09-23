@@ -18,11 +18,12 @@ contract:
 
 Every live step runs as a job of the persistent host job runner (`designs/gct-jobrunner`).
 
-## Round 1 (this commit): prep
+## Round 1: prep
 
 `prep-r11.py` is a merged rebind of the reviewed ga-y49e `prepare-isolation.py` and
 `prepare-receipt.py`. Their logic is kept, and the overlay generator is factored out as
-`build_overlay()`. It is read-only and writes only `/var/tmp/ga-4z38-prep-20260923-r1`.
+`build_overlay()`. It is read-only and writes only its fresh root (`-r1` for this round's job; now
+`-r2`, see below).
 
 It produces the single-worker isolation overlay of the live M5 city (`4f7e170f`):
 - workspace cap 1;
@@ -69,6 +70,33 @@ r2 does the following:
 - it uses root `-r2`.
 
 A test binds the pinned warning to the r1 evidence.
+
+### Round 1 r3 (after the r2 review HOLD)
+
+r2 `f0234f73` got one SOURCE_PASS and one HOLD, so it never ran and root `-r2` was never created.
+The HOLD named two checks that no test or job had yet reached:
+- the receipt difference check, which depends on `worker_profile_sha256` excluding the revision;
+- the empty-orders check, since gc might print `null` for an empty list.
+
+`proof/prep-proof.py` now runs both offline and read-only, with the committed code and a scratch
+root:
+- The confined `gc order list --json` against the pinned overlay bytes returns `"orders": []` with
+  count 0. `gc config show` equals both the r1 observation and `expected_config()`.
+- `receipt_image()` runs the exact job child path: normalize through the source launcher
+  (`-I -S -B`), then Core `compose finalize`. Each runs in bwrap with `--unshare-pid --new-session`
+  under the Core owned-phase runner, and cleanup is clean.
+  - With the live revision `d6ca85cd`, the result is byte-identical to the live receipt `0b30c23f`.
+  - With the r1 overlay revision `6b31d83a`, only `permission_revision` and `receipt_sha256`
+    differ (final `392ea0b6`).
+
+r3 also makes these changes:
+- the launcher self-check comes first in `main()`, before the root exists;
+- `expected_config()` is factored out and replayed against the r1 evidence by a test;
+- a test pins the r1 overlay bytes;
+- the normalize child takes its input directory as an argument;
+- `test_prep.py` runs the proof.
+
+Root `-r2` is still fresh and is used as is.
 
 ## Round 2 (next commit): the window
 

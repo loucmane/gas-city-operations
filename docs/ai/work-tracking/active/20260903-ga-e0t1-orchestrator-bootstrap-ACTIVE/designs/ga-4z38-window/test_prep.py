@@ -10,6 +10,8 @@ import json
 import os
 import re
 import subprocess
+import sys
+import tempfile
 import unittest
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -96,6 +98,42 @@ class R2(unittest.TestCase):
 
     def test_launcher_pin(self):
         self.assertTrue(P.read(P.LAUNCH, P.LAUNCH_SHA))
+
+
+class R3(unittest.TestCase):
+    R1 = '/var/tmp/ga-4z38-prep-20260923-r1'
+
+    def r1(self, name):
+        with open(os.path.join(self.R1, name), 'rb') as handle:
+            return handle.read()
+
+    def test_r1_overlay_bytes_are_the_pinned_overlay(self):
+        self.assertEqual(hashlib.sha256(self.r1('city.isolated.toml')).hexdigest(), P.OVERLAY_SHA)
+
+    def test_expected_config_replays_the_r1_observation(self):
+        baseline = json.loads(self.r1('config.baseline.json'))
+        candidate, patches, names, target, selected = P.build_overlay(
+            self.r1('city.baseline.toml'), baseline, json.loads(self.r1('orders.baseline.json')))
+        self.assertEqual(hashlib.sha256(candidate).hexdigest(), P.OVERLAY_SHA)
+        self.assertEqual(P.expected_config(baseline, selected, target, names),
+                         json.loads(self.r1('config.isolated.json')))
+
+    def test_main_checks_the_launcher_before_creating_the_root(self):
+        with open(os.path.join(HERE, 'prep-r11.py'), encoding='utf-8') as handle:
+            body = handle.read().split('\ndef main():\n', 1)[1]
+        self.assertLess(body.index("'prep must run under the source launcher'"), body.index('ROOT.mkdir('))
+
+    def test_offline_proof_runs_the_exact_child_path(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            scratch = os.path.join(tmp, 'proof')
+            done = subprocess.run([sys.executable, '-B', os.path.join(HERE, 'proof', 'prep-proof.py'), scratch],
+                                  capture_output=True, text=True, timeout=300, stdin=subprocess.DEVNULL)
+            self.assertEqual(done.returncode, 0, done.stderr[-3000:])
+            report = json.loads(done.stdout)
+        self.assertTrue(report['ok'])
+        self.assertEqual(report['orders_isolated']['orders'], [])
+        self.assertEqual(report['d6ca85cd']['final_sha256'], P.RECEIPT_SHA)
+        self.assertEqual(report['6b31d83a']['differences'], ['permission_revision', 'receipt_sha256'])
 
 
 class Wrapper(unittest.TestCase):

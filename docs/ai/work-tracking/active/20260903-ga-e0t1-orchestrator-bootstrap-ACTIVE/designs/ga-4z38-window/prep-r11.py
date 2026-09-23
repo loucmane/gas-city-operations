@@ -26,6 +26,14 @@ r2 (after job ga-4z38-prep refused fail-closed at 16:06:01Z; root -r1 preserved)
 - The normalize child is re-launched through the digest-checked source launcher.
 - The root is -r2.
 
+r3 (after review HOLD of r2 f0234f73, which never ran; root -r2 was never created):
+- The launcher self-check runs first in main(), before the root is created.
+- The expected effective config is a function, expected_config(), replayed by a test against the r1
+  evidence.
+- The two receipt phases are a function, receipt_image(). The normalize child takes its input
+  directory as an argument (the job passes ROOT), so proof/prep-proof.py runs the exact child path
+  offline on a scratch directory.
+
 What it does, all in read-only, network-isolated bwrap namespaces:
 1. It generates the one-worker overlay:
    - workspace cap 1;
@@ -115,10 +123,10 @@ def module(path, digest, name):
     return m
 
 
-def write(name, data):
+def write(name, data, root=None):
     if not isinstance(data, bytes):
         data = (json.dumps(data, sort_keys=True, indent=2) + '\n').encode()
-    fd = os.open(ROOT/name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    fd = os.open((ROOT if root is None else root)/name, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
     with os.fdopen(fd, 'wb') as out:
         out.write(data)
         out.flush()
@@ -144,11 +152,47 @@ def config(isolated=False):
     return confined([str(GC), '--city', str(CITY), 'config', 'show', '--json'], isolated)
 
 
-def normalize_main():
+def normalize_main(root):
     p = module(PROVISIONER, PROVISIONER_SHA, 'pinned_provisioner')
     read(CANARY, CANARY_SHA)
-    r = p.load_prototype(ROOT/'receipt.input.json', dict(path=str(CANARY), sha256=CANARY_SHA))
+    r = p.load_prototype(root/'receipt.input.json', dict(path=str(CANARY), sha256=CANARY_SHA))
     sys.stdout.buffer.write(p.canonical_json(r))
+
+
+def expected_config(baseline, selected, target, names):
+    """The exact effective config `gc config show` must report under the overlay."""
+    expected = copy.deepcopy(baseline)
+    for i in selected:
+        expected['config']['Agents'][i]['Suspended'] = i != target
+        if i == target:
+            expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1)
+    expected['config']['Workspace']['MaxActiveSessions'] = 1
+    expected['config']['Orders']['Skip'] = names
+    assert SINGLETON_WARNING not in baseline['validation']['warnings']
+    expected['validation']['warnings'] = sorted(baseline['validation']['warnings'] + [SINGLETON_WARNING])
+    return expected
+
+
+def receipt_image(owned, source_path, source_sha, root):
+    """Normalize and finalize root/receipt.input.json in owned, confined children; return the final bytes.
+
+    The normalize child is this file, run again through the digest-checked source launcher.
+    """
+    normalize = ['/usr/bin/python3', '-I', '-S', '-B', str(LAUNCH), str(source_path), source_sha, 'normalize', str(root)]
+    for name, command in [('normalize', normalize),
+                          ('finalize', [str(BUILD/'compose'), 'finalize', str(root/'receipt.normalized.json')])]:
+        argv = ['/usr/bin/bwrap', '--ro-bind', '/', '/', '--unshare-net', '--unshare-pid', '--die-with-parent',
+                '--new-session', '--proc', '/proc', '--dev', '/dev', '--', *command]
+        result = owned._run_owned_phase(name=name, argv=argv, cwd=root, environment=ENV, timeout=45,
+                                        evidence_path=root/(name + '-phase.json'))
+        c = result['cleanup']
+        assert result['exit_code'] == 0 and not result['timed_out'] and not result['primary_error'], name
+        assert c['direct_child_reaped'] and c['owned_process_group_gone'] and not c['failures'] \
+            and not c['unexpected_survivors'], name
+        wire = result['stdout'].encode()
+        json.loads(wire)
+        write('receipt.normalized.json' if name == 'normalize' else 'receipt.final.json', wire, root)
+    return read(root/'receipt.final.json')
 
 
 def build_overlay(city, baseline, orders):
@@ -183,6 +227,10 @@ def build_overlay(city, baseline, orders):
 
 def main():
     assert os.getuid() == os.geteuid() == 1000
+    # First, before the root exists: this run and its normalize child must come from the launcher.
+    read(LAUNCH, LAUNCH_SHA)
+    source_sha = globals().get('_SOURCE_SHA')
+    assert source_sha and sha(read(Path(sys.argv[0]))) == source_sha, 'prep must run under the source launcher'
     read(GC, GC_SHA)
     read(COMPOSE, COMPOSE_SHA)
     city = read(CITY/'city.toml', CITY_SHA)
@@ -210,16 +258,7 @@ def main():
     assert after['permission_revision'] != before['permission_revision']
     observed = config(True)
     write('config.isolated.json', observed)
-    expected = copy.deepcopy(baseline)
-    for i in selected:
-        expected['config']['Agents'][i]['Suspended'] = i != target
-        if i == target:
-            expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1)
-    expected['config']['Workspace']['MaxActiveSessions'] = 1
-    expected['config']['Orders']['Skip'] = names
-    assert SINGLETON_WARNING not in baseline['validation']['warnings']
-    expected['validation']['warnings'] = sorted(baseline['validation']['warnings'] + [SINGLETON_WARNING])
-    assert observed == expected, 'unexpected effective configuration delta'
+    assert observed == expected_config(baseline, selected, target, names), 'unexpected effective configuration delta'
     empty = confined([str(GC), '--city', str(CITY), 'order', 'list', '--json'], True)
     write('orders.isolated.json', empty)
     assert empty['orders'] == [] and empty['summary']['count'] == 0
@@ -228,27 +267,10 @@ def main():
     candidate_input['permission_revision'] = after['permission_revision']
     owned = module(BUILD/'phase_runner.py', RUNNER_PHASE_SHA, 'owned_phase')
     read(BUILD/'compose', FINALIZE_SHA)
-    read(LAUNCH, LAUNCH_SHA)
-    source_sha = globals().get('_SOURCE_SHA')
-    assert source_sha and sha(read(Path(sys.argv[0]))) == source_sha, 'prep must run under the source launcher'
     write('receipt.before.json', before_receipt)
     write('receipt.input.json', candidate_input)
-    normalize = ['/usr/bin/python3', '-I', '-S', '-B', str(LAUNCH), sys.argv[0], source_sha, 'normalize']
-    for name, command in [('normalize', normalize),
-                          ('finalize', [str(BUILD/'compose'), 'finalize', str(ROOT/'receipt.normalized.json')])]:
-        argv = ['/usr/bin/bwrap', '--ro-bind', '/', '/', '--unshare-net', '--unshare-pid', '--die-with-parent',
-                '--new-session', '--proc', '/proc', '--dev', '/dev', '--', *command]
-        result = owned._run_owned_phase(name=name, argv=argv, cwd=ROOT, environment=ENV, timeout=45,
-                                        evidence_path=ROOT/(name + '-phase.json'))
-        c = result['cleanup']
-        assert result['exit_code'] == 0 and not result['timed_out'] and not result['primary_error'], name
-        assert c['direct_child_reaped'] and c['owned_process_group_gone'] and not c['failures'] \
-            and not c['unexpected_survivors'], name
-        wire = result['stdout'].encode()
-        json.loads(wire)
-        write('receipt.normalized.json' if name == 'normalize' else 'receipt.final.json', wire)
     old = json.loads(before_receipt)
-    new = json.loads(read(ROOT/'receipt.final.json'))
+    new = json.loads(receipt_image(owned, Path(sys.argv[0]), source_sha, ROOT))
     differences = sorted(key for key in set(old) | set(new) if old.get(key) != new.get(key))
     assert differences == ['permission_revision', 'receipt_sha256'], differences
     assert new['permission_revision'] == after['permission_revision']
@@ -267,8 +289,8 @@ def main():
 
 
 if __name__ == '__main__':
-    if len(sys.argv) == 2 and sys.argv[1] == 'normalize':
-        normalize_main()
+    if len(sys.argv) == 3 and sys.argv[1] == 'normalize':
+        normalize_main(Path(sys.argv[2]))
     else:
         assert len(sys.argv) == 1
         main()
