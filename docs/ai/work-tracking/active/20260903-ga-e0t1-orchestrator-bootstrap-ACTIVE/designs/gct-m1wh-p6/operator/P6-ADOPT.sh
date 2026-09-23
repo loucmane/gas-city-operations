@@ -17,7 +17,7 @@ S=/home/loucmane/.local/share/gas-city-staging/gct-m1wh-p6
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 P=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6
 COMMIT=${1:?usage: P6-ADOPT.sh <reviewed commit>}
-ADOPT_SHA=2fb647931aac2861880d122530adfe4a16bce98bbcf3b722e4f0c9f24bf1a32c
+ADOPT_SHA=64879d2a4f8109750323da3d91af6d46667d4ea6eccbfd0086e453ccc521c399
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH XDG_RUNTIME_DIR=/run/user/1000 DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/1000/bus
 LOG="$S/p6-adopt-$(date -u +%Y%m%dT%H%M%SZ).txt"

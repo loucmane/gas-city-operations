@@ -8,6 +8,9 @@ new file is `p6-input.py`.
 
 ## Sources
 
+The digests and the -r1 root below are the a1759c01 originals. They are superseded by the r3
+section (the -r2 roots and re-pinned chain) and the r4 section.
+
 | File | SHA-256 | Base |
 | --- | --- | --- |
 | `p6-input.py` | `88f1ec2f` | new: derivation, M5 record proof, trace selection |
@@ -135,6 +138,15 @@ adoption log. In that span nobody runs gc at all: not the coordinator, not the o
 notes (they wait in staging). The cache also has a time limit: yesterday's 13:33:50Z atime cluster
 turns 24 h old at 13:33:50Z today. From then on the compose diagnostic's own pack reads refresh
 atimes, and compose preservation would fail. So the read-only run must finish before 13:30Z.
+
+## r4: adoption binding from the -r2 readiness
+
+- `NEW_SHA` 0b30c23f4484382fd4918f394599268f4f4005ac71118e8a7f82ca72eb9615ff
+- `NEW_SELF` c635e8ee0547ebc8c4caec6577d65103b9d17436ff17a18f66687f0ea3f1957f
+- `READY_RESULT_SHA` a6cac0b99822e8432fa8b01b2a0c87bb212ff141c165d13d4921b2b75f8c8ee7
+- `READY_BEFORE_SHA` c668ed0fbf17111d337dafdda113963a4ed66bb439ef9fbbf2aefa940610bf70
+- `READY_PINS_SHA` a5f7f8c11a95b48d01f910c5c4668828d61a587a5942545f27d403ebadfeac8f
+- p6-adopt `64879d2a4f8109750323da3d91af6d46667d4ea6eccbfd0086e453ccc521c399`, pinned in `operator/P6-ADOPT.sh`.
 
 ## Stop conditions
 

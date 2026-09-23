@@ -275,7 +275,7 @@ class Chain(unittest.TestCase):
             self.assertTrue(found[0].startswith('/var/tmp/gct-m1wh-p6-'), name)
             roots.append(found[0])
         self.assertEqual(len(set(roots)), 4)
-        # The three read-only roots were consumed by the passed 12:04-12:07Z run. Only the adoption
+        # The three read-only -r2 roots are consumed by the passed read-only run. Only the adoption
         # root must still be fresh.
         self.assertFalse(os.path.lexists(roots[3]), 'adoption root already used')
 
