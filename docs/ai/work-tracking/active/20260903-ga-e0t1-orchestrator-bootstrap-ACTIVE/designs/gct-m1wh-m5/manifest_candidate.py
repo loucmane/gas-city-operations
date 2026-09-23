@@ -23,8 +23,9 @@ ROOT = O + '/reports/m5'
 OLD_MANIFEST_SHA = 'a6324753cb238f8de5ed3af72eef9e3a425ab491dae62778f462849814eb1852'
 OLD_RECEIPT_SHA = '482b5daf642881e268b33eba3b0814c4148d040a9d3bc3480819e3c9a5b0212b'
 BASELINE_PATH = O + '/reports/m5-capture/baseline.json'
-# Filled only after the quiet capture; the reviewed build refuses until then.
-BASELINE_SHA = None
+# Frozen by the 2026-09-23 08:51Z quiet capture (capture.py freeze over audit 1041f0d0,
+# baseline-audit ca35f7ff and settle fda048e0).
+BASELINE_SHA = '8f980d2ed80a8b779c0dff4e59474ed669f74c5ed20a43883e6ac762f7edc349'
 TEMPLATE = '/home/loucmane/gas-city-template'
 TEMPLATE_COMMIT = '28539934fa742056e0a65710d5638ff559a21175'
 AUTHORITY = '/home/loucmane/gas-city-template-worktrees/gct-m1wh-pr69-authority'

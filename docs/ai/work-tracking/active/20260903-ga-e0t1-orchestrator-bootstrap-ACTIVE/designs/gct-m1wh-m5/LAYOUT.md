@@ -483,6 +483,64 @@ Each dependency is digest-pinned at load time and has a byte-identical durable c
 
 If `/tmp` is cleaned, restore those paths byte for byte before running.
 
+## Binding step (r6, 2026-09-23): live results and executor entry
+
+This commit changes no reviewed logic. It changes:
+- `manifest_candidate.py` sets `BASELINE_SHA` and a comment line, and nothing else (digest
+  `29cee991` → `9f293b9c`);
+- `source-pins.json` is new;
+- `record_review.py` and `test_record_review.py` are new.
+
+The other four launch modules and `launch.py` are byte-identical to r5.
+
+**Executor entry, found live.** "Host terminal" in the live sequence means this exact form, typed in
+a real WSL terminal:
+`systemd-run --user --wait --collect --pipe --quiet -p UMask=0022 <command>`
+- Every WSL terminal session, `!` commands included, is in mount namespace 4026532229. The
+  supervisor and all systemd units are in 4026532219, so `host_observation` refuses from a terminal.
+  A transient `app.slice` unit under `user@1000` is in the supervisor namespaces.
+- User-manager children inherit umask 0002 (the supervisor shows Umask 0002). Without
+  `-p UMask=0022`, git would write 0664 and 0775 modes against the pinned 0644 and 0755 ones. Four
+  prerequisite tests failed exactly that way until the property was added. With it, 38 of 38 pass.
+- The staged wrappers `M5-PREREQS.sh` and `M5-CAPTURE.sh` apply this form to every step. Before
+  each step they check that the package worktree is clean at the reviewed commit, and they stop at
+  the first refusal.
+
+**Live results.**
+- **Preconditions.** From 08:32Z the host probe passed under that form: same namespaces, city and
+  four rigs suspended, zero sessions, signer 5550.
+- **Prerequisites.** All eight ran once, unresumed, 08:38–08:47Z, all bound to candidate `29cee991`.
+  Readback:
+  - the worker CLI is `1e08503d` (2.1.280);
+  - city.toml is `4f7e170f`, the registry `d22cf4c1`, the fragment `cba75f87`;
+  - the Template checkout and the authority are at `28539934`;
+  - the installed manifest is still `a6324753`;
+  - the supervisor, still 3150812, reloaded to revision `d6ca85cd`.
+- **Capture,** 08:49–08:51Z:
+  - audit `1041f0d0`, with no unexpected drifts, a stable host and every absent path absent;
+  - complete `ca35f7ff`, where exactly the six `CHANGED_INPUTS` changed, over a clean scope;
+  - settle `fda048e0`, with one atime change;
+  - freeze: `baseline.json` `8f980d2e`.
+- **Real build.** The real-baseline build gives:
+  - 685 inputs, 49 trees and 23 links;
+  - frame 128071 of 131072;
+  - no python3.12 test input;
+  - the authority last, at `28539934`;
+  - `previous_metadata.manifest_sha256` = `a6324753`.
+
+**In-window recorder.** `record_review.py bindings <KIND>` prints the exact bindings that the
+executor demands from `q/`:
+- the package digest, which is `sha256(prepared.json)`;
+- for PAIRING_PASS, the probe limit of 36.
+
+`record_review.py record <KIND> <draft> <draft>` then writes:
+- both provenance files, as `reports/m5-reviews/<kind>-<reviewer id>.json`;
+- `q/<kind>.json`.
+
+All writes are O_EXCL, in the executor canonical encoding. Both provenance paths are checked
+before either is written. It then rechecks the record with the controller rules. Its test runs the
+real `recovery_controller.review()` (`dcc78e45`) against the records it writes.
+
 ## Review dispositions for r4 (56a84aff: one HOLD, one SOURCE_PASS)
 
 | Finding | Disposition |
