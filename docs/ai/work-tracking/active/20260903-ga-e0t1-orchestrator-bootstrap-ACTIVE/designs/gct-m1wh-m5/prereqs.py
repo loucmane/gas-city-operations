@@ -174,9 +174,9 @@ def replace_atomic(path, data, mode, operation):
     fsync_dir(Path(path).parent)
 
 
-def run(argv, env, cwd='/'):
+def run(argv, env, cwd='/', timeout=120):
     result = subprocess.run(argv, env=env, cwd=cwd, stdin=subprocess.DEVNULL,
-                            capture_output=True, timeout=120, check=False)
+                            capture_output=True, timeout=timeout, check=False)
     return dict(argv=argv, returncode=result.returncode,
                 stdout=result.stdout.decode(errors='replace'), stderr=result.stderr.decode(errors='replace'))
 
@@ -204,17 +204,21 @@ def checkout_state():
 
 def reconciler_state():
     shown = run(['/usr/bin/systemctl', '--user', 'show', RECONCILER, '-p', 'ActiveState',
-                 '-p', 'ExecMainStartTimestampMonotonic'], BUS_ENV)
-    fields = dict(line.split('=', 1) for line in shown['stdout'].splitlines() if '=' in line)
+                 '-p', 'ExecMainStartTimestampMonotonic'], BUS_ENV, timeout=10)
     timer = run(['/usr/bin/systemctl', '--user', 'show', RECONCILER.replace('.service', '.timer'),
-                 '-p', 'ActiveState'], BUS_ENV)
+                 '-p', 'ActiveState'], BUS_ENV, timeout=10)
     elapse = run(['/usr/bin/busctl', '--user', 'get-property', 'org.freedesktop.systemd1', RECONCILER_TIMER_OBJECT,
-                  'org.freedesktop.systemd1.Timer', 'NextElapseUSecMonotonic'], BUS_ENV)
+                  'org.freedesktop.systemd1.Timer', 'NextElapseUSecMonotonic'], BUS_ENV, timeout=10)
+    require(shown['returncode'] == timer['returncode'] == elapse['returncode'] == 0, 'reconciler observation')
+    # Exact field sets, as the legacy service() observer requires; a missing field never reads as idle.
+    fields = dict(line.split('=', 1) for line in shown['stdout'].splitlines())
+    timer_fields = dict(line.split('=', 1) for line in timer['stdout'].splitlines())
     parts = elapse['stdout'].split()
-    require(shown['returncode'] == timer['returncode'] == elapse['returncode'] == 0
-            and len(parts) == 2 and parts[0] == 't' and parts[1].isdigit(), 'reconciler observation')
-    return dict(active=fields.get('ActiveState'), started_us=int(fields.get('ExecMainStartTimestampMonotonic') or 0),
-                timer=timer['stdout'].strip().split('=', 1)[-1], next_us=int(parts[1]))
+    require(set(fields) == {'ActiveState', 'ExecMainStartTimestampMonotonic'}
+            and fields['ExecMainStartTimestampMonotonic'].isdigit() and set(timer_fields) == {'ActiveState'}
+            and len(parts) == 2 and parts[0] == 't' and parts[1].isdigit(), 'reconciler observation fields')
+    return dict(active=fields['ActiveState'], started_us=int(fields['ExecMainStartTimestampMonotonic']),
+                timer=timer_fields['ActiveState'], next_us=int(parts[1]))
 
 
 def quiet_slot(clock=time.monotonic_ns, sleep=time.sleep, observe=None):
@@ -462,9 +466,11 @@ def no_forward_temporary(*paths):
 
 def step_inputs(c):
     c.common('inputs')
-    # An empty directory is what an interruption between mkdir and the intent leaves; nothing else is accepted.
-    require(not os.path.lexists(c.inputs) or (c.inputs.is_dir() and not any(c.inputs.iterdir())),
-            'inputs directory already exists')
+    # An empty, owner-only, real directory is what an interruption between mkdir and the intent leaves.
+    if os.path.lexists(c.inputs):
+        st = os.lstat(c.inputs)
+        require(stat.S_ISDIR(st.st_mode) and stat.S_IMODE(st.st_mode) == 0o700 and st.st_uid == os.geteuid()
+                and not any(c.inputs.iterdir()), 'inputs directory already exists')
     registry_old, rig_old = REGISTRY.read_bytes(), RIG.read_bytes()
     require(digest(rig_old) == c.m.RIGPERM_OLD and sha(CITY/'city.toml') == c.m.CITY_OLD
             and digest(registry_old) == c.m.REGISTRY_OLD, 'live predecessor bytes')
@@ -525,6 +531,7 @@ def step_checkout(c):
     require(head == OLD_COMMIT and symbolic == 1 and status == UNTRACKED, 'canonical checkout predecessor')
     require(git(TEMPLATE, 'cat-file', '-e', c.m.TEMPLATE_COMMIT + '^{commit}')['returncode'] == 0,
             'target commit absent')
+    require(not os.path.lexists(TEMPLATE/'.git/index.lock'), 'canonical checkout index is locked')
     # Prove every byte the step depends on from Git objects before the checkout moves.
     prefix = str(TEMPLATE) + '/'
     require(blob_digest(c.m.TEMPLATE_COMMIT, 'bin/gct-managed-rig-permissions') == RENDERER_SHA,
@@ -642,8 +649,8 @@ def rollback(c):
         actions.append(label)
         try:
             models_seen.append(dict(after=label, models=model_consistency()))
-        except RuntimeError as exc:
-            models_seen.append(dict(after=label, refused=str(exc)))
+        except Exception as exc:  # informational during restoration; never blocks the next restore
+            models_seen.append(dict(after=label, refused=type(exc).__name__ + ': ' + str(exc)))
 
     # Reverse order through consistent states: transition city, fragment, registry, predecessor city.
     if needed['transition']:
@@ -664,7 +671,10 @@ def rollback(c):
         require(moved['returncode'] == 0, 'checkout rollback failed: ' + moved['stderr'])
         actions.append('checkout')
     head, _, status = checkout_state()
-    final = model_consistency()
+    try:
+        final = model_consistency()
+    except Exception as exc:  # the predecessor bytes are proved below; the model result is only recorded
+        final = dict(refused=type(exc).__name__ + ': ' + str(exc))
     require(identity(CITY/'city.toml') == owned(c.m.CITY_OLD, 0o644)
             and identity(RIG) == owned(c.m.RIGPERM_OLD, 0o644)
             and identity(REGISTRY) == owned(c.m.REGISTRY_OLD, 0o644)

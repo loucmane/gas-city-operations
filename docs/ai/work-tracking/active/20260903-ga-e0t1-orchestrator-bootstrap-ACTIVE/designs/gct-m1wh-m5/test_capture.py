@@ -67,14 +67,32 @@ class CaptureBoundTests(unittest.TestCase):
 
     def test_template_git_bound_details(self):
         before = {'.': meta(), 'packed-refs': meta(), 'worktrees': meta(), 'worktrees/x': meta(),
-                  'worktrees/x/commondir': meta(), 'worktrees/x/config.worktree': meta()}
-        unchanged = cap.classify('git', before, dict(before))
-        self.assertEqual(unchanged['outside_allowed'], ['worktrees/x/config.worktree'])
-        before.pop('worktrees/x/config.worktree')
+                  'worktrees/x/commondir': meta(), 'worktrees/x/gitdir': meta(),
+                  'worktrees/x/config.worktree': meta(size=0), 'config.worktree': meta(size=0)}
+        self.assertEqual(cap.classify('git', before, dict(before))['outside_allowed'], [])
+        nonempty = dict(before, **{'worktrees/x/config.worktree': meta(size=5)})
+        self.assertEqual(cap.classify('git', nonempty, nonempty)['outside_allowed'], ['worktrees/x/config.worktree'])
+        for change in ({'worktrees/x/gitdir': meta(size=9)}, {'worktrees/x/config.worktree': meta(size=0, mtime=5)},
+                       {'info/grafts': meta()}, {'worktrees/y/config.worktree': meta(size=0)}):
+            with self.subTest(change=change):
+                self.assertTrue(cap.classify('git', before, dict(before, **change))['outside_allowed'])
+        removed = {k: v for k, v in before.items() if k != 'config.worktree'}
+        self.assertEqual(cap.classify('git', before, removed)['outside_allowed'], ['config.worktree'])
+        denied = dict(before, **{'objects/info/alternates': meta()})
+        self.assertEqual(cap.classify('git', denied, dict(denied))['outside_allowed'], ['objects/info/alternates'])
+        before.pop('worktrees/x/config.worktree'); before.pop('config.worktree')
         grown = dict(before, **{'packed-refs': meta(size=4), 'worktrees/new': meta(),
                                 'worktrees/new/commondir': meta(), 'worktrees/new/gitdir': meta(),
                                 'worktrees/new/HEAD': meta()})
         self.assertEqual(cap.classify('git', before, grown)['outside_allowed'], [])
+
+    def test_bound_accepts_the_real_reviewed_inventory(self):
+        trees = json.loads(cap.M1_AUDIT.read_bytes())['trees']
+        git_inventory = trees[m.TEMPLATE + '/.git']['inventory']
+        self.assertEqual(sum(1 for k in git_inventory if k.rsplit('/', 1)[-1] == 'config.worktree'), 93)
+        self.assertEqual(cap.classify('git', git_inventory, git_inventory)['outside_allowed'], [])
+        r5r = trees[m.R5R]['inventory']
+        self.assertEqual(cap.classify('r5r', r5r, r5r)['outside_allowed'], [])
 
     def test_prereqs_source_is_pinned(self):
         self.assertEqual(hashlib.sha256((HERE/'prereqs.py').read_bytes()).hexdigest(), cap.PREREQS_SHA)

@@ -1,4 +1,4 @@
-# M5 metadata successor: layout proof and activation plan (r4)
+# M5 metadata successor: layout proof and activation plan (r5)
 
 This package serves Bead `ga-0t04` (Operations) for Template Bead `gct-m1wh`, together with the
 Opus 5.5 scope of `gct-er3h`.
@@ -10,8 +10,11 @@ Revision history:
 - r2 answered the two HOLD reviews of r1 (`fb7f01cf`).
 - r3 answered the two reviews of r2 (`c3a49e55`). The manifest-lens run returned SOURCE_PASS
   with should-fix items; the live-safety run returned HOLD.
-- r4 answers the two HOLD reviews of r3 (`47c490ed`). Both found the same must-fix: the
+- r4 answered the two HOLD reviews of r3 (`47c490ed`). Both found the same must-fix: the
   reconciler observer ran without the user-bus environment.
+- r5 answers the reviews of r4 (`56a84aff`). The live-safety lens returned SOURCE_PASS; the
+  manifest lens returned HOLD. Its must-fix: the r3 "no `config.worktree` anywhere" rule refused
+  the 93 pre-existing empty `config.worktree` files in the live Template `.git`.
 
 The tables at the end map every finding of both rounds to its disposition.
 
@@ -74,7 +77,7 @@ against 131,072 bytes.
 | R9 installed | 130,177 | 895 |
 | M3 (refused) | 130,420 | 652 |
 | M5 without dropping the test pins | 136,985 | −5,913 |
-| **M5 r4** | **128,071** | **3,001** |
+| **M5 r5** | **128,071** | **3,001** |
 
 The real build enforces the limit, so a placeholder-length difference cannot slip through. The
 lossless `r5/i` compaction is not used, for two reasons:
@@ -117,20 +120,33 @@ lossless `r5/i` compaction is not used, for two reasons:
   reviewed M1 audit inventories, ignoring access times.
   - `reports/r5/r`: only `.git/index` may change.
   - Template `.git`:
-    - may change only objects, refs, logs, worktree admin, LFS locks, workflow transactions,
-      HEAD, index, FETCH_HEAD, ORIG_HEAD, COMMIT_EDITMSG and config;
+    - may change only objects, refs, logs, worktree admin, LFS locks, rerere and workflow
+      transactions, plus HEAD, index, FETCH_HEAD, ORIG_HEAD, COMMIT_EDITMSG, packed-refs and
+      config;
     - its non-branch config must equal the reviewed set;
     - hooks, info and description must be unchanged.
 
-  Today both are inside their bounds: `r5/r` shows 2 changed entries, and `.git` shows 83 changed
-  and 92 added, none outside the allowed set.
+  Rerun under the r5 rules on 2026-09-23, before commit, against the live trees, both are inside
+  their bounds:
+  - `r5/r`: 2 changed entries, 0 outside;
+  - `.git`: 83 changed, 92 added, 0 removed, 0 outside, with its 93 pre-existing empty
+    `config.worktree` files admitted.
+
+  Also clean on that run:
+  - the Git config (no drift);
+  - replace refs (none);
+  - the pinned `prereqs.py` load;
+  - the real reconciler observer.
+
+  `test_bound_accepts_the_real_reviewed_inventory` applies the bound to the real M1 inventory.
 
   The cause is identified. At 2026-09-23 01:39, a plain `git status` without
   `--no-optional-locks`, run by the read-only M4 investigation, rewrote the `r5/r` index and five
   linked-worktree indexes inside the Template `.git`. HEAD did not change. Every git command the
   package runs at runtime (prereqs, capture, derivation) uses `--no-optional-locks`. The test
-  files only read Git objects and the Template `.git/config`. The quiescent window forbids any
-  other reader.
+  files read Git objects, the Template `.git/config`, the live city files and agent definitions,
+  and the user bus. None of those reads can change a pin, because pins exclude access times, and
+  the tests run before the capture. The quiescent window forbids any other reader.
 
   Both bounds are anchored and asserted (`test_capture.py`):
   - the `r5/r` M1 baseline is the R9 pin `ad25084c`;
@@ -146,7 +162,12 @@ lossless `r5/i` compaction is not used, for two reasons:
     - `shallow`;
     - a worktree `info/` directory;
     - a change to an existing worktree's `commondir` or `gitdir`;
-  - no `config.worktree` may exist anywhere;
+  - `config.worktree` files are admitted only as they already are: pre-existing, unchanged
+    and empty. Git ignores them, because `extensions.worktreeConfig` is unset and the config
+    check refuses any `extensions.*`. An added, changed, removed or non-empty one refuses;
+  - any replace ref, loose or packed (`git for-each-ref refs/replace`), refuses;
+  - `gc` and `repack` are stricter than needed. They may write `info/refs`, `gc.pid` or
+    `gc.log`, which fall outside the bound and refuse closed, and the quiet window forbids them;
   - every config key except `branch.<name>.remote|merge` must equal the reviewed set exactly
     (`git config --list`).
 - **Trees, added (20):** the authority trees, from the capture.
@@ -248,7 +269,10 @@ elapse is at least 40 s away.
 - It sets the user-bus environment (`XDG_RUNTIME_DIR`, `DBUS_SESSION_BUS_ADDRESS`), exactly as
   the reviewed legacy `observe_recovery.ENV` does.
 - A test calls the real observer against the user bus.
-- The wait is bounded at 180 s, and the timer is never started, stopped or signalled.
+- The wait is bounded at about 180 s: the deadline is checked after each observation, and an
+  observation is three calls of at most 10 s each. The timer is never started, stopped or
+  signalled.
+- The observer requires the exact property sets, so a missing field never reads as idle.
 - `capture.py complete` waits for the same slot before its scope check, and loads `prereqs.py`
   only at its pinned digest.
 
@@ -264,6 +288,11 @@ after every precondition check, including the absence of a leftover forward temp
 - If the postcondition does not hold, only `rollback` remains.
 - A refusal before the intent is benign; nothing was changed.
 
+0. **Preflight (read-only, on the host terminal):**
+   - run the read-only probe;
+   - verify that the package worktree is clean at the reviewed commit;
+   - run the three test files. They include the live-host user-bus test and the `PREREQS_SHA`
+     pin test, so any environment or pin mismatch shows before step 1 consumes anything.
 1. **Preconditions.**
    - `prereqs.py` checks these before every step:
      - supervisor identity through `host_observation`;
@@ -321,7 +350,7 @@ after every precondition check, including the absence of a leftover forward temp
    - `settle` uses ordinary reads only.
 4. **Pin the baseline:**
    - set `BASELINE_SHA`;
-   - run the three test files (17 manifest, 32 prerequisite, 8 capture);
+   - run the three test files (17 manifest, 38 prerequisite, 9 capture);
      `test_build_against_frozen_baseline` builds from the real file;
    - write `source-pins.json`;
    - commit, and have the binding reviewed.
@@ -358,9 +387,17 @@ role selects `claude-opus-5`. Fable is not probed.
   timer; it never reverts the live prerequisites;
 - no rollback has already run.
 
-Rollback first verifies the digest of every backup it will need. It then attempts the quiet-host
-observation, including the reconciler slot, and records the result. That result is never
-required, so restoration stays possible even if the user bus or the reconciler misbehaves.
+Rollback first attempts the quiet-host observation, including the reconciler slot, and records
+the result. That result is never required, so restoration stays possible even if the user bus or
+the reconciler misbehaves (tested). It then verifies the digest of every backup it will need
+before any write.
+
+Model checks during rollback are recorded, not required. The predecessor bytes are proved
+directly. A malformed agent definition therefore never stops a restoration (tested).
+
+Rollback loads the candidate, and the candidate loads the R9 helper chain, which includes `/tmp`
+files. If `/tmp` has been cleaned, restore those files byte for byte from the durable copies
+(see below) before running rollback.
 
 Each restore writes exactly the bytes whose digest it has just verified, through a fresh per-attempt
 temporary name. A crash inside a restore therefore never blocks the next rollback attempt; the
@@ -387,16 +424,20 @@ The record also states whether the authority worktree remains; it is left in pla
 unreferenced.
 
 Residual limits:
-- An interrupted `git checkout` that leaves `index.lock` or a half-updated tree is repaired
-  neither by `resume` nor by `rollback`. Its postcondition refuses, and the operator must recover
-  it by hand.
+- `checkout` refuses a pre-existing `index.lock` before its intent. An interrupted `git
+  checkout` that leaves `index.lock` or a half-updated tree is repaired neither by `resume` nor
+  by `rollback`. Its postcondition refuses, and the operator must recover it by hand.
+- Suppose the executor's `prepare` writes its pause intent and then refuses or crashes before
+  recording the stop command. Rollback then stays refused. This is deliberately conservative: a
+  crash between the stop and its record cannot be told apart from one before the stop. The
+  operator must first confirm the reconciler timer state by hand.
 - Rollback does not restore the Template `.git` tree to its R9 pin, and does not remove the
   authority worktree. Neither matters while the installed manifest is still R9, because the M5
   pins exist only in the M5 package.
 
 After a rollback, no forward step can run.
 
-`test_prereqs.py` (32 tests) covers:
+`test_prereqs.py` (38 tests) covers:
 
 - the full forward sequence;
 - a `finish` refusal followed by `resume`;
@@ -415,6 +456,12 @@ After a rollback, no forward step can run.
 - resume binding its intent;
 - `inputs` reusing only an empty directory;
 - workspace-provider inheritance;
+- a failing quiet observation during rollback;
+- a broken agent definition during rollback;
+- an ignored or untracked authority file;
+- a symlinked or open `inputs` directory;
+- a locked index before the checkout;
+- missing reconciler observation fields;
 - rollback from every partial state through consistent configs;
 - a corrupt backup;
 - leftovers;
@@ -435,6 +482,30 @@ Each dependency is digest-pinned at load time and has a byte-identical durable c
 - The M1 audit and the M3 baseline in the durable staging directory.
 
 If `/tmp` is cleaned, restore those paths byte for byte before running.
+
+## Review dispositions for r4 (56a84aff: one HOLD, one SOURCE_PASS)
+
+| Finding | Disposition |
+| --- | --- |
+| "No `config.worktree` anywhere" refuses the 93 pre-existing empty files in the live Template `.git` after all eight mutations (must-fix) | Pre-existing, unchanged, empty files are admitted; added, changed, removed or non-empty ones refuse (tested). The bound is tested on the real M1 inventory and was rerun on the live trees before commit: 0 outside. |
+| `load_prereqs` hashes one read and executes another | It executes the verified bytes. |
+| Replace refs can arrive through `packed-refs` | The audit refuses on any `git for-each-ref refs/replace` output. |
+| The rollback path where the quiet observation fails is untested | Tested: rollback completes and records the error. |
+| Untested branches (`gitdir` change, denied entry present but unchanged, `info/grafts`, authority ignored file) | All tested. |
+| Stale allowed list | Includes `rr-cache` and `packed-refs`. |
+| `reconciler_state` does not require exact fields | Exact property sets required (tested). |
+| Slot wait can exceed 180 s | Per-call timeout of 10 s; the bound is documented as approximate. |
+| `gc`/`repack` strictness | Documented as fail-closed under quiescence. |
+| Host-dependent test | Named as a live-host test; the preflight runs it on the host first. |
+| Authority tree digests are captured, not derived | Accepted. Content is proved by clean `git status --ignored --untracked-files=all`, HEAD, the exact root entry set, the file digests and the frozen tree digests. |
+| Executor residual: pause intent without a stop record | Documented as a conservative residual limit. |
+| Tests run only after `capture audit` | Preflight step 0 runs all three test files on the host first. |
+| Rollback docs order | Corrected: observe, then verify, then restore. |
+| Statement about what the tests read | Corrected. |
+| Rollback model checks narrow; final check unguarded | Every model check during rollback is recorded, never required (tested with a broken agent file). |
+| `inputs` accepts a symlinked empty directory | `lstat`: must be a real directory with mode 0700, owned by the user, and empty (tested). |
+| Rollback depends on the `/tmp` chain | Stated in the Rollback section. |
+| No `index.lock` check before the checkout intent | Checked before the intent (tested). |
 
 ## Review dispositions for r3 (47c490ed: two HOLD verdicts)
 

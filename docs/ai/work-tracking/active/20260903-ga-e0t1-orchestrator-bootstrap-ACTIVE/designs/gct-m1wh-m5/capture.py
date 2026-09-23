@@ -22,7 +22,11 @@ ignoring access times:
 - Never admitted, even inside those prefixes: refs/replace, object alternates
   and grafts, shallow, a worktree info/ directory, and a change to an existing
   worktree's commondir or gitdir.
-- No config.worktree may exist anywhere in it.
+- The only config.worktree files admitted are the pre-existing, unchanged, empty ones; Git ignores
+  them because extensions.worktreeConfig is unset. Any added, changed, removed or non-empty one
+  refuses, and so does any replace ref, whether loose or packed (for-each-ref refs/replace).
+- gc and repack are stricter than needed: they may write info/refs, gc.pid or gc.log, which fall
+  outside the bound and refuse, closed. The quiet window forbids them.
 - Every config key other than branch.<name>.remote and branch.<name>.merge must
   equal the reviewed set exactly.
 - No hook, info or description entry may change.
@@ -71,7 +75,7 @@ CONFIG_EXPECTED = (
 
 CANDIDATE_SHA = None
 # prereqs.py supplies the reconciler quiet slot; its reviewed bytes are pinned here and by test_capture.py.
-PREREQS_SHA = 'd0b2e7dfecc0c94fe60d09219590731b210647f891d104bf55f9afb2c69b4c59'
+PREREQS_SHA = '6d97fd4094ea2e6b1b7d7ee9b1701128d350744161adc22633648283d7745784'
 
 
 def load_candidate(expected):
@@ -86,9 +90,12 @@ def load_candidate(expected):
 
 
 def load_prereqs():
-    raw = (HERE/'prereqs.py').read_bytes()
+    path = HERE/'prereqs.py'
+    raw = path.read_bytes()
     require(hashlib.sha256(raw).hexdigest() == PREREQS_SHA, 'prereqs source differs from the reviewed digest')
-    return load_source('prereqs.py', 'm5_prereqs')
+    module = types.ModuleType('m5_prereqs'); module.__file__ = str(path)
+    exec(compile(raw, str(path), 'exec', dont_inherit=True), module.__dict__)
+    return module
 
 
 PREREQS = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/m5-inputs')
@@ -158,7 +165,10 @@ def classify(kind, before, now):
         outside = [k for k in changed + added + removed if not allowed(k)]
         outside += [k for k in changed if k.split('/')[0] == 'worktrees' and k.rsplit('/', 1)[-1]
                     in ('commondir', 'gitdir') and k not in outside]
-        outside += [k for k in now if k.rsplit('/', 1)[-1] == 'config.worktree' and k not in outside]
+        # The reviewed tree already holds empty config.worktree files that Git ignores (no
+        # extensions.worktreeConfig). Only those, unchanged and empty, are admitted.
+        outside += [k for k in now if k.rsplit('/', 1)[-1] == 'config.worktree' and k not in outside
+                    and (k not in before or strip(before[k]) != strip(now[k]) or now[k].get('size') != 0)]
         outside += [k for k in now if (k in GIT_DENIED or k.startswith(GIT_DENIED_PREFIXES)) and k not in outside]
     return dict(changed=changed, added=added, removed=removed, outside_allowed=outside)
 
@@ -279,6 +289,9 @@ def audit():
     for path, diff in bounds.items():
         if diff['outside_allowed']:
             drifts.append(dict(kind='repinned-tree-bound', path=path, outside=diff['outside_allowed'][:50]))
+    replaced = git(o, m.TEMPLATE, 'for-each-ref', 'refs/replace')
+    if replaced['returncode'] != 0 or replaced['stdout']:
+        drifts.append(dict(kind='template-replace-refs', actual=replaced))
     config = git(o, m.TEMPLATE, 'config', '--file', m.TEMPLATE + '/.git/config', '--list')
     config_check = config_drift(config['stdout'])
     if config['returncode'] != 0 or any(config_check[k] for k in config_check):

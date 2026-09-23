@@ -150,7 +150,7 @@ class Sandbox:
         calls = []
         original = p.run
 
-        def run(argv, env, cwd='/'):
+        def run(argv, env, cwd='/', timeout=120):
             if argv[:4] == ['/usr/bin/python3.12', '-I', '-B', str(p.TEMPLATE/'bin/gct-managed-rig-permissions')]:
                 mode = argv[4]
                 calls.append(mode)
@@ -163,7 +163,7 @@ class Sandbox:
                 report = dict(ok=True, state='conformant', changed=True, expected_sha256=reported or predicted,
                               actual_sha256=sha(rig.read_bytes()))
                 return dict(argv=argv, returncode=0, stdout=json.dumps(report), stderr='')
-            return original(argv, env, cwd)
+            return original(argv, env, cwd, timeout)
         p.run = run
         return calls
 
@@ -387,7 +387,7 @@ class PrereqTests(unittest.TestCase):
         seen = []
         original = self.p.run
 
-        def run(argv, env, cwd='/'):
+        def run(argv, env, cwd='/', timeout=120):
             seen.append((argv, env))
             if argv[0] == '/usr/bin/busctl':
                 return dict(argv=argv, returncode=0, stdout='t 123456789\n', stderr='')
@@ -408,10 +408,69 @@ class PrereqTests(unittest.TestCase):
             self.assertEqual(env['DBUS_SESSION_BUS_ADDRESS'], 'unix:path=/run/user/1000/bus')
         self.assertEqual(seen[2][0][:4], ['/usr/bin/busctl', '--user', 'get-property', 'org.freedesktop.systemd1'])
 
-    def test_reconciler_observer_reads_the_real_user_bus(self):
+    def test_live_host_reconciler_observer_reads_the_real_user_bus(self):
+        # Live-host test: it needs the operator's systemd user bus, as the live sequence does.
         state = self.p.reconciler_state()
         self.assertIn(state['timer'], ('active', 'inactive', 'failed'))
         self.assertIsInstance(state['next_us'], int)
+
+    def test_reconciler_observer_refuses_missing_fields(self):
+        original = self.p.run
+        self.p.run = lambda argv, env, cwd='/', timeout=120: dict(
+            argv=argv, returncode=0, stdout='t 5\n' if argv[0] == '/usr/bin/busctl' else 'ActiveState=failed\n',
+            stderr='')
+        try:
+            with self.assertRaisesRegex(RuntimeError, 'reconciler observation fields'):
+                self.p.reconciler_state()
+        finally:
+            self.p.run = original
+
+    def test_rollback_tolerates_a_failing_quiet_observation(self):
+        self.run_through('cli')
+
+        def broken():
+            raise RuntimeError('no user bus')
+        self.box.ctx.quiet = broken
+        self.box.step('rollback')
+        record = json.loads(self.inputs('rollback.json').read_text())
+        self.assertEqual(record['quiet'], dict(error='RuntimeError', reason='no user bus'))
+        self.assertEqual(sha(self.p.CLI.read_bytes()), self.m.CLI_OLD)
+
+    def test_rollback_records_a_broken_agent_definition_without_stopping(self):
+        self.run_through('render')
+        agent = next((self.p.CITY/'agents').glob('*/agent.toml'))
+        agent.write_text('not = [valid toml\n')
+        self.box.step('rollback')
+        record = json.loads(self.inputs('rollback.json').read_text())
+        self.assertIn('refused', record['models_final'])
+        self.assertTrue(all('refused' in x for x in record['models_after_each']))
+        self.assertEqual(sha(self.p.RIG.read_bytes()), self.m.RIGPERM_OLD)
+
+    def test_authority_refuses_an_ignored_or_untracked_file(self):
+        self.run_through('authority')
+        (Path(self.m.AUTHORITY)/'stray.txt').write_text('x')
+        with self.assertRaisesRegex(RuntimeError, 'no ignored or untracked file'):
+            self.p.POST['authority'](self.box.ctx)
+
+    def test_inputs_refuses_a_symlinked_or_open_directory(self):
+        target = Path(self._tmp.name)/'elsewhere'
+        target.mkdir(mode=0o700)
+        self.inputs('').parent.mkdir(parents=True, exist_ok=True)
+        os.symlink(target, self.inputs('').as_posix().rstrip('/'))
+        with self.assertRaisesRegex(RuntimeError, 'inputs directory already exists'):
+            self.box.step('inputs')
+        self.tearDown(); self.setUp()
+        self.inputs('').mkdir(parents=True, mode=0o755)
+        os.chmod(self.inputs(''), 0o755)
+        with self.assertRaisesRegex(RuntimeError, 'inputs directory already exists'):
+            self.box.step('inputs')
+
+    def test_checkout_refuses_a_locked_index_before_the_intent(self):
+        self.run_through('city-transition')
+        (self.box.template/'.git/index.lock').write_text('')
+        with self.assertRaisesRegex(RuntimeError, 'canonical checkout index is locked'):
+            self.box.step('checkout')
+        self.assertFalse(self.inputs('prereq-checkout.intent.json').exists())
 
     def test_quiet_composes_slot_host_scope_and_suspension(self):
         c = self.p.Context.__new__(self.p.Context)
@@ -496,10 +555,12 @@ class PrereqTests(unittest.TestCase):
 
     def test_inputs_reuses_only_an_empty_directory(self):
         self.inputs('').mkdir(parents=True)
+        os.chmod(self.inputs(''), 0o700)
         self.box.step('inputs')
         self.assertTrue(self.inputs('prereq-inputs.json').exists())
         self.tearDown(); self.setUp()
         self.inputs('').mkdir(parents=True)
+        os.chmod(self.inputs(''), 0o700)
         self.inputs('stray').write_text('x')
         with self.assertRaisesRegex(RuntimeError, 'inputs directory already exists'):
             self.box.step('inputs')
