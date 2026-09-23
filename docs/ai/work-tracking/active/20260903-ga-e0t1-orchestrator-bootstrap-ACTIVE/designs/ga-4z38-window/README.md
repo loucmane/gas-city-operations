@@ -424,6 +424,49 @@ prefixes resolve without the route file. In-window Bead calls use direct prefixe
 object store. The managed commit makes the staged ones reachable. The probe blob stays unreachable
 until git's own gc, and it is declared here.
 
+### Round 2b r6 (after both f68b0f3d reviews held)
+
+Both reviews of `f68b0f3d` held, and both transcripts are filed. r6 answers them:
+- **The runner starts a wrapper path at most once per commit** (gct-jobrunner A4). Its "already ran"
+  key is the pair of commit and wrapper path. Steps that may run more than once now get numbered,
+  separately pinned wrapper slots, each an identical step:
+  - `FRESHEN-1..3`;
+  - `WATCH-1..8`;
+  - `SOURCE-RELEASE-1..2`;
+  - `SIGNING-RELEASE-1..2`;
+  - `CLOSE-1..2`.
+- **Release transport.** A release is one line appended to ga-4z38's own notes:
+  `SOURCE_RELEASE ga-4z38 <json>` or `SIGNING_RELEASE ga-4z38 <json>`. The worker reads it with the
+  same `bd show ga-4z38 --json` it uses for its claim, so it never reads another store and never
+  resolves a route file. A `gc session nudge --delivery wait-idle` only wakes the worker.
+  - All validation runs in a fresh timestamped root. The exclusive marker
+    `/var/tmp/ga-4z38-<mode>-release.posted` is taken right before the single append, and a readback
+    follows.
+  - A later slot, once the marker exists, only verifies the posted line and nudges again. A refusal
+    before the marker consumes nothing.
+  - The accepted assignee forms follow Core `cmd/gc/cmd_hook.go`: the claim writes the first
+    non-empty of session name, session id, alias, agent and template.
+- **CLOSE is repeatable.** The drain runs at most once, behind the exclusive marker
+  `/var/tmp/ga-4z38-close-drain.requested`, and is wrapped so a drain failure still reaches the close.
+  The close runs only while the session is still open. Each run gets a fresh root. CLOSE also accepts a
+  passing HOLD in place of CONTAIN, and a tmux exit 1 counts only as "no server".
+- **ADMIT requires a passing CLOSE.** PREFLIGHT requires a FRESHEN result that says `ok` and carries
+  the pinned FRESHEN digest.
+- **New `proof/cli-proof.py`** (read-only, in the tests) asks the installed binary for the result
+  schemas of `session list`, `session nudge`, `session close` and `runtime drain`. It also shows from
+  Core source that `gc status` emits only three health signals: city_suspended,
+  controller_not_running and no_agents_running. The window allows the first and third and requires
+  the controller running, so a live worker cannot add a signal the suspend check refuses.
+
+**Dispositions.** Every refusal keeps its evidence and never replays a mutation.
+- Release before its marker: fix the staged input, run the next slot.
+- Release after its marker with a failed nudge: run the next slot, which only nudges.
+- Release whose append is ambiguous (marker taken, line absent): stop, as an ambiguous mutation.
+- CLOSE: run the next slot.
+- FRESHEN: run the next slot after the times in `old.json`.
+- A budget refusal: the window stays contained, and restoring needs a reviewed successor.
+- A lifecycle strand: run HOLD, then CLOSE; restoring needs a reviewed successor.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,
@@ -438,23 +481,24 @@ commit from RECONCILE until TERMINAL; every job, CONTAIN and HOLD included, chec
 1. `RECONCILE.sh`: ga-y49e to `blocked`.
 2. `BIND.sh`: the brief and the requested attempt metadata on ga-4z38. From here until ROUTE, no
    coordinator note goes to ga-4z38.
-3. `FRESHEN.sh`: repeat until it passes. The ~22-hour group passes its 24-hour mark around
+3. `FRESHEN-1..3.sh`: one slot per try, until it passes. The ~22-hour group passes its 24-hour mark around
    19:30Z, which is 21:30 CEST. PREFLIGHT must follow within 45 minutes.
 4. `OBSERVE.sh`.
 5. `PREFLIGHT.sh`: T0, the start of the four-hour cache-atime window.
 6. `STAGE.sh`.
 7. `ROUTE.sh`.
 8. `RESUME.sh`.
-9. In-window, with repeated `WATCH.sh` (none between SIGNING_RELEASE and SIGNED_CANDIDATE_READY):
+9. In-window, with `WATCH-1..8.sh`, one slot per observation (none between SIGNING_RELEASE and
+   SIGNED_CANDIDATE_READY):
    1. Observe one session and its claim.
    2. Startup review.
-   3. `SOURCE-RELEASE.sh`.
+   3. `SOURCE-RELEASE-1.sh`, or the next slot.
    4. Candidate review.
-   5. `SIGNING-RELEASE.sh`.
+   5. `SIGNING-RELEASE-1.sh`, or the next slot.
    6. The worker's managed signature.
 10. `CONTAIN.sh`; if the lifecycle is stranded, `HOLD.sh` instead, and the window stops there.
-11. `CLOSE.sh`, then a `WATCH.sh`.
-12. `ADMIT.sh`: at least 40 minutes left.
+11. `CLOSE-1.sh`, or the next slot, then a `WATCH` slot.
+12. `ADMIT.sh`: a passing CLOSE, and at least 40 minutes left.
 13. `RESTORE.sh`: at least 25 minutes left.
 14. `TERMINAL.sh`: at least 8 minutes left.
 15. Delivery of the signed branch.

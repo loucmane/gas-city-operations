@@ -5,16 +5,19 @@ request a native drain, then close the exact session with `gc session close`. Th
 to acknowledge the drain from its sandbox (attempt7 could not reach Dolt), so the drain is best-effort
 and bounded; the close is required.
 
-Preconditions: the window's rig-suspend event exists (CONTAIN completed), and at most one open session
-exists for the template. Steps, each through the owned-phase runner with the support environment
-(GIT_OPTIONAL_LOCKS=0):
-1. `gc runtime drain <id> --json` (any exit status), then up to 60 seconds of session-list polling.
-2. `gc session close <id> --json` (must succeed).
+Preconditions: scheduling is held, either by CONTAIN (the window's rig-suspend event exists) or by a
+passing HOLD (a /var/tmp/ga-4z38-hold-*/result.json with ok); at most one open session exists for the
+template. Steps, each through the owned-phase runner with the support environment (GIT_OPTIONAL_LOCKS=0):
+1. Once only, guarded by the exclusive marker /var/tmp/ga-4z38-close-drain.requested:
+   `gc runtime drain <id> --json` (any exit status), then up to 60 seconds of session-list polling.
+2. `gc session close <id> --json` (must succeed), only while that session is still open.
 3. Up to 120 seconds until: no open session for the template, no city tmux pane for it, and no
    process whose argv names the worktree or whose cwd is inside it.
-It never signals a process, never touches tmux directly, and never replays a lifecycle action. The
-output root is fixed and created exclusively. Identity is the base active_epoch() check.
+It never signals a process, never touches tmux directly, and never replays a lifecycle action. Each run
+uses a fresh timestamped root, so a refusal can be followed by another run, which never repeats the
+drain. Identity is the base active_epoch() check.
 """
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -27,7 +30,7 @@ BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstra
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/window-base-r11.py')
 BASE_SHA = 'cad1d660b872a352bce7e8c3c5bffda5ca7ac663a732575f48a3b7a9847926cd'
 WINDOW = Path('/var/tmp/ga-4z38-window-20260923-r1')
-ROOT = Path('/var/tmp/ga-4z38-close-20260923-r1')
+DRAIN = Path('/var/tmp/ga-4z38-close-drain.requested')
 TEMPLATE = 'gascity/gc.implementation-worker'
 ANY = tuple(range(256))
 
@@ -74,9 +77,13 @@ def main():
     w.require(globals().get('_SOURCE_SHA') and os.getuid() == os.geteuid() == 1000, 'bound source launcher required')
     w.read(Path(__file__), _SOURCE_SHA)
     b, o, owned = w.load_support()
-    w.require((WINDOW/'suspension-rig-suspend-event.json').exists(), 'CONTAIN has not completed')
+    held = (WINDOW/'suspension-rig-suspend-event.json').exists()
+    for result in sorted(Path('/var/tmp').glob('ga-4z38-hold-*/result.json')):
+        held = held or json.loads(w.read(result)).get('ok') is True
+    w.require(held, 'scheduling is not held (no CONTAIN rig-suspend event and no passing HOLD)')
     w.ROOT = WINDOW
     w.active_epoch(o)
+    ROOT = Path('/var/tmp/ga-4z38-close-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     ROOT.mkdir(mode=0o700)
     w.ROOT = ROOT
     counter = {'n': 0}
@@ -93,20 +100,32 @@ def main():
     w.require(len(first) <= 1, 'more than one open worker session')
     session = first[0] if first else None
     w.save('session.json', dict(session=session))
-    if session:
-        run('drain', w.GC + ['runtime', 'drain', session['id'], '--json'], expected=ANY)
+    if session and not DRAIN.exists():
+        fd = os.open(DRAIN, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        with os.fdopen(fd, 'w') as out:
+            json.dump(dict(root=str(ROOT), session=session['id']), out)
+        try:
+            run('drain', w.GC + ['runtime', 'drain', session['id'], '--json'], expected=ANY)
+        except Exception as exc:  # recorded; the close below still runs
+            w.save('drain-refused.json', dict(error=str(exc)[:1000]))
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline and session.get('state') not in ('stopped', 'asleep', 'drained', 'closed'):
             time.sleep(5)
             rows = open_sessions()
             session = rows[0] if rows else dict(session, state='closed')
         w.save('drain-observed.json', dict(state=session.get('state')))
-        run('close', w.GC + ['session', 'close', first[0]['id'], '--json'])
+    still = open_sessions()
+    if still:
+        closed = json.loads(run('close', w.GC + ['session', 'close', still[0]['id'], '--json'])['stdout'].splitlines()[-1])
+        w.require(closed.get('ok') is True and closed.get('session_id') == still[0]['id'], 'close not acknowledged')
     deadline = time.monotonic() + 120
     while True:
         remaining = open_sessions()
-        panes = run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid}'],
-                    expected=(0, 1))['stdout'].split('\n')
+        listed = run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid}'],
+                     expected=(0, 1))
+        # Exit 1 is accepted only as "no server": then there are no panes at all.
+        w.require(listed['exit_code'] == 0 or not listed['stdout'].strip(), 'tmux listing failed with output')
+        panes = listed['stdout'].split('\n')
         worker_panes = [p for p in panes if p.strip() and first and first[0].get('session_name')
                         and p.startswith(first[0]['session_name'] + ' ')]
         residue = processes(w.WORK)

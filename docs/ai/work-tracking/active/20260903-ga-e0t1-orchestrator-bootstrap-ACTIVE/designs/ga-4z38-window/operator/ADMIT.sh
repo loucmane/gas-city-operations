@@ -28,6 +28,7 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
 fi
 [ -e /var/tmp/ga-4z38-window-20260923-r1/stage-consumed.json ] && [ ! -e /var/tmp/ga-4z38-window-20260923-r1/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
 { [ ! -e /var/tmp/ga-4z38-window-20260923-r1/restore-admission.json ] && [ ! -L /var/tmp/ga-4z38-window-20260923-r1/restore-admission.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-window-20260923-r1/restore-admission.json"; echo "== end"; exit 1; }
+find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-close-*/result.json" -exec grep -l '"ok": true' {} + | grep -q . || { echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

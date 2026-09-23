@@ -1,20 +1,23 @@
 #!/bin/sh
-# ga-4z38 window watch: read-only in-window observation; repeatable, one fresh root per run.
+# ga-4z38 window source release: validate the coordinator source release against the live
+# worker session, post it once to the ga-4z38 notes, read it back and nudge.
+# Repeatable: a run after the post only verifies and nudges again.
+# Slot 1 of 2: the job runner starts each wrapper path once per commit.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
-# Log: ~/.local/share/gas-city-staging/ga-4z38-window/watch-<timestamp>.txt. Exits with the first failing
+# Log: ~/.local/share/gas-city-staging/ga-4z38-window/source-release-1-<timestamp>.txt. Exits with the first failing
 # step's result, or 0.
 S=/home/loucmane/.local/share/gas-city-staging/ga-4z38-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
-COMMIT=${1:?usage: WATCH.sh <reviewed commit>}
-WATCH_SHA=131dea171bac04c0ece8e5820bad4840521a09ce322273c377dfc74641063110
+COMMIT=${1:?usage: SOURCE-RELEASE-1.sh <reviewed commit>}
+RELEASE_SHA=a9f249a01940a83e429a52245629eac7fa5429577121edea1d85567ecb393c8f
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
 [ ! -L "$S" ] || exit 1
-LOG="$S/watch-$(date -u +%Y%m%dT%H%M%SZ).txt"
+LOG="$S/source-release-1-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
 for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
@@ -30,11 +33,11 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== WATCH REFUSED at $label rc=$rc: read this log and the named roots before any further step"
+    echo "== SOURCE-RELEASE-1 REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-step watch "$C/watch-r11.py" "$WATCH_SHA"
-echo "== WATCH PASS"
+step source-release "$C/release-r11.py" "$RELEASE_SHA" source
+echo "== SOURCE-RELEASE-1 PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0

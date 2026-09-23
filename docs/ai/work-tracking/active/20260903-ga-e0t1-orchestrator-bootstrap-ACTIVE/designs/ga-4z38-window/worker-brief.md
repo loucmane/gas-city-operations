@@ -99,15 +99,16 @@ evidence, not permission to repair policy or proceed.
 
 ## Releases
 
-Each release is a gc mail message from `human` to this session, subject
-`SOURCE_RELEASE ga-4z38` or `SIGNING_RELEASE ga-4z38`, announced by a nudge or by
-the injected mail notice. Read it with standalone
-`/home/loucmane/gascity/bin/bd show <message-id> --json`. Its body is one JSON
+Each release is one line the coordinator appends to this task's notes,
+`SOURCE_RELEASE ga-4z38 <json>` or `SIGNING_RELEASE ga-4z38 <json>`, announced by a
+short nudge. Read it with the same standalone
+`/home/loucmane/gascity/bin/bd show ga-4z38 --json` you use for the claim; the
+latest line that starts with that release name is authoritative. Its JSON is one
 object. Verify that it names this task, your exact ci-* session and the base, plus:
 - source release: the SHA256 of your startup-proof.json and the exact root-anchored
   .gitignore entries for the observed generated artifacts;
 - signing release: your inspected HEAD and `git write-tree` value.
-Write the body bytes verbatim to source-release.json or signing-release.json in
+Write the JSON bytes verbatim to source-release.json or signing-release.json in
 the evidence directory. A missing, truncated or mismatched release is a stop; wait
 for the coordinator, never proceed on a partial message.
 

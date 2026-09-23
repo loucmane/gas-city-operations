@@ -22,9 +22,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 GENERATED = ('window-r11.py', 'bind-task-r3.py', 'route-task-r5.py', 'audit-queue-r3.py', 'observe-terminal-r11.py',
              'reconcile-predecessor-r3.py', 'restore-admission-r3.py', 'restore-r9-routes-r3.py', 'route-chain-r1.py')
-WRAPPERS = ('RECONCILE.sh', 'FRESHEN.sh', 'HOLD.sh', 'ADMIT.sh', 'SOURCE-RELEASE.sh', 'SIGNING-RELEASE.sh', 'CLOSE.sh',
-            'OBSERVE.sh', 'BIND.sh', 'PREFLIGHT.sh', 'STAGE.sh', 'ROUTE.sh', 'RESUME.sh', 'WATCH.sh', 'CONTAIN.sh',
-            'RESTORE.sh', 'TERMINAL.sh')
+# Every generated wrapper, numbered slots included (PREP.sh belongs to round 1).
+WRAPPERS = tuple(sorted(p.name for p in (HERE/'operator').glob('*.sh') if p.name != 'PREP.sh'))
 LAUNCH = 'gct-m1wh-p6/source-launch.py'
 GC_ENV = dict(HOME='/home/loucmane', GC_HOME='/home/loucmane/gascity/home', GIT_OPTIONAL_LOCKS='0',
               PATH='/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin')
@@ -216,6 +215,7 @@ class Safety(unittest.TestCase):
         cache = str(b.CACHE)
         self.assertFalse([p for p in paths if p == cache or p.startswith(cache + '/')])
         self.assertFalse([p for p in paths if '/dev/blog' in p or '/dev/hpfetcher' in p])
+        self.assertTrue(all(f.relatime(p) for p in paths), [p for p in paths if not f.relatime(p)][:5])
 
     def test_hold_stranded_detection_over_fabricated_roots(self):
         h = self.load('hold-r11.py')
@@ -262,14 +262,65 @@ class Safety(unittest.TestCase):
             self.assertEqual(gate(216, 25), 1)
             self.assertEqual(gate(200, 25), 0)
 
-    def test_release_validates_before_it_sends_once(self):
+    def test_release_validates_everything_before_its_single_post(self):
         text = (HERE/'release-r11.py').read_text()
-        send = text.index("run('send'")
+        validate = text.index('    session = validate(w, mode, release, run)')
+        marker = text.index('fd = os.open(marker, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)')
+        post = text.index("run('post'")
+        self.assertLess(validate, marker)
+        self.assertLess(marker, post)
+        body = text[text.index('def validate('):text.index('def main(')]
         for check in ("'exactly the named worker session is live'", "'task claimed by the session'",
                       "'startup proof digest'", "'gitignore entries are exactly the untracked paths'",
-                      "'signing head and tree'", "'staged paths'", "root.mkdir(mode=0o700)"):
-            self.assertLess(text.index(check), send, check)
-        self.assertIn("'message readback carries the exact body in one field'", text)
+                      "'signing head and tree'", "'staged paths'"):
+            self.assertIn(check, body)
+        self.assertIn("'the release line is in the task notes'", text)
+        self.assertIn("root = Path('/var/tmp/ga-4z38-%s-release-%s'", text)
+        self.assertEqual(text.count("run('post'"), 1)
+
+    def test_close_drains_once_and_closes_only_an_open_session(self):
+        text = (HERE/'close-r11.py').read_text()
+        self.assertIn('if session and not DRAIN.exists():', text)
+        self.assertIn('fd = os.open(DRAIN, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)', text)
+        self.assertIn('    still = open_sessions()\n    if still:', text)
+        self.assertIn("ROOT = Path('/var/tmp/ga-4z38-close-' + datetime.now(timezone.utc)", text)
+        self.assertIn("glob('ga-4z38-hold-*/result.json')", text)
+
+    def test_repeatable_steps_have_numbered_slots_and_no_unnumbered_wrapper(self):
+        names = set(WRAPPERS)
+        for base, count in (('FRESHEN', 3), ('WATCH', 8), ('SOURCE-RELEASE', 2), ('SIGNING-RELEASE', 2), ('CLOSE', 2)):
+            self.assertNotIn(base + '.sh', names)
+            for slot in range(1, count + 1):
+                self.assertIn('%s-%d.sh' % (base, slot), names)
+        for single in ('RECONCILE', 'BIND', 'OBSERVE', 'PREFLIGHT', 'STAGE', 'ROUTE', 'RESUME', 'CONTAIN', 'HOLD',
+                       'ADMIT', 'RESTORE', 'TERMINAL'):
+            self.assertIn(single + '.sh', names)
+
+    def test_admit_requires_a_passing_close(self):
+        text = (HERE/'operator'/'ADMIT.sh').read_text()
+        self.assertIn('-path "/var/tmp/ga-4z38-close-*/result.json"', text)
+
+    def test_cli_shapes_the_jobs_use(self):
+        done = subprocess.run([sys.executable, '-B', str(HERE/'proof'/'cli-proof.py')],
+                              capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
+        self.assertEqual(done.returncode, 0, done.stdout[-2000:] + done.stderr[-2000:])
+        self.assertTrue(json.loads(done.stdout)['ok'])
+
+    def test_hold_reads_the_real_runner_record_shape(self):
+        h = self.load('hold-r11.py')
+        real = json.loads(Path('/home/loucmane/.local/share/gas-city-staging/jobs/done/ga-4z38-prep-r3.json').read_text())
+        self.assertTrue(real['job']['wrapper'].endswith('designs/ga-4z38-window/operator/PREP.sh'))
+        self.assertEqual(real['exit'], 0)
+        with tempfile.TemporaryDirectory() as tmp:
+            window = Path(tmp)/'window'
+            done = Path(tmp)/'done'
+            window.mkdir()
+            done.mkdir()
+            record = json.loads(json.dumps(real))
+            record['job']['wrapper'] = record['job']['wrapper'].replace('operator/PREP.sh', 'operator/CONTAIN.sh')
+            record['exit'] = 1
+            (done/'contain.json').write_text(json.dumps(record))
+            self.assertEqual(h.stranded(window, done), ['runner:contain.json'])
 
     def test_singleton_is_preserved_while_it_owns_the_task(self):
         done = subprocess.run([sys.executable, '-B', str(HERE/'proof'/'singleton-proof.py')],
@@ -293,7 +344,9 @@ class Safety(unittest.TestCase):
     def test_preflight_requires_a_recent_freshen_pass(self):
         text = (HERE/'operator'/'PREFLIGHT.sh').read_text()
         self.assertIn('-path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45', text)
-        self.assertIn('-exec grep -l \'"ok": true\' {} +', text)
+        self.assertIn('-exec grep -l \'"ok": true\' {} + | xargs -r grep -l "$FRESHEN_SHA"', text)
+        [pin] = re.findall(r'^FRESHEN_SHA=([0-9a-f]{64})$', text, re.M)
+        self.assertEqual(pin, sha(HERE/'freshen-r11.py'))
         for name, minutes in (('ADMIT.sh', 40), ('RESTORE.sh', 25), ('TERMINAL.sh', 8)):
             body = (HERE/'operator'/name).read_text()
             self.assertIn('step budget "$C/budget-r11.py" "$BUDGET_SHA" %d' % minutes, body, name)

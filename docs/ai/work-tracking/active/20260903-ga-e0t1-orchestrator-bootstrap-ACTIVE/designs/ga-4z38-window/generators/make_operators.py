@@ -101,12 +101,12 @@ def main(package):
                         steps=['step bind "$C/bind-task-r3.py" "$BIND_SHA"']),
         'PREFLIGHT.sh': dict(title='preflight: read-only admission of the window against the fresh integrity\n'
                                    '# observation (OBSERVE.sh). It creates the window root and stages nothing.',
-                             pins='WINDOW_SHA=%s' % d['window-r11.py'],
+                             pins='WINDOW_SHA=%s\nFRESHEN_SHA=%s' % (d['window-r11.py'], d['freshen-r11.py']),
                              pre=absent(window)
                                  + '# An object already fresh at FRESHEN may be up to 19 hours old; it must stay under 24\n'
                                    '# hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.\n'
                                    'find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 '
-                                   '-exec grep -l \'"ok": true\' {} + | grep -q . || '
+                                   '-exec grep -l \'"ok": true\' {} + | xargs -r grep -l "$FRESHEN_SHA" | grep -q . || '
                                    '{ echo "== STOP: no FRESHEN pass in the last 45 minutes"; '
                                    'echo "== end"; exit 1; }\n',
                              steps=['step preflight "$C/window-r11.py" "$WINDOW_SHA" preflight']),
@@ -150,23 +150,23 @@ def main(package):
                                   '  step rig-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-suspend\n'
                                   'fi' % (window, window)]),
         'SOURCE-RELEASE.sh': dict(title='source release: validate the coordinator source release against the live\n'
-                                        '# worker session, then send it once as gc mail and read it back.',
+                                        '# worker session, post it once to the ga-4z38 notes, read it back and nudge.\n'
+                                        '# Repeatable: a run after the post only verifies and nudges again.',
                                   pins='RELEASE_SHA=%s' % d['release-r11.py'],
-                                  pre=absent('/var/tmp/ga-4z38-source-release-20260923-r1'),
+                                  pre='',
                                   steps=['step source-release "$C/release-r11.py" "$RELEASE_SHA" source']),
         'SIGNING-RELEASE.sh': dict(title='signing release: validate the coordinator signing release against the live\n'
-                                         '# worker session and the staged index, then send it once as gc mail.',
+                                         '# worker session and the staged index, post it once, read it back and nudge.\n'
+                                         '# Repeatable: a run after the post only verifies and nudges again.',
                                    pins='RELEASE_SHA=%s' % d['release-r11.py'],
-                                   pre='[ -e /var/tmp/ga-4z38-source-release-20260923-r1/result.json ] || '
-                                       '{ echo "== STOP: no source release"; echo "== end"; exit 1; }\n'
-                                       + absent('/var/tmp/ga-4z38-signing-release-20260923-r1'),
+                                   pre='[ -e /var/tmp/ga-4z38-source-release.posted ] || '
+                                       '{ echo "== STOP: no source release posted"; echo "== end"; exit 1; }\n',
                                    steps=['step signing-release "$C/release-r11.py" "$RELEASE_SHA" signing']),
-        'CLOSE.sh': dict(title='close: after CONTAIN, drain (best-effort) and close the one worker session, then\n'
-                               '# prove zero session, pane and worktree-process residue.',
+        'CLOSE.sh': dict(title='close: after CONTAIN (or a passing HOLD), drain once (best-effort) and close the one\n'
+                               '# worker session, then prove zero session, pane and worktree-process residue.\n'
+                               '# Repeatable: a rerun never repeats the drain and closes only a still-open session.',
                          pins='CLOSE_SHA=%s' % d['close-r11.py'],
-                         pre='[ -e %s/suspension-rig-suspend-event.json ] || '
-                             '{ echo "== STOP: CONTAIN has not completed"; echo "== end"; exit 1; }\n' % window
-                             + absent('/var/tmp/ga-4z38-close-20260923-r1'),
+                         pre='',
                          steps=['step close "$C/close-r11.py" "$CLOSE_SHA"']),
         'HOLD.sh': dict(title='hold: emergency scheduling hold for a STRANDED window only (a lifecycle failure record\n'
                               '# exists, so CONTAIN.sh cannot act). Suspends the city and the gascity rig; never\n'
@@ -179,7 +179,10 @@ def main(package):
                                '# quiescent host) after CONTAIN and the session close. RESTORE.sh requires its pass.',
                          pre='[ -e %s/stage-consumed.json ] && [ ! -e %s/restore-consumed.json ] || '
                              '{ echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }\n'
-                             % (window, window) + absent(window + '/restore-admission.json'),
+                             % (window, window) + absent(window + '/restore-admission.json')
+                             + 'find /var/tmp -maxdepth 2 -path "/var/tmp/ga-4z38-close-*/result.json" '
+                               '-exec grep -l \'"ok": true\' {} + | grep -q . || '
+                               '{ echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }\n',
                          pins='ADMIT_SHA=%s\nBUDGET_SHA=%s' % (d['restore-admission-r3.py'], d['budget-r11.py']),
                          steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 40',
                                 'step admit "$C/restore-admission-r3.py" "$ADMIT_SHA"']),
@@ -199,6 +202,14 @@ def main(package):
                             steps=['step budget "$C/budget-r11.py" "$BUDGET_SHA" 8',
                                    'step terminal "$C/observe-terminal-r11.py" "$TERMINAL_SHA"']),
     }
+    # The job runner starts a wrapper path at most once per commit (gct-jobrunner A4). Steps that must be
+    # able to run more than once get numbered slots: identical steps, distinct reviewed wrapper paths.
+    for base, count in (('FRESHEN', 3), ('WATCH', 8), ('SOURCE-RELEASE', 2), ('SIGNING-RELEASE', 2), ('CLOSE', 2)):
+        spec = wrappers.pop(base + '.sh')
+        for slot in range(1, count + 1):
+            wrappers['%s-%d.sh' % (base, slot)] = dict(
+                spec, title=spec['title'] + '\n# Slot %d of %d: the job runner starts each wrapper path once per commit.'
+                % (slot, count))
     (out/'operator').mkdir(exist_ok=True)
     for name, spec in wrappers.items():
         log = name[:-3].lower()
