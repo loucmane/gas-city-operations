@@ -38,6 +38,16 @@ cycled session cannot be replaced inside this window.
 
 ## Claim and capability proof, before any source edit
 
+Claim at once. Core restarts a session that holds no claim and shows no activity
+for five minutes, and a restart ends this attempt. Once you hold the claim,
+waiting is safe. During a long wait, Core may add the needs/operator label and
+progress-stall metadata to ga-4z38. That is expected: leave it in place, and do
+not treat it as a stop.
+
+Start no background or detached process (no `&`, nohup, setsid, disown, screen
+or tmux). Every command must finish before the next one. The closeout proves that
+no process remains in this worktree, and a leftover process blocks it.
+
 First standalone Bash command:
 `/home/loucmane/gascity/bin/gc hook --claim --json`
 Then separately `/home/loucmane/gascity/bin/bd show ga-4z38 --json`.

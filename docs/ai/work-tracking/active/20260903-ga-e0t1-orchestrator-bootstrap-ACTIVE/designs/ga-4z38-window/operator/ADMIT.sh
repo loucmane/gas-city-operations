@@ -12,7 +12,7 @@ C=$D/ga-4z38-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
 ADMIT_SHA=471de7cfc0825ebad8b862d7b9e52812f9298916f8d6aab05c8f68d4bf9d107b
 BUDGET_SHA=f987f8c36b6fd7639c739c06bbffb223105a25814841f2518559fa1045fc8dd0
-CLOSE_SHA=0c1ad4cabc71d37318fef007de325e26f8b61d8fac621dd2da45c267b97b86aa
+CLOSE_SHA=f759cf8e2e1c8002a94229e4df850f842c664d859e80fa6e1baf053308260ed2
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

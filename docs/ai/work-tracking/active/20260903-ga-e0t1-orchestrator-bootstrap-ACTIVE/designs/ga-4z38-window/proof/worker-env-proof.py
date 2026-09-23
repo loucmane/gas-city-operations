@@ -19,6 +19,8 @@ from its hooks, its claim and its drain-ack. This proof checks each link of the 
 4. The tmux socket directory is the default /tmp/tmux-1000 for both sides: the supervisor carries no
    TMUX_TMPDIR and no TMUX (tested by name only), and the jobs' fixed support environment
    (p6-observe-compose.py ENV) names neither, so the jobs' `tmux -L city` reaches Core's server.
+5. Core runs `tmux` through the supervisor's PATH, and that PATH resolves it to /usr/bin/tmux, the binary
+   the jobs name. The PATH value is read; no other value from the environment is.
 All reads are git object reads (GIT_OPTIONAL_LOCKS=0) and O_NOATIME file reads, so running it changes no
 compared access time. The live pane environment is observed in-window by WATCH (one boolean).
 Nothing is written.
@@ -63,6 +65,10 @@ def main():
         os.close(fd)
     block = re.search(r'^ENV = dict\(.*?\)\n', compose, re.S | re.M)
     supervisor['jobs_env_names_no_tmux'] = bool(block) and 'TMUX' not in block.group(0)
+    path = [entry.split(b'=', 1)[1].decode() for entry in environ if entry.startswith(b'PATH=')]
+    resolved = next((os.path.join(d, 'tmux') for d in (path[0].split(':') if len(path) == 1 else [])
+                     if d and os.access(os.path.join(d, 'tmux'), os.X_OK)), None)
+    supervisor['path_resolves_tmux_to_usr_bin'] = resolved is not None and os.path.realpath(resolved) == '/usr/bin/tmux'
     grep = git('grep', '-n', 'GIT_OPTIONAL_LOCKS', BASE, '--', '*.go', ':(exclude)*_test.go', ok=(0, 1))
     dropin = git('grep', '-n', 'Environment=GIT_OPTIONAL_LOCKS=0', BASE, '--', 'test/docsync/cache_readonly_dropin_test.go',
                  ok=(0, 1))

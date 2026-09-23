@@ -38,7 +38,9 @@ which source commit the binary was built from:
   `list-sessions`;
 - the signing release's read-only tree derivation (release-r11.py tree_entries and index_entries) holds
   on the real repository: `ls-tree -r -z --full-tree` of the base tree equals `ls-files -s -z` of the
-  worker worktree's index while it is still at the base, over the full ~0.5 MB listing;
+  worker worktree's index while it is still at the base, over the full ~0.5 MB listing, and the
+  window's pinned owned-phase runner (phase_runner.py eddf5e11, the one every job uses) returns that
+  listing whole: its stdout equals the direct listing byte for byte;
 - the window runs the overlay city.toml (CITY_SHA[1] 5f3b60e1, the prep root's city.isolated.toml), which
   also has no [api] section, no [session] socket and no workspace name, so the socket stays `city`;
 - the city tmux server outlives its last session: Core sets exit-empty off on every create
@@ -53,9 +55,11 @@ Usage: python3 -B cli-proof.py   (prints one JSON object; exit 0 only if every c
 import hashlib
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
+import tempfile
 
 GC = ['/home/loucmane/gascity/bin/gc', '--city', '/home/loucmane/gascity/city']
 ENV = dict(HOME='/home/loucmane', GC_HOME='/home/loucmane/gascity/home', GIT_OPTIONAL_LOCKS='0',
@@ -67,6 +71,8 @@ TREE = 'f2c120a5ac9ea25ebc395c1b3cfa4eb30dcafd13'
 GC_SHA = '69d00186c098b84efe6658c03d888ce07f6d6528d6c446671b53d92f7bde89f9'
 OVERLAY = '/var/tmp/ga-4z38-prep-20260923-r2/city.isolated.toml'
 OVERLAY_SHA = '5f3b60e1c1e391b5a1f66de62a2e767ea226570ce7549c6dfb526cd072e6530d'
+RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
+RUNNER_SHA = 'eddf5e1174a7b275abe280e91ea5c8ea0762600d38524ba9631f53fb4874cdf3'
 
 
 def noatime(path):
@@ -156,6 +162,15 @@ def main():
                              text=True, timeout=60).stdout
     index = subprocess.run(git + ['ls-files', '-s', '-z'], env=ENV, capture_output=True, text=True, timeout=60).stdout
     head = subprocess.run(git + ['rev-parse', 'HEAD'], env=ENV, capture_output=True, text=True, timeout=60).stdout.strip()
+    runner_raw = noatime(RUNNER)
+    runner = {}
+    if hashlib.sha256(runner_raw).hexdigest() == RUNNER_SHA:
+        exec(compile(runner_raw, str(RUNNER), 'exec', dont_inherit=True), runner)
+    with tempfile.TemporaryDirectory() as tmp:
+        owned = runner['_run_owned_phase'](
+            name='full-listing', argv=git + ['ls-tree', '-r', '-z', '--full-tree', TREE], cwd=Path(tmp),
+            environment=dict(ENV, BD_DISABLE_METRICS='1'), timeout=60, evidence_path=Path(tmp)/'full-listing-phase.json') \
+            if runner else dict(stdout='', exit_code=None)
     status = json.loads(subprocess.run(GC + ['status', '--json'], env=ENV, capture_output=True, text=True, timeout=60,
                                        stdin=subprocess.DEVNULL).stdout)
     result = dict(
@@ -197,6 +212,7 @@ def main():
         and 'The server answered — it is simply holding zero sessions' in tmux_go,
         tree_derivation_holds_on_base=head == BASE and len(listing) > 100000
         and release['tree_entries'](listing) == release['index_entries'](index),
+        runner_returns_full_listing=owned['exit_code'] == 0 and owned['stdout'] == listing,
         server_outlives_sessions='func (t *Tmux) ConfigureServer() error {\n\treturn t.SetExitEmpty(false)\n}' in tmux_go
         and 'func (t *Tmux) TeardownServer() error {\n\treturn t.KillServer()\n}' in tmux_go
         and 'lifecycle.TeardownServer()' in stop_go)

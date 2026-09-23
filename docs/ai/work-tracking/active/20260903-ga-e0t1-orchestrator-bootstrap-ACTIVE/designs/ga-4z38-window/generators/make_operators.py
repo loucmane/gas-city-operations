@@ -65,6 +65,23 @@ def absent(*paths):
     return lines
 
 
+# CLOSE can end only an empty city tmux server: a session there before RESUME would make CLOSE unpassable.
+# PREFLIGHT (before anything is consumed) and RESUME both stop on one. Read-only and fail closed: only an
+# empty listing or a no-server answer passes. TMUX_TMPDIR and TMUX are removed so the socket directory is
+# Core's default whatever the user manager's environment holds.
+TMUX_GATE = ('tmux_out=$(/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions '
+             '-F "#{session_name}" 2>&1); tmux_rc=$?\n'
+             'if [ "$tmux_rc" = 0 ]; then\n'
+             '  [ -z "$tmux_out" ] || { echo "== STOP: the city tmux server already holds a session"; '
+             'echo "== end"; exit 1; }\n'
+             'else\n'
+             '  case "$tmux_out" in\n'
+             '    *"no server running on "*|*"error connecting to "*) ;;\n'
+             '    *) echo "== STOP: unrecognised city tmux answer"; echo "== end"; exit 1 ;;\n'
+             '  esac\n'
+             'fi\n')
+
+
 def main(package):
     package = Path(package)
     out = Path(os.environ.get('GA4Z38_OUT', package))
@@ -108,7 +125,7 @@ def main(package):
                                    'find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 '
                                    '-exec grep -l \'"ok": true\' {} + | xargs -r grep -l "$FRESHEN_SHA" | grep -q . || '
                                    '{ echo "== STOP: no FRESHEN pass in the last 45 minutes"; '
-                                   'echo "== end"; exit 1; }\n',
+                                   'echo "== end"; exit 1; }\n' + TMUX_GATE,
                              steps=['step preflight "$C/window-r11.py" "$WINDOW_SHA" preflight']),
         'STAGE.sh': dict(title='stage: the single-worker overlay city and its native-finalized receipt, through\n'
                                '# the confined writers and one observed reload. Every rig stays suspended.',
@@ -128,11 +145,7 @@ def main(package):
                           pre='[ -e /var/tmp/ga-4z38-route-20260923-r1/result.json ] && '
                               '[ -e /var/tmp/ga-4z38-audit-route-20260923-r1/result.json ] || '
                               '{ echo "== STOP: ROUTE has not passed"; echo "== end"; exit 1; }\n'
-                              # CLOSE can end only an empty city tmux server: a session there before
-                              # RESUME would make CLOSE unpassable, so it stops here (read-only).
-                              'if /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>/dev/null | grep -q .; then\n'
-                              '  echo "== STOP: the city tmux server already holds a session"; echo "== end"; exit 1\n'
-                              'fi\n'
+                              + TMUX_GATE
                               + absent('/var/tmp/ga-4z38-audit-resume-20260923-r1', window + '/rig-resume-started.json'),
                           steps=['step rig-resume "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-resume',
                                  'step audit-resume "$C/audit-queue-r3.py" "$AUDIT_SHA" resume',

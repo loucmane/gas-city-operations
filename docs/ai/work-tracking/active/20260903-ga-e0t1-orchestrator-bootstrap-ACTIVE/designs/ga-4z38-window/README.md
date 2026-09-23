@@ -703,6 +703,61 @@ attempt and Core never starts an attempt twice.
   the package and applies each r8/r9 defect. It requires the guarding `main()` test to fail with the
   named symptom. The CLOSE row includes the r9 `list-panes` defect.
 
+### Round 2b r11 (after the 6f344788 review A HOLD)
+
+Review A of `6f344788` held, and its transcript is filed.
+- **Erratum to the r10 brief claim.** The r10 section says the brief tells the worker to claim at once
+  and that the needs/operator mark is expected. The r10 package brief did not contain that text: only
+  the scratch copy was edited. r11 carries the text; a test pins it before the first command, and
+  BIND's BRIEF_SHA to the brief. `regen.py` now copies every scratch-owned source (the brief, the
+  operator generator, cli-proof and tmux-probe) into the package on every run.
+- **`bounded_read` opens with O_NONBLOCK.** A FIFO planted at a worker file no longer blocks the open;
+  fstat refuses it. A test plants one.
+- **The RESUME gate fails closed.** Only an empty listing, "no server running on …" or "error
+  connecting to …" passes. Any other answer stops. It runs tmux with TMUX_TMPDIR and TMUX removed, so
+  the socket directory is Core's default whatever the user manager's environment holds. A test runs
+  the exact gate text against a throwaway tmux server in all three states: no server, a live session,
+  and a live empty server.
+- **The CLOSE test uses the probe's answers.** The no-server answer is "no server running on …" (the
+  stale socket file remains). A live empty server answers `list-panes` with "no current target". So
+  the mutation row for the r9 defect now fails with `tmux listing failed`, the real symptom.
+- **WATCH redacts every KEY=VALUE token** in recorded argv, including assignments inside a pane
+  command string such as `exec env KEY=VALUE …`.
+- **cli-proof runs the window's pinned owned-phase runner** on the full base listing, and its stdout
+  must equal the direct listing byte for byte.
+- **The singleton proof states exactly what it checks for the signer.** The signer treats the Bead only
+  as an identity string checked against its policy prefix. Both signer files import only the standard
+  library and name no bd or gc executable. They reference no assignee, label, needs/operator,
+  progress_stall or controller_error. `[chat_sessions] idle_timeout` is unset.
+- The CLOSE result key `city_panes` is now `city_tmux_sessions`.
+
+### Round 2b r11, continued (after the 6f344788 review B HOLD)
+
+Review B of `6f344788` also held, and its transcript is filed. Its must-fix was the same missing brief
+text, which r11 adds. Its should-fixes:
+- **The mark does not end the session.** `proof/singleton-proof.py` checks that the resume tier, which
+  keeps a claim holder's session, filters its work only by status, assignee and route, never by label
+  or metadata. It also checks that no non-test Core code reads needs/operator except the
+  provider-failure writer's own de-duplication. The signer check now also excludes any `failure_` key.
+- **The tmux binary.** Core runs `tmux` through the supervisor's PATH. `proof/worker-env-proof.py`
+  checks that this PATH resolves it to /usr/bin/tmux, the binary the jobs name. It reads only the PATH
+  value.
+- **A process left in the worktree.** The brief forbids background and detached processes.
+  **Disposition:** if both CLOSE slots refuse on a remaining worktree process, the window stops there.
+  CLOSE never signals a process, so restoring needs a reviewed successor, as after HOLD.
+- **The occupied-server check comes first.** PREFLIGHT, before anything is consumed, carries the same
+  fail-closed tmux gate as RESUME. A test pins that the text is identical.
+- **The worker's hooks.** Each release nudge runs the worker's UserPromptSubmit hooks (`gc hook run`
+  with nudge drain and mail check). They run already at its first prompt, as its SessionStart hook
+  does, so a release adds nothing new in kind. ADMIT compares only the names and identities of the
+  city's `.gc` and `.beads` direct children. Every WATCH now compares them with PREFLIGHT's
+  `before.json` (`runtime_children_unchanged_since_preflight`). The routes.jsonl inode is left to the
+  route check. So the first WATCH after the worker starts shows whether ADMIT can still pass.
+  **Declared residual:** if it cannot, the window still contains and closes, and the restore needs a
+  reviewed successor.
+- **Declared and not fixable in this package:** an automatic context compaction runs the PreCompact
+  handoff, which ends the attempt. The brief keeps output short for that reason.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,

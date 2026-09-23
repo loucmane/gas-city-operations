@@ -23,6 +23,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import types
 
@@ -53,22 +54,14 @@ def load():
     return w
 
 
+ASSIGNMENT = re.compile(r'([A-Za-z_][A-Za-z0-9_]*)=[^\s\'"]*')
+
+
 def redacted(argv):
-    """argv with every tmux -e KEY=VALUE value removed: the city tmux server keeps Core's new-session
-    argv, which carries the session environment. Only the key names stay in evidence."""
-    out, value_next = [], False
-    for arg in argv:
-        if value_next:
-            out.append(arg.split('=', 1)[0] + '=<redacted>')
-            value_next = False
-        elif arg == '-e':
-            out.append(arg)
-            value_next = True
-        elif arg.startswith('-e') and '=' in arg:
-            out.append(arg.split('=', 1)[0] + '=<redacted>')
-        else:
-            out.append(arg)
-    return out
+    """argv with the value of every KEY=VALUE token removed, wherever it appears: tmux -e values and
+    assignments inside a pane command string (Core expects `exec env KEY=VALUE ...` there). The city tmux
+    server keeps Core's new-session argv, which carries the session environment; only key names stay."""
+    return [ASSIGNMENT.sub(lambda m: m.group(1) + '=<redacted>', arg) for arg in argv]
 
 
 def routes_since_stage(w, o, routes, stage_event):
@@ -90,7 +83,8 @@ def routes_since_stage(w, o, routes, stage_event):
 def bounded_read(path, limit):
     """A worker-written file: regular, uid 1000, one link and at most `limit` bytes, checked on the open
     descriptor (no lstat-then-open race), read without touching its atime. Raises OSError or RuntimeError."""
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    # O_NONBLOCK: a FIFO planted at the path must not block the open; fstat then refuses it.
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC | os.O_NONBLOCK)
     try:
         s = os.fstat(fd)
         if not (stat.S_ISREG(s.st_mode) and s.st_uid == 1000 and s.st_nlink == 1 and s.st_size <= limit):
@@ -101,6 +95,32 @@ def bounded_read(path, limit):
     finally:
         os.close(fd)
     return raw
+
+
+IDENTITY = ('device', 'inode', 'type', 'uid', 'gid', 'mode')
+
+
+def runtime_children_since_before(w, o, before_path):
+    """None before PREFLIGHT's before.json; True when the city .gc and .beads direct children keep the
+    names and identities ADMIT requires (window-base-r11 directory_preservation); otherwise the sorted
+    differences, or the refusal. The routes.jsonl inode is left to the route check, since STAGE's reload
+    regenerates that file and the route chain accounts for it."""
+    if not before_path.exists():
+        return None
+    try:
+        before = json.loads(w.read(before_path))['directories']['runtime_children']
+        now = w.directories(o)['runtime_children']
+        found = []
+        for name in ('.gc', '.beads'):
+            then, current = before.get(name, {}), now.get(name, {})
+            found += ['%s/%s %s' % (name, child, 'added' if child in current else 'removed')
+                      for child in sorted(set(then) ^ set(current))]
+            found += ['%s/%s %s' % (name, child, key) for child in sorted(set(then) & set(current)) for key in IDENTITY
+                      if then[child].get(key) != current[child].get(key)
+                      and not (name == '.beads' and child == 'routes.jsonl' and key == 'inode')]
+        return not found or found
+    except Exception as exc:  # any refusal or read error is recorded, since WATCH only observes
+        return 'refused: ' + str(exc)
 
 
 def entry(w, path):
@@ -201,6 +221,7 @@ def main():
     # (route-chain-r1 compares them exactly). Evidence only; O_NOATIME reads.
     routes = w.module(BASE.parent/'restore-r9-routes-r3.py', '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2')
     routes_unchanged = routes_since_stage(w, o, routes, WINDOW/'stage-reload-generated-routes.json')
+    children_unchanged = runtime_children_since_before(w, o, WINDOW/'before.json')
     w.complete_containment()
     related = [dict(id=v['id'], status=v['status'], state=(v.get('metadata') or {}).get('state'),
                     template=(v.get('metadata') or {}).get('template'))
@@ -214,11 +235,13 @@ def main():
                   live_sessions=sessions.get('sessions'), related_session_beads=related,
                   task=dict(status=bead['status'], assignee=bead.get('assignee'),
                             metadata=bead.get('metadata') or {}),
-                  matching_processes=len(processes), routes_unchanged_since_stage=routes_unchanged)
+                  matching_processes=len(processes), routes_unchanged_since_stage=routes_unchanged,
+                  runtime_children_unchanged_since_preflight=children_unchanged)
     w.save('result.json', result)
     print(json.dumps(dict(ok=True, root=str(root), head=head, status_records=len(records),
                           live_sessions=len(result['live_sessions'] or []), matching_processes=len(processes),
-                          routes_unchanged_since_stage=routes_unchanged)))
+                          routes_unchanged_since_stage=routes_unchanged,
+                          runtime_children_unchanged_since_preflight=children_unchanged)))
 
 
 if __name__ == '__main__':

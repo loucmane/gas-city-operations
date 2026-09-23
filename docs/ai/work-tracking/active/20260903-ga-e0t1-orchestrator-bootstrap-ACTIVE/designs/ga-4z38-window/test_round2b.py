@@ -602,10 +602,15 @@ class Safety(unittest.TestCase):
                     if argv[:3] == ['gc', 'session', 'close']:
                         state['open'] = []
                         return 0, '{"ok":true,"command":"session close","session_id":"ci-1"}\n', ''
+                    # The answers recorded by proof/tmux-probe.py (tmux 3.4); the stale city socket file stays.
                     if argv == ['/usr/bin/tmux', '-u', '-L', 'city', 'list-sessions', '-F', '#{session_name}']:
                         if state['server']:
                             return 0, live, ''
-                        return 1, '', 'error connecting to /tmp/tmux-1000/city (No such file or directory)\n'
+                        return 1, '', 'no server running on /tmp/tmux-1000/city\n'
+                    if argv[:5] == ['/usr/bin/tmux', '-u', '-L', 'city', 'list-panes']:
+                        if state['server']:
+                            return (0, live, '') if live else (1, '', 'no current target\n')
+                        return 1, '', 'no server running on /tmp/tmux-1000/city\n'
                     if argv == ['/usr/bin/tmux', '-u', '-L', 'city', 'kill-server']:
                         state['server'] = False
                         state['procs'] = []
@@ -665,11 +670,18 @@ class Safety(unittest.TestCase):
                 raise AssertionError('unexpected argv %r' % argv)
             w = real_base(tmp, FakeOwned(respond))
             rows = {'/r': dict(metadata=dict(atime_ns=1), parent=dict(mtime_ns=2), content='x', sha256='y')}
+            ident = dict(device=1, inode=2, type=3, uid=1000, gid=1000, mode=0o644)
+            children = {'.gc': {'events.jsonl': dict(ident)}, '.beads': {'routes.jsonl': dict(ident, inode=5)}}
+            (tmp/'window'/'before.json').parent.mkdir(exist_ok=True)
+            (tmp/'window'/'before.json').write_text(json.dumps(dict(directories=dict(runtime_children=children))))
+            regenerated = json.loads(json.dumps(children))
+            regenerated['.beads']['routes.jsonl']['inode'] = 9   # STAGE regenerates routes.jsonl
+            w.directories = lambda o: dict(runtime_children=regenerated)
             w.module = lambda path, pin: types.SimpleNamespace(capture_routes=lambda w, o: json.loads(json.dumps(rows)))
             watch.load = lambda: w
             (tmp/'work'/'.claude').mkdir(parents=True)
             (tmp/'work'/'.claude'/'settings.local.json').write_text('{}')
-            (tmp/'window').mkdir()
+            (tmp/'window').mkdir(exist_ok=True)
             (tmp/'var').mkdir()
             (tmp/'window'/'preflight-pass.json').write_text('{}')
             watch.WINDOW, watch.VAR = tmp/'window', tmp/'var'
@@ -681,6 +693,7 @@ class Safety(unittest.TestCase):
                 summary = json.loads(out.getvalue())
                 self.assertTrue(summary['ok'])
                 self.assertEqual(summary['routes_unchanged_since_stage'], True if stage else None)
+                self.assertIs(summary['runtime_children_unchanged_since_preflight'], True)
                 result = json.loads((Path(summary['root'])/'result.json').read_text())
                 self.assertEqual(result['staged'], [])
                 self.assertEqual(result['status_records'], ['?? .claude/settings.local.json'])
@@ -754,7 +767,7 @@ class Safety(unittest.TestCase):
              'and not server_killed:', 'and False:', 'residue remains'),
             ('test_close_main_ends_only_an_empty_city_server', 'close-r11.py',
              "'list-sessions', '-F', '#{session_name}']", "'list-panes', '-a', '-F', '#{session_name} #{pane_pid}']",
-             'unexpected argv'),
+             'tmux listing failed'),
             ('test_watch_main_runs_before_and_after_stage_against_the_real_base', 'watch-r11.py',
              "    routes_unchanged = routes_since_stage(w, o, routes, WINDOW/'stage-reload-generated-routes.json')\n",
              "    routes_unchanged = routes_since_stage(w, o, routes, WINDOW/'stage-reload-generated-routes.json')\n"
@@ -776,17 +789,61 @@ class Safety(unittest.TestCase):
     def test_watch_redacts_tmux_session_environment(self):
         watch = self.load('watch-r11.py')
         argv = ['tmux', '-u', '-L', 'city', 'new-session', '-d', '-s', 'gc-ci-1', '-e', 'GC_TOKEN=secret',
-                '-eOTHER=value', '-c', '/work', 'claude']
+                '-eOTHER=value', '-c', '/work', "exec env GC_KEY=abc 'claude' --model=x"]
         self.assertEqual(watch.redacted(argv), ['tmux', '-u', '-L', 'city', 'new-session', '-d', '-s', 'gc-ci-1', '-e',
-                                                'GC_TOKEN=<redacted>', '-eOTHER=<redacted>', '-c', '/work', 'claude'])
+                                                'GC_TOKEN=<redacted>', '-eOTHER=<redacted>', '-c', '/work',
+                                                "exec env GC_KEY=<redacted> 'claude' --model=<redacted>"])
         self.assertIn('argv=redacted([arg.decode(', (HERE/'watch-r11.py').read_text())
 
-    def test_resume_stops_when_the_city_tmux_server_holds_a_session(self):
+    def test_resume_gate_runs_fail_closed_against_real_tmux(self):
         text = (HERE/'operator'/'RESUME.sh').read_text()
-        gate = ('if /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>/dev/null | grep -q .; then\n'
-                '  echo "== STOP: the city tmux server already holds a session"; echo "== end"; exit 1\nfi\n')
-        self.assertIn(gate, text)
-        self.assertLess(text.index(gate), text.index('step rig-resume'))
+        start = text.index('tmux_out=$(')
+        gate = text[start:text.index('  esac\nfi\n', start) + len('  esac\nfi\n')]
+        self.assertLess(start, text.index('step rig-resume'))
+        self.assertIn('/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions', gate)
+        socket = 'ga4z38-gate-probe'
+        path = '/tmp/tmux-%d/%s' % (os.getuid(), socket)
+        self.assertFalse(os.path.lexists(path))
+        tmux = ['/usr/bin/tmux', '-u', '-f', '/dev/null', '-L', socket]
+        env = dict(PATH='/usr/bin:/bin', HOME='/home/loucmane', LC_ALL='C.UTF-8')
+
+        def gate_says():
+            done = subprocess.run(['/bin/sh', '-c', gate.replace('-L city', '-L ' + socket) + 'echo "== PASS"\n'],
+                                  capture_output=True, text=True, timeout=30, env=env, stdin=subprocess.DEVNULL)
+            return done.stdout.strip().splitlines()[0]
+        try:
+            self.assertEqual(gate_says(), '== PASS')                       # no server at all
+            subprocess.run(tmux + ['new-session', '-d', '-s', 'probe', '-c', '/tmp', 'sleep 300'], check=True, env=env)
+            subprocess.run(tmux + ['set-option', '-g', 'exit-empty', 'off'], check=True, env=env)
+            self.assertEqual(gate_says(), '== STOP: the city tmux server already holds a session')
+            subprocess.run(tmux + ['kill-session', '-t', 'probe'], check=True, env=env)
+            self.assertEqual(gate_says(), '== PASS')                       # live empty server
+        finally:
+            subprocess.run(tmux + ['kill-server'], env=env, capture_output=True)
+            if os.path.lexists(path):
+                os.unlink(path)
+        self.assertEqual(gate_says(), '== PASS')                           # socket gone again
+        self.assertFalse(os.path.lexists(path))
+
+    def test_bounded_read_refuses_a_fifo_without_blocking(self):
+        r = self.load('release-r11.py')
+        watch = self.load('watch-r11.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            fifo = Path(tmp)/'candidate.json'
+            os.mkfifo(fifo)
+            for module in (r, watch):
+                with self.assertRaisesRegex(RuntimeError, 'worker file shape or size'):
+                    module.bounded_read(fifo, 1 << 20)
+
+    def test_brief_carries_the_claim_and_attention_text(self):
+        brief = (HERE/'worker-brief.md').read_text()
+        claim = brief.index('Claim at once. Core restarts a session that holds no claim')
+        self.assertLess(claim, brief.index('First standalone Bash command:'))
+        self.assertIn('progress-stall metadata to ga-4z38. That is expected: leave it in place, and do\nnot treat it as a stop.',
+                      brief)
+        self.assertIn('Start no background or detached process', brief)
+        bind = (HERE/'bind-task-r3.py').read_text()
+        self.assertEqual(constant(bind, 'BRIEF_SHA'), sha(HERE/'worker-brief.md'))
 
     def test_survival_and_socket_directory_proofs(self):
         for proof in ('singleton-proof.py', 'worker-env-proof.py'):
@@ -802,6 +859,36 @@ class Safety(unittest.TestCase):
                               capture_output=True, text=True, timeout=120, stdin=subprocess.DEVNULL)
         self.assertEqual(done.returncode, 0, done.stdout[-2000:] + done.stderr[-2000:])
         self.assertTrue(json.loads(done.stdout)['ok'])
+
+    def test_watch_runtime_children_since_preflight(self):
+        watch = self.load('watch-r11.py')
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp = Path(tmp)
+            w = real_base(tmp, None)
+            before = tmp/'before.json'
+            self.assertIsNone(watch.runtime_children_since_before(w, None, before))
+            ident = dict(device=1, inode=2, type=3, uid=1000, gid=1000, mode=0o644)
+            then = {'.gc': {'a': dict(ident)}, '.beads': {'routes.jsonl': dict(ident)}}
+            before.write_text(json.dumps(dict(directories=dict(runtime_children=then))))
+            now = json.loads(json.dumps(then))
+            now['.gc']['a']['inode'] = 7
+            now['.gc']['new'] = dict(ident)
+            now['.beads']['routes.jsonl']['inode'] = 8
+            w.directories = lambda o: dict(runtime_children=now)
+            self.assertEqual(watch.runtime_children_since_before(w, None, before), ['.gc/new added', '.gc/a inode'])
+
+            def refuse(o):
+                raise OSError('gone')
+            w.directories = refuse
+            self.assertEqual(watch.runtime_children_since_before(w, None, before), 'refused: gone')
+
+    def test_preflight_carries_the_same_tmux_gate_before_its_step(self):
+        resume = (HERE/'operator'/'RESUME.sh').read_text()
+        preflight = (HERE/'operator'/'PREFLIGHT.sh').read_text()
+        start = resume.index('tmux_out=$(')
+        gate = resume[start:resume.index('  esac\nfi\n', start) + len('  esac\nfi\n')]
+        self.assertIn(gate, preflight)
+        self.assertLess(preflight.index(gate), preflight.index('step preflight'))
 
     def test_watch_routes_since_stage(self):
         watch = self.load('watch-r11.py')

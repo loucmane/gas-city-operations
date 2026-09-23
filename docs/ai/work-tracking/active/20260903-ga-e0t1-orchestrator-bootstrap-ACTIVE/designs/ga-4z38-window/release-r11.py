@@ -137,7 +137,8 @@ def pane_clear(w, run, session, name):
 def bounded_read(path, limit):
     """A worker-written file: regular, uid 1000, one link and at most `limit` bytes, checked on the open
     descriptor (no lstat-then-open race), read without touching its atime. Raises OSError or RuntimeError."""
-    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    # O_NONBLOCK: a FIFO planted at the path must not block the open; fstat then refuses it.
+    fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC | os.O_NONBLOCK)
     try:
         s = os.fstat(fd)
         if not (stat.S_ISREG(s.st_mode) and s.st_uid == 1000 and s.st_nlink == 1 and s.st_size <= limit):

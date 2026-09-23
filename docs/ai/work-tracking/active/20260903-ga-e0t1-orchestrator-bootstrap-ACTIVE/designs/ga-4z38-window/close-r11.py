@@ -171,7 +171,7 @@ def main():
     w.active_epoch(o)
     w.ROOT = ROOT
     w.complete_containment()
-    result = dict(ok=True, closed_session=first[0]['id'] if first else None, open_sessions=0, city_panes=0,
+    result = dict(ok=True, closed_session=first[0]['id'] if first else None, open_sessions=0, city_tmux_sessions=0,
                   worktree_processes=0, tmux_server_killed=server_killed, signals_sent=False,
                   executor_sha256=_SOURCE_SHA)
     w.save('result.json', result)

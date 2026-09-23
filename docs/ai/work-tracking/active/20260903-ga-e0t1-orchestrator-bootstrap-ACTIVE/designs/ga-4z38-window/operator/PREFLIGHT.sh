@@ -30,6 +30,15 @@ fi
 # An object already fresh at FRESHEN may be up to 19 hours old; it must stay under 24
 # hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.
 find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-4z38-freshen-*/result.json" -mmin -45 -exec grep -l '"ok": true' {} + | xargs -r grep -l "$FRESHEN_SHA" | grep -q . || { echo "== STOP: no FRESHEN pass in the last 45 minutes"; echo "== end"; exit 1; }
+tmux_out=$(/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>&1); tmux_rc=$?
+if [ "$tmux_rc" = 0 ]; then
+  [ -z "$tmux_out" ] || { echo "== STOP: the city tmux server already holds a session"; echo "== end"; exit 1; }
+else
+  case "$tmux_out" in
+    *"no server running on "*|*"error connecting to "*) ;;
+    *) echo "== STOP: unrecognised city tmux answer"; echo "== end"; exit 1 ;;
+  esac
+fi
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

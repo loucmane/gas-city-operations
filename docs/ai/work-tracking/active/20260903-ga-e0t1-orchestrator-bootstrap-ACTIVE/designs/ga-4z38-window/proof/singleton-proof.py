@@ -20,8 +20,14 @@ waits for a release. This proof checks that the session is still preserved:
    sessionProgressStalled returns false for a claim holder); for a claim holder Core only marks the
    claimed work with the needs/operator label and progress-stall metadata, never its status or assignee
    (session_reconciler.go markProgressStalledClaimedWorkNeedsOperator). AssignedWorkDeferLimit bounds
-   only the idle-timeout ladder, which is off. The managed signer (managed-git-commit, managed-git-signerd)
-   reads no Bead label, status or assignee, so the mark cannot refuse the signature.
+   only the idle-timeout ladder, which is off. [chat_sessions] idle_timeout is unset too. The managed
+   signer (managed-git-commit, managed-git-signerd) treats the Bead only as an identity string checked
+   against its policy prefix: both files import only the standard library, name no bd or gc executable,
+   and contain no assignee, label, needs/operator, progress_stall, controller_error or failure_ reference.
+   So the mark cannot refuse the signature. The mark does not end the session either: the resume tier
+   that keeps a claim holder's session (pool_desired_state.go) filters its work only by status, assignee
+   and route, never by label or metadata, and no non-test Core code reads needs/operator except the
+   provider-failure writer's own de-duplication.
 All reads are git object reads (GIT_OPTIONAL_LOCKS=0), an O_NOATIME read of the prep evidence file, and
 plain reads of the two root-owned signer sources (O_NOATIME needs ownership). The proof runs before
 PREFLIGHT, never in the window. Nothing is written.
@@ -65,6 +71,11 @@ def noatime(path):
     return raw
 
 
+def imports_are_stdlib(text):
+    names = re.findall(rb'^(?:from|import) ([A-Za-z_][A-Za-z0-9_]*)', text, re.M)
+    return bool(names) and all(name.decode() in sys.stdlib_module_names or name == b'__future__' for name in names)
+
+
 def main():
     raw = noatime(CONFIG)
     city = json.loads(raw)['config']
@@ -87,7 +98,8 @@ def main():
         no_sleep_policy=worker['SleepAfterIdle'] == '' and set(rig['SessionSleep'].values()) == {''}
         and set(city['SessionSleep'].values()) == {''},
         claim_holder_recycle_off=city['Session']['ClaimHolderStallTimeout'] == '',
-        claimless_recycle_only=city['Session']['ProgressStallTimeout'] == '5m')
+        claimless_recycle_only=city['Session']['ProgressStallTimeout'] == '5m',
+        no_chat_session_idle_timeout=city['ChatSessions']['IdleTimeout'] == '')
     config_go = show('internal/config/config.go')
     sleep_go = show('internal/config/session_sleep.go')
     progress_go = show('cmd/gc/session_progress.go')
@@ -95,6 +107,9 @@ def main():
     mark = re.search(r'func markProgressStalledClaimedWorkNeedsOperator\(.*?\n}\n', reconciler, re.S)
     update = re.search(r'item\.store\.Update\(item\.bead\.ID, beads\.UpdateOpts\{.*?\n\t\t\}\)', mark.group(0), re.S) if mark else None
     signer = [noatime(path) for path in SIGNER]
+    tier = desired[desired.index('// Resume tier: actionable assigned work beads'):desired.index('resumeRequests = append(resumeRequests')]
+    readers = subprocess.run(['/usr/bin/git', '-C', CORE, 'grep', '-n', '"needs/operator"', BASE, '--', '*.go',
+                              ':(exclude)*_test.go'], env=ENV, capture_output=True, text=True, timeout=60).stdout.splitlines()
     survival_core = dict(
         idle_timeout_empty_disables='// Empty (default) disables idle checking.\n\tIdleTimeout string' in config_go,
         max_age_empty_disables='Empty (default) disables preemptive restarts.' in config_go,
@@ -104,7 +119,19 @@ def main():
         claim_holder_needs_threshold='if threshold <= 0 || !holdsClaim || !providerHealthy || exempt || lastProgress.IsZero() {\n\t\treturn false' in progress_go,
         attention_mark_keeps_status_and_assignee=bool(update) and 'Labels: []string{"needs/operator"}' in update.group(0)
         and 'Status' not in update.group(0) and 'Assignee' not in update.group(0),
-        signer_reads_no_bead_labels=all(b'needs/operator' not in text and b'labels' not in text.lower() for text in signer))
+        resume_tier_ignores_labels_and_metadata='wb.Status' in tier and 'wb.Assignee' in tier
+        and 'Labels' not in tier and 'Metadata[' not in tier and 'beadmeta.' not in tier,
+        needs_operator_has_no_reader=bool(readers) and all(
+            'Labels: []string{"needs/operator"},' in line
+            or ('build_desired_state.go' in line and 'containsString(work.Labels, "needs/operator")' in line)
+            for line in readers),
+        signer_bead_is_identity_only=all(
+            imports_are_stdlib(text) and b'/gascity/bin' not in text and b"'bd'" not in text and b'"bd"' not in text
+            and b"'gc'" not in text and b'"gc"' not in text
+            and not any(word in text.lower() for word in (b'assignee', b'labels', b'needs/operator', b'progress_stall',
+                                                           b'controller_error', b'failure_'))
+            and b'bead=_required_identity("bead", arguments.bead, policy.bead_prefix)' in signer[0]
+            and b'_identity("bead", request["bead"], policy.bead_prefix)' in signer[1] for text in signer))
     result = dict(config=config, core=core, survival_config=survival_config, survival_core=survival_core)
     result['ok'] = all(v for part in (config, core, survival_config, survival_core) for v in part.values())
     print(json.dumps(result, indent=1, sort_keys=True))
