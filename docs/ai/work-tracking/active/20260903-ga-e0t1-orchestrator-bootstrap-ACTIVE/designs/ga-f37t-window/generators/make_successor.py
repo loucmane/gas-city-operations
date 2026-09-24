@@ -1,4 +1,4 @@
-"""Successor s1: derive the ga-f37t window package from the reviewed ga-4z38 r14 package.
+"""Successor derivation (s1 to s3 r4): derive the ga-f37t window package from the reviewed ga-4z38 r14 package.
 
   python3 -B make_successor.py <output package dir>
 
@@ -19,7 +19,7 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
 6. s1 (912e4d48) admitted only PREP. The ga-f37t PREP job passed on 2026-09-24 at 22:05:00Z
    (root /var/tmp/ga-f37t-prep-20260923-r2); in s1 the window-base-r11.py pins still carried the ga-4z38
    PREP digests under the renamed path.
-7. s2 (this derivation) adds, from the s1 reviews and the PREP outputs:
+7. s2 adds, from the s1 reviews and the PREP outputs:
    - S2_PINS: window-base-r11.py pins the ga-f37t PREP outputs (overlay, receipt image, revision, result);
    - WATCH captures each live session's pane with the release job's exact read-only form, so a silent
      worker start can be diagnosed before Core reaps the session (ga-4z38 left no capture);
@@ -29,7 +29,8 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
 8. s3 (after OBSERVE refused at s2 r2) adds S3_SUBS, the restore disposition in window-base-r11.py, and
    the fresh integrity root S3_ROOT. s3 r2 keeps ROUTE's BIND_SHA at BIND_RAN_SHA, the bind-task digest
    BIND ran with at s2 r2 (36b4158d); BIND never runs again, while BIND.sh and bind-task-r3.py carry the
-   propagated digests.
+   propagated digests. s3 r3 and s3 r4 change only documentation, comments and tests (comment edits move
+   digests).
 """
 import hashlib
 import re
@@ -82,10 +83,10 @@ PRE_SUBS = {
     w.save('pane-unnamed.json', unnamed)
 """, 1)],
 }
-# s3: OBSERVE at s2 r2 refused 'accepted baseline drift' (2026-09-24 22:24:14Z). The ga-4z38 RESTORE and
-# TERMINAL (21:53-21:54Z) rewrote city.toml and receipt.json with their P6 content (new inode and times)
-# and the ga-4z38 rig-suspend step (21:50:20Z) wrote a new suspension-state.json, which TERMINAL then
-# recorded; the P6 accepted image can never match a restored city.
+# s3: OBSERVE at s2 r2 refused 'accepted baseline drift' (2026-09-24 22:24:14Z). The ga-4z38 rig-suspend
+# step (21:50:20Z) wrote a new suspension-state.json, and the ga-4z38 RESTORE (21:53:20Z) rewrote
+# city.toml and receipt.json with their P6 content (new inode and times). TERMINAL (21:54:18Z) wrote only
+# its own record, which holds all three entries. The P6 accepted image can never match a restored city.
 # The disposition takes exactly those three pin entries from the reviewed ga-4z38 TERMINAL record, which
 # equals the live pins, cache, protected trees and host except for atime (checked 22:3xZ).
 TERMINAL_RECORD = '/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json'
@@ -100,9 +101,9 @@ RESTORED_PINS = {
 def approved_restore_image(prior):
     # ga-f37t s3 disposition, for independent review: the ga-4z38 window restored the city exactly
     # (RESTORE 2026-09-24 21:53:20Z, TERMINAL 21:54:18Z). RESTORE rewrote city.toml and receipt.json with
-    # their accepted content, so only their inode and times changed, and the window's reviewed rig-suspend
-    # step (21:50:20Z) wrote a new suspension-state.json, which TERMINAL recorded. The P6 image therefore cannot match any restored city. These three pin
-    # entries, and only these, are taken from the reviewed TERMINAL record (pinned by digest); the two
+    # their accepted content, so only their inode and times changed. The window's reviewed rig-suspend
+    # step (21:50:20Z) wrote a new suspension-state.json, which TERMINAL recorded. The P6 image therefore
+    # cannot match any restored city. These three pin entries, and only these, are taken from the reviewed TERMINAL record (pinned by digest); the two
     # rewritten files must keep exactly their accepted content digest, and the suspension state must be the
     # one TERMINAL recorded. Every other pin, the cache, the protected trees and the host stay compared as
     # before. Never reuse this for fresh drift.
@@ -125,6 +126,14 @@ S3_SUBS = {
         ('\ndef directories(o):', RESTORE_DISPOSITION + '\ndef directories(o):'),
         ('if dependency_image(approved_epoch_image(approved_historical_image(prior), h)) != dependency_image(value):',
          'if dependency_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h))) != dependency_image(value):')],
+    'observe-integrity-r11.py': [
+        ('M5 baseline. It admits the live state against the P6 accepted snapshot plus the reviewed disposition,',
+         'M5 baseline. It admits the live state against the P6 accepted snapshot plus the reviewed dispositions,'),
+        ('    # snapshot below and admitted against the P6 accepted state.',
+         '    # snapshot below and admitted against the recorded TERMINAL entry (approved_restore_image).'),
+        ('    # with the reviewed disposition (approved_historical_image) and the accepted provider pins.',
+         '    # with the reviewed dispositions approved_historical_image, approved_epoch_image and\n'
+         '    # approved_restore_image, and the accepted provider pins.')],
 }
 # The ga-f37t integrity root r2 was created by the refused s2 r2 OBSERVE; s3 uses a fresh one.
 S3_ROOT = ('/var/tmp/ga-f37t-integrity-20260924-r2', '/var/tmp/ga-f37t-integrity-20260925-r3')

@@ -65,8 +65,9 @@ package equals its output.
 s2 r2 (`36b4158d`) passed two job reviews. RECONCILE passed at 2026-09-24 22:22:22Z (ga-4z38 blocked) and
 BIND at 22:22:48Z (ga-f37t bound, attempt requested). The FRESHEN opening was already free, so FRESHEN-1
 passed at 22:23:38Z. OBSERVE then refused at 22:24:14Z with "accepted baseline drift".
-- **Cause.** The ga-4z38 RESTORE and TERMINAL (21:53-21:54Z) rewrote `city.toml` and `receipt.json` with
-  their accepted content (new inode and times) and TERMINAL wrote a new `suspension-state.json`. The P6
+- **Cause.** The ga-4z38 window's rig-suspend step (21:50:20Z) wrote a new `suspension-state.json`, and its
+  RESTORE (21:53:20Z) rewrote `city.toml` and `receipt.json` with their accepted content (new inode and
+  times). TERMINAL (21:54:18Z) wrote only its own record, which holds all three entries. The P6
   accepted image therefore cannot match any city that a window has restored. The refused observation equals
   the reviewed ga-4z38 TERMINAL record exactly in pins, cache, protected trees and host (atime aside); only
   those three pins differ from P6.
@@ -76,8 +77,9 @@ passed at 22:23:38Z. OBSERVE then refused at 22:24:14Z with "accepted baseline d
   state must be the one TERMINAL recorded (`a4bcfdc3`; the ga-4z38 window's reviewed rig-suspend step wrote it
   at 21:50:20Z, before RESTORE, and TERMINAL recorded it after checking the terminal lineage). Everything else is compared as before. A test
   replays the refused observation (it passes with the disposition and fails without it); others prove that
-  a changed content digest, another suspension state, a missing pin, a changed pin shape, another inode on a
-  restored file and drift in any other pin all refuse.
+  a changed content digest, another expected suspension state, a pin missing from the prior image and a changed
+  pin shape refuse, and that another inode on `city.toml` or on one other pin makes the admitted image differ
+  from the live one. The tests that read `/var/tmp` evidence skip when it is absent (they run on this host).
 - **Fresh root.** The refused OBSERVE created `/var/tmp/ga-f37t-integrity-20260924-r2`, so s3 uses
   `/var/tmp/ga-f37t-integrity-20260925-r3`. RECONCILE and BIND have run and are not repeated; their wrappers
   are left out of the s3 job reviews.
@@ -94,7 +96,17 @@ passed at 22:23:38Z. OBSERVE then refused at 22:24:14Z with "accepted baseline d
 ## s3 r3 (review hold on the documentation)
 
 - Documentation only, plus tests: the corrections above, the refusal-branch tests and a direct test that both
-  observers pin `window-obs-r11.py`.
+  observers pin `window-obs-r11.py`. The corrected comment in `window-base-r11.py` changes its digest, so every
+  propagated digest moves (FRESHEN, window, window-obs, OBSERVE, ROUTE and the wrappers). No FRESHEN or other
+  result from an earlier commit is accepted, which is intended.
+
+## s3 r4 (second documentation hold)
+
+- The Cause above now credits each file to the step that wrote it (rig-suspend, RESTORE) and TERMINAL only with
+  recording them; the same in the generator comment. The Phases list no longer calls s1 "this commit"; the
+  generator docstring no longer calls s2 "this derivation". The `observe-integrity-r11.py` comments name all
+  three dispositions (`approved_historical_image`, `approved_epoch_image`, `approved_restore_image`); that
+  comment change moves the OBSERVE digests. No logic changes.
 - **ga-f37t stays unwritten until ROUTE.** ROUTE requires the live Bead to equal the BIND record
   (`task-after.json`: notes, `comment_count` 0, `updated_at` 2026-09-24T22:22:41Z). No note, comment or label
   goes to ga-f37t before ROUTE; outcomes are recorded on ga-e0t1. Check `updated_at` read-only before the
@@ -105,15 +117,15 @@ passed at 22:23:38Z. OBSERVE then refused at 22:24:14Z with "accepted baseline d
 
 ## Phases
 
-1. **s1 (this commit):** its two reviews name only `operator/PREP.sh`, so the job runner admits only PREP. PREP
-   writes the ga-f37t overlay and receipt image to `/var/tmp/ga-f37t-prep-20260923-r2`.
+1. **s1 (`912e4d48`):** its two reviews named only `operator/PREP.sh`, so the job runner admitted only PREP. PREP
+   wrote the ga-f37t overlay and receipt image to `/var/tmp/ga-f37t-prep-20260923-r2`.
 2. **s2 (after PREP):** re-pin the PREP outputs in `window-base-r11.py`; add repeated worker-pane capture to the
    first minutes after RESUME, so a silent start can be diagnosed before Core reaps the session; two reviews
    naming RECONCILE, BIND and the window wrappers.
 3. **Window:** RECONCILE (ga-4z38 to blocked) and BIND ran at s2 r2. FRESHEN through TERMINAL run in a FRESHEN
    opening from the access-time forecast recomputed just before FRESHEN-1 (lstat of every FRESHEN object; an
-   opening is a time with no non-refreshable atime in the last 19 to 24 hours). On 2026-09-25 at 00:33 CEST the
-   forecast was: free until 04:17 CEST, blocked from 04:17 CEST to Saturday 00:23 CEST, free after that.
+   opening is a time with no non-refreshable atime in the last 19 to 24 hours). The run record on ga-e0t1 holds
+   the forecast actually used.
 
 The ga-4z38 package's README holds the full design and its review history; it applies here unchanged except
 for the points above.
