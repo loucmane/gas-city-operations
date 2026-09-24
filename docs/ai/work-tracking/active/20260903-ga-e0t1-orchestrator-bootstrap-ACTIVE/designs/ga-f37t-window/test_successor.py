@@ -17,7 +17,8 @@ ALLOWED = ['/var/tmp/ga-4z38-platform-inspector-20260924-r1',
            'It is the reviewed ga-4z38 prep r3 rebound to ga-f37t',
            'belong to the ga-4z38 jobs',
            'the consumed predecessor ga-4z38\n',
-           'ga-y49e and ga-4z38 attempts']
+           'ga-y49e and ga-4z38 attempts',
+           'The ga-4z38 worker went silent']
 
 
 def sha(path):
@@ -72,6 +73,41 @@ class Derivation(unittest.TestCase):
         self.assertIn('Branch codex/ga-f37t-typed-route-cycles.', brief)
         self.assertIn("BEAD='ga-f37t'", (HERE/'bind-task-r3.py').read_text())
 
+    def test_route_binds_the_bind_that_runs(self):
+        bind = sha(HERE/'bind-task-r3.py')
+        [wrapper] = re.findall(r'^BIND_SHA=([0-9a-f]{64})$', (HERE/'operator'/'BIND.sh').read_text(), re.M)
+        [route] = re.findall(r"^BIND_SHA='([0-9a-f]{64})'$", (HERE/'route-task-r5.py').read_text(), re.M)
+        self.assertEqual(wrapper, bind)
+        self.assertEqual(route, bind)
+        self.assertNotIn('591cf9b58cfa86d8cee18af4db8fbcf03408c8932dcb79f17e6c9096969149fa',
+                         (HERE/'route-task-r5.py').read_text())
+
+    def test_every_wrapper_pin_names_the_file_it_launches(self):
+        for wrapper in sorted((HERE/'operator').glob('*.sh')):
+            text = wrapper.read_text()
+            pins = dict(re.findall(r'^([A-Z_]+_SHA)=([0-9a-f]{64})$', text, re.M))
+            steps = re.findall(r'"\$C/([^"]+)" "\$([A-Z_]+_SHA)"', text)
+            self.assertTrue(steps, wrapper.name)
+            for target, pin in steps:
+                self.assertEqual(pins[pin], sha(HERE/target), (wrapper.name, target))
+
+    def test_every_script_pin_names_the_file_it_loads(self):
+        base = sha(HERE/'window-base-r11.py')
+        for name in ('bind-task-r3.py', 'freshen-r11.py', 'watch-r11.py', 'release-r11.py', 'close-r11.py',
+                     'hold-r11.py', 'window-r11.py', 'window-obs-r11.py'):
+            text = (HERE/name).read_text()
+            self.assertIn(base, text, name)
+        window = sha(HERE/'window-r11.py')
+        for name in ('route-task-r5.py', 'restore-admission-r3.py', 'observe-terminal-r11.py'):
+            self.assertIn(window, (HERE/name).read_text(), name)
+        self.assertIn(sha(HERE/'worker-brief.md'), (HERE/'bind-task-r3.py').read_text())
+
+    def test_twelve_watch_slots_differ_only_in_slot(self):
+        slots = sorted((HERE/'operator').glob('WATCH-*.sh'), key=lambda p: int(p.stem.split('-')[1]))
+        self.assertEqual([p.stem for p in slots], ['WATCH-%d' % n for n in range(1, 13)])
+        normal = {re.sub(r'(WATCH-|watch-|Slot )\d+', r'\1N', p.read_text()) for p in slots}
+        self.assertEqual(len(normal), 1)
+
     def test_prep_wrapper_pins_prep(self):
         text = (HERE/'operator'/'PREP.sh').read_text()
         [pin] = re.findall(r'^PREP_SHA=([0-9a-f]{64})$', text, re.M)
@@ -92,8 +128,10 @@ class Derivation(unittest.TestCase):
 
     def test_watch_captures_each_live_pane(self):
         watch = (HERE/'watch-r11.py').read_text()
-        self.assertIn("'capture-pane', '-p', '-t', live['session_name']]", watch)
-        self.assertIn("expected=(0, 1))", watch)
+        self.assertIn("'capture-pane', '-p', '-t', name]", watch)
+        self.assertIn("if not isinstance(name, str) or not name:", watch)
+        self.assertIn("w.save('pane-unnamed.json', unnamed)", watch)
+        self.assertNotIn('send-keys', watch)
         self.assertFalse((HERE/'proof').exists())
 
 

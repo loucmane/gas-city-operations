@@ -64,11 +64,18 @@ PRE_SUBS = {
          """    run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid} #{pane_dead}'],
         expected=(0, 1))
     # ga-f37t: the visible pane of each live session, captured the way Core captures it (release-r11
-    # pane_clear form), read-only. ga-4z38's worker went silent and was reaped before any capture; the
-    # early WATCH slots after RESUME keep the screen as evidence. Exit 1 (pane gone) is recorded, not fatal.
+    # pane_clear form), read-only. The ga-4z38-KEEP worker went silent and was reaped before any capture; the
+    # early WATCH slots after RESUME keep the screen as evidence. Exit 1 (pane gone) is recorded, not fatal,
+    # and a listed session without a string session_name is recorded, never captured.
+    unnamed = []
     for index, live in enumerate(sessions.get('sessions') or []):
-        run('pane-%d' % index, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', live['session_name']],
+        name = live.get('session_name') if isinstance(live, dict) else None
+        if not isinstance(name, str) or not name:
+            unnamed.append(index)
+            continue
+        run('pane-%d' % index, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', name],
             expected=(0, 1))
+    w.save('pane-unnamed.json', unnamed)
 """, 1)],
 }
 # Applied after the rename: the ga-f37t PREP outputs (job ga-f37t-prep, 22:05:00Z).
@@ -121,6 +128,7 @@ IDENTITY = [
     ('ga-4z38', 'ga-f37t'),
 ]
 DIGEST = re.compile(r'[0-9a-f]{64}')
+R12_BIND_SHA = '591cf9b58cfa86d8cee18af4db8fbcf03408c8932dcb79f17e6c9096969149fa'
 # PREP pins the exact overlay it generates. The reviewed ga-4z38 overlay (5f3b60e1, written by the ga-4z38
 # PREP job) differs from the ga-f37t one only in the worker's work_dir and the header comment, so the
 # expected ga-f37t overlay is derived from those bytes and its digest replaces OVERLAY_SHA.
@@ -200,6 +208,9 @@ def rebind(files):
                 text = text.replace(old, new)
         out[name] = text.encode()
     history = {name: {sha(raw)} for name, raw in files.items()}
+    # ROUTE's BIND_SHA kept the r12 bind-task digest as a provenance pin (make_epoch_r13/r14). BIND runs
+    # again for ga-f37t, so that digest must also map to the new bind-task digest.
+    history['bind-task-r3.py'].add(R12_BIND_SHA)
     while True:
         for name, raw in out.items():
             history[name].add(sha(raw))
@@ -214,7 +225,36 @@ def rebind(files):
                 out[name] = new.encode()
                 changed = True
         if not changed:
-            return out
+            return add_watch_slots(out)
+
+
+WATCH_SLOTS = 12
+
+
+def add_watch_slots(out):
+    """Twelve WATCH slots instead of eight: the early pane-capture cadence needs about five slots on top of
+    the baseline, the startup, candidate and signature observations and the post-CLOSE WATCH. WATCH-9..12 are
+    WATCH-8 with only the slot number changed; the runner pins each wrapper by its own digest in the job
+    file, and no package file pins a WATCH wrapper."""
+    for n in range(1, 9):
+        name = 'operator/WATCH-%d.sh' % n
+        text = out[name].decode()
+        old = '# Slot %d of 8: ' % n
+        assert text.count(old) == 1, name
+        out[name] = text.replace(old, '# Slot %d of %d: ' % (n, WATCH_SLOTS)).encode()
+    base = out['operator/WATCH-8.sh'].decode()
+    for n in range(9, WATCH_SLOTS + 1):
+        text = base
+        for old, new in (('# Slot 8 of %d: ' % WATCH_SLOTS, '# Slot %d of %d: ' % (n, WATCH_SLOTS)),
+                         ('WATCH-8.sh <reviewed commit>', 'WATCH-%d.sh <reviewed commit>' % n),
+                         ('/watch-8-<timestamp>.txt', '/watch-%d-<timestamp>.txt' % n),
+                         ('LOG="$S/watch-8-', 'LOG="$S/watch-%d-' % n),
+                         ('== WATCH-8 REFUSED', '== WATCH-%d REFUSED' % n),
+                         ('== WATCH-8 PASS', '== WATCH-%d PASS' % n)):
+            assert text.count(old) == 1, (n, old)
+            text = text.replace(old, new)
+        out['operator/WATCH-%d.sh' % n] = text.encode()
+    return out
 
 
 def main(output):

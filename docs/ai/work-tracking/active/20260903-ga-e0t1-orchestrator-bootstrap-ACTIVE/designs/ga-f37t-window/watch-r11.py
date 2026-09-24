@@ -219,11 +219,18 @@ def main():
     run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid} #{pane_dead}'],
         expected=(0, 1))
     # ga-f37t: the visible pane of each live session, captured the way Core captures it (release-r11
-    # pane_clear form), read-only. ga-f37t's worker went silent and was reaped before any capture; the
-    # early WATCH slots after RESUME keep the screen as evidence. Exit 1 (pane gone) is recorded, not fatal.
+    # pane_clear form), read-only. The ga-4z38 worker went silent and was reaped before any capture; the
+    # early WATCH slots after RESUME keep the screen as evidence. Exit 1 (pane gone) is recorded, not fatal,
+    # and a listed session without a string session_name is recorded, never captured.
+    unnamed = []
     for index, live in enumerate(sessions.get('sessions') or []):
-        run('pane-%d' % index, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', live['session_name']],
+        name = live.get('session_name') if isinstance(live, dict) else None
+        if not isinstance(name, str) or not name:
+            unnamed.append(index)
+            continue
+        run('pane-%d' % index, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', name],
             expected=(0, 1))
+    w.save('pane-unnamed.json', unnamed)
     processes = []
     for proc in Path('/proc').iterdir():
         if not proc.name.isdigit():

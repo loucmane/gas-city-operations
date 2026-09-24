@@ -1,6 +1,6 @@
 #!/bin/sh
 # ga-f37t window watch: read-only in-window observation; repeatable, one fresh root per run.
-# Slot 1 of 8: the job runner starts each wrapper path once per commit.
+# Slot 1 of 12: the job runner starts each wrapper path once per commit.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
 # Log: ~/.local/share/gas-city-staging/ga-f37t-window/watch-1-<timestamp>.txt. Exits with the first failing
@@ -10,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-f37t-window
 COMMIT=${1:?usage: WATCH-1.sh <reviewed commit>}
-WATCH_SHA=f1a97de6b98e81c8d921ed285cf0d5dd1712d8eb0be7f073842cbc1bae64fa06
+WATCH_SHA=52e33fc4d3a6a5892f3c9342236368d39b172865776f22f0d3b90375d16846d2
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

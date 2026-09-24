@@ -44,6 +44,22 @@ package equals its output.
   output pins against the live PREP root, and the pane capture. The overlay derivation itself is proven
   live by PREP's in-job digest check, which passed.
 
+## s2 r2 (after both reviews of 0705cc0a held)
+
+- **ROUTE binds the BIND that runs.** `route-task-r5.py` pinned `BIND_SHA` 591cf9b5, the ga-4z38 r12
+  bind-task digest that r13 and r14 kept as a provenance pin; ROUTE would have refused the ga-f37t BIND after
+  STAGE. The generator now maps that digest to the new bind-task digest, and a test ties ROUTE's `BIND_SHA`,
+  BIND.sh's pin and the bind-task digest together.
+- **Twelve WATCH slots.** WATCH-9..12 are WATCH-8 with only the slot number changed (a test proves the
+  twelve differ in nothing else). Allocation: 1 zero-pane baseline after ROUTE and before RESUME; 5 early
+  captures at about +1, +2, +3, +4 and +5 minutes after RESUME (the first also observes the session and its
+  claim); 1 each after the startup proof, the candidate and the managed signature; 1 after CLOSE; 2 spare.
+- **Pane capture** records a listed session without a string `session_name` in `pane-unnamed.json` instead of
+  refusing, and its comment attributes the silent worker to ga-4z38.
+- **Tests** check every wrapper pin and the script-to-script pins, not only PREP.
+- **FRESHEN.** RESTORE replaced `city.toml` and the receipt at about 21:53Z on 2026-09-24, and TERMINAL read
+  them. Plan the three FRESHEN slots against the forecast and each refusal's `old.json`.
+
 ## Phases
 
 1. **s1 (this commit):** its two reviews name only `operator/PREP.sh`, so the job runner admits only PREP. PREP
