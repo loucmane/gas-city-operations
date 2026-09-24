@@ -161,6 +161,22 @@ def approved_historical_image(prior):
         entry[key] = 1790178703592685769
     return value
 
+def shape(value):
+    if isinstance(value, dict):
+        return {k: shape(v) for k, v in value.items()}
+    return type(value).__name__
+
+def approved_epoch_image(prior, h):
+    # ga-4z38 r13 disposition, for independent review: the host rebooted on 2026-09-24 after the P6
+    # accepted snapshot, so the P6 host block records the old boot. host() has already required the
+    # live epoch (boot, and the core, signer and broker service epochs) to equal the rebound pins. The
+    # P6 host block is replaced by that verified live block only when both have exactly the same shape.
+    # Pins, cache and protected trees stay compared exactly as before. Never reuse this for fresh drift.
+    value=json.loads(json.dumps(prior))
+    require(shape(value['host']) == shape(h), 'host block shape drift')
+    value['host']=h
+    return value
+
 def directories(o):
     fd = os.open(CITY, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_NOATIME)
     try:
@@ -220,7 +236,7 @@ def snapshot(name, b, o):
                  protected={str(p): o.tree_snapshot(p, protected=True) for p in b.PROTECTED})
     require(h == host(o), 'host changed during snapshot')
     if name == 'before.json':
-        if dependency_image(approved_historical_image(prior)) != dependency_image(value):
+        if dependency_image(approved_epoch_image(approved_historical_image(prior), h)) != dependency_image(value):
             save('before-refused-observation.json',value)
             raise RuntimeError('accepted baseline drift')
     value['providers'] = provider_pins(b,o)

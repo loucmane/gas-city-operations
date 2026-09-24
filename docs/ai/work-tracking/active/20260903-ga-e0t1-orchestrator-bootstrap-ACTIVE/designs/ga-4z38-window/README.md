@@ -871,6 +871,35 @@ so every job from OBSERVE on would refuse on boot drift. RECONCILE and BIND stay
 - **The window runs from FRESHEN on,** with the same job order and roots. RECONCILE and BIND are not
   repeated.
 
+### Round 2b r13, continued (after both 7d98c05d reviews held)
+
+Both reviews of `7d98c05d` held, and both transcripts are filed.
+- **ROUTE would have refused on BIND provenance.** Digest propagation had re-pinned ROUTE's `BIND_SHA`.
+  BIND ran at r12 and recorded the r12 `bind-task-r3.py` digest (591cf9b5) in its root, and ROUTE
+  requires that value exactly.
+  - The generator now keeps this one provenance pin at its r12 value (`PROVENANCE`).
+  - A test pins it to the r12 blob, and another reads the live BIND record and compares it.
+  - The r13 `bind-task-r3.py` and `BIND.sh` bytes are never executed, since BIND is not repeated.
+  - RECONCILE's root is not checked by digest anywhere.
+- **OBSERVE and PREFLIGHT would have refused with "accepted baseline drift".** `snapshot()` compared the
+  live host block with the P6 host block, which was recorded on the old boot.
+  - A bounded disposition, `approved_epoch_image()`, replaces the P6 host block with the live one. It
+    does so only after `host()` has required the rebound epoch, and only when both blocks have exactly
+    the same shape.
+  - Pins, cache and protected trees stay compared exactly as before.
+  - A test covers the replacement and the shape refusal.
+  - The r13 admission forecast had reused P6's host block, so it never tested this. **Erratum:** its
+    "zero differences" covers everything except the host block.
+- **The generator never writes the hand-edited files.** One r13 run had rewritten them to their r12
+  bytes before the commit, and they were written back from the r13 commit object.
+- **Errata to the Jobs text.** "All jobs run at one reviewed commit" no longer holds: RECONCILE and
+  BIND ran at `f8c4dde9`, and every later job runs at the r13 commit. The "Read-only forecasts,
+  2026-09-23" block below predates the reboot.
+- **The broker.** Something outside the window could connect to
+  `gas-city-privileged-provision.socket` and start the broker. That would refuse the next epoch check
+  as broker drift: before STAGE with nothing consumed, after STAGE with the usual CONTAIN, HOLD and
+  CLOSE containment. Nothing on the host is scheduled to use it.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,

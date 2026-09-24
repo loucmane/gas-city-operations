@@ -9,7 +9,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window')
-BASE_SHA='da5272a321a017617b0118c23db0f436c6db61a1f971e2fad53e56a0a4cf3968'
+BASE_SHA='e573b5618367281a28932b8fe03fe30f3c5ba4397e08158f86d6b669bc0fce2c'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):

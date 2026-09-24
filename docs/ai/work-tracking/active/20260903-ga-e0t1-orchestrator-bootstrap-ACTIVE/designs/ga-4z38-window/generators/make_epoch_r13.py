@@ -17,6 +17,12 @@ in git instead, and changes nothing but the epoch:
    .py and .sh file of the package, repeated to a fixed point, so each pin (BASE_SHA, WINDOW_SHA,
    wrapper pins, module pins) names the rebound file. README.md is never rewritten.
 4. Every other file keeps its r12 bytes.
+5. One bounded disposition (after the r13 reviews): window-base-r11.py snapshot() compared the live host
+   block with the P6 accepted host block, recorded on the old boot. approved_epoch_image() replaces the
+   P6 host block with the live one only after host() has required the rebound epoch, and only when both
+   blocks have exactly the same shape; pins, cache and protected trees stay compared exactly.
+6. One provenance pin keeps its r12 value (PROVENANCE): ROUTE's BIND_SHA must equal the executor digest
+   BIND recorded when it ran at r12. The hand-edited r13 files (HAND_EDITED) are never written.
 
 Usage: python3 -B make_epoch_r13.py <package dir> [<output dir>]   (output defaults to the package dir)
 """
@@ -37,6 +43,9 @@ EPOCH = dict(boot='3f1f4534-ea17-4cb4-b2f2-a3f8bce1a8fa',
              core=('2331', '39708112'), signer=('2310', '39660502'), broker=('0', '0'), controller=2331)
 SUBSTITUTIONS = {
     'window-base-r11.py': [
+        ("        if dependency_image(approved_historical_image(prior)) != dependency_image(value):",
+         "        if dependency_image(approved_epoch_image(approved_historical_image(prior), h)) != dependency_image(value):"),
+        ("\ndef directories(o):", '''\ndef shape(value):\n    if isinstance(value, dict):\n        return {k: shape(v) for k, v in value.items()}\n    return type(value).__name__\n\ndef approved_epoch_image(prior, h):\n    # ga-4z38 r13 disposition, for independent review: the host rebooted on 2026-09-24 after the P6\n    # accepted snapshot, so the P6 host block records the old boot. host() has already required the\n    # live epoch (boot, and the core, signer and broker service epochs) to equal the rebound pins. The\n    # P6 host block is replaced by that verified live block only when both have exactly the same shape.\n    # Pins, cache and protected trees stay compared exactly as before. Never reuse this for fresh drift.\n    value=json.loads(json.dumps(prior))\n    require(shape(value['host']) == shape(h), 'host block shape drift')\n    value['host']=h\n    return value\n''' + "\ndef directories(o):"),
         ("require(h['host']['boot'] == 'f4e38c6a-bfc9-4532-a713-0497904c5b1a', 'boot drift')",
          "require(h['host']['boot'] == '%s', 'boot drift')" % EPOCH['boot']),
         ("[('core','3150812','84619011818'), ('signer','5550','208267863'), ('broker','2862577','77125780270')]",
@@ -56,6 +65,13 @@ SUBSTITUTIONS = {
     ],
 }
 DIGEST = re.compile(r'[0-9a-f]{64}')
+HAND_EDITED = {'README.md', 'test_round2a.py', 'test_round2b.py', 'proof/worker-env-proof.py',
+               'generators/make_epoch_r13.py'}
+# Provenance pins validate a record written by a job that already ran at r12, so they keep the r12 digest.
+# BIND ran at r12 and recorded executor_sha256 = the r12 bind-task-r3.py digest in
+# /var/tmp/ga-4z38-bind-20260923-r1/binding-intent.json; ROUTE requires that value exactly. The r13
+# bind-task-r3.py and BIND.sh bytes are never executed (BIND is not repeated).
+PROVENANCE = {'route-task-r5.py': {'591cf9b58cfa86d8cee18af4db8fbcf03408c8932dcb79f17e6c9096969149fa'}}
 
 
 def sha(raw):
@@ -92,7 +108,8 @@ def rebind(files):
             if not name.endswith(('.py', '.sh')) or name.startswith('generators/'):
                 continue
             text = raw.decode()
-            new = DIGEST.sub(lambda m: renamed.get(m.group(0), m.group(0)), text)
+            keep = PROVENANCE.get(name, set())
+            new = DIGEST.sub(lambda m: m.group(0) if m.group(0) in keep else renamed.get(m.group(0), m.group(0)), text)
             if new != text:
                 out[name] = new.encode()
                 changed = True
@@ -106,6 +123,8 @@ def main(package, output=None):
     out = rebind(files)
     for name, raw in sorted(out.items()):
         target = output/name
+        if name in HAND_EDITED and output == Path(package):
+            continue  # r13 hand edits live only in the package; the generator never overwrites them
         if not target.exists() or target.read_bytes() != raw:
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(raw)

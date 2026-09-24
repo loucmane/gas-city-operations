@@ -545,6 +545,7 @@ except d.DelegationPolicyError as exc:
 - **2026-09-24 09:33** — [S:20260924|W:ga-e0t1-orchestrator-bootstrap|H:scripts/codex-task:sessions-continue|E:sessions/2026/09/2026-09-24-001-ga-e0t1-orchestrator-bootstrap.md] Created a fresh daily bead `ga-e0t1` continuation session while reusing the existing ACTIVE work-tracking folder
 - **2026-09-24 09:33** — [S:20260924|W:ga-e0t1-orchestrator-bootstrap|H:plans/current|E:plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md] Reused the existing bead `ga-e0t1` plan for continuation
 - **2026-09-24 09:33** — [S:20260924|W:ga-e0t1-orchestrator-bootstrap|H:sessions/state.json|E:sessions/state.json] Repointed session state to the bead `ga-e0t1` continuation session
+- **2026-09-24 09:40 CEST** - [S:20260924|W:ga-e0t1-orchestrator-bootstrap|H:ga-4z38-round2b-r13b|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/generators/make_epoch_r13.py] ga-4z38 window r13 follow-up answers both 7d98c05d review HOLDs (both filed). ROUTE keeps the r12 BIND executor digest 591cf9b5 that BIND recorded, as a generator provenance pin with a test against the live bind record. A bounded disposition approved_epoch_image replaces the P6 host block (recorded on the old boot) with the live one only after host() verified the rebound epoch and only when both have the same shape. The generator never writes the hand-edited files. 79 tests pass, 3 skipped.
 
 ## Review and evidence
 

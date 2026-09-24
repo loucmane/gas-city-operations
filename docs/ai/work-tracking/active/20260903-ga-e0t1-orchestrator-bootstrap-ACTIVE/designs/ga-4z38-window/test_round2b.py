@@ -140,12 +140,36 @@ class EpochRebind(unittest.TestCase):
             for name in sorted(produced - self.HAND_EDITED):
                 self.assertEqual(sha(Path(tmp)/name), sha(HERE/name), name)
 
+    def test_route_accepts_the_bind_record_that_ran_at_r12(self):
+        intent = Path('/var/tmp/ga-4z38-bind-20260923-r1/binding-intent.json')
+        if not intent.exists():
+            self.skipTest('no bind root on this host')
+        recorded = json.loads(intent.read_text())
+        route = (HERE/'route-task-r5.py').read_text()
+        self.assertEqual(recorded['executor_sha256'], constant(route, 'BIND_SHA'))
+        self.assertEqual(recorded['brief_sha256'], constant(route, 'BRIEF_SHA'))
+
+    def test_epoch_disposition_replaces_only_a_same_shape_host_block(self):
+        base = types.ModuleType('disposition_base')
+        base.__file__ = str(HERE/'window-base-r11.py')
+        exec(compile((HERE/'window-base-r11.py').read_bytes(), base.__file__, 'exec', dont_inherit=True), base.__dict__)
+        prior = dict(host=dict(host=dict(boot='old', pid=1), core=dict(MainPID='1')), pins={'p': 1}, cache={'c': 2})
+        live = dict(host=dict(boot='new', pid=2), core=dict(MainPID='2'))
+        self.assertEqual(base.approved_epoch_image(prior, live), dict(prior, host=live))
+        with self.assertRaisesRegex(RuntimeError, 'host block shape drift'):
+            base.approved_epoch_image(prior, dict(live, extra=1))
+
     def test_the_epoch_is_the_2026_09_24_boot_and_nothing_else_changed_in_the_executors(self):
         base = (HERE/'window-base-r11.py').read_text()
         self.assertIn("require(h['host']['boot'] == '3f1f4534-ea17-4cb4-b2f2-a3f8bce1a8fa', 'boot drift')", base)
         self.assertIn("[('core','2331','39708112'), ('signer','2310','39660502'), ('broker','0','0')]", base)
+        disposition = (HERE/'window-base-r11.py').read_text()
+        start = disposition.index('\ndef shape(value):')
+        block = disposition[start:disposition.index('\ndef directories(o):')]
+        self.assertIn('approved_epoch_image(approved_historical_image(prior), h)', disposition)
         for name in ('window-base-r11.py', 'window-r11.py', 'route-chain-r1.py'):
-            text = (HERE/name).read_text()
+            text = (HERE/name).read_text().replace(block, '').replace(
+                'approved_epoch_image(approved_historical_image(prior), h)', 'approved_historical_image(prior)')
             self.assertNotIn('3150812', text, name)
             old = r12_blob(name).decode()
             changed = [(a, b) for a, b in zip(old.splitlines(), text.splitlines()) if a != b]
@@ -171,7 +195,8 @@ class Pins(unittest.TestCase):
         self.assertEqual(constant(bind, 'BRIEF_SHA'), sha(HERE/'worker-brief.md'))
         route = self.text('route-task-r5.py')
         self.assertEqual(constant(route, 'SHA'), sha(HERE/'window-r11.py'))
-        self.assertEqual(constant(route, 'BIND_SHA'), sha(HERE/'bind-task-r3.py'))
+        # BIND ran at r12: ROUTE's BIND_SHA is the r12 bind-task-r3.py blob, the digest BIND recorded.
+        self.assertEqual(constant(route, 'BIND_SHA'), hashlib.sha256(r12_blob('bind-task-r3.py')).hexdigest())
         self.assertEqual(constant(route, 'BRIEF_SHA'), sha(HERE/'worker-brief.md'))
         terminal = self.text('observe-terminal-r11.py')
         self.assertEqual(constant(terminal, 'W_SHA'), sha(HERE/'window-obs-r11.py'))
