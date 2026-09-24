@@ -78,6 +78,51 @@ PRE_SUBS = {
     w.save('pane-unnamed.json', unnamed)
 """, 1)],
 }
+# s3: OBSERVE at s2 r2 refused 'accepted baseline drift' (2026-09-24 22:24:14Z). The ga-4z38 RESTORE and
+# TERMINAL (21:53-21:54Z) rewrote city.toml and receipt.json with their P6 content (new inode and times)
+# and TERMINAL wrote a new suspension-state.json; the P6 accepted image can never match a restored city.
+# The disposition takes exactly those three pin entries from the reviewed ga-4z38 TERMINAL record, which
+# equals the live pins, cache, protected trees and host except for atime (checked 22:3xZ).
+TERMINAL_RECORD = '/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json'
+TERMINAL_RECORD_SHA = '04ad8d3e2c3b32b43b93142190a0013ffc9f068381c63fd05a6526a975d2aa53'
+RESTORE_DISPOSITION = '''
+RESTORED_PINS = {
+    '/home/loucmane/gascity/city/city.toml': 'same-content',
+    '/home/loucmane/gascity/city/.gc/runtime/provisioning/receipt.json': 'same-content',
+    '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json':
+        'a4bcfdc35d60960fe22dfd3b58b6af8f37f09dcd444167c23779157ae3a31056'}
+
+def approved_restore_image(prior):
+    # ga-f37t s3 disposition, for independent review: the ga-4z38 window restored the city exactly
+    # (RESTORE 2026-09-24 21:53:20Z, TERMINAL 21:54:18Z). RESTORE rewrote city.toml and receipt.json with
+    # their accepted content, so only their inode and times changed, and TERMINAL wrote a new
+    # suspension-state.json. The P6 image therefore cannot match any restored city. These three pin
+    # entries, and only these, are taken from the reviewed TERMINAL record (pinned by digest); the two
+    # rewritten files must keep exactly their accepted content digest, and the suspension state must be the
+    # one TERMINAL recorded. Every other pin, the cache, the protected trees and the host stay compared as
+    # before. Never reuse this for fresh drift.
+    record = json.loads(read(Path(\'''' + TERMINAL_RECORD + '''\'), \'''' + TERMINAL_RECORD_SHA + '''\'))
+    value = json.loads(json.dumps(prior))
+    require(set(RESTORED_PINS) <= set(value['pins']) and set(RESTORED_PINS) <= set(record['pins']),
+            'restore disposition pin set')
+    for path, rule in RESTORED_PINS.items():
+        after = record['pins'][path]
+        if rule == 'same-content':
+            require(after['sha256'] == value['pins'][path]['sha256'], 'restored content differs: ' + path)
+        else:
+            require(after['sha256'] == rule, 'restored suspension state differs')
+        require(shape(after) == shape(value['pins'][path]), 'restore pin shape drift')
+        value['pins'][path] = after
+    return value
+'''
+S3_SUBS = {
+    'window-base-r11.py': [
+        ('\ndef directories(o):', RESTORE_DISPOSITION + '\ndef directories(o):'),
+        ('if dependency_image(approved_epoch_image(approved_historical_image(prior), h)) != dependency_image(value):',
+         'if dependency_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h))) != dependency_image(value):')],
+}
+# The ga-f37t integrity root r2 was created by the refused s2 r2 OBSERVE; s3 uses a fresh one.
+S3_ROOT = ('/var/tmp/ga-f37t-integrity-20260924-r2', '/var/tmp/ga-f37t-integrity-20260925-r3')
 # Applied after the rename: the ga-f37t PREP outputs (job ga-f37t-prep, 22:05:00Z).
 S2_PINS = {
     'window-base-r11.py': [
@@ -199,6 +244,10 @@ def rebind(files):
         for old, new in S2_PINS.get(name, ()):
             assert text.count(old) == 1, (name, old[:12])
             text = text.replace(old, new)
+        for old, new in S3_SUBS.get(name, ()):
+            assert text.count(old) == 1, (name, old[:40])
+            text = text.replace(old, new)
+        text = text.replace(S3_ROOT[0], S3_ROOT[1])
         if name == 'prep-r11.py':
             overlay = sha(successor_overlay())
             for old, new in (("OVERLAY_SHA = '%s'" % OLD_OVERLAY_SHA, "OVERLAY_SHA = '%s'" % overlay),

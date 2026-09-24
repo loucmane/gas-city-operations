@@ -60,6 +60,26 @@ package equals its output.
 - **FRESHEN.** RESTORE replaced `city.toml` and the receipt at about 21:53Z on 2026-09-24, and TERMINAL read
   them. Plan the three FRESHEN slots against the forecast and each refusal's `old.json`.
 
+## s3 (after OBSERVE refused at s2 r2)
+
+s2 r2 (`36b4158d`) passed two job reviews. RECONCILE passed at 2026-09-24 22:22:22Z (ga-4z38 blocked) and
+BIND at 22:22:48Z (ga-f37t bound, attempt requested). The FRESHEN opening was already free, so FRESHEN-1
+passed at 22:23:38Z. OBSERVE then refused at 22:24:14Z with "accepted baseline drift".
+- **Cause.** The ga-4z38 RESTORE and TERMINAL (21:53-21:54Z) rewrote `city.toml` and `receipt.json` with
+  their accepted content (new inode and times) and TERMINAL wrote a new `suspension-state.json`. The P6
+  accepted image therefore cannot match any city that a window has restored. The refused observation equals
+  the reviewed ga-4z38 TERMINAL record exactly in pins, cache, protected trees and host (atime aside); only
+  those three pins differ from P6.
+- **Disposition.** `approved_restore_image()` in `window-base-r11.py` takes exactly those three pin entries
+  from the TERMINAL record (`/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json`, pinned
+  `04ad8d3e`). `city.toml` and `receipt.json` must keep their accepted content digest, and the suspension
+  state must be the one TERMINAL recorded (`a4bcfdc3`). Everything else is compared as before. A test
+  replays the refused observation (it passes with the disposition and fails without it), and another
+  proves a changed content digest refuses.
+- **Fresh root.** The refused OBSERVE created `/var/tmp/ga-f37t-integrity-20260924-r2`, so s3 uses
+  `/var/tmp/ga-f37t-integrity-20260925-r3`. RECONCILE and BIND have run and are not repeated; their wrappers
+  are left out of the s3 job reviews.
+
 ## Phases
 
 1. **s1 (this commit):** its two reviews name only `operator/PREP.sh`, so the job runner admits only PREP. PREP

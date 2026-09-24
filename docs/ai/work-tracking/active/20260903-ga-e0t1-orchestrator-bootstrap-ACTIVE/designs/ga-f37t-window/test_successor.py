@@ -18,7 +18,9 @@ ALLOWED = ['/var/tmp/ga-4z38-platform-inspector-20260924-r1',
            'belong to the ga-4z38 jobs',
            'the consumed predecessor ga-4z38\n',
            'ga-y49e and ga-4z38 attempts',
-           'The ga-4z38 worker went silent']
+           'The ga-4z38 worker went silent',
+           '/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json',
+           'the ga-4z38 window restored the city exactly']
 
 
 def sha(path):
@@ -107,6 +109,35 @@ class Derivation(unittest.TestCase):
         self.assertEqual([p.stem for p in slots], ['WATCH-%d' % n for n in range(1, 13)])
         normal = {re.sub(r'(WATCH-|watch-|Slot )\d+', r'\1N', p.read_text()) for p in slots}
         self.assertEqual(len(normal), 1)
+
+    def base(self):
+        import json
+        import types
+        m = types.ModuleType('successor_base')
+        m.__file__ = str(HERE/'window-base-r11.py')
+        exec(compile((HERE/'window-base-r11.py').read_bytes(), m.__file__, 'exec', dont_inherit=True), m.__dict__)
+        return m, json
+
+    def test_restore_disposition_admits_the_restored_city(self):
+        refused = Path('/var/tmp/ga-f37t-integrity-20260924-r2/before-refused-observation.json')
+        if not refused.exists():
+            self.skipTest('no s2 r2 refused observation on this host')
+        m, json = self.base()
+        prior = json.loads(m.read(m.ACCEPTED, m.ACCEPTED_SHA))
+        value = json.loads(refused.read_text())
+        chained = m.approved_restore_image(m.approved_epoch_image(m.approved_historical_image(prior), value['host']))
+        self.assertEqual(m.dependency_image(chained), m.dependency_image(value))
+        without = m.approved_epoch_image(m.approved_historical_image(prior), value['host'])
+        self.assertNotEqual(m.dependency_image(without), m.dependency_image(value))
+
+    def test_restore_disposition_refuses_changed_content(self):
+        if not Path('/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json').exists():
+            self.skipTest('no ga-4z38 TERMINAL record on this host')
+        m, json = self.base()
+        prior = json.loads(m.read(m.ACCEPTED, m.ACCEPTED_SHA))
+        prior['pins']['/home/loucmane/gascity/city/city.toml']['sha256'] = '0' * 64
+        with self.assertRaisesRegex(RuntimeError, 'restored content differs'):
+            m.approved_restore_image(prior)
 
     def test_prep_wrapper_pins_prep(self):
         text = (HERE/'operator'/'PREP.sh').read_text()
