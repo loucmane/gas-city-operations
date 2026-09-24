@@ -14,10 +14,10 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window')
 ROOT=Path('/var/tmp/ga-4z38-terminal-20260923-r1')
 WINDOW=Path('/var/tmp/ga-4z38-window-20260923-r1')
-WINDOW_SHA='88b18aee28b62b4a883c98fd61f52f957457e87640b83aa322c0e5f5ca9f3fe0'
-BUILD=Path('/var/tmp/ga-y49e-platform-inspector-20260920-r1')
+WINDOW_SHA='7583831e4eeeb25dcb48d79dca60e6ef0a15103e0788e5f0189ee983d6273a24'
+BUILD=Path('/var/tmp/ga-4z38-platform-inspector-20260924-r1')
 W_SHA='8e375da42257cde814d1d48bf2bc1b882d451d653a74428fa13e78898da3a1f2'
-BINARY_SHA='77685c663383d7b61e61e41f5e833a90be19bbfecfd8d95dcabe868d30a06237'
+BINARY_SHA='b8ebcde38a9ee8078752949226f6736ea14a25413fba73db4d95076261658d13'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='2d7eadce62c4e567697813cc9122414f1e94c3bd9d389aef92015adef7f36319'
 
@@ -53,10 +53,10 @@ def main():
     w.read(Path(__file__),_SOURCE_SHA)
     b,o,owned=w.load_support();w.pins()
     w.read(BUILD/'platform-inspect',BINARY_SHA)
-    result=json.loads(w.read(BUILD/'build-result.json','c79a3165ccfb3c35fd50a5a781f91b46755d67c27f94efb6c62cf230c946676a'))
+    result=json.loads(w.read(BUILD/'build-result.json','39bfcea56f8932623d6b60ffe745de9f7029e76ba01fdd0d7da90c2fc402eaf9'))
     w.require(result['binary_sha256']==BINARY_SHA and result['core_commit']=='796d9a7a67c42294fdc467c107bb59b76e482301'
         and result['core_tree']=='f2c120a5ac9ea25ebc395c1b3cfa4eb30dcafd13'
-        and result['entrypoint_sha256']=='e9f1fa42cdd5120c97c21ba37b7ca20f5fd14d94282575e4a08b3e17c80fec35',
+        and result['entrypoint_sha256']=='e5e9872f2b57d70c9fbde8e3d152978eaf9266453af67dbd1a82a4d1886b7ca3',
         'build binding')
     provider_pins(w,o)
     if sys.argv[1:]==['inner']:

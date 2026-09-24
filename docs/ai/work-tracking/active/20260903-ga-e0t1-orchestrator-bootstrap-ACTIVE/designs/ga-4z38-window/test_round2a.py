@@ -113,7 +113,7 @@ class Pins(unittest.TestCase):
             text = handle.read()
         [pin] = re.findall(r'^OBSERVE_SHA=([0-9a-f]{64})$', text, re.M)
         self.assertEqual(pin, sha_file(os.path.join(HERE, 'observe-integrity-r11.py')))
-        self.assertIn('[ ! -e /var/tmp/ga-4z38-integrity-20260923-r1 ]', text)
+        self.assertIn('[ ! -e /var/tmp/ga-4z38-integrity-20260924-r2 ]', text)
         self.assertIn('step observe "$C/observe-integrity-r11.py" "$OBSERVE_SHA"', text)
         self.assertIn('exit "$rc"', text)
 

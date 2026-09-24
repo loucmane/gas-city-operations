@@ -44,7 +44,7 @@ BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstra
 BASE_SHA = 'e573b5618367281a28932b8fe03fe30f3c5ba4397e08158f86d6b669bc0fce2c'
 YOUNG_HOURS = 19
 WINDOW = Path('/var/tmp/ga-4z38-window-20260923-r1')
-INTEGRITY = Path('/var/tmp/ga-4z38-integrity-20260923-r1')
+INTEGRITY = Path('/var/tmp/ga-4z38-integrity-20260924-r2')
 
 
 def load():

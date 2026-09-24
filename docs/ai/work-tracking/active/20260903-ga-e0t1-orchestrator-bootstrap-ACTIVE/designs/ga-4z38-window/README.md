@@ -939,6 +939,28 @@ commit from RECONCILE until TERMINAL; every job, CONTAIN and HOLD included, chec
 
 **Deadline.** At T0 plus 2 h 45 min, the coordinator contains regardless of the worker's progress.
 
+## Round 2b r14: the rebuilt inspector and a fresh integrity root
+
+On 2026-09-24 at r13 (`28693e8c`), FRESHEN-1 passed at 20:27:32Z and OBSERVE refused at 20:28:45Z with
+"manifest bytes drift". The observers ran the 09-20 inspector
+(`/var/tmp/ga-y49e-platform-inspector-20260920-r1`, binary `77685c66`), whose Go entrypoint compiles in
+the pre-M5 manifest pin `a6324753`. M5 legitimately changed the live manifest to `2d7eadce` on 2026-09-23,
+and the script rebinds could not reach a compiled constant. Preservation held; nothing was changed. The
+09-20 builder lived in `/tmp` and was lost in the 09-24 reboot.
+
+- **Builder** (commit `b780161f`, two reviews plus two job reviews): `inspector/inspector-build-r1.py`
+  repeats the recorded 09-20 steps offline (Core `796d9a7a`, tree `f2c120a5`, Go `182d1dc9`, the same
+  environment) with `inspector/platform-inspect-main.go`, identical to the 09-20 entrypoint except the pin
+  (`2d7eadce`). Job `ga-4z38-inspector-build` (`operator/INSPECTOR-BUILD.sh`) passed at 20:58:21Z:
+  binary `b8ebcde3`, `build-result.json` `39bfcea5`, in `/var/tmp/ga-4z38-platform-inspector-20260924-r1`.
+  It installs and runs nothing it builds.
+- **Rebind** (`generators/make_epoch_r14.py`, from the r13 blobs): both observers use the new build (path,
+  binary, build-result and entrypoint digests); `window-r11.py` pins the new binary; the integrity root is
+  `/var/tmp/ga-4z38-integrity-20260924-r2` everywhere, because OBSERVE created the r13 one. Digests propagate
+  to a fixed point as in r13, and ROUTE keeps the BIND digest recorded at r12.
+- **Jobs.** BIND, RECONCILE and INSPECTOR-BUILD have run and are not part of the r14 job plan; the r14
+  reviews name every other wrapper. The window restarts at FRESHEN-1.
+
 ## Quiet window
 
 From RECONCILE until TERMINAL has passed, the ga-e0t1 worktree stays clean at the package commit.

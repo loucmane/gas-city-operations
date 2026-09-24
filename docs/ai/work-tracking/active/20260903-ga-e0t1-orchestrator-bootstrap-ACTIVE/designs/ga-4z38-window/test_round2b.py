@@ -125,14 +125,19 @@ class Regeneration(unittest.TestCase):
 
 class EpochRebind(unittest.TestCase):
     """r13: every package file is its reviewed r12 blob, or the epoch rebind of it, or one of the named
-    hand-edited r13 files."""
+    hand-edited r13 files. r14: on top of the reviewed r13 blobs, the inspector rebind of make_epoch_r14.py
+    (new inspector build, new integrity root), plus the builder files added at the builder commit."""
     HAND_EDITED = {'README.md', 'test_round2a.py', 'test_round2b.py', 'proof/worker-env-proof.py',
-                   'generators/make_epoch_r13.py'}
+                   'generators/make_epoch_r13.py', 'generators/make_epoch_r14.py'}
+    R14_BUILD = ('b8ebcde38a9ee8078752949226f6736ea14a25413fba73db4d95076261658d13',
+                 '39bfcea56f8932623d6b60ffe745de9f7029e76ba01fdd0d7da90c2fc402eaf9')
 
     def test_every_file_is_r12_or_its_epoch_rebind(self):
         with tempfile.TemporaryDirectory() as tmp:
-            done = subprocess.run([sys.executable, '-B', str(HERE/'generators'/'make_epoch_r13.py'), str(HERE), tmp],
-                                  capture_output=True, text=True, timeout=300)
+            if not Path('/var/tmp/ga-4z38-platform-inspector-20260924-r1/build-result.json').exists():
+                self.skipTest('no r14 inspector build on this host')
+            done = subprocess.run([sys.executable, '-B', str(HERE/'generators'/'make_epoch_r14.py'), str(HERE),
+                                   *self.R14_BUILD, tmp], capture_output=True, text=True, timeout=300)
             self.assertEqual(done.returncode, 0, done.stderr)
             produced = {str(p.relative_to(tmp)) for p in Path(tmp).rglob('*') if p.is_file()}
             tracked = {str(p.relative_to(HERE)) for p in HERE.rglob('*') if p.is_file() and '__pycache__' not in p.parts}
@@ -175,7 +180,9 @@ class EpochRebind(unittest.TestCase):
             changed = [(a, b) for a, b in zip(old.splitlines(), text.splitlines()) if a != b]
             self.assertEqual(len(old.splitlines()), len(text.splitlines()), name)
             for a, b in changed:
-                self.assertTrue('3150812' in a or 'f4e38c6a' in a or re.search(r'[0-9a-f]{64}', a), (name, a, b))
+                self.assertTrue('3150812' in a or 'f4e38c6a' in a or re.search(r'[0-9a-f]{64}', a)
+                                or a.replace('ga-4z38-integrity-20260923-r1', 'ga-4z38-integrity-20260924-r2') == b,
+                                (name, a, b))
 
 
 class Pins(unittest.TestCase):
@@ -216,6 +223,11 @@ class Pins(unittest.TestCase):
             text = (HERE/'operator'/name).read_text()
             pins = dict(re.findall(r'^([A-Z]+_SHA)=([0-9a-f]{64})$', text, re.M))
             steps = re.findall(r'^\s*step \S+ "\$C/([^"]+)" "\$([A-Z]+_SHA)"', text, re.M)
+            if name == 'INSPECTOR-BUILD.sh':
+                # r14: one direct launch of the builder with its pinned entrypoint digest.
+                self.assertEqual(pins['BUILDER_SHA'], sha(HERE/'inspector'/'inspector-build-r1.py'))
+                self.assertEqual(pins['ENTRY_SHA'], sha(HERE/'inspector'/'platform-inspect-main.go'))
+                steps = [('inspector/inspector-build-r1.py', 'BUILDER_SHA')]
             self.assertTrue(steps, name)
             for target, pin in steps:
                 self.assertEqual(pins[pin], sha(HERE/target), (name, target))
@@ -232,7 +244,7 @@ class Layer(unittest.TestCase):
         self.assertEqual(str(w.ROOT), '/var/tmp/ga-4z38-window-20260923-r1')
         for hook in ('reload', 'snapshot', 'preservation', 'transition', 'save'):
             self.assertIs(getattr(w, hook), getattr(m, hook), hook)
-        self.assertEqual(str(m.INTEGRITY), '/var/tmp/ga-4z38-integrity-20260923-r1')
+        self.assertEqual(str(m.INTEGRITY), '/var/tmp/ga-4z38-integrity-20260924-r2')
 
     def test_integrity_binding_is_recorded_once_and_then_required_exactly(self):
         m = layer()
