@@ -174,6 +174,9 @@ IDENTITY = [
 ]
 DIGEST = re.compile(r'[0-9a-f]{64}')
 R12_BIND_SHA = '591cf9b58cfa86d8cee18af4db8fbcf03408c8932dcb79f17e6c9096969149fa'
+# The bind-task digest that BIND ran with at s2 r2 (recorded as executor_sha256 in
+# /var/tmp/ga-f37t-bind-20260923-r1/binding-intent.json).
+BIND_RAN_SHA = '159452692546d4d08512d2b1a11a2b479bc1438e40e83fe009d05427a110417a'
 # PREP pins the exact overlay it generates. The reviewed ga-4z38 overlay (5f3b60e1, written by the ga-4z38
 # PREP job) differs from the ga-f37t one only in the worker's work_dir and the header comment, so the
 # expected ga-f37t overlay is derived from those bytes and its digest replaces OVERLAY_SHA.
@@ -256,10 +259,15 @@ def rebind(files):
                 assert text.count(old) == 1, old
                 text = text.replace(old, new)
         out[name] = text.encode()
+    # BIND ran once for ga-f37t, at s2 r2 (36b4158d), and never runs again; its record carries the digest
+    # of the bind-task that ran. ROUTE's BIND_SHA is therefore a provenance pin to that digest (as r13 and
+    # r14 kept the ga-4z38 r12 one), never propagated from later bind-task bytes.
+    route = out['route-task-r5.py'].decode()
+    old = "BIND_SHA='%s'" % R12_BIND_SHA
+    assert route.count(old) == 1
+    out['route-task-r5.py'] = route.replace(old, "BIND_SHA='%s'" % BIND_RAN_SHA).encode()
+    keep = {'route-task-r5.py': {BIND_RAN_SHA}}
     history = {name: {sha(raw)} for name, raw in files.items()}
-    # ROUTE's BIND_SHA kept the r12 bind-task digest as a provenance pin (make_epoch_r13/r14). BIND runs
-    # again for ga-f37t, so that digest must also map to the new bind-task digest.
-    history['bind-task-r3.py'].add(R12_BIND_SHA)
     while True:
         for name, raw in out.items():
             history[name].add(sha(raw))
@@ -269,7 +277,8 @@ def rebind(files):
             if not name.endswith(('.py', '.sh')):
                 continue
             text = raw.decode()
-            new = DIGEST.sub(lambda m: renamed.get(m.group(0), m.group(0)), text)
+            kept = keep.get(name, set())
+            new = DIGEST.sub(lambda m: m.group(0) if m.group(0) in kept else renamed.get(m.group(0), m.group(0)), text)
             if new != text:
                 out[name] = new.encode()
                 changed = True

@@ -75,14 +75,20 @@ class Derivation(unittest.TestCase):
         self.assertIn('Branch codex/ga-f37t-typed-route-cycles.', brief)
         self.assertIn("BEAD='ga-f37t'", (HERE/'bind-task-r3.py').read_text())
 
-    def test_route_binds_the_bind_that_runs(self):
-        bind = sha(HERE/'bind-task-r3.py')
-        [wrapper] = re.findall(r'^BIND_SHA=([0-9a-f]{64})$', (HERE/'operator'/'BIND.sh').read_text(), re.M)
+    def test_route_binds_the_bind_that_ran(self):
+        # BIND ran once, at s2 r2; ROUTE checks its record, so ROUTE pins that executor digest.
+        import json
         [route] = re.findall(r"^BIND_SHA='([0-9a-f]{64})'$", (HERE/'route-task-r5.py').read_text(), re.M)
-        self.assertEqual(wrapper, bind)
-        self.assertEqual(route, bind)
-        self.assertNotIn('591cf9b58cfa86d8cee18af4db8fbcf03408c8932dcb79f17e6c9096969149fa',
-                         (HERE/'route-task-r5.py').read_text())
+        [brief] = re.findall(r"^BRIEF_SHA='([0-9a-f]{64})'$", (HERE/'route-task-r5.py').read_text(), re.M)
+        self.assertEqual(route, '159452692546d4d08512d2b1a11a2b479bc1438e40e83fe009d05427a110417a')
+        self.assertEqual(brief, sha(HERE/'worker-brief.md'))
+        intent = Path('/var/tmp/ga-f37t-bind-20260923-r1/binding-intent.json')
+        if intent.exists():
+            recorded = json.loads(intent.read_text())
+            self.assertEqual(recorded['executor_sha256'], route)
+            self.assertEqual(recorded['brief_sha256'], brief)
+        [wrapper] = re.findall(r'^BIND_SHA=([0-9a-f]{64})$', (HERE/'operator'/'BIND.sh').read_text(), re.M)
+        self.assertEqual(wrapper, sha(HERE/'bind-task-r3.py'))
 
     def test_every_wrapper_pin_names_the_file_it_launches(self):
         for wrapper in sorted((HERE/'operator').glob('*.sh')):
