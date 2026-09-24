@@ -16,8 +16,16 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
 4. Global identity substitutions (IDENTITY), in order, with the rebuilt inspector path protected.
 5. Digest propagation to a fixed point, as in make_epoch_r13/r14. No provenance pin is kept: BIND runs
    again for ga-f37t, so ROUTE pins the new bind-task digest.
-6. The PREP outputs pinned in window-base-r11.py still name the ga-4z38 prep; s2 re-pins them after the
-   ga-f37t PREP job has run. s1 admits only PREP (its reviews name only operator/PREP.sh).
+6. s1 (912e4d48) admitted only PREP. The ga-f37t PREP job passed on 2026-09-24 at 22:05:00Z
+   (root /var/tmp/ga-f37t-prep-20260923-r2); in s1 the window-base-r11.py pins still carried the ga-4z38
+   PREP digests under the renamed path.
+7. s2 (this derivation) adds, from the s1 reviews and the PREP outputs:
+   - S2_PINS: window-base-r11.py pins the ga-f37t PREP outputs (overlay, receipt image, revision, result);
+   - WATCH captures each live session's pane with the release job's exact read-only form, so a silent
+     worker start can be diagnosed before Core reaps the session (ga-4z38 left no capture);
+   - HISTORY: ga-4z38 events stay attributed to ga-4z38; PRE_SUBS reword the PREP and RECONCILE wrapper
+     headers and add ga-4z38 to the brief's consumed attempts; the brief's compile-probe test name follows
+     the new id; proof/ is dropped (it never runs in a job and pointed at ga-4z38 roots).
 """
 import hashlib
 import re
@@ -29,7 +37,51 @@ R14 = '69cdc6b6d5d32e61746c0b0e8f50cb66420ae882'
 PREFIX = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/'
 WORKTREE = '/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap'
 DROP = ('README.md', 'test_prep.py', 'test_round2a.py', 'test_round2b.py', 'operator/INSPECTOR-BUILD.sh')
-DROP_DIRS = ('generators/', 'inspector/')
+DROP_DIRS = ('generators/', 'inspector/', 'proof/')
+# ga-4z38 history kept verbatim by the rename (placeholders), so no event is misattributed to ga-f37t.
+HISTORY = ['r2 (after job ga-4z38-prep refused fail-closed at 16:06:01Z; root -r1 preserved):',
+           '# ga-4z38 disposition, for independent review:',
+           '# ga-4z38 r13 disposition, for independent review:']
+# Applied to the r14 bytes before the rename.
+PRE_SUBS = {
+    'operator/PREP.sh': [
+        ("# staging log below. r2 followed the fail-closed refusal of the r1 job (root -r1 preserved); r3 follows\n"
+         "# the review HOLD of r2, which never ran (root -r2 was never created).\n",
+         "# staging log below. It is the reviewed ga-4z38 prep r3 rebound to ga-f37t; the r1 refusal and the r2\n"
+         "# HOLD belong to the ga-4z38 jobs, and the -r2 root name is inherited from them.\n", 1)],
+    'operator/RECONCILE.sh': [
+        ("the consumed predecessor ga-y49e\n", "the consumed predecessor ga-4z38-KEEP\n", 1)],
+    'worker-brief.md': [
+        ("The failed ga-5ot6, ga-e0t1.14 and\nga-y49e attempts, their artifacts and worktrees remain historical evidence, never\n"
+         "retry targets.",
+         "The failed ga-5ot6, ga-e0t1.14,\nga-y49e and ga-4z38-KEEP attempts, their artifacts and worktrees remain historical evidence,\n"
+         "never retry targets.", 1),
+        ("TestGa4z38CapabilityProbeNoTests", "TestGaf37tCapabilityProbeNoTests", 1)],
+    'watch-r11.py': [
+        ("""    run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid} #{pane_dead}'],
+        expected=(0, 1))
+""",
+         """    run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid} #{pane_dead}'],
+        expected=(0, 1))
+    # ga-f37t: the visible pane of each live session, captured the way Core captures it (release-r11
+    # pane_clear form), read-only. ga-4z38's worker went silent and was reaped before any capture; the
+    # early WATCH slots after RESUME keep the screen as evidence. Exit 1 (pane gone) is recorded, not fatal.
+    for index, live in enumerate(sessions.get('sessions') or []):
+        run('pane-%d' % index, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', live['session_name']],
+            expected=(0, 1))
+""", 1)],
+}
+# Applied after the rename: the ga-f37t PREP outputs (job ga-f37t-prep, 22:05:00Z).
+S2_PINS = {
+    'window-base-r11.py': [
+        ('5f3b60e1c1e391b5a1f66de62a2e767ea226570ce7549c6dfb526cd072e6530d',
+         '9774a5692ec5537713b212bc3fef5c88edc34c82cb6fdcc11e949e7eefc8343e'),
+        ('392ea0b6c0a9a3c0cb88971b04c45b1326de50e9ea35c4e63c83bf1a602a3e46',
+         '0876abb88879ce546502e34228a710a60a69a2b20f85791b3c9ce9f0ebce2451'),
+        ('6b31d83ab039cd1cba61ac77845fe71f4d6ce8b06f8a775f07df1e42d6bfd6ba',
+         '758aa29b154babfe18468c6e2f650e04c23be18f9ba0c4a2bb4ccb087553d87f'),
+        ('c0d1959c4e0df67e8f02b8716f43f2adf542c9d2b358d75f4027d92f91480c03',
+         '0c071f7c97706059792bdec16ce3de952bf9114159ba493b5baad62d71e5d6d1')]}
 PROTECT = '/var/tmp/ga-4z38-platform-inspector-20260924-r1'
 PLACEHOLDER = '\x00INSPECTOR\x00'
 NOTE_OLD = ("NOTE=('Failed-attempt hold 2026-09-23: session ci-b24ev failed-create on '\n"
@@ -118,6 +170,11 @@ def rebind(files):
     out = {}
     for name, raw in files.items():
         text = raw.decode()
+        for old, new, count in PRE_SUBS.get(name, ()):
+            assert text.count(old) == count, (name, old[:60])
+            text = text.replace(old, new)
+        for index, phrase in enumerate(HISTORY):
+            text = text.replace(phrase, '\x00HISTORY%d\x00' % index)
         if name == 'reconcile-predecessor-r3.py':
             for old, new, count in RECONCILE_SUBS:
                 found = text.count(old)
@@ -127,7 +184,13 @@ def rebind(files):
         for old, new in IDENTITY:
             text = text.replace(old, new)
         text = (text.replace(PLACEHOLDER, PROTECT).replace(PRED, 'ga-4z38')
-                .replace('\x00SUCC\x00', 'ga-f37t').replace('ga-y49e-HOLD', 'ga-y49e'))
+                .replace('\x00SUCC\x00', 'ga-f37t').replace('ga-y49e-HOLD', 'ga-y49e')
+                .replace('ga-f37t-KEEP', 'ga-4z38'))
+        for index, phrase in enumerate(HISTORY):
+            text = text.replace('\x00HISTORY%d\x00' % index, phrase)
+        for old, new in S2_PINS.get(name, ()):
+            assert text.count(old) == 1, (name, old[:12])
+            text = text.replace(old, new)
         if name == 'prep-r11.py':
             overlay = sha(successor_overlay())
             for old, new in (("OVERLAY_SHA = '%s'" % OLD_OVERLAY_SHA, "OVERLAY_SHA = '%s'" % overlay),

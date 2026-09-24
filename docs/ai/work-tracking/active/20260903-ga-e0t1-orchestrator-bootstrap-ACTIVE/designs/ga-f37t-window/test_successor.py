@@ -1,5 +1,6 @@
 """The ga-f37t package is exactly the successor derivation of the reviewed ga-4z38 r14 package."""
 import hashlib
+import re
 import subprocess
 import sys
 import tempfile
@@ -8,10 +9,25 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 OWN = {'README.md', 'test_successor.py', 'generators/make_successor.py'}
+# ga-4z38 may appear only in these exact places (RECONCILE's held predecessor is checked separately).
+ALLOWED = ['/var/tmp/ga-4z38-platform-inspector-20260924-r1',
+           'r2 (after job ga-4z38-prep refused fail-closed at 16:06:01Z; root -r1 preserved):',
+           '# ga-4z38 disposition, for independent review:',
+           '# ga-4z38 r13 disposition, for independent review:',
+           'It is the reviewed ga-4z38 prep r3 rebound to ga-f37t',
+           'belong to the ga-4z38 jobs',
+           'the consumed predecessor ga-4z38\n',
+           'ga-y49e and ga-4z38 attempts']
 
 
 def sha(path):
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+
+
+def package_files():
+    for path in sorted(HERE.rglob('*')):
+        if path.is_file() and '__pycache__' not in path.parts:
+            yield path
 
 
 class Derivation(unittest.TestCase):
@@ -21,27 +37,28 @@ class Derivation(unittest.TestCase):
                                   capture_output=True, text=True, timeout=300)
             self.assertEqual(done.returncode, 0, done.stderr)
             produced = {str(p.relative_to(tmp)) for p in Path(tmp).rglob('*') if p.is_file()}
-            tracked = {str(p.relative_to(HERE)) for p in HERE.rglob('*')
-                       if p.is_file() and '__pycache__' not in p.parts}
+            tracked = {str(p.relative_to(HERE)) for p in package_files()}
             self.assertEqual(tracked - produced, OWN)
             self.assertEqual(produced - tracked, set())
             for name in sorted(produced):
                 self.assertEqual(sha(Path(tmp)/name), sha(HERE/name), name)
 
-    def test_only_reconcile_names_the_held_predecessor(self):
-        for path in HERE.rglob('*'):
-            if not path.is_file() or '__pycache__' in path.parts or path.name in {'README.md', 'test_successor.py'}:
+    def test_ga_4z38_appears_only_where_intended(self):
+        for path in package_files():
+            rel = str(path.relative_to(HERE))
+            if rel in OWN:
                 continue
-            if path.relative_to(HERE).parts[0] == 'generators':
-                continue
-            text = path.read_text().replace('/var/tmp/ga-4z38-platform-inspector-20260924-r1', '')
+            text = path.read_text()
+            for allowed in ALLOWED:
+                text = text.replace(allowed, '')
             if path.name == 'reconcile-predecessor-r3.py':
                 self.assertIn("before=bead('ga-4z38')", text)
                 self.assertIn("attempt['session_id']=='ci-gi0lh'", text)
                 self.assertIn("closed[0]['metadata']['state']=='stale-session'", text)
                 self.assertIn("new=bead('ga-f37t')", text)
                 continue
-            self.assertNotIn('ga-4z38', text, str(path))
+            self.assertNotIn('ga-4z38', text, rel)
+            self.assertNotIn('4z38', text, rel)
 
     def test_the_rebuilt_inspector_path_is_kept(self):
         for name in ('observe-integrity-r11.py', 'observe-terminal-r11.py'):
@@ -53,8 +70,31 @@ class Derivation(unittest.TestCase):
         brief = (HERE/'worker-brief.md').read_text()
         self.assertIn('Worktree /home/loucmane/gascity-core-worktrees/ga-f37t-typed-route-cycles.', brief)
         self.assertIn('Branch codex/ga-f37t-typed-route-cycles.', brief)
-        bind = (HERE/'bind-task-r3.py').read_text()
-        self.assertIn("BEAD='ga-f37t'", bind)
+        self.assertIn("BEAD='ga-f37t'", (HERE/'bind-task-r3.py').read_text())
+
+    def test_prep_wrapper_pins_prep(self):
+        text = (HERE/'operator'/'PREP.sh').read_text()
+        [pin] = re.findall(r'^PREP_SHA=([0-9a-f]{64})$', text, re.M)
+        self.assertEqual(pin, sha(HERE/'prep-r11.py'))
+
+    def test_window_base_pins_the_ga_f37t_prep_outputs(self):
+        base = (HERE/'window-base-r11.py').read_text()
+        for digest in ('9774a5692ec5537713b212bc3fef5c88edc34c82cb6fdcc11e949e7eefc8343e',
+                       '0876abb88879ce546502e34228a710a60a69a2b20f85791b3c9ce9f0ebce2451',
+                       '758aa29b154babfe18468c6e2f650e04c23be18f9ba0c4a2bb4ccb087553d87f',
+                       '0c071f7c97706059792bdec16ce3de952bf9114159ba493b5baad62d71e5d6d1'):
+            self.assertEqual(base.count(digest), 1, digest)
+        prep = Path('/var/tmp/ga-f37t-prep-20260923-r2')
+        if prep.exists():
+            self.assertEqual(sha(prep/'result.json'), '0c071f7c97706059792bdec16ce3de952bf9114159ba493b5baad62d71e5d6d1')
+            self.assertEqual(sha(prep/'city.isolated.toml'), '9774a5692ec5537713b212bc3fef5c88edc34c82cb6fdcc11e949e7eefc8343e')
+            self.assertEqual(sha(prep/'receipt.final.json'), '0876abb88879ce546502e34228a710a60a69a2b20f85791b3c9ce9f0ebce2451')
+
+    def test_watch_captures_each_live_pane(self):
+        watch = (HERE/'watch-r11.py').read_text()
+        self.assertIn("'capture-pane', '-p', '-t', live['session_name']]", watch)
+        self.assertIn("expected=(0, 1))", watch)
+        self.assertFalse((HERE/'proof').exists())
 
 
 if __name__ == '__main__':

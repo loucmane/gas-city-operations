@@ -2,9 +2,9 @@
 
 This is a scoped infrastructure task through Gas City, not product dispatch or
 full provider-handover acceptance. No native Agent/Task delegation, other provider,
-or coordinator implementation/signing fallback. The failed ga-5ot6, ga-e0t1.14 and
-ga-y49e attempts, their artifacts and worktrees remain historical evidence, never
-retry targets.
+or coordinator implementation/signing fallback. The failed ga-5ot6, ga-e0t1.14,
+ga-y49e and ga-4z38 attempts, their artifacts and worktrees remain historical evidence,
+never retry targets.
 
 ## Exact identity
 
@@ -74,7 +74,7 @@ session/claim and Core store identity; locating a Bead alone is insufficient.
 4. Standalone `git config --get user.email`: require explicit deny. Do not work
    around it with an alias, path, -C, wrapper or composition.
 5. Record Go/Python versions, then standalone
-   `go test ./internal/sling -run '^TestGa4z38CapabilityProbeNoTests$'`.
+   `go test ./internal/sling -run '^TestGaf37tCapabilityProbeNoTests$'`.
    This is compile-only, not suite PASS. The reviewed policy already supplies
    GOPROXY=off, GOSUMDB=off, GOFLAGS=-mod=readonly and the profile supplies
    GOTOOLCHAIN=local. Do not add leading environment assignments: that command

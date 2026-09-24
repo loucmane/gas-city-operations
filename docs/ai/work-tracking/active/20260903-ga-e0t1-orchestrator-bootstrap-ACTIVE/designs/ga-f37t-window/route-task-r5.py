@@ -15,9 +15,9 @@ HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/
 ROOT=Path('/var/tmp/ga-f37t-route-20260923-r1')
 BIND=Path('/var/tmp/ga-f37t-bind-20260923-r1')
 BIND_SHA='591cf9b58cfa86d8cee18af4db8fbcf03408c8932dcb79f17e6c9096969149fa'
-BRIEF_SHA='acd2919095b8a1dac7228b08007fe6fc3d8a433eeff9cb0877b8feeb95bd03d2'
+BRIEF_SHA='5fcfbcb52dc679d307773bfb8cf4fc618a8d6fb2283d9832bd69c4d4b660e2c9'
 HELPER=HERE/'window-r11.py'
-SHA='d923c04e0317a7f3f873ab902448f836f50b8b381de77fce2d6569d0961ad297'
+SHA='9ac2dd96a81e6036180e152693c603986289c1e883966aa8dabad569d95b54e0'
 TARGET='gascity/gc.implementation-worker'
 
 def main():

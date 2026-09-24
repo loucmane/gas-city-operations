@@ -32,11 +32,11 @@ PROVISIONER = Path('/home/loucmane/gas-city-template/bin/gct-managed-worker-prov
 WITNESS = Path('/var/tmp/gct-m1wh-p6-adoption-20260923-r2/typed-support.json')
 WITNESS_SHA = '5a630443b7b47c0054b96f593b18d3012ac671d4124c25eae3afa54bcfe8cfeb'
 CITY_SHA = ('4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591',
-            '5f3b60e1c1e391b5a1f66de62a2e767ea226570ce7549c6dfb526cd072e6530d')
+            '9774a5692ec5537713b212bc3fef5c88edc34c82cb6fdcc11e949e7eefc8343e')
 RECEIPT_SHA = ('0b30c23f4484382fd4918f394599268f4f4005ac71118e8a7f82ca72eb9615ff',
-               '392ea0b6c0a9a3c0cb88971b04c45b1326de50e9ea35c4e63c83bf1a602a3e46')
+               '0876abb88879ce546502e34228a710a60a69a2b20f85791b3c9ce9f0ebce2451')
 REVISION = ('d6ca85cd96c7aab4ea0b6a7954d2d74e5e6bb211cde0bb820f3b6f815023bd88',
-            '6b31d83ab039cd1cba61ac77845fe71f4d6ce8b06f8a775f07df1e42d6bfd6ba')
+            '758aa29b154babfe18468c6e2f650e04c23be18f9ba0c4a2bb4ccb087553d87f')
 INPUT = (Path('/var/tmp/gct-m1wh-p6-input-20260923-r2/receipt.input.draft.json'), PREP/'receipt.input.json')
 INPUT_SHA = ('24c1ca751303d5cab12a1605599d13cb5e5a152c977088fbb6869c7a052095ec',
              None)  # The isolated input is compared to the exact native-finalized wire below.
@@ -108,7 +108,7 @@ def load_support():
 
 def pins():
     # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.
-    read(PREP/'result.json', 'c0d1959c4e0df67e8f02b8716f43f2adf542c9d2b358d75f4027d92f91480c03')
+    read(PREP/'result.json', '0c071f7c97706059792bdec16ce3de952bf9114159ba493b5baad62d71e5d6d1')
     read(LAUNCH, '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea')
     read(PROVISIONER, '64425a728fc06a082865f2d53afcc6e4793974f5aadab49492d95f5e0a9f4a35')
     read(WITNESS, WITNESS_SHA)
@@ -148,7 +148,7 @@ def dependency_image(value):
     return value
 
 def approved_historical_image(prior):
-    # ga-f37t disposition, for independent review: between the P6 accepted snapshot (12:36Z) and
+    # ga-4z38 disposition, for independent review: between the P6 accepted snapshot (12:36Z) and
     # this window, coordinator `gc bd` calls made WITHOUT GIT_OPTIONAL_LOCKS=0 advanced only the pack
     # cache repo's .git directory times. The last such call was the 15:51:43Z read test that proved
     # the cause; every coordinator gc call since carries GIT_OPTIONAL_LOCKS=0. A read-only lstat
@@ -167,7 +167,7 @@ def shape(value):
     return type(value).__name__
 
 def approved_epoch_image(prior, h):
-    # ga-f37t r13 disposition, for independent review: the host rebooted on 2026-09-24 after the P6
+    # ga-4z38 r13 disposition, for independent review: the host rebooted on 2026-09-24 after the P6
     # accepted snapshot, so the P6 host block records the old boot. host() has already required the
     # live epoch (boot, and the core, signer and broker service epochs) to equal the rebound pins. The
     # P6 host block is replaced by that verified live block only when both have exactly the same shape.

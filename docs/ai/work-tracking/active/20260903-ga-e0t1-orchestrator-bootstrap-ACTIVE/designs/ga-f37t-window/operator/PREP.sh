@@ -1,8 +1,8 @@
 #!/bin/sh
 # ga-f37t window prep r3: the isolation overlay and its receipt image. Read-only: installs nothing
 # and launches no worker. It writes its fresh evidence root /var/tmp/ga-f37t-prep-20260923-r2 plus the
-# staging log below. r2 followed the fail-closed refusal of the r1 job (root -r1 preserved); r3 follows
-# the review HOLD of r2, which never ran (root -r2 was never created).
+# staging log below. It is the reviewed ga-f37t prep r3 rebound to ga-f37t; the r1 refusal and the r2
+# HOLD belong to the ga-f37t jobs, and the -r2 root name is inherited from them.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner). The runner starts it as
 #   systemd-run --user --wait --collect --quiet --service-type=oneshot --unit=gc-job-<id> \
@@ -13,7 +13,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-f37t-window
 COMMIT=${1:?usage: PREP.sh <reviewed commit>}
-PREP_SHA=31e5412a0924ad253b4de0a2f12ce9193333e239863c37a8c80100d3b092c848
+PREP_SHA=234aa6fe555c9f2e5b2d2e74c7c25cde2db75f942f142d64723c10c145907a6a
 OUT=/var/tmp/ga-f37t-prep-20260923-r2
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

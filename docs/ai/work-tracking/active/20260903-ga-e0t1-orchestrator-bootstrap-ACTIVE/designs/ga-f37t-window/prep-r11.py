@@ -17,7 +17,7 @@ What changes from the originals:
 - The old verified.json gate between the two original scripts becomes the in-run overlay revision.
   That value is used only after every isolation proof has passed.
 
-r2 (after job ga-f37t-prep refused fail-closed at 16:06:01Z; root -r1 preserved):
+r2 (after job ga-4z38-prep refused fail-closed at 16:06:01Z; root -r1 preserved):
 - `gc config show` reports one more advisory validation warning under the overlay: the bound
   worker's max_active_sessions=1 makes it a canonical singleton. The expected effective config now
   includes exactly that pinned warning string, in sorted position. Every Agents, Workspace and

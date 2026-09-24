@@ -26,6 +26,24 @@ package equals its output.
   the inspector builder and wrapper (the inspector is built).
 - **Digests** propagate to a fixed point. BIND runs again for ga-f37t, so no provenance pin is kept.
 
+## s2: PREP outputs, pane capture, history
+
+- **PREP ran** at s1 (`912e4d48`, two SOURCE_PASS job reviews filed) as job `ga-f37t-prep`, PASS 2026-09-24
+  22:05:00Z, root `/var/tmp/ga-f37t-prep-20260923-r2`. Its overlay equals the derived `9774a569`, its
+  receipt image is `0876abb8`, its composition revision `758aa29b`, and its `result.json` is `0c071f7c`.
+  `window-base-r11.py` now pins those four (the unchanged pins stay: city `4f7e170f`, receipt `0b30c23f`,
+  revision `d6ca85cd`, P6 input `24c1ca75`).
+- **Pane capture.** WATCH now captures each live session's visible pane with the release job's exact
+  read-only form (`tmux -u -L city capture-pane -p -t <session_name>`), one phase per session, exit 1
+  recorded. Operating rule for this window: run WATCH slots about one minute apart for the first five
+  minutes after RESUME, so a silent start leaves its screen as evidence before Core reaps the session.
+- **History.** ga-4z38 events in comments stay attributed to ga-4z38; the PREP and RECONCILE wrapper headers
+  are reworded; the brief lists ga-4z38 among the consumed attempts and names its compile probe
+  `TestGaf37tCapabilityProbeNoTests`; `proof/` is dropped (it never runs in a job).
+- `test_successor.py` checks the whole derivation, the allowed ga-4z38 mentions, the PREP pin, the PREP
+  output pins against the live PREP root, and the pane capture. The overlay derivation itself is proven
+  live by PREP's in-job digest check, which passed.
+
 ## Phases
 
 1. **s1 (this commit):** its two reviews name only `operator/PREP.sh`, so the job runner admits only PREP. PREP

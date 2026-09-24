@@ -29,7 +29,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-f37t-window/window-base-r11.py')
-BASE_SHA = 'fb9dd9fa93d57337c784af773520f8ec888d9c073ff452e6bf3688a012d9a23a'
+BASE_SHA = 'e6077e17d806ea2b9041b7ad22663901b4d600c8bc4a8e5af17c8351c0097eeb'
 TASK = 'ga-f37t'
 WINDOW = Path('/var/tmp/ga-f37t-window-20260923-r1')
 VAR = Path('/var/tmp')
@@ -218,6 +218,12 @@ def main():
     staged = run('git-staged-names', git + ['diff-index', '--cached', '--name-status', 'HEAD'])['stdout']
     run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid} #{pane_dead}'],
         expected=(0, 1))
+    # ga-f37t: the visible pane of each live session, captured the way Core captures it (release-r11
+    # pane_clear form), read-only. ga-f37t's worker went silent and was reaped before any capture; the
+    # early WATCH slots after RESUME keep the screen as evidence. Exit 1 (pane gone) is recorded, not fatal.
+    for index, live in enumerate(sessions.get('sessions') or []):
+        run('pane-%d' % index, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', live['session_name']],
+            expected=(0, 1))
     processes = []
     for proc in Path('/proc').iterdir():
         if not proc.name.isdigit():

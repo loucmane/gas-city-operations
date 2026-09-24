@@ -1,5 +1,5 @@
 #!/bin/sh
-# ga-f37t window reconcile: the reviewed status-only hold of the consumed predecessor ga-y49e
+# ga-f37t window reconcile: the reviewed status-only hold of the consumed predecessor ga-4z38
 # (blocked, route and evidence preserved), before BIND.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
