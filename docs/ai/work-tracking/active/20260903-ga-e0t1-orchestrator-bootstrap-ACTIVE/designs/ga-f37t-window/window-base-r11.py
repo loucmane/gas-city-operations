@@ -186,8 +186,8 @@ RESTORED_PINS = {
 def approved_restore_image(prior):
     # ga-f37t s3 disposition, for independent review: the ga-4z38 window restored the city exactly
     # (RESTORE 2026-09-24 21:53:20Z, TERMINAL 21:54:18Z). RESTORE rewrote city.toml and receipt.json with
-    # their accepted content, so only their inode and times changed, and TERMINAL wrote a new
-    # suspension-state.json. The P6 image therefore cannot match any restored city. These three pin
+    # their accepted content, so only their inode and times changed, and the window's reviewed rig-suspend
+    # step (21:50:20Z) wrote a new suspension-state.json, which TERMINAL recorded. The P6 image therefore cannot match any restored city. These three pin
     # entries, and only these, are taken from the reviewed TERMINAL record (pinned by digest); the two
     # rewritten files must keep exactly their accepted content digest, and the suspension state must be the
     # one TERMINAL recorded. Every other pin, the cache, the protected trees and the host stay compared as

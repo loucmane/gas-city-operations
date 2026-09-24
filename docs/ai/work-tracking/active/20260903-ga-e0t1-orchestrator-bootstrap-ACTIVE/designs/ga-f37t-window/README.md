@@ -24,7 +24,7 @@ package equals its output.
   `/var/tmp/ga-4z38-platform-inspector-20260924-r1` is kept.
 - **Dropped:** the ga-4z38 README, its tests and generators (their provenance chains are ga-4z38-specific), and
   the inspector builder and wrapper (the inspector is built).
-- **Digests** propagate to a fixed point. BIND runs again for ga-f37t, so no provenance pin is kept.
+- **Digests** propagate to a fixed point. ROUTE's `BIND_SHA` is the one provenance pin kept (see s3 r2).
 
 ## s2: PREP outputs, pane capture, history
 
@@ -48,8 +48,8 @@ package equals its output.
 
 - **ROUTE binds the BIND that runs.** `route-task-r5.py` pinned `BIND_SHA` 591cf9b5, the ga-4z38 r12
   bind-task digest that r13 and r14 kept as a provenance pin; ROUTE would have refused the ga-f37t BIND after
-  STAGE. The generator now maps that digest to the new bind-task digest, and a test ties ROUTE's `BIND_SHA`,
-  BIND.sh's pin and the bind-task digest together.
+  STAGE. At s2 r2 the generator mapped that digest to the then-current bind-task digest (15945269), which is
+  the digest BIND ran with. s3 r2 replaces this mapping; see below.
 - **Twelve WATCH slots.** WATCH-9..12 are WATCH-8 with only the slot number changed (a test proves the
   twelve differ in nothing else). Allocation: 1 zero-pane baseline after ROUTE and before RESUME; 5 early
   captures at about +1, +2, +3, +4 and +5 minutes after RESUME (the first also observes the session and its
@@ -73,12 +73,35 @@ passed at 22:23:38Z. OBSERVE then refused at 22:24:14Z with "accepted baseline d
 - **Disposition.** `approved_restore_image()` in `window-base-r11.py` takes exactly those three pin entries
   from the TERMINAL record (`/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json`, pinned
   `04ad8d3e`). `city.toml` and `receipt.json` must keep their accepted content digest, and the suspension
-  state must be the one TERMINAL recorded (`a4bcfdc3`). Everything else is compared as before. A test
-  replays the refused observation (it passes with the disposition and fails without it), and another
-  proves a changed content digest refuses.
+  state must be the one TERMINAL recorded (`a4bcfdc3`; the ga-4z38 window's reviewed rig-suspend step wrote it
+  at 21:50:20Z, before RESTORE, and TERMINAL recorded it after checking the terminal lineage). Everything else is compared as before. A test
+  replays the refused observation (it passes with the disposition and fails without it); others prove that
+  a changed content digest, another suspension state, a missing pin, a changed pin shape, another inode on a
+  restored file and drift in any other pin all refuse.
 - **Fresh root.** The refused OBSERVE created `/var/tmp/ga-f37t-integrity-20260924-r2`, so s3 uses
   `/var/tmp/ga-f37t-integrity-20260925-r3`. RECONCILE and BIND have run and are not repeated; their wrappers
   are left out of the s3 job reviews.
+
+## s3 r2 (ROUTE keeps the BIND that ran)
+
+- s3 changed `window-base-r11.py`, which `bind-task-r3.py` pins, so propagation would have moved ROUTE's
+  `BIND_SHA` to the new bind-task digest. BIND ran once, at s2 r2 (`36b4158d`), and never runs again (its output
+  root exists, so BIND.sh refuses). ROUTE's `BIND_SHA` is therefore a provenance pin to `15945269`, the
+  `executor_sha256` in `/var/tmp/ga-f37t-bind-20260923-r1/binding-intent.json`, and is kept out of propagation.
+  BIND.sh and `bind-task-r3.py` carry the propagated digests; the test checks ROUTE against the record, not
+  against BIND.sh.
+
+## s3 r3 (review hold on the documentation)
+
+- Documentation only, plus tests: the corrections above, the refusal-branch tests and a direct test that both
+  observers pin `window-obs-r11.py`.
+- **ga-f37t stays unwritten until ROUTE.** ROUTE requires the live Bead to equal the BIND record
+  (`task-after.json`: notes, `comment_count` 0, `updated_at` 2026-09-24T22:22:41Z). No note, comment or label
+  goes to ga-f37t before ROUTE; outcomes are recorded on ga-e0t1. Check `updated_at` read-only before the
+  window.
+- **WATCH cadence is best-effort.** Every job sets the runner latch, which the coordinator records and clears,
+  and a WATCH runs up to about 15 phases. The +1..+5 minute captures after RESUME are therefore as close to one
+  minute apart as the runner allows.
 
 ## Phases
 
@@ -87,8 +110,10 @@ passed at 22:23:38Z. OBSERVE then refused at 22:24:14Z with "accepted baseline d
 2. **s2 (after PREP):** re-pin the PREP outputs in `window-base-r11.py`; add repeated worker-pane capture to the
    first minutes after RESUME, so a silent start can be diagnosed before Core reaps the session; two reviews
    naming RECONCILE, BIND and the window wrappers.
-3. **Window:** RECONCILE (ga-4z38 to blocked), BIND, then FRESHEN through TERMINAL at the next FRESHEN opening
-   (Friday 2026-09-25 from 22:27 CEST, per the access-time forecast).
+3. **Window:** RECONCILE (ga-4z38 to blocked) and BIND ran at s2 r2. FRESHEN through TERMINAL run in a FRESHEN
+   opening from the access-time forecast recomputed just before FRESHEN-1 (lstat of every FRESHEN object; an
+   opening is a time with no non-refreshable atime in the last 19 to 24 hours). On 2026-09-25 at 00:33 CEST the
+   forecast was: free until 04:17 CEST, blocked from 04:17 CEST to Saturday 00:23 CEST, free after that.
 
 The ga-4z38 package's README holds the full design and its review history; it applies here unchanged except
 for the points above.

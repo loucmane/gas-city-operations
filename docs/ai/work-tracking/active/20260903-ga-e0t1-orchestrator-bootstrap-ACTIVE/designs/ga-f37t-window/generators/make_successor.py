@@ -14,8 +14,8 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
    ci-gi0lh (state stale-session), instead of ga-y49e; ga-y49e (already blocked) is the unrelated
    predecessor that must stay exact.
 4. Global identity substitutions (IDENTITY), in order, with the rebuilt inspector path protected.
-5. Digest propagation to a fixed point, as in make_epoch_r13/r14. No provenance pin is kept: BIND runs
-   again for ga-f37t, so ROUTE pins the new bind-task digest.
+5. Digest propagation to a fixed point, as in make_epoch_r13/r14. ROUTE's BIND_SHA is the one provenance
+   pin kept: since s3 r2 it is the digest of the bind-task that ran (item 8), never a propagated one.
 6. s1 (912e4d48) admitted only PREP. The ga-f37t PREP job passed on 2026-09-24 at 22:05:00Z
    (root /var/tmp/ga-f37t-prep-20260923-r2); in s1 the window-base-r11.py pins still carried the ga-4z38
    PREP digests under the renamed path.
@@ -26,6 +26,10 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
    - HISTORY: ga-4z38 events stay attributed to ga-4z38; PRE_SUBS reword the PREP and RECONCILE wrapper
      headers and add ga-4z38 to the brief's consumed attempts; the brief's compile-probe test name follows
      the new id; proof/ is dropped (it never runs in a job and pointed at ga-4z38 roots).
+8. s3 (after OBSERVE refused at s2 r2) adds S3_SUBS, the restore disposition in window-base-r11.py, and
+   the fresh integrity root S3_ROOT. s3 r2 keeps ROUTE's BIND_SHA at BIND_RAN_SHA, the bind-task digest
+   BIND ran with at s2 r2 (36b4158d); BIND never runs again, while BIND.sh and bind-task-r3.py carry the
+   propagated digests.
 """
 import hashlib
 import re
@@ -80,7 +84,8 @@ PRE_SUBS = {
 }
 # s3: OBSERVE at s2 r2 refused 'accepted baseline drift' (2026-09-24 22:24:14Z). The ga-4z38 RESTORE and
 # TERMINAL (21:53-21:54Z) rewrote city.toml and receipt.json with their P6 content (new inode and times)
-# and TERMINAL wrote a new suspension-state.json; the P6 accepted image can never match a restored city.
+# and the ga-4z38 rig-suspend step (21:50:20Z) wrote a new suspension-state.json, which TERMINAL then
+# recorded; the P6 accepted image can never match a restored city.
 # The disposition takes exactly those three pin entries from the reviewed ga-4z38 TERMINAL record, which
 # equals the live pins, cache, protected trees and host except for atime (checked 22:3xZ).
 TERMINAL_RECORD = '/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json'
@@ -95,8 +100,8 @@ RESTORED_PINS = {
 def approved_restore_image(prior):
     # ga-f37t s3 disposition, for independent review: the ga-4z38 window restored the city exactly
     # (RESTORE 2026-09-24 21:53:20Z, TERMINAL 21:54:18Z). RESTORE rewrote city.toml and receipt.json with
-    # their accepted content, so only their inode and times changed, and TERMINAL wrote a new
-    # suspension-state.json. The P6 image therefore cannot match any restored city. These three pin
+    # their accepted content, so only their inode and times changed, and the window's reviewed rig-suspend
+    # step (21:50:20Z) wrote a new suspension-state.json, which TERMINAL recorded. The P6 image therefore cannot match any restored city. These three pin
     # entries, and only these, are taken from the reviewed TERMINAL record (pinned by digest); the two
     # rewritten files must keep exactly their accepted content digest, and the suspension state must be the
     # one TERMINAL recorded. Every other pin, the cache, the protected trees and the host stay compared as

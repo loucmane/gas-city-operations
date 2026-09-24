@@ -145,6 +145,44 @@ class Derivation(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, 'restored content differs'):
             m.approved_restore_image(prior)
 
+    def test_restore_disposition_refuses_every_other_change(self):
+        refused = Path('/var/tmp/ga-f37t-integrity-20260924-r2/before-refused-observation.json')
+        if not refused.exists():
+            self.skipTest('no s2 r2 refused observation on this host')
+        m, json = self.base()
+        prior = json.loads(m.read(m.ACCEPTED, m.ACCEPTED_SHA))
+        suspension = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
+        city = '/home/loucmane/gascity/city/city.toml'
+        # A suspension state other than the recorded one refuses.
+        original = m.RESTORED_PINS[suspension]
+        m.RESTORED_PINS[suspension] = '0' * 64
+        with self.assertRaisesRegex(RuntimeError, 'restored suspension state differs'):
+            m.approved_restore_image(prior)
+        m.RESTORED_PINS[suspension] = original
+        # A missing pin refuses.
+        missing = json.loads(json.dumps(prior))
+        del missing['pins'][city]
+        with self.assertRaisesRegex(RuntimeError, 'restore disposition pin set'):
+            m.approved_restore_image(missing)
+        # A changed pin shape refuses.
+        shaped = json.loads(json.dumps(prior))
+        shaped['pins'][city]['extra'] = 1
+        with self.assertRaisesRegex(RuntimeError, 'restore pin shape drift'):
+            m.approved_restore_image(shaped)
+        # A restored file with any other inode, and any other pin that drifts, still differ.
+        value = json.loads(refused.read_text())
+        chained = m.approved_restore_image(m.approved_epoch_image(m.approved_historical_image(prior), value['host']))
+        for path in (city, next(p for p in sorted(value['pins']) if p not in m.RESTORED_PINS)):
+            drifted = json.loads(json.dumps(value))
+            drifted['pins'][path]['metadata']['inode'] += 1
+            self.assertNotEqual(m.dependency_image(chained), m.dependency_image(drifted), path)
+
+    def test_observers_pin_the_window_observer(self):
+        obs = sha(HERE/'window-obs-r11.py')
+        for name in ('observe-integrity-r11.py', 'observe-terminal-r11.py'):
+            [pin] = re.findall(r"^W_SHA='([0-9a-f]{64})'$", (HERE/name).read_text(), re.M)
+            self.assertEqual(pin, obs, name)
+
     def test_prep_wrapper_pins_prep(self):
         text = (HERE/'operator'/'PREP.sh').read_text()
         [pin] = re.findall(r'^PREP_SHA=([0-9a-f]{64})$', text, re.M)
