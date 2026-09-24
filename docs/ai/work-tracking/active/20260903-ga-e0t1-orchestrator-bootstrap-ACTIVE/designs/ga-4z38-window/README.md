@@ -820,6 +820,57 @@ it is not admitted. r12 also takes review B's should-fixes:
 - **Wording.** **Erratum** to the r11 bullet "PREFLIGHT, before anything is consumed": RECONCILE and
   BIND have written their Beads by then, so "before STAGE" is accurate.
 
+### Round 2b r13 (epoch rebind after the 2026-09-24 reboot)
+
+r12 (`f8c4dde9`) had two SOURCE_PASS reviews, both filed. RECONCILE and BIND passed on 2026-09-23 at
+21:49Z (ga-y49e blocked; ga-4z38 bound, attempt requested). The host then rebooted before FRESHEN (up
+2026-09-24 09:16 CEST), so nothing was staged, routed or launched. r12 is bound to the old host epoch,
+so every job from OBSERVE on would refuse on boot drift. RECONCILE and BIND stay valid.
+- **Post-reboot state, read-only.**
+  - The city and all four rigs are suspended, 0 agents are running, and there is no city tmux socket.
+  - The same gc binary (69d00186) runs as the supervisor: `.local/bin/gc` is a symlink to
+    `gascity/bin/gc`.
+  - The job runner restarted on its reviewed source 0c493db2.
+  - The round 2a admission forecast (`proof/admission-forecast.py`, all but the host block) still
+    shows zero differences from P6. Providers are equal, directories are clean, and all five route
+    stores are captured.
+- **The new epoch.** Observed from the supervisor's own PID namespace (pid:[4026532223], shared with
+  init):
+  - boot 3f1f4534;
+  - core `gascity-supervisor-home-42adab5d.service` PID 2331, start 39708112;
+  - signer PID 2310, start 39660502;
+  - controller PID 2331.
+  - The broker (`gas-city-privileged-provision.service`) is socket-activated and **inactive** in this
+    boot. Nothing in the window uses it (only the epoch check reads its unit), so its epoch is the
+    inactive one, PID 0 and start 0. Waking it would need a signed, sequenced envelope. Any activation
+    during the window refuses as epoch drift, like any other.
+- **`generators/make_epoch_r13.py`.** The reboot also cleared /tmp, which held the reviewed upstream
+  sources that the round 1 and 2 generators read. So r13 derives from the r12 blobs in git instead.
+  - It changes the six old-epoch sites, each count-asserted: in window-base-r11.py the host() boot and
+    service epochs, and the controller PID in the suspension status and the reload trace; the reload
+    trace in window-r11.py; and the reload event in route-chain-r1.py.
+  - It then propagates each changed file's digest into every .py and .sh pin, to a fixed point. It
+    leaves README.md and the historical generators alone.
+  - Every other file keeps its r12 bytes.
+- **Tests.**
+  - `EpochRebind` proves that every package file is its r12 blob, or the epoch rebind of it, or one of
+    five named hand-edited r13 files.
+  - It proves that the only lines changed in the three executors are old-epoch or digest lines.
+  - The r1 and r2 regeneration tests now prove r12 provenance against the r12 blobs, and skip while
+    their /tmp upstream is gone.
+- **`proof/worker-env-proof.py`** takes the supervisor identity from the rebound host() core epoch,
+  and requires the core unit to report the same MainPID and start live. It passes.
+- **Cleanup.** My own test residue was moved out of /var/tmp before any window job:
+  - a fake CLOSE root;
+  - a fake release root;
+  - a drain marker for a fake session ci-1.
+
+  The r9 mutation check had written them by running older job copies that hardcoded /var/tmp. They
+  are kept in `~/.local/share/gas-city-staging/ga-4z38-window/test-residue-20260923`. The drain
+  marker would otherwise have made CLOSE skip its drain.
+- **The window runs from FRESHEN on,** with the same job order and roots. RECONCILE and BIND are not
+  repeated.
+
 **Read-only forecasts, 2026-09-23** (with GIT_OPTIONAL_LOCKS=0; the pack-cache `.git` times are
 unchanged throughout):
 - Admission: zero differences from P6 plus the disposition, providers equal, `directories()` clean,

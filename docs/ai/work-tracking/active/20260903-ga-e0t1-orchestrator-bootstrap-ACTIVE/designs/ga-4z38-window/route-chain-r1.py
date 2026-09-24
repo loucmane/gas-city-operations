@@ -25,7 +25,7 @@ def validate_event(event,name,r,p,revisions,argv):
     require(json.loads(phase['stdout'])==ack and ack['ok'] is True
         and ack['async'] is False and ack['soft'] is False
         and ack['outcome']=='applied' and ack['revision']==revision,'reload acknowledgement')
-    require(cycle['controller_pid']==3150812 and cycle['config_revision']==revision
+    require(cycle['controller_pid']==2331 and cycle['config_revision']==revision
         and cycle['completion_status']=='completed' and cycle['fields']['active_template_count']==0,
         'reload cycle identity')
     trace=event['trace'];cleanup=trace['cleanup']

@@ -207,8 +207,8 @@ def directory_preservation(before, after):
 
 def host(o):
     h = o.host_observation()
-    require(h['host']['boot'] == 'f4e38c6a-bfc9-4532-a713-0497904c5b1a', 'boot drift')
-    for name, pid, start in [('core','3150812','84619011818'), ('signer','5550','208267863'), ('broker','2862577','77125780270')]:
+    require(h['host']['boot'] == '3f1f4534-ea17-4cb4-b2f2-a3f8bce1a8fa', 'boot drift')
+    for name, pid, start in [('core','2331','39708112'), ('signer','2310','39660502'), ('broker','0','0')]:
         require(h[name]['MainPID'] == pid and h[name]['ExecMainStartTimestampMonotonic'] == start, name+' epoch drift')
     return h
 
@@ -308,7 +308,7 @@ def suspension_status_matches(value, expected):
     require(value.get('ok') is True and value.get('city_path')==str(CITY)
         and value.get('running') is True and not value.get('partial')
         and not value.get('partial_errors')
-        and value['controller']['running'] is True and value['controller']['pid']==3150812,
+        and value['controller']['running'] is True and value['controller']['pid']==2331,
         'incomplete/wrong-controller suspension observation')
     rows=value['rigs']; rigs={r['name']:r['suspended'] for r in rows}
     require(len(rows)==len(rigs)==4 and set(rigs)=={'gascity','gas-city-template','hpfetcher','blog'}
@@ -529,7 +529,7 @@ def reload(name, i, b, owned):
         rows = json.loads(trace['stdout'])['records']
         newest = max(rows,key=lambda x:x['seq']) if rows else None
         if newest:
-            require(newest['controller_pid']==3150812, 'controller trace epoch drift')
+            require(newest['controller_pid']==2331, 'controller trace epoch drift')
             age = (datetime.now(timezone.utc)-datetime.fromisoformat(newest['ts'].replace('Z','+00:00'))).total_seconds()
             require(0<=age<=120 and newest['fields']['active_template_count']==0, 'stale/active revision')
             if newest['config_revision']==REVISION[i] and newest['completion_status']=='completed':

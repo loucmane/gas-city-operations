@@ -33,8 +33,23 @@ def constant(text, name):
     return value
 
 
+R12 = 'f8c4dde9777fe4a8b48271b6d85be1f01701fc32'
+R12_PREFIX = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/'
+UPSTREAM = '/tmp/ga-y49e-launch-20260920'
+
+
+def r12_blob(name):
+    """The reviewed r12 bytes of a package file, from the commit object (never the working tree)."""
+    return subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', str(Path(__file__).resolve().parents[6]),
+                           'show', R12 + ':' + R12_PREFIX + name], capture_output=True, check=True).stdout
+
+
 class Regeneration(unittest.TestCase):
     def test_generators_reproduce_every_committed_output(self):
+        # r12 provenance: these generators read reviewed upstream sources under /tmp, which the
+        # 2026-09-24 reboot cleared; r13 derives from the r12 blobs instead (test_round2b EpochRebind).
+        if not os.path.exists(UPSTREAM):
+            self.skipTest('upstream sources cleared by the 2026-09-24 reboot; see test_round2b EpochRebind')
         with tempfile.TemporaryDirectory() as tmp:
             # Generators embed the package path, so regenerate with the real package path as the
             # target text and compare after writing to a scratch copy of the package directory.
@@ -47,7 +62,7 @@ class Regeneration(unittest.TestCase):
                                      env=dict(os.environ, GA4Z38_OUT=scratch))
                 self.assertEqual(out.returncode, 0, out.stderr)
             for name in ('window-base-r11.py', 'window-obs-r11.py', 'observe-integrity-r11.py'):
-                self.assertEqual(sha_file(os.path.join(scratch, name)), sha_file(os.path.join(HERE, name)), name)
+                self.assertEqual(sha_file(os.path.join(scratch, name)), hashlib.sha256(r12_blob(name)).hexdigest(), name)
 
 
 class Pins(unittest.TestCase):

@@ -4,7 +4,9 @@ Every gc config load runs `git status --porcelain` in the pack cache (Core
 internal/config/pack_include.go validateLockedRemoteCache), and without GIT_OPTIONAL_LOCKS=0 that can
 rewrite the cache index and move the cache .git times the window compares exactly. The worker calls gc
 from its hooks, its claim and its drain-ack. This proof checks each link of the inheritance chain:
-1. The live supervisor (the P6 accepted host pid) carries GIT_OPTIONAL_LOCKS=0. Only that one entry is
+1. The live supervisor carries GIT_OPTIONAL_LOCKS=0. Its identity is the core epoch that
+   window-base-r11.py host() pins (r13, the 2026-09-24 boot), and the core unit
+   gascity-supervisor-home-42adab5d.service must report that MainPID and start live. Only that one entry is
    tested; nothing else from its environment is read into the result.
 2. Core at the worker base e6366b9e (the PR 45 merge the installed gc 69d00186 was built from):
    - no non-test Go source names GIT_OPTIONAL_LOCKS (the only mention is the docsync test of the
@@ -34,7 +36,8 @@ import subprocess
 import sys
 from pathlib import Path
 
-P6_AFTER = Path('/var/tmp/gct-m1wh-p6-adoption-20260923-r2/after.json')
+WINDOW_BASE = Path(__file__).resolve().parent.parent/'window-base-r11.py'
+CORE_UNIT = 'gascity-supervisor-home-42adab5d.service'
 CORE = '/home/loucmane/gascity-core-worktrees/ga-4z38-typed-route-cycles'
 BASE = 'e6366b9ececd3a4ceab2bcaa264a5e317e6eab88'
 WRAPPER = Path('/home/loucmane/gas-city-template/lib/gct_claude_subscription.py')
@@ -50,12 +53,14 @@ def git(*args, ok=(0,)):
 
 
 def main():
-    host = json.loads(P6_AFTER.read_text())['host']['host']
-    pid = host['pid']
+    [(core_pid, core_start)] = re.findall(r"\('core','(\d+)','(\d+)'\)", WINDOW_BASE.read_text())
+    unit = dict(line.split('=', 1) for line in subprocess.run(
+        ['/usr/bin/systemctl', '--user', 'show', CORE_UNIT, '-p', 'MainPID', '-p', 'ExecMainStartTimestampMonotonic'],
+        capture_output=True, text=True, timeout=60, check=True).stdout.splitlines())
+    pid = int(core_pid)
     environ = Path('/proc/%d/environ' % pid).read_bytes().split(b'\0')
-    stat = Path('/proc/%d/stat' % pid).read_text().rsplit(') ', 1)[1].split()
     names = {entry.split(b'=', 1)[0] for entry in environ if entry}
-    supervisor = dict(pid=pid, start_matches=stat[19] == host['start'],
+    supervisor = dict(pid=pid, start_matches=unit == dict(MainPID=core_pid, ExecMainStartTimestampMonotonic=core_start),
                       git_optional_locks_zero=b'GIT_OPTIONAL_LOCKS=0' in environ,
                       default_tmux_socket_dir=b'TMUX_TMPDIR' not in names and b'TMUX' not in names)
     fd = os.open(SUPPORT, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)

@@ -12,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-4z38-window
 COMMIT=${1:?usage: FRESHEN-1.sh <reviewed commit>}
-FRESHEN_SHA=61092dc21d7feb0a38e43cc7ba1355b40b7767299507df97fd502d95c4f31c65
+FRESHEN_SHA=7422a39777a613c3f03f61e47ef85f22718d9b8189d5efbfb800cd97b9532781
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

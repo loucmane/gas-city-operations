@@ -94,8 +94,22 @@ def layer():
     return m
 
 
+R12 = 'f8c4dde9777fe4a8b48271b6d85be1f01701fc32'
+R12_PREFIX = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-4z38-window/'
+UPSTREAM = '/tmp/ga-y49e-launch-20260920'
+
+
+def r12_blob(name):
+    """The reviewed r12 bytes of a package file, from the commit object (never the working tree)."""
+    return subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', str(Path(__file__).resolve().parents[6]),
+                           'show', R12 + ':' + R12_PREFIX + name], capture_output=True, check=True).stdout
+
+
 class Regeneration(unittest.TestCase):
     def test_generators_reproduce_every_round_2b_output_and_wrapper(self):
+        # r12 provenance, as in test_round2a: skipped while the /tmp upstream is gone (EpochRebind below).
+        if not os.path.exists(UPSTREAM):
+            self.skipTest('upstream sources cleared by the 2026-09-24 reboot; see EpochRebind')
         with tempfile.TemporaryDirectory() as tmp:
             scratch = Path(tmp)/'pkg'
             shutil.copytree(HERE, scratch, ignore=shutil.ignore_patterns(*GENERATED, '__pycache__'))
@@ -105,9 +119,39 @@ class Regeneration(unittest.TestCase):
                                       capture_output=True, text=True, env=dict(os.environ, GA4Z38_OUT=str(scratch)))
                 self.assertEqual(done.returncode, 0, done.stderr)
             for name in GENERATED:
-                self.assertEqual(sha(scratch/name), sha(HERE/name), name)
+                self.assertEqual(sha(scratch/name), hashlib.sha256(r12_blob(name)).hexdigest(), name)
             for name in WRAPPERS:
-                self.assertEqual(sha(scratch/'operator'/name), sha(HERE/'operator'/name), name)
+                self.assertEqual(sha(scratch/'operator'/name), hashlib.sha256(r12_blob('operator/' + name)).hexdigest(), name)
+
+class EpochRebind(unittest.TestCase):
+    """r13: every package file is its reviewed r12 blob, or the epoch rebind of it, or one of the named
+    hand-edited r13 files."""
+    HAND_EDITED = {'README.md', 'test_round2a.py', 'test_round2b.py', 'proof/worker-env-proof.py',
+                   'generators/make_epoch_r13.py'}
+
+    def test_every_file_is_r12_or_its_epoch_rebind(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            done = subprocess.run([sys.executable, '-B', str(HERE/'generators'/'make_epoch_r13.py'), str(HERE), tmp],
+                                  capture_output=True, text=True, timeout=300)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            produced = {str(p.relative_to(tmp)) for p in Path(tmp).rglob('*') if p.is_file()}
+            tracked = {str(p.relative_to(HERE)) for p in HERE.rglob('*') if p.is_file() and '__pycache__' not in p.parts}
+            self.assertEqual(tracked - produced, self.HAND_EDITED - produced)
+            for name in sorted(produced - self.HAND_EDITED):
+                self.assertEqual(sha(Path(tmp)/name), sha(HERE/name), name)
+
+    def test_the_epoch_is_the_2026_09_24_boot_and_nothing_else_changed_in_the_executors(self):
+        base = (HERE/'window-base-r11.py').read_text()
+        self.assertIn("require(h['host']['boot'] == '3f1f4534-ea17-4cb4-b2f2-a3f8bce1a8fa', 'boot drift')", base)
+        self.assertIn("[('core','2331','39708112'), ('signer','2310','39660502'), ('broker','0','0')]", base)
+        for name in ('window-base-r11.py', 'window-r11.py', 'route-chain-r1.py'):
+            text = (HERE/name).read_text()
+            self.assertNotIn('3150812', text, name)
+            old = r12_blob(name).decode()
+            changed = [(a, b) for a, b in zip(old.splitlines(), text.splitlines()) if a != b]
+            self.assertEqual(len(old.splitlines()), len(text.splitlines()), name)
+            for a, b in changed:
+                self.assertTrue('3150812' in a or 'f4e38c6a' in a or re.search(r'[0-9a-f]{64}', a), (name, a, b))
 
 
 class Pins(unittest.TestCase):
@@ -116,7 +160,7 @@ class Pins(unittest.TestCase):
 
     def test_copies_are_the_reviewed_route_modules(self):
         self.assertEqual(sha(HERE/'restore-r9-routes-r3.py'), '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2')
-        self.assertEqual(sha(HERE/'route-chain-r1.py'), 'e408e2ddf98d6cb403a45b26f72aba0e47817a3b8dd2adb19adade696a35eacf')
+        self.assertEqual(sha(HERE/'route-chain-r1.py'), '55fd9fefb9c512a486084e3c1e0900b3ad63a315f919b3c4213701e51b0a2144')
 
     def test_every_load_is_bound_to_the_file_it_loads(self):
         window = self.text('window-r11.py')
