@@ -127,9 +127,12 @@ The worktree `/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles` 
      held it for the missing rate-limit handler and an inaccurate claim about the import dialog.
    - s2 r6 (`3bdb3320`) changed only this README. The runner-fit review passed it. The correctness review
      held it, because Core's trust handler also refuses menus it does not recognise.
-   - s2 r7 (this commit) changes only this README. It no longer relies on when Core answers a dialog. It
-     assumes the order nudge can accept any Claude menu on screen, and bounds that by which menus can
-     appear and what each changes. The snapshot script now fails closed on an unexpected field shape.
+   - s2 r7 (`650d357d`) changed only this README; it stopped relying on when Core answers a dialog. The
+     runner-fit review passed it. The correctness review held it because the MCP reason assumed a
+     settings file the signing wrapper drops, and because a nudge sends Enter up to three times.
+   - s2 r8 (this commit) changes only this README. It records what the signing wrapper passes to Claude,
+     widens the assumption to any option and several menus, and marks the MCP menu possible (the effect
+     is unchanged). The snapshot script now also digests `allowedTools`.
    Its two reviews name the 34 window wrappers (every wrapper except PREP).
 3. **Window:**
    - RECONCILE and BIND;
@@ -169,35 +172,52 @@ calls by the coordinator between PREFLIGHT and TERMINAL, the window's last integ
 2h retention prunes an entry only on a run that sees some pair, and that run refreshes the ga-gegx entry
 first, so the pair is not nudged again.
 
-**What an order nudge can answer.** Core's order nudge uses `wait-idle` delivery. It types its text and
-presses Enter once any of the last 120 pane lines starts with `❯ `. A queued nudge is delivered by the
-poller once the session has been quiet long enough. Neither path checks for a dialog (Core
-`cmd/gc/cmd_nudge.go`; `internal/runtime/tmux/tmux.go` `WaitForIdle` and `matchesPromptPrefix`). A Claude
-selection menu marks its highlighted choice with `❯ `.
+**What an order nudge can answer.** Core's order nudge uses `wait-idle` delivery. Once any of the last 120
+pane lines starts with `❯ `, it types its text literally. The text is a multi-line reminder block, and a
+queued multi-item nudge contains a digit ("You have N deferred reminders", `cmd/gc/cmd_nudge.go`). It then
+sends Enter up to three times while the pane does not look busy (`submitEnterAndConfirm`,
+`submitEnterMaxSends = 3`, in `internal/runtime/tmux/tmux.go`). A queued nudge is delivered by the poller
+once the session has been quiet long enough. Neither path checks for a dialog (`WaitForIdle` and
+`matchesPromptPrefix`). A Claude selection menu marks its highlighted choice with `❯ `.
 
-**Conservative assumption.** The order nudge can accept the highlighted option of *any* Claude menu that
-is on screen when it arrives. That includes a menu Core's own launch handling left alone. Core answers
+**Conservative assumption.** One order nudge can choose *any* option of any Claude menu on screen when it
+arrives, not only the highlighted one: a typed digit can select a numbered option. It can also answer
+several menus in sequence. That includes menus Core's own launch handling left alone. Core answers
 startup dialogs only when they match its recognisers and gates, and leaves any others for a human
 (`internal/runtime/dialog.go` `AcceptStartupDialogsWithTimeout`; for example `workspace_trust.go` and
 `import_trust.go`). This README therefore does not rely on Core having answered any dialog first. The
 bound below depends only on which menus can appear and what accepting each one changes.
 
 **Permission dialogs cannot occur.** The worker profile runs Claude with `--permission-mode dontAsk` (PREP
-r5 `receipt.final.json`; `full-auto` maps to dontAsk in `internal/worker/builtin/profiles.go`). In that mode
-Claude denies every tool call that is not pre-allowed and never shows a permission dialog.
+r5 `receipt.final.json`; `full-auto` maps to dontAsk in `internal/worker/builtin/profiles.go`). The signing
+wrapper also enforces it: `gct_claude_signing_worker.py` accepts only that permission mode.
+
+This behaviour of dontAsk is stated from Claude Code's documented mode, not from Claude source: Claude
+denies every tool call that is not pre-allowed and never shows a permission dialog. The earlier windows'
+negative-permission probes relied on the same behaviour.
+
+**What actually reaches Claude.** The receipt's provider is `/home/loucmane/gas-city-template/bin/gct-claude-signing-worker`.
+Its library, `lib/gct_claude_signing_worker.py`:
+- accepts only a closed flag set: `--resume`, `--model`, `--effort`, `--permission-mode`, `--settings`,
+  `--add-dir`, and one positional prompt;
+- drops the shared `city/.gc/settings.json` argument;
+- puts `--setting-sources ""` in front of the one control policy it passes,
+  `templates/claude/core-signing-control-policy.json`, which has no MCP key.
+
+The subscription helper removes `ANTHROPIC_API_KEY` from the environment (`lib/gct_claude_subscription.py`).
 
 **The Claude startup menus, whether each is expected, and the effect of accepting it.** These are the
 Claude menus Core's startup handling knows. Core's handlers 2 and 6 in `dialog.go` are Codex-only.
 
-| Menu | Expected here? | Effect if the highlighted option is accepted |
+| Menu | Expected here? | Effect of its most permissive option |
 |---|---|---|
-| Resume selector | No: the session is a fresh start. | Resumes a prior conversation; no grant; not persisted. |
+| Resume selector | Not at the first start. The wrapper allows `--resume`, so a Core restart mid-window could show it. | Resumes a prior conversation; no grant; not persisted. |
 | Workspace trust | No: trust is believed to come from the repository key, which is already trusted (below). | Workspace trust for this worktree, whose repository key is already trusted under the inference below. |
 | External CLAUDE.md imports | No: the worktree `CLAUDE.md` imports only the in-tree `@AGENTS.md`, `AGENTS.md` has no `@` import, and there is no `CLAUDE.md` in the worktree's parents or `~/.claude`. | CLAUDE.md may read the listed imports, up to files outside the worktree. |
-| Project MCP servers | No: the second `--settings` file, `city/.gc/settings.json`, sets `enableAllProjectMcpServers: true`; the first (the core signing policy) has no MCP key. | Enables all current and future project MCP servers for that project key (today one http server, `excalidraw`). |
-| Bypass-permissions warning | No: the argv selects `--permission-mode dontAsk`, and no `dangerously` flag appears in the receipt. | Accepts bypass mode; the answer may persist (see the inference below). |
-| Custom API key | No: `UpstreamEnv.APIKey` is empty and no API key variable appears in the receipt; the worker runs on the subscription. | Records that key as approved. |
-| Rate limit | Only if the subscription hits its limit. | Core's own answer is "Stop", which ends the session. The highlighted option may instead keep the session waiting. No grant, not persisted. |
+| Project MCP servers | Possible. The worktree has a project `.mcp.json` (one http server, `excalidraw`), and no setting that reaches Claude pre-approves it (see above). Workers ran with the same `.mcp.json` in ga-5ot6, ga-4z38 and ga-f37t, where Core's handler would have chosen the persisting option. Yet the `rigs/gascity` entry still has no `enableAllProjectMcpServers` and empty MCP lists. That suggests the menu does not appear under `--setting-sources ""`. This is an inference. | Enables all current and future project MCP servers for that project key; the snapshot comparison detects it under the keys it reads. |
+| Bypass-permissions warning | No: the wrapper's closed flag set admits only `--permission-mode dontAsk`, and no `dangerously` flag can pass. | Accepts bypass mode for that launch; the answer may persist (see the inference below). |
+| Custom API key | No: the wrapper removes `ANTHROPIC_API_KEY`, `UpstreamEnv.APIKey` is empty, and the worker runs on the subscription. | Records that key as approved. |
+| Rate limit | Only if the subscription hits its limit. | Core's own answer is "Stop", which ends the session; another option may keep the session waiting. No grant, not persisted. |
 
 None of these grants a tool permission, and dontAsk still denies every tool call that is not pre-allowed.
 The ga-f37t captures (an empty `❯` prompt and no menu) show only that no menu was left on screen when they
@@ -215,7 +235,7 @@ The following are inferences from recorded state, not from Claude source:
   key answers. Some Claude versions keep the bypass answer in settings instead.
 
 **Coordinator procedure.** The snapshot is taken by `claude_json_snapshot.py`, which lives in the
-coordinator's scratchpad (sha256 `71141973...`). It opens `~/.claude.json` once with O_NOFOLLOW and
+coordinator's scratchpad (sha256 `be8e8517...`). It opens `~/.claude.json` once with O_NOFOLLOW and
 O_NOATIME, with no directory access. On the open descriptor it requires a regular file owned by uid 1000
 of at most 16 MiB, unchanged while read.
 
@@ -223,15 +243,16 @@ It records these fields:
 - Project fields, for five keys (`rigs/gascity`, both worktree paths, `/home/loucmane/gascity-core-worktrees`
   and `/home/loucmane`): `hasTrustDialogAccepted`, `hasClaudeMdExternalIncludesApproved`,
   `hasClaudeMdExternalIncludesWarningShown`, `enabledMcpjsonServers`, `disabledMcpjsonServers`,
-  `enableAllProjectMcpServers`, `allowedTools`, and a digest of `mcpServers`.
+  `enableAllProjectMcpServers`, and digests of `allowedTools` and `mcpServers`.
 - Top-level fields: `bypassPermissionsModeAccepted`, and the approved and rejected counts plus a digest of
   `customApiKeyResponses`. Any other shape of that field is reduced to a digest.
 
 No credential or key suffix is recorded.
 
-The pre-window snapshot was taken on 2026-09-25 and saved as `claude-json-snapshot-pre-window-r6.json`
-(sha256 `03151cbe...`, identical to the r5 output):
-- `rigs/gascity`: trust `true`, both external-import flags `false`, empty MCP lists and `allowedTools`;
+The pre-window snapshot was taken on 2026-09-25 and saved as `claude-json-snapshot-pre-window-r7.json`
+(sha256 `3de78760...`). Earlier snapshot files were deleted.
+- `rigs/gascity`: trust `true`, both external-import flags `false`, empty MCP lists, and `allowedTools`
+  equal to the digest of an empty list;
 - `/home/loucmane`: trust `false`, both external-import flags `false`, empty lists;
 - the worktree paths and `/home/loucmane/gascity-core-worktrees`: no entry;
 - `bypassPermissionsModeAccepted`: absent;
