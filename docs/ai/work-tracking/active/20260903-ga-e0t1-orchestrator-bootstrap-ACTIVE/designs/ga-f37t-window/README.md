@@ -169,7 +169,38 @@ operator chose to account reads instead of waiting.
   - both call sites;
   - the removal of the FRESHEN gate.
 - **Operating rule** from s4 r2 still applies: no `workflow.py` call and no bd or gc call without
-  `GIT_OPTIONAL_LOCKS=0` until TERMINAL, and the read-only cache lstat check before OBSERVE.
+  `GIT_OPTIONAL_LOCKS=0` until TERMINAL. The read-only cache lstat check now runs before OBSERVE, not before
+  FRESHEN-1.
+
+## s5 r2 (both reviews of 25abb9bd held on the same gap)
+
+- **Exact access-time checks outside the accounting.** Three checks still compare access times exactly, and
+  FRESHEN used to keep them stable:
+  - the suspension lineage compares the PREFLIGHT baseline record (`suspension-lineage.py:101,106`) until the
+    first transition, and RESTORE, its admission and TERMINAL re-verify that chain;
+  - the route projection compares the city `.beads` directory mirror and each event's preimage
+    (`route-chain-r1.py:58-64`);
+  - `directory_preservation` compares the city root and the provisioning directory after their renames.
+  Snapshot alignment does not reach these.
+- **Start gate.** `stable_read_times()` now runs inside PREFLIGHT before `before.json`. It requires the
+  suspension state, the city root, city `.beads` and the provisioning directory each to have an access time
+  newer than their mtime and ctime and under 20 hours old. Relatime then cannot rewrite them before T0 plus the
+  four-hour bound. At 2026-09-25 09:45 CEST all four passed, and they keep passing until **19:50 CEST**
+  (suspension state) and 20:23 CEST (the three directories). PREFLIGHT must run before 19:50 CEST, or it
+  refuses fail-closed before anything is staged.
+- **Runtime children** are no longer walked. R6 compares them by identity only, as before s5.
+- **Residual risks, unchanged from earlier packages:**
+  - the generated route files are refreshable, as in the ga-4z38 window, which passed with them;
+  - OBSERVE and TERMINAL still require zero pack-cache access-time changes;
+  - lists inside observations are not walked, which fails closed;
+  - WATCH's ADMIT prediction (`watch-r11.py`) does not apply the read accounting, so it may predict a refusal
+    where ADMIT passes. It is advisory only.
+- In TERMINAL, `ROOT` is the terminal root and holds no lifecycle intents, so the suspension pin is aligned
+  there. That is safe: the terminal endpoint is stable, and the lineage is verified separately.
+- **Tests** add the start gate, the 24-hour boundary, the runtime-children and cache-mount exclusions, and two
+  checks:
+  - a changed mtime, ctime, size or mode blocks alignment;
+  - a content change stays visible, because the digest sits beside the metadata record and is still compared.
 
 ## Phases
 
@@ -178,10 +209,14 @@ operator chose to account reads instead of waiting.
 2. **s2 (after PREP):** re-pin the PREP outputs in `window-base-r11.py`; add repeated worker-pane capture to the
    first minutes after RESUME, so a silent start can be diagnosed before Core reaps the session; two reviews
    naming RECONCILE, BIND and the window wrappers.
-3. **Window:** RECONCILE (ga-4z38 to blocked) and BIND ran at s2 r2. FRESHEN through TERMINAL run in a FRESHEN
-   opening from the access-time forecast recomputed just before FRESHEN-1 (lstat of every FRESHEN object; an
-   opening is a time with no non-refreshable atime in the last 19 to 24 hours). The run record on ga-e0t1 holds
-   the forecast actually used.
+3. **Window:** RECONCILE (ga-4z38 to blocked) and BIND ran at s2 r2. Since s5 there is no FRESHEN step:
+   - the cache lstat check;
+   - OBSERVE, PREFLIGHT (with its start gate), STAGE and ROUTE;
+   - WATCH-1, then RESUME;
+   - the early WATCH captures;
+   - then the release, signing, contain, hold, close, ADMIT, RESTORE and TERMINAL steps.
+   PREFLIGHT must run before the start-gate deadline in s5 r2. (`freshen-r11.py` and the FRESHEN wrappers still
+   describe the old rule; they are not part of this run.)
 
 The ga-4z38 package's README holds the full design and its review history; it applies here unchanged except
 for the points above.

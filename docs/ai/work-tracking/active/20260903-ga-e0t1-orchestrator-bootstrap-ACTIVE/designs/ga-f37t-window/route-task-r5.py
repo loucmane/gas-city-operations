@@ -17,7 +17,7 @@ BIND=Path('/var/tmp/ga-f37t-bind-20260923-r1')
 BIND_SHA='159452692546d4d08512d2b1a11a2b479bc1438e40e83fe009d05427a110417a'
 BRIEF_SHA='5fcfbcb52dc679d307773bfb8cf4fc618a8d6fb2283d9832bd69c4d4b660e2c9'
 HELPER=HERE/'window-r11.py'
-SHA='79110b981e65ebba8265b69335005c5b9423bd0edc1c88f262d0846c3d056a76'
+SHA='dc2fd0b1913c57f73ee7eca6c00cd8c81a030aeda9816e4c14c51635336cf6af'
 TARGET='gascity/gc.implementation-worker'
 
 def main():

@@ -1,10 +1,12 @@
 """The ga-f37t package is exactly the successor derivation of the reviewed ga-4z38 r14 package."""
 import hashlib
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -245,6 +247,71 @@ class Derivation(unittest.TestCase):
             changes = m.account_read_times(a, z, window)
             self.assertEqual(len(changes), 0 if lifecycle else 1)
             self.assertEqual(z == a, not lifecycle)
+
+    def test_read_times_boundaries_and_scope(self):
+        m, json = self.read_times()
+        day = 24 * 3600 * 10**9
+        window = dict(earliest_ns=0, latest_ns=100 * day)
+        fresh = 10 * day  # newer than mtime and ctime (100 s)
+        # Relatime writes at 24 hours in whole seconds, not at 86399 seconds.
+        for delta, admitted in ((day - 10**9, False), (day, True)):
+            a = dict(pins={'/x': dict(sha256='s', metadata=self.record(fresh))})
+            z = json.loads(json.dumps(a)); z['pins']['/x']['metadata']['atime_ns'] = fresh + delta
+            if admitted:
+                self.assertEqual(len(m.account_read_times(a, z, window)), 1)
+            else:
+                with self.assertRaisesRegex(RuntimeError, 'relatime cannot write'):
+                    m.account_read_times(a, z, window)
+        # A content, mtime, ctime, size or mode change is never aligned.
+        for field, value in (('sha256', 't'), ('mtime_ns', 200 * 10**9), ('ctime_ns', 200 * 10**9), ('size', 9), ('mode', 0o600)):
+            a = dict(pins={'/x': dict(sha256='s', metadata=dict(self.record(50 * 10**9), size=1))})
+            z = json.loads(json.dumps(a)); z['pins']['/x']['metadata']['atime_ns'] = 5 * day
+            if field == 'sha256':
+                z['pins']['/x']['sha256'] = value
+            else:
+                z['pins']['/x']['metadata'][field] = value
+            kept = json.loads(json.dumps(z))
+            m.account_read_times(a, z, window)
+            if field == 'sha256':
+                # The metadata record may align, but the content digest stays compared, so it still differs.
+                self.assertEqual(z['pins']['/x']['sha256'], 't')
+                self.assertNotEqual(z, a)
+            else:
+                self.assertEqual(z, kept, field)
+        # Runtime children and cache mounts are never walked.
+        a = dict(directories=dict(runtime_children={'.gc': {'f': self.record(fresh)}}, city={'.': self.record(50 * 10**9)}),
+                 cache_access_mounts=[{'atime_ns': 1}])
+        z = json.loads(json.dumps(a))
+        z['directories']['runtime_children']['.gc']['f']['atime_ns'] = fresh + 5
+        z['directories']['city']['.']['atime_ns'] = 5 * day
+        z['cache_access_mounts'][0]['atime_ns'] = 2
+        changes = m.account_read_times(a, z, window)
+        self.assertEqual([c['path'] for c in changes], [['directories', 'city', '.']])
+        self.assertEqual(z['directories']['runtime_children']['.gc']['f']['atime_ns'], fresh + 5)
+        self.assertEqual(z['cache_access_mounts'][0]['atime_ns'], 2)
+
+    def test_stable_read_times_gate(self):
+        m, json = self.base()
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        path = root/'f'
+        path.write_text('x')
+        s = path.lstat()
+        hour = 3600 * 10**9
+        base = max(s.st_mtime_ns, s.st_ctime_ns)
+        # Access time newer than mtime/ctime and under 20 hours old passes.
+        os.utime(path, ns=(base + hour, s.st_mtime_ns))
+        t = path.lstat()
+        m.stable_read_times([path], now_ns=t.st_atime_ns + 19 * hour)
+        with self.assertRaisesRegex(RuntimeError, 'not stable for the window'):
+            m.stable_read_times([path], now_ns=t.st_atime_ns + 20 * hour)
+        # An access time not newer than mtime/ctime (refreshable by any read) refuses.
+        os.utime(path, ns=(0, s.st_mtime_ns))
+        with self.assertRaisesRegex(RuntimeError, 'not stable for the window'):
+            m.stable_read_times([path], now_ns=time.time_ns())
+        text = (HERE/'window-base-r11.py').read_text()
+        gate = "        require(result['stdout']=='','worker not clean')\n        stable_read_times()\n        snapshot('before.json',b,o)\n"
+        self.assertEqual(text.count(gate), 1)
 
     def test_both_preservation_layers_account_read_times(self):
         call = "    accounting['read_time_changes']=w.account_read_times(a,z,accounting['window'])\n"

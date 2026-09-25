@@ -213,7 +213,7 @@ def approved_coordinator_cache_image(prior):
     # cache repo's .git directory mtime and ctime (22:39:06.179Z). The s3 r4 OBSERVE refusal found every
     # other cache, pin, protected-tree and host value equal. From that refusal (22:50:43Z) until TERMINAL,
     # no workflow.py call of any verb (including post-commit log or discharge) and no bd or gc call
-    # without GIT_OPTIONAL_LOCKS=0 runs, and a read-only lstat before FRESHEN-1 confirms both times still
+    # without GIT_OPTIONAL_LOCKS=0 runs, and a read-only lstat before OBSERVE confirms both times still
     # equal the recorded value. Never reuse this for fresh drift.
     value=json.loads(json.dumps(prior))
     entry=value['cache']['inventory'][CACHE_DIRECTORY]
@@ -256,9 +256,27 @@ def account_read_times(a, z, window):
                 continue
             if lifecycle and path == ('pins',) and key == str(SUSPENSION):
                 continue
+            # R6 compares runtime children by identity only (directory_preservation); leave them alone.
+            if path == ('directories',) and key == 'runtime_children':
+                continue
             walk(x[key], y[key], path + (key,))
     walk(a, z, ())
     return changes
+
+def stable_read_times(paths=None, now_ns=None):
+    # ga-f37t s5 start gate, for independent review: three checks still compare access times exactly
+    # outside account_read_times. The suspension lineage compares the PREFLIGHT baseline record until the
+    # first transition. The route projection compares the city .beads directory mirror. And
+    # directory_preservation compares the city root and provisioning directory after their renames.
+    # FRESHEN used to keep those stable. Now PREFLIGHT requires each to have an access time newer than its
+    # modification and change times and under 20 hours old, so Linux relatime cannot rewrite it within
+    # the four-hour window bound. The gate reads metadata only.
+    now_ns = time.time_ns() if now_ns is None else now_ns
+    for path in (SUSPENSION, CITY, CITY/'.beads', RECEIPT.parent) if paths is None else paths:
+        s = os.lstat(path)
+        require(s.st_atime_ns > max(s.st_mtime_ns, s.st_ctime_ns)
+                and 0 <= now_ns - s.st_atime_ns < 20 * 3600 * 10**9,
+                'access time not stable for the window: ' + str(path))
 
 def directories(o):
     fd = os.open(CITY, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_NOATIME)
@@ -685,6 +703,7 @@ def main():
         require(result['stdout'].strip()==BASE,'worker base drift')
         result=phase('git-status',['/usr/bin/git','-C',str(WORK),'status','--porcelain=v1','--untracked-files=all'],b,owned)
         require(result['stdout']=='','worker not clean')
+        stable_read_times()
         snapshot('before.json',b,o)
         baseline=suspension_record(o)
         module(HERE/'suspension-lineage.py',LINEAGE_SHA).image(baseline)

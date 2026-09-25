@@ -37,7 +37,8 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
    consumed by refused OBSERVE runs).
 10. s5 (operator chose it over waiting for a FRESHEN opening) adds account_read_times to window-base,
    calls it in both preservation layers (READ_TIMES_CALL), and removes PREFLIGHT's FRESHEN gate
-   (PREFLIGHT_FRESHEN).
+   (PREFLIGHT_FRESHEN). s5 r2 adds the PREFLIGHT start gate stable_read_times (PREFLIGHT_GATE) for the
+   access-time checks outside the accounting, and leaves runtime children unwalked.
 """
 import hashlib
 import re
@@ -136,7 +137,7 @@ def approved_coordinator_cache_image(prior):
     # cache repo's .git directory mtime and ctime (22:39:06.179Z). The s3 r4 OBSERVE refusal found every
     # other cache, pin, protected-tree and host value equal. From that refusal (22:50:43Z) until TERMINAL,
     # no workflow.py call of any verb (including post-commit log or discharge) and no bd or gc call
-    # without GIT_OPTIONAL_LOCKS=0 runs, and a read-only lstat before FRESHEN-1 confirms both times still
+    # without GIT_OPTIONAL_LOCKS=0 runs, and a read-only lstat before OBSERVE confirms both times still
     # equal the recorded value. Never reuse this for fresh drift.
     value=json.loads(json.dumps(prior))
     entry=value['cache']['inventory'][CACHE_DIRECTORY]
@@ -200,10 +201,30 @@ def account_read_times(a, z, window):
                 continue
             if lifecycle and path == ('pins',) and key == str(SUSPENSION):
                 continue
+            # R6 compares runtime children by identity only (directory_preservation); leave them alone.
+            if path == ('directories',) and key == 'runtime_children':
+                continue
             walk(x[key], y[key], path + (key,))
     walk(a, z, ())
     return changes
+
+def stable_read_times(paths=None, now_ns=None):
+    # ga-f37t s5 start gate, for independent review: three checks still compare access times exactly
+    # outside account_read_times. The suspension lineage compares the PREFLIGHT baseline record until the
+    # first transition. The route projection compares the city .beads directory mirror. And
+    # directory_preservation compares the city root and provisioning directory after their renames.
+    # FRESHEN used to keep those stable. Now PREFLIGHT requires each to have an access time newer than its
+    # modification and change times and under 20 hours old, so Linux relatime cannot rewrite it within
+    # the four-hour window bound. The gate reads metadata only.
+    now_ns = time.time_ns() if now_ns is None else now_ns
+    for path in (SUSPENSION, CITY, CITY/'.beads', RECEIPT.parent) if paths is None else paths:
+        s = os.lstat(path)
+        require(s.st_atime_ns > max(s.st_mtime_ns, s.st_ctime_ns)
+                and 0 <= now_ns - s.st_atime_ns < 20 * 3600 * 10**9,
+                'access time not stable for the window: ' + str(path))
 '''
+PREFLIGHT_GATE = ("        require(result['stdout']=='','worker not clean')\n",
+                  "        require(result['stdout']=='','worker not clean')\n        stable_read_times()\n")
 READ_TIMES_CALL = ("    accounting['mounts']=mounts\n",
                    "    accounting['mounts']=mounts\n"
                    "    # s5: reads may advance access times outside the cache too (window-base account_read_times).\n"
@@ -213,7 +234,8 @@ S3_SUBS['window-base-r11.py'] += [
     ('    # Historical reuse alone excludes read timestamps. Immediate preservation\n'
      '    # still compares every metadata field, including atime.\n',
      '    # Historical reuse alone excludes read timestamps. Immediate preservation compares every\n'
-     '    # metadata field; access times only as account_read_times admits (s5).\n')]
+     '    # metadata field; access times only as account_read_times admits (s5).\n'),
+    PREFLIGHT_GATE]
 S3_SUBS['window-r11.py'] = [READ_TIMES_CALL]
 S3_SUBS['window-obs-r11.py'] = [READ_TIMES_CALL]
 PREFLIGHT_FRESHEN = (

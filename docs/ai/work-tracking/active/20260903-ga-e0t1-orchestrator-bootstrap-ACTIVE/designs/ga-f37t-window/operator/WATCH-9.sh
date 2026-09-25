@@ -10,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-f37t-window
 COMMIT=${1:?usage: WATCH-9.sh <reviewed commit>}
-WATCH_SHA=34ddc73f6ab238b0ecd890a5fa56423742f4ef9bec24318193131cdbb954577d
+WATCH_SHA=500e28479c30d68336a4de6237f10b08aaa5316c2a165bbcd522c5e82182b216
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
