@@ -116,8 +116,13 @@ The worktree `/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles` 
 
 1. **s1 r3:** two SOURCE_PASS reviews naming only `operator/PREP.sh`. PREP r5 passed on 2026-09-25 at
    10:38:03Z (job `ga-gegx-s1r3-prep`), root `/var/tmp/ga-gegx-prep-20260925-r3`.
-2. **s2 r2 (this commit):** see "s2" below. Both reviews held s2 (`d82c7afe`); s2 r2 fixes their
-   must_fix items. Its two reviews name the 34 window wrappers (every wrapper except PREP).
+2. **s2:** see "s2" below. The reviews held s2 (`d82c7afe`), s2 r2 (`03e21045`) and s2 r3 (`0bf8bd69`).
+   - s2 r2 fixed the barrier, the nudge evidence reads and the RECONCILE root.
+   - s2 r3 corrected the CLOSE description. It changed the pinned barrier comment (via
+     `generators/make_successor.py`), the RECONCILE.sh header, the README and the tests.
+   - s2 r4 (this commit) changes only this README, stating Core's own startup-dialog acceptance and the
+     `~/.claude.json` comparison.
+   Its two reviews name the 34 window wrappers (every wrapper except PREP).
 3. **Window:**
    - RECONCILE and BIND;
    - the cache and start-gate checks;
@@ -158,36 +163,55 @@ first, so the pair is not nudged again.
 
 **What an order nudge can answer.** Core's order nudge uses `wait-idle` delivery. It types its text and
 presses Enter once any of the last 120 pane lines starts with `❯ `. A queued nudge is delivered by the
-poller once the session has been quiet long enough. Neither checks for a dialog (Core `cmd/gc/cmd_nudge.go`;
-`internal/runtime/tmux/tmux.go` `WaitForIdle` and `matchesPromptPrefix`). A Claude selection menu marks
-its highlighted choice with `❯ `, so an order nudge could answer any menu on screen.
+poller once the session has been quiet long enough. Neither path checks for a dialog (Core
+`cmd/gc/cmd_nudge.go`; `internal/runtime/tmux/tmux.go` `WaitForIdle` and `matchesPromptPrefix`). A Claude
+selection menu marks its highlighted choice with `❯ `, so an order nudge could answer any menu still on
+screen.
 
 - **Permission dialogs cannot occur.** The worker profile runs Claude with `--permission-mode dontAsk`
   (PREP r5 `receipt.final.json`). In that mode Claude denies every tool call that is not pre-allowed and
   never shows a permission dialog.
-- **The workspace trust prompt is not expected.** `~/.claude.json` records no trust for the ga-gegx
-  worktree or its parents (`/home/loucmane` is `false`). The worktree's Git repository,
-  `/home/loucmane/gascity/city/rigs/gascity` (its common directory `rigs/gascity/.git`), is trusted.
-  The ga-f37t worktree had the same layout and the same absence of its own entry. Its first two WATCH
-  captures (`/var/tmp/ga-f37t-watch-20260925T094247Z` and `...094319Z`, `pane-0-phase.json`) show the
-  Claude banner, an empty `❯` prompt and "don't ask on", with no trust prompt.
-- **The project MCP approval dialog is not expected.** The Core worktree tracks a project `.mcp.json`
-  (one http server, `excalidraw`). Its approval dialog would be another `❯` menu. The city settings file
-  the worker receives with `--settings` (`city/.gc/settings.json`, copied to the session's
-  `.gc/settings.json`) sets `enableAllProjectMcpServers: true`, so Claude does not ask. The ga-f37t worktree
-  had a byte-identical `.mcp.json` (sha256 `acaa57f6...`), and its captures show no dialog.
-- **Residual, stated exactly.** If either dialog did appear, a `wait-idle` order nudge presses Enter as soon
-  as two consecutive polls see a `❯ ` line. It would accept the highlighted choice about 16 to 22 seconds
-  after the worker goes active, which is likely before any WATCH captures the pane. Detection is
-  therefore not assured by WATCH. After the fact, the only durable trace is in `~/.claude.json`: a trust
-  entry, or an MCP approval, for the ga-gegx worktree path. The consequence is bounded:
-  - accepting trust grants workspace trust for a worktree of an already trusted repository;
-  - accepting the MCP dialog enables the one project MCP server, which settings already enable;
-  - neither grants a tool permission, and dontAsk still denies every tool call that is not pre-allowed.
+- **Core itself answers the startup dialogs, before the session is active.** During every managed launch,
+  Core runs `AcceptStartupDialogs` twice, once before and once after readiness
+  (`internal/runtime/tmux/adapter.go`, both `ShouldAcceptStartupDialogs` branches).
+  - It accepts the Claude workspace trust dialog.
+  - It accepts the project MCP dialog by choosing "Use this and all future MCP servers in this project"
+    (Down, Enter). That persists the choice to `~/.claude.json` (`internal/runtime/dialog.go`).
+  - This applies to this worker. Its provider is `builtin:claude` (PREP r5 `city.isolated.toml`), whose
+    profile names the claude process, and `AcceptStartupDialogs` is unset in PREP r5
+    `config.isolated.json`, so `ShouldAcceptStartupDialogs` is true (`internal/runtime/startup_hints.go`).
 
-  Coordinator procedure: after TERMINAL, read `~/.claude.json` once, read-only, for an entry for the
-  ga-gegx worktree path and record the result on ga-e0t1. If an entry appeared during the window, it is
-  recorded as the residual having occurred, and it is kept, not deleted.
+  Every earlier window ran with this Core behaviour too. The ga-f37t captures (an empty `❯` prompt, no
+  dialog) therefore show only that no dialog was left on screen after Core's launch sequence. They do not
+  show that none appeared. An order nudge arrives about 16 to 22 seconds after the session is active, so it
+  can meet only a dialog that Core's launch sequence did not answer. The order adds no dialog acceptance
+  beyond what Core already performs on every launch.
+- **Why these dialogs are not expected anyway.**
+  - Trust: `~/.claude.json` records no entry for the ga-gegx worktree or its parents (`/home/loucmane` is
+    `false`). The worktree's repository key, `/home/loucmane/gascity/city/rigs/gascity` (Git common
+    directory `rigs/gascity/.git`), has `hasTrustDialogAccepted: true`. No Core worktree where a worker ran
+    (ga-5ot6, ga-4z38, ga-f37t) has a project entry of its own. Claude very likely keys project state for
+    these linked worktrees by the repository root. That is an inference from the recorded state, not from
+    Claude source.
+  - MCP: the worker's argv passes `--settings` twice, first the core signing control policy and then
+    `city/.gc/settings.json`. Only the second sets `enableAllProjectMcpServers: true`, and the policy file
+    has no such key. The ga-f37t worktree had a byte-identical `.mcp.json` (sha256 `acaa57f6...`).
+- **Bound, if a dialog did appear.** Whether Core or an order nudge answers it:
+  - trust is granted to a worktree of an already trusted repository;
+  - the MCP choice enables all current and future project MCP servers for that project key (today one
+    http server, `excalidraw`);
+  - neither grants a tool permission, and dontAsk still denies every tool call that is not pre-allowed.
+- **Coordinator procedure.** The pre-window snapshot was taken on 2026-09-25, read-only, and kept in the
+  coordinator's scratchpad as `claude-json-snapshot-pre-window.json`. It covers the fields
+  `hasTrustDialogAccepted`, `enabledMcpjsonServers`, `disabledMcpjsonServers` and
+  `enableAllProjectMcpServers` of the `rigs/gascity` key and of the two worktree paths:
+  - `rigs/gascity`: trust `true`, both server lists `[]`, `enableAllProjectMcpServers` absent;
+  - ga-gegx and ga-f37t worktree paths: no entry.
+
+  After TERMINAL, the coordinator reads `~/.claude.json` once, read-only, compares exactly those fields for
+  the same keys, and records the comparison on ga-e0t1. Session metadata that Claude writes into project
+  entries is not a trust or MCP approval and is not compared. A changed field is recorded as a dialog
+  having been accepted during the window, and is kept, not reverted.
 
 **WATCH nudge evidence.** Each WATCH reads two files once, read-only:
 - the order's pack state file, `city/.gc/runtime/packs/core/nudge-on-route-state.json`;
@@ -204,7 +228,8 @@ valid, second-link, one-newline, bad-shape and oversize cases against the real `
 
 Operating rule: a WATCH after RESUME is expected to show `order_nudge_recorded` true and the worker
 claiming. Any visible menu or dialog in a pane capture is a stop, and the coordinator contains. This rule
-cannot catch a dialog that the order's nudge already answered (see the residual above).
+cannot catch a dialog that Core or the order's nudge already answered. The `~/.claude.json` comparison
+after TERMINAL covers that case.
 
 Before the window (2026-09-25), read-only:
 - the queue file held 26 dead items and nothing pending;
@@ -233,8 +258,10 @@ Before the window (2026-09-25), read-only:
   While pending or in-flight items remain, it also survives the session's disappearance for up to five
   minutes (`defaultNudgePollStartGrace`), so it can outlive CLOSE. Its argv and working directory do not
   name the worktree, and its files are under `.gc/nudges`, so no WATCH, CLOSE or preservation check counts
-  it, and none proves it gone. WATCH records the queue, and the coordinator reads the queue file once more,
-  read-only, before ADMIT and records it.
+  it, and none proves it gone. WATCH records the queue. The coordinator also reads the queue file once
+  more, read-only, before ADMIT. This is one known path: no gc call and no directory walk. The coordinator
+  keeps the result in its local run log only, and records it on ga-e0t1 after TERMINAL, because Bead
+  writes wait until the window is over.
 - Fallback path: when no active member is listed yet, the script nudges the template name itself. For a
   managed session that is not running, Core then queues the nudge and requests a wake (`cmd_nudge.go`
   `shouldQueueManagedNudgeWake`). The only session for the template is the worker's own, which Core is
@@ -257,15 +284,19 @@ showed every rig suspended and no running agent.
 - A resume never accepts it.
 - Any other partial status still refuses at once.
 
-CLOSE proves process state without this status. It requires no session in `gc session list`, no
-session on the city tmux server, and no process whose argv or cwd names the worktree (`close-r11.py`).
+CLOSE proves process state without this status (`close-r11.py`). It requires three things:
+- no open session for the worker template in `gc session list`;
+- no session on the city tmux server;
+- no uid 1000 process whose argv or cwd names the worktree.
+
+The pinned barrier comment in `window-base-r11.py` gives a shorter form of the same checks.
 A test drives the real barrier
 function with a fake clock through four cases: the ga-f37t sequence, a suspend that only ever sees the
 partial status, a resume and another partial error.
 
 Refusal texts, for HOLD triage: a barrier that never reaches its endpoint refuses with "suspension
-observation timeout; no lifecycle retry". When fewer than 15 seconds remain, the status phase itself
-can time out and refuse as a failed phase instead. Both leave `suspension-<action>-failure.json`, and
+observation timeout; no lifecycle retry". A `gc status` slower than its phase timeout (15 seconds, or the
+time remaining if less) refuses as a failed phase instead. Both leave `suspension-<action>-failure.json`, and
 a resume that only ever sees the probe partial refuses after 90 seconds, no longer after 30. Any other
 `partial_errors` from `gc status`, for example the API path's work, mail or store-health errors (Core
 `internal/api/handler_status.go`), still refuses at once and strands the lifecycle by design. That case
