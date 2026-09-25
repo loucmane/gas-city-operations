@@ -126,7 +126,7 @@ routes=load(HERE/'restore-r9-routes-r3.py',
 routes_policy=load(HERE/'route-chain-r1.py',
     'dee67afb4729b0d590d6708732721c6921a90d10081fb74fa047e27d57047d74','window_route_chain')
 INTEGRITY=Path('/var/tmp/ga-f37t-integrity-20260925-r5')
-OBSERVER_SHA='c1fa4f27f9c1c4e83f5842e2c34c29cd4a0f579f0e09399a916f905cea22abfa'
+OBSERVER_SHA='7217a6fa7fd2fc5d07dcf6e8610d54178d6e03379de76483d8945157e84eeb0c'
 INSPECTOR_SHA='b8ebcde38a9ee8078752949226f6736ea14a25413fba73db4d95076261658d13'
 
 def integrity_baseline(first):

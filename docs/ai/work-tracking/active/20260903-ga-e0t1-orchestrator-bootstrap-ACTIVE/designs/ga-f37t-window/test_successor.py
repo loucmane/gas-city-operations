@@ -370,7 +370,8 @@ class Derivation(unittest.TestCase):
         self.assertEqual(value['pins'][city], pin)
         rest = json.loads(json.dumps(value)); rest['pins'][city] = prior['pins'][city]
         self.assertEqual(rest, prior)
-        # Another executor, a receipt write, a worker, changed content or a shared root refuses.
+        # Another executor, a receipt write, a worker, a failed result, changed content or shape, another
+        # operation or refused root, or a non-0700 root refuses.
         with self.assertRaisesRegex(RuntimeError, 'recovery executor'):
             m.approved_recovery_image(prior, root, 'f' * 64)
         for result, message in ((dict(receipt_written=True), 'recovery result'),
@@ -383,6 +384,15 @@ class Derivation(unittest.TestCase):
         other, *_ = self.recovery_root(m, json, result=dict(city_pin=changed))
         with self.assertRaisesRegex(RuntimeError, 'recovered content differs'):
             m.approved_recovery_image(prior, other, 'e' * 64)
+        shaped = json.loads(json.dumps(pin)); shaped['metadata']['extra'] = 1
+        other, *_ = self.recovery_root(m, json, result=dict(city_pin=shaped))
+        with self.assertRaisesRegex(RuntimeError, 'recovered pin shape'):
+            m.approved_recovery_image(prior, other, 'e' * 64)
+        for intent in (dict(operation='restore-everything'), dict(refused_root='/var/tmp/elsewhere')):
+            other, *_ = self.recovery_root(m, json, intent=intent)
+            with self.assertRaisesRegex(RuntimeError, 'recovery executor'):
+                m.approved_recovery_image(prior, other, 'e' * 64)
+        # A root that is not the job's private 0700 directory refuses.
         os.chmod(root, 0o755)
         with self.assertRaisesRegex(RuntimeError, 'recovery root authority'):
             m.approved_recovery_image(prior, root, 'e' * 64)

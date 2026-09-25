@@ -1,7 +1,7 @@
 #!/bin/sh
 # ga-f37t s6 recovery: return the city to its accepted image after the refused s5 r5 STAGE (city.toml
-# restored, reload). Once; never writes the receipt, the suspension state or a Bead (the reload makes the
-# controller regenerate the route files with unchanged content).
+# restored, reload). Once; never writes the receipt, the suspension state or a Bead (the controller
+# regenerates the route files after the city write; their content is checked unchanged).
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
 # Log: ~/.local/share/gas-city-staging/ga-f37t-window/recover-<timestamp>.txt. Exits with the first failing
@@ -11,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-f37t-window
 COMMIT=${1:?usage: RECOVER.sh <reviewed commit>}
-RECOVER_SHA=3cf16dffac46b82c3d031b5b80daace07578a261a945983b3d951901023af8df
+RECOVER_SHA=94c4bf6fd68c76743574f90a5f5fa9a4c3d88bb44e76f64f61d4f029aaadab0d
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

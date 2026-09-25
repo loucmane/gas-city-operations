@@ -8,7 +8,8 @@ reloads, and waits until the controller has completed the accepted revision. Its
 city.toml pin, which the next window's OBSERVE admits (approved_recovery_image). Finally it makes ordinary reads
 of the four objects the next PREFLIGHT start gate checks, so relatime refreshes any access time it may refresh.
 It never writes the receipt, the suspension state or a Bead, and never starts a worker. It writes no route
-itself; the reload makes the controller regenerate the route files with unchanged content (checked).
+itself; the controller regenerates the route files after the city write, and the script checks their content
+is unchanged.
 """
 import hashlib
 import json

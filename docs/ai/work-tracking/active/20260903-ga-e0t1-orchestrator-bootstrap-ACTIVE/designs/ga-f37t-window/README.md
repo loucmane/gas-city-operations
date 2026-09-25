@@ -289,8 +289,10 @@ start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
   - It records the recovered city.toml pin, and makes ordinary reads of the four start-gate objects so that
     relatime refreshes whatever it may.
   - It never writes the receipt, the suspension state or a Bead, and never starts a worker. It writes no route
-    itself; the reload makes the controller regenerate the five route files with unchanged content (new inodes,
-    new parent `.beads` times), which the script checks. Its
+    itself; the controller regenerates the five route files after the city write (new inodes, new parent
+    `.beads` times), and the script checks only that their content is unchanged. The rig `.beads` directories
+    keep refreshable access times afterwards, which is the existing route residual (a change between PREFLIGHT
+    and STAGE refuses STAGE, before RESUME). Its
     wrapper refuses if a city tmux server is running.
 - **Admission.** `approved_recovery_image()` in window-base replaces only the city.toml pin entry, with the
   one the recovery recorded. That entry must keep the accepted content digest and shape. The disposition
@@ -303,13 +305,20 @@ start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
   consumed by the s5 r5 OBSERVE).
 - **Run order.**
   1. The cache lstat check, then RECOVER.
-  1a. The cache lstat check again, right before OBSERVE (RECOVER ran gc reload and trace).
   2. The start-gate forecast. The recovery's reads refresh what relatime allows. The suspension state and the
      provisioning directory stay gated by their own access times: under 19 hours until 18:50 and 19:23 CEST,
-     then refreshable by a read after 23:50 CEST and 00:23 CEST.
-  3. OBSERVE, PREFLIGHT, STAGE and ROUTE.
-  4. WATCH-1 and the RESUME decision, as in s5 r2.
-- The two operator-accepted residuals and the operating rules from s5 are unchanged.
+     then refreshable by a read after 23:50 CEST and 00:23 CEST. RECOVER's own reads are the only reviewed
+     reads in this plan and it runs once, so either PREFLIGHT runs before 18:50 CEST on 2026-09-25, or RECOVER
+     is deferred until after 00:23 CEST on 2026-09-26 so its reads refresh both. Between those times the gate
+     check fails closed and nothing at this commit can pass it.
+  3. The cache lstat check again, right before OBSERVE (RECOVER ran gc reload and trace).
+  4. OBSERVE, PREFLIGHT, STAGE and ROUTE.
+  5. WATCH-1 and the RESUME decision, as in s5 r2.
+- The two operator-accepted residuals and the operating rules from s5 are unchanged. RECOVER's reload leaves
+  freshly regenerated route files and rig `.beads` times, so the route-capture residual applies from
+  RECOVER onwards: a relatime write there before the stage reload refuses STAGE (before RESUME, no attempt
+  spent) but consumes window root r2. The ga-4z38 run suggests the observers' gc status and session list
+  do not touch the route files.
 
 ## Phases
 

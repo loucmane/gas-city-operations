@@ -18,7 +18,7 @@ W_SHA='bdbfd243d2683d59c3ed429661a03155979a06a675c2f8751e9fd9cb74c71a97'
 BINARY_SHA='b8ebcde38a9ee8078752949226f6736ea14a25413fba73db4d95076261658d13'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 RECOVER_ROOT='/var/tmp/ga-f37t-recover-20260925-r1'
-RECOVER_SHA='3cf16dffac46b82c3d031b5b80daace07578a261a945983b3d951901023af8df'
+RECOVER_SHA='94c4bf6fd68c76743574f90a5f5fa9a4c3d88bb44e76f64f61d4f029aaadab0d'
 MANIFEST_SHA='2d7eadce62c4e567697813cc9122414f1e94c3bd9d389aef92015adef7f36319'
 
 def load_window():
@@ -73,7 +73,7 @@ def main():
         version_probes_only=True,worker_launch=False))
     # The base snapshot named before.json admits the live state against the P6 accepted snapshot
     # with the reviewed dispositions approved_historical_image, approved_epoch_image,
-    # approved_restore_image, approved_coordinator_cache_image and (with RECOVERY set below)
+    # approved_restore_image, approved_coordinator_cache_image and (with RECOVERY set above)
     # approved_recovery_image, and the accepted provider pins.
     w.snapshot('before.json',b,o)
     before=w.record('before.json')
