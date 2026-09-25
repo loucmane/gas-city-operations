@@ -35,12 +35,15 @@ def retry():
 
     Optional retry.json {"retry": N, "reaccept": bool}. N > 0 gives a fresh ROOT
     (…-20260925-tN) and attempt r(14+N). reaccept=true also gives a fresh accept root (-r(2+N)).
-    Only retry after a terminal in prepare, bind-envelope or recheck. A submit-phase terminal counts
+    Only retry after a terminal in accept (always with reaccept, since accept's root is one-shot),
+    prepare, bind-envelope or recheck. After a reaccept: run accept into the new root, review it,
+    rewrite accepted.json and regenerate again. A submit-phase terminal counts
     as post-submit unless the receipts directory lacks the request and the broker epoch is unchanged.
     """
     path = HERE / 'retry.json'
     value = json.loads(path.read_text()) if path.exists() else {'retry': 0, 'reaccept': False}
     assert set(value) == {'retry', 'reaccept'} and type(value['retry']) is int and value['retry'] >= 0
+    assert type(value['reaccept']) is bool and (value['retry'] > 0 or not value['reaccept'])
     return value
 
 

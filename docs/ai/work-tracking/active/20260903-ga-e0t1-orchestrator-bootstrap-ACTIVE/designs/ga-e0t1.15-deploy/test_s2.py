@@ -247,3 +247,28 @@ def test_window_keeps_its_bounds(s2):
         s2.d.window_check(w, expired)
     with pytest.raises(Exception, match='attempt identity'):
         s2.d.build_window(start, dict(inventory={'.': {}}), 'other-r1')
+
+
+def test_retry_generation(tmp_path):
+    import shutil
+    work = tmp_path / 'pkg'
+    work.mkdir()
+    for name in ('make_s2.py', 's2_overrides.py.txt'):
+        shutil.copy2(HERE / name, work / name)
+    if (HERE / 'accepted.json').exists():
+        shutil.copy2(HERE / 'accepted.json', work / 'accepted.json')
+    (work / 'retry.json').write_text('{"retry": 1, "reaccept": true}')
+    out = tmp_path / 'gen.py'
+    subprocess.run([sys.executable, '-I', '-B', str(work / 'make_s2.py'), str(out)], check=True, capture_output=True)
+    text = out.read_text()
+    assert "ROOT=Path('/var/tmp/ga-e0t1.15-seq14-20260925-t1')" in text
+    assert "ATTEMPT='ga-mutg-adoption-20260925-r15'" in text
+    assert "S14_ACCEPT_ROOT=Path('/var/tmp/ga-e0t1.15-predecessor-20260925-r3')" in text
+    for bad in ('{"retry": 1, "reaccept": "false"}', '{"retry": 0, "reaccept": true}'):
+        (work / 'retry.json').write_text(bad)
+        assert subprocess.run([sys.executable, '-I', '-B', str(work / 'make_s2.py'), str(out)],
+                              capture_output=True).returncode != 0
+
+
+def test_sink_alias_is_exact(s2):
+    assert s2.S14_SINK_ALIASES == {'/home/loucmane/gascity/city/rigs/gascity/.agents/skills': '../.claude/skills'}

@@ -12,8 +12,8 @@ import sys
 import time
 import types
 
-ROOT=Path('/var/tmp/ga-e0t1.15-seq14-20260925')
-ATTEMPT='ga-mutg-adoption-20260925-r14'
+ROOT=Path('/var/tmp/ga-e0t1.15-seq14-20260925-t1')
+ATTEMPT='ga-mutg-adoption-20260925-r15'
 P=Path('/tmp/ga-mutg-adoption-20260920-r4/capture_transition.py')
 data=P.read_bytes()
 if hashlib.sha256(data).hexdigest()!='4d373634fde3b77c253eed9b36ea13db3b15cf62150617bf0a5c29e36304308f':
@@ -397,8 +397,8 @@ r4.history_check=s14_history_check
 
 # The deadlines window keeps its boot, monotonic, 900 s and envelope bounds. It no longer derives a
 # 24 h renewal horizon from cache atimes, which it can no longer see. The renewal becomes start plus
-# one day, which never binds within a 900 s window. max_atime becomes the start wall time, so the
-# "future-dated" check stays meaningful.
+# one day, which never binds within a 900 s window. max_atime is 1 (see below): no
+# cache atime is bound, and a backward wall-clock step must not refuse.
 def s14_build_window(start,cache,attempt):
     d.sample(start)
     d.require(isinstance(attempt,str) and _re.fullmatch(r'ga-mutg-adoption-[0-9-]+r[0-9]+',attempt),'attempt identity')
@@ -701,12 +701,24 @@ def s14_suspended():
     for name in S14_RIGS:
         c.o.require(state['rigs'].get(name)=={'suspended':True},'rig not suspended '+name)
 
+# The one symlinked sink component on this host is a tracked Core file: blob 454b8427, created
+# 2026-08-02. It aliases .agents/skills to the sibling .claude/skills sink of the same root, which is
+# inventoried and checked. Writes through the alias land in that sink. It is admitted exactly
+# (path and target); any other symlinked component refuses. Found by the first accept attempt,
+# 2026-09-25T17:13Z, which was refused before observing anything.
+S14_SINK_ALIASES={'/home/loucmane/gascity/city/rigs/gascity/.agents/skills':'../.claude/skills'}
+
 def s14_no_symlinked_vendor_dirs():
     for root in S14_ROOTS:
         for vendor in S14_VENDOR:
             for part in (vendor,vendor+'/skills',vendor+'/formulas'):
                 p=Path(root,part)
-                c.o.require(not p.is_symlink(),'symlinked sink component '+str(p))
+                if not p.is_symlink():
+                    continue
+                c.o.require(S14_SINK_ALIASES.get(str(p))==os.readlink(p),'symlinked sink component '+str(p))
+                target=(p.parent/os.readlink(p)).resolve()
+                c.o.require(str(target)==str(Path(root,'.claude/skills')) and target.is_dir()
+                            and not target.is_symlink(),'sink alias target '+str(p))
 
 S14_LINKS_TSV_SHA='2dfb117b850b0472e8da333bc9a6b73181ee2162d3085f92bfe5357e10e87bff'
 S14_MANIFESTS_TSV_SHA='940d382e1f9aee2b64ce405f692e1ec8ffea53653d2183b5183f5feb9129dfe2'
@@ -779,7 +791,7 @@ def s14_wait_initialized():
 # It writes only to ACCEPT_ROOT, never to ROOT, and never pauses the timer or signs.
 S14_R7=Path('/home/loucmane/.local/share/gas-city-staging/ga-mutg-20260920/ga-mutg-adoption-20260920-r7/second.json')
 S14_R7_SHA='29c339b5ca9c4d6bcaf95dc306e55455877cfa0535851083d0d6cc1b1d212563'
-S14_ACCEPT_ROOT=Path('/var/tmp/ga-e0t1.15-predecessor-20260925-r2')
+S14_ACCEPT_ROOT=Path('/var/tmp/ga-e0t1.15-predecessor-20260925-r3')
 
 def s14_observe_closure(template):
     o,s=c.o,c.s

@@ -80,8 +80,8 @@ r4.history_check=s14_history_check
 
 # The deadlines window keeps its boot, monotonic, 900 s and envelope bounds. It no longer derives a
 # 24 h renewal horizon from cache atimes, which it can no longer see. The renewal becomes start plus
-# one day, which never binds within a 900 s window. max_atime becomes the start wall time, so the
-# "future-dated" check stays meaningful.
+# one day, which never binds within a 900 s window. max_atime is 1 (see below): no
+# cache atime is bound, and a backward wall-clock step must not refuse.
 def s14_build_window(start,cache,attempt):
     d.sample(start)
     d.require(isinstance(attempt,str) and _re.fullmatch(r'ga-mutg-adoption-[0-9-]+r[0-9]+',attempt),'attempt identity')
@@ -384,12 +384,24 @@ def s14_suspended():
     for name in S14_RIGS:
         c.o.require(state['rigs'].get(name)=={'suspended':True},'rig not suspended '+name)
 
+# The one symlinked sink component on this host is a tracked Core file: blob 454b8427, created
+# 2026-08-02. It aliases .agents/skills to the sibling .claude/skills sink of the same root, which is
+# inventoried and checked. Writes through the alias land in that sink. It is admitted exactly
+# (path and target); any other symlinked component refuses. Found by the first accept attempt,
+# 2026-09-25T17:13Z, which was refused before observing anything.
+S14_SINK_ALIASES={'/home/loucmane/gascity/city/rigs/gascity/.agents/skills':'../.claude/skills'}
+
 def s14_no_symlinked_vendor_dirs():
     for root in S14_ROOTS:
         for vendor in S14_VENDOR:
             for part in (vendor,vendor+'/skills',vendor+'/formulas'):
                 p=Path(root,part)
-                c.o.require(not p.is_symlink(),'symlinked sink component '+str(p))
+                if not p.is_symlink():
+                    continue
+                c.o.require(S14_SINK_ALIASES.get(str(p))==os.readlink(p),'symlinked sink component '+str(p))
+                target=(p.parent/os.readlink(p)).resolve()
+                c.o.require(str(target)==str(Path(root,'.claude/skills')) and target.is_dir()
+                            and not target.is_symlink(),'sink alias target '+str(p))
 
 S14_LINKS_TSV_SHA='2dfb117b850b0472e8da333bc9a6b73181ee2162d3085f92bfe5357e10e87bff'
 S14_MANIFESTS_TSV_SHA='940d382e1f9aee2b64ce405f692e1ec8ffea53653d2183b5183f5feb9129dfe2'
