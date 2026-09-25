@@ -209,3 +209,29 @@ def test_accept_preconditions_are_exact_in_source():
     for needle in ("'accepted broker is not exactly inactive'", "'accepted broker socket is not listening'",
                    "'accepted watchdog image is not live'", "ActiveState='inactive',SubState='dead'"):
         assert needle in text
+
+
+def test_snapshot_drops_only_atime(s2, tmp_path):
+    (tmp_path / 'f').write_bytes(b'x')
+    value = s2.c.o.tree_snapshot(str(tmp_path), cache=True)
+    for meta in value['inventory'].values():
+        assert 'atime_ns' not in meta and 'ctime_ns' in meta and 'mtime_ns' in meta
+
+
+def test_history_check_ignores_atime_but_not_ctime(s2):
+    a = inventory(**{'.': META, 'x': META})
+    b = inventory(**{'.': dict(META, atime_ns=99), 'x': META})
+    assert s2.r4.history_check(a, b) == {}
+    c = inventory(**{'.': META, 'x': dict(META, ctime_ns=2)})
+    with pytest.raises(Exception, match='historical cache content/authority mismatch'):
+        s2.r4.history_check(a, c)
+
+
+def test_window_keeps_its_bounds(s2):
+    start = dict(boot='00000000-0000-0000-0000-000000000000', mono=10**12, boot_time=10**12,
+                 wall=1_790_000_000 * 10**9, span=1000)
+    w = s2.d.build_window(start, dict(inventory={'.': {}}), 'ga-mutg-adoption-20260925-r14')
+    assert w['mono_deadline'] == start['mono'] + s2.d.WINDOW
+    assert w['renewal'] == start['wall'] + s2.d.DAY and w['max_atime'] == start['wall']
+    with pytest.raises(Exception, match='attempt identity'):
+        s2.d.build_window(start, dict(inventory={'.': {}}), 'other-r1')

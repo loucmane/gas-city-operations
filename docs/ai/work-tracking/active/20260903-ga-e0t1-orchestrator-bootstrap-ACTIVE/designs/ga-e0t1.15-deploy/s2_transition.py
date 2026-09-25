@@ -359,6 +359,47 @@ def s14_tsv(name):
     rows=[line.split('\t') for line in (S14_HERE/name).read_text().splitlines() if line]
     return rows
 
+# --- 0. Access-time neutral inventories. The operator decided this on 2026-09-25, choosing
+# "Relax it", after the auto-mode classifier flagged the change for an explicit decision.
+# Sequence 13 compared exact atimes of the pack cache and the protected trees, and its deadlines
+# window required every cache atime to be under 24 h old. So a run could only start in a FRESHEN
+# slot chosen from an lstat forecast, and a refusal before submit cost about 24 h. Here every tree
+# inventory is recorded WITHOUT atime_ns. The path set, type, mode, uid, gid, size, inode, device,
+# nlink, mtime, ctime and content digests all stay exact.
+# This hides no write: an unprivileged process can only backdate an atime with utimensat, which
+# also changes ctime, and ctime is still compared exactly. Reads only move atime forward, and a
+# read is not a mutation. The same standard as the reviewed window policy cache-atime-policy-r1.
+_s14_tree_snapshot=c.o.tree_snapshot
+def s14_tree_snapshot(root,cache=False,protected=False):
+    value=_s14_tree_snapshot(root,cache=cache,protected=protected)
+    value['inventory']={k:{f:v for f,v in m.items() if f!='atime_ns'} for k,m in value['inventory'].items()}
+    return value
+c.o.tree_snapshot=s14_tree_snapshot
+
+# r4.history_check popped atime_ns from every entry. It now compares the same entry set and all
+# other metadata exactly, and reports no atime delta.
+def s14_history_check(wanted,actual):
+    c.o.require(wanted['inventory'].keys()==actual['inventory'].keys(),'historical cache entry set')
+    strip=lambda inv:{k:{f:v for f,v in m.items() if f!='atime_ns'} for k,m in inv.items()}
+    a=dict(copy.deepcopy(wanted),inventory=strip(wanted['inventory']))
+    b=dict(copy.deepcopy(actual),inventory=strip(actual['inventory']))
+    c.o.require(a==b,'historical cache content/authority mismatch')
+    return {}
+r4.history_check=s14_history_check
+
+# The deadlines window keeps its boot, monotonic, 900 s and envelope bounds. It no longer derives a
+# 24 h renewal horizon from cache atimes, which it can no longer see. The renewal becomes start plus
+# one day, which never binds within a 900 s window. max_atime becomes the start wall time, so the
+# "future-dated" check stays meaningful.
+def s14_build_window(start,cache,attempt):
+    d.sample(start)
+    d.require(isinstance(attempt,str) and _re.fullmatch(r'ga-mutg-adoption-[0-9-]+r[0-9]+',attempt),'attempt identity')
+    d.require(bool(cache['inventory']),'empty cache')
+    return dict(attempt=attempt,start=start,renewal=d.integer(start['wall']+d.DAY),max_atime=start['wall'],
+                mono_deadline=d.integer(start['mono']+d.WINDOW),
+                boot_deadline=d.integer(start['boot_time']-start['span']+d.WINDOW))
+d.build_window=s14_build_window
+
 # --- 1. Metadata preimages. Sequence 13 pinned the platform install manifest and receipt as present
 # preimages from the r5 manifest (bf2db830 and ab463a07), required the two r5/b .before.json files to
 # be absent, and gated three parent directories. M5 (2026-09-23) replaced the manifest and receipt.

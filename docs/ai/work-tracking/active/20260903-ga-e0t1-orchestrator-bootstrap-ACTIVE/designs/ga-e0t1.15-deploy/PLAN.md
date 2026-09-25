@@ -241,6 +241,22 @@ S4 acceptance evidence. S4 is the first stage that resumes the city, inside its 
 - **Order.** FRESHEN (the cache atime refresh) comes before `accept`, because every cache atime must
   be under 24 h old for the whole window. `accept` must also precede `prepare` within that horizon.
 
+#### S2 r4: access-time neutral (operator decision, 2026-09-25)
+
+The auto-mode classifier flagged relaxing the strict atime rule as a security weakening. The
+operator then chose "Relax it" explicitly.
+- **Inventories.** The cache, protected and other tree inventories are recorded without `atime_ns`.
+  Path set, type, mode, uid, gid, size, inode, device, nlink, mtime, ctime and content stay exact.
+  Backdating an atime needs `utimensat`, which also changes ctime, so no write can hide.
+- **History check.** `r4.history_check` is atime-neutral.
+- **Deadlines window.** It keeps its boot, monotonic, 900 s and envelope bounds, without the 24 h
+  cache renewal horizon.
+- **Consequence.** FRESHEN and the lstat forecast are no longer needed. A refusal before submit is
+  retried within minutes with a fresh root, after the cause is fixed. `freshen_cache.py` stays in
+  the package as an unused, reviewed tool.
+- **Run order.** The order below applies without step 2, and the timer pause still comes before
+  accept.
+
 #### S2 live run order (final, after the FRESHEN and S2 r3 double pass at `f6a78caa`)
 
 Run from `systemd-run --user --wait --collect --pipe -p UMask=0022`. Re-run the lstat forecast first;
