@@ -134,9 +134,9 @@ ignored is not absent. Real host untracked status must be empty before signing.
 ## Worker-owned implementation and tests
 
 This Bead (ga-n12k) continues ga-qcwl: Core platform provider pins are keyed by provider name only, so two
-closed Claude wrappers cannot share one receipt (read both with standalone
-`/home/loucmane/gascity/bin/bd show ga-n12k --json` and `/home/loucmane/gascity/bin/bd show ga-qcwl --json`).
-A previous worker implemented most of it and stopped at a checkpoint when its
+closed Claude wrappers cannot share one receipt (read this Bead with standalone
+`/home/loucmane/gascity/bin/bd show ga-n12k --json`; the checkpoint below carries everything needed from
+ga-qcwl, so do not read or touch ga-qcwl or its worktree). A previous worker implemented most of it and stopped at a checkpoint when its
 context ran out; nothing was staged. Its checkpoint is preserved read-only in
 /home/loucmane/.local/share/gas-city-staging/ga-qcwl-window/checkpoint-20260925:
 - worker-unstaged.patch (sha256 01f8b8af486ebc9a024a5247a3a580a54e5685a00b1fb4ca50f422edcef60caa): the full diff against this base, 7 files;
@@ -163,7 +163,11 @@ full test logs, never re-read what you already have):
    recorded integrity and canary RED forward by citing the preserved files.
 4. The dispatch gate has no RED yet: write its test first (from the patch's gate test, or a whole-environment
    fixture through observeLiveEnvironment if one is cheap), show it failing against the unchanged gate code,
-   then apply the gate hunk and show it GREEN. Do not create a copy of any source file.
+   then apply the gate hunk and show it GREEN. The patch's gate test calls helpers that exist only in the gate
+   hunk, so its RED is a compile failure; record it as such, and prefer a behavioural RED only if it is cheap.
+   Do not create a copy of any source file.
+   As soon as steps 3 and 4 are done, write progress.md and a checkpoint (changed paths, RED and GREEN
+   evidence) in the evidence directory before the long suite runs, so a lost context loses nothing.
 5. Keep every existing single-wrapper behaviour, every refusal of an unpinned, drifted or ambiguous provider,
    and the fail-closed reads. No live change, no Template or Operations change, no receipt or manifest edit
    on disk. Change only the allowed source files listed above and put new tests in the listed _test.go

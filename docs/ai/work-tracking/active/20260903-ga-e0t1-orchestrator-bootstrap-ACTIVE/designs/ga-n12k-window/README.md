@@ -13,7 +13,8 @@ The operator chose to continue from that checkpoint in a new Bead and a fresh wo
 ## What was set up
 
 **Bead ga-n12k:**
-- It is discovered-from ga-qcwl.
+- It continues ga-qcwl. The lineage is recorded in its description and notes. The discovered-from edge was removed
+  in s2 (see Phases).
 - Delivering it also closes ga-qcwl.
 - ga-qcwl was unrouted (`gc.routed_to` removed). The queue audit therefore sees ga-n12k as the only routed task.
 
@@ -36,13 +37,15 @@ The old ga-qcwl worktree keeps its unstaged edits as evidence. The brief forbids
 
 **Unchanged from S4:**
 - the host epoch;
-- the accepted P7 image;
 - the receipt staging;
 - the integrity binding;
 - base `b6843d3f`;
 - the 21-path allowed set.
 
-S4's TERMINAL verified that epoch and image at 22:59 CEST.
+The accepted image did change, which s1 claimed wrongly; s2 r2 corrects it. S4's STAGE and RESTORE replaced
+city.toml and the receipt by atomic rename, giving them new inodes and times with the same content, and its
+lifecycle rewrote the suspension state. The live pins therefore no longer match the P7 snapshot. S4's TERMINAL
+admitted against its own restoration record, not against P7.
 
 **Changed:**
 - **Identity.** All ga-qcwl paths and names become ga-n12k. The worktree becomes `ga-n12k-provider-pins-finish`.
@@ -67,7 +70,30 @@ S4's TERMINAL verified that epoch and image at 22:59 CEST.
      - revision `5ca6886c`;
      - orders `b57082cf`, unchanged;
      - the worker was not launched.
-2. **s2 (this commit).**
+2. **s2 r2 (this commit).** Both reviews of s2 `0612b2fc` held: OBSERVE would refuse with "accepted baseline drift",
+   and BIND, which runs first, would already have spent the Bead. Both HOLDs are filed.
+   - The accepted image is now the S4 window's TERMINAL `observed-after.json` (`a7cdb0f8`), taken by the same
+     `snapshot()` right after RESTORE. Only its cache, host, pins and protected keys are compared. Its city.toml and
+     receipt pins carry the window baseline digests `4f7e170f` and `7cf59ab9`.
+   - The provider pins stay the P7 ones, now read from an explicit `PROVIDER` path.
+   - The result key is renamed `admitted_against_previous_terminal`.
+   - A read-only check at 23:35 CEST, run in the supervisor namespaces through `systemd-run --user`, passed:
+     - the live image equals the TERMINAL record, with atime dropped;
+     - the provider pins are equal;
+     - `pins()` passes;
+     - the start gate passes. The three city directories had been refreshed with one listing each, because
+       S4's RESTORE had moved their mtime and ctime.
+   - Any later successor admits against its predecessor's TERMINAL record in the same way.
+   - Brief changes:
+     - no `bd show ga-qcwl`, since its output names the old worktree;
+     - the gate RED is a compile failure, and is recorded as one;
+     - write progress and a checkpoint as soon as the edits are re-applied, before the long suites.
+   - The old ga-qcwl worktree remains a residual risk. The policy lets native Write create files anywhere under
+     the core worktrees, so the only safeguards are mode 0444 on its seven files, the brief, and the coordinator's
+     digest comparison after TERMINAL.
+   - Tests: 13.
+
+   Earlier s2 `0612b2fc`, whose content is kept:
    - `PREP_PINS` re-pins window-base to those outputs. The nudge-order pins stay, because the order list is
      byte-identical.
    - Brief fixes from the s1 reviews:
@@ -86,7 +112,7 @@ S4's TERMINAL verified that epoch and image at 22:59 CEST.
      - The seven edited files in the old ga-qcwl worktree were set to mode 0444, so a native Edit there fails.
      - Before the window, its diff digest is `01f8b8af` and its status digest is `2d733147`. The coordinator
        compares both after TERMINAL.
-   - Tests: 12. `pins()` passed read-only against the live files.
+   - Tests: 12 at 0612b2fc.
    - The two reviews name the 33 window wrappers.
 3. **Window.** As in S4:
    - BIND, the lstat start gate and the `~/.claude.json` snapshot;

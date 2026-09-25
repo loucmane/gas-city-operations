@@ -61,8 +61,9 @@ def test_same_file_set_as_the_s4_window(gen):
 
 
 def test_ga_qcwl_survives_only_as_attributed_history():
-    # prep: the r7 and r8 history notes; brief: title, the two history-line mentions, and three task-section ones.
-    allowed = {'prep-r11.py': 3, 'worker-brief.md': 6}
+    # prep: the r7 and r8 history notes; brief: title, the two history-line mentions, and four task-section ones
+    # (continues, do-not-touch twice, checkpoint path); window-base: the S4 TERMINAL record path and its comment.
+    allowed = {'prep-r11.py': 3, 'worker-brief.md': 7, 'window-base-r11.py': 2}
     for name, raw in package_files().items():
         assert raw.decode().count('ga-qcwl') == allowed.get(name, 0), name
     brief = (HERE/'worker-brief.md').read_text()
@@ -83,8 +84,8 @@ def test_unchanged_epoch_image_and_release():
     base = (HERE/'window-base-r11.py').read_text()
     assert "('core','2940569','123479699122'), ('signer','2310','39660502')" in base
     assert "('broker','2940285','123477220085')" in base
-    assert "ACCEPTED_SHA = '7e008d9be0abd067270cf43fc1236cab7fab543a7339486f05422bb62002c56d'" in base
-    assert "        require(RECOVERY is None, 'no recovery admission in S4')\n        image = prior\n" in base
+    assert "        require(RECOVERY is None, 'no recovery admission')\n" \
+           "        image = {key: prior[key] for key in ACCEPTED_KEYS}\n" in base
     release = (HERE/'release-r11.py').read_text()
     assert "BASE_COMMIT = '%s'" % BASE in release
     [allowed] = re.findall(r"^ALLOWED = (\{.*\})$", release, re.M)
@@ -94,6 +95,29 @@ def test_unchanged_epoch_image_and_release():
         probe = subprocess.run(['git', '--no-optional-locks', '-C', CORE, 'cat-file', '-e', BASE + ':' + path],
                                capture_output=True)
         assert probe.returncode == 0, path
+
+
+def test_accepted_image_is_the_s4_terminal_record(gen):
+    """s2 r2: the accepted image is the S4 TERMINAL observed-after record, whose pinned city.toml and receipt carry
+    the window's baseline digests; the provider pins stay the P7 ones. The live comparison itself needs the
+    supervisor namespaces (README: the read-only check found the live image equal to it)."""
+    base = (HERE/'window-base-r11.py').read_text()
+    assert "ACCEPTED = Path('%s')" % gen.ACCEPTED_TERMINAL in base
+    assert "ACCEPTED_SHA = '%s'" % gen.ACCEPTED_TERMINAL_SHA in base
+    assert sha(gen.ACCEPTED_TERMINAL) == gen.ACCEPTED_TERMINAL_SHA
+    record = json.loads(Path(gen.ACCEPTED_TERMINAL).read_bytes())
+    assert set(('cache', 'host', 'pins', 'protected')) <= set(record)
+    [city0] = re.findall(r"CITY_SHA = \('([0-9a-f]{64})',", base)
+    [receipt0] = re.findall(r"RECEIPT_SHA = \('([0-9a-f]{64})',", base)
+    assert record['pins']['/home/loucmane/gascity/city/city.toml']['sha256'] == city0
+    assert record['pins']['/home/loucmane/gascity/city/.gc/runtime/provisioning/receipt.json']['sha256'] == receipt0
+    provider = '/var/tmp/ga-e0t1.15-p7-adoption-20260925/after.json.provider-pins'
+    assert "PROVIDER = Path('%s')" % provider in base
+    assert "PROVIDER_SHA = '%s'" % sha(provider) in base
+    assert "accepted_provider=json.loads(read(PROVIDER,PROVIDER_SHA))" in base
+    for name in ('observe-integrity-r11.py', 'window-r11.py'):
+        text = (HERE/name).read_text()
+        assert 'admitted_against_previous_terminal=True' in text and 'p7_snapshot' not in text, name
 
 
 def test_prep_overlay_and_wrapper(gen):

@@ -14,8 +14,8 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-n12k-window')
 ROOT=Path('/var/tmp/ga-n12k-bind-20260923-r1')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='7c5c43c42ddf050f99219e6c74854f2608aeeecc5d18100df39b2182dbb90b23'
-BRIEF_SHA='6b4c79f0e035fbc1843aff1c3804ae3d5636b21cec4e3c9731478d245ad2d4dd'
+HELPER_SHA='2e7e4032e10aa8a6af341bc165416e08d33d1354677ae5324ada9bf7007a1055'
+BRIEF_SHA='d495dfbbe0c06169b7d5f85f4181a111606e43d23111c2690268ea8c872d26c4'
 BEAD='ga-n12k'
 TARGET='gascity/gc.implementation-worker'
 WORK='/home/loucmane/gascity-core-worktrees/ga-n12k-provider-pins-finish'

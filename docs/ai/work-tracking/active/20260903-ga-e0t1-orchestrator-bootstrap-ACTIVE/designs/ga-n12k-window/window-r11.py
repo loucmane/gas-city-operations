@@ -16,7 +16,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-n12k-window')
-BASE_SHA='7c5c43c42ddf050f99219e6c74854f2608aeeecc5d18100df39b2182dbb90b23'
+BASE_SHA='2e7e4032e10aa8a6af341bc165416e08d33d1354677ae5324ada9bf7007a1055'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):
@@ -126,7 +126,7 @@ routes=load(HERE/'restore-r9-routes-r3.py',
 routes_policy=load(HERE/'route-chain-r1.py',
     '539a2a19f73fd978c5f67df519a95610f89d32792cbacc9669daf5aa5cf0207c','window_route_chain')
 INTEGRITY=Path('/var/tmp/ga-n12k-integrity-20260925-r5')
-OBSERVER_SHA='814b2ba1bcbf500a6f6078111638568999c551bf95ff6d18f886d99be72209b3'
+OBSERVER_SHA='e431118b3b54e42d896eb49935eb7aa2e905e2e79dd990c621599327ea358898'
 INSPECTOR_SHA='334cc3c912858d84582cf980cf7f270ebb6e5250ac3a62dbdf4e720dc0a2564f'
 
 def integrity_baseline(first):
@@ -141,7 +141,7 @@ def integrity_baseline(first):
     w.require(not os.path.lexists(INTEGRITY/'primary-failure.json'),'integrity primary failure')
     raw=w.read(INTEGRITY/'result.json')
     w.require(json.loads(raw)==dict(ok=True,actual_host_verified=True,
-        admitted_against_p7_snapshot=True,
+        admitted_against_previous_terminal=True,
         report=dict(ok=True,report={'Drifts':None},schema='ga.platform-inspect-observation.v1'),
         root_cache_protected_read_only=True,window_preservation=True,worker_launched=False),
         'fresh native integrity result')

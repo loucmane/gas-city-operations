@@ -41,9 +41,13 @@ INPUT = (Path('/var/tmp/ga-e0t1.15-p7-input-20260925/receipt.input.draft.json'),
 INPUT_SHA = ('c047b4d909095406d359808fecca6a417905435d6c4a3c9a270d5d0b941cd9bb',
              None)  # The isolated input is compared to the exact native-finalized wire below.
 RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
-# S4: the accepted image is the P7 adoption snapshot on the post-S2/S3 host (two LIVE_PASS readbacks).
-ACCEPTED = Path('/var/tmp/ga-e0t1.15-p7-adoption-20260925/after.json')
-ACCEPTED_SHA = '7e008d9be0abd067270cf43fc1236cab7fab543a7339486f05422bb62002c56d'
+# The accepted image is the previous window's TERMINAL record: the S4 window (ga-qcwl-window s2 20e9ba1e)
+# restored city.toml and the receipt by atomic rename and rewrote the suspension state, so the P7
+# adoption snapshot no longer matches the pins. The provider pins are unchanged since P7.
+ACCEPTED = Path('/var/tmp/ga-qcwl-terminal-20260923-r1/observed-after.json')
+ACCEPTED_SHA = 'a7cdb0f8577f71a68b65efc5a1b993427e97a3c49a88a65818bc5714f3de7012'
+ACCEPTED_KEYS = ('cache', 'host', 'pins', 'protected')
+PROVIDER = Path('/var/tmp/ga-e0t1.15-p7-adoption-20260925/after.json.provider-pins')
 PROVIDER_SHA = '82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b'
 CACHE_DIRECTORY = '954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git'
 
@@ -398,14 +402,15 @@ def snapshot(name, b, o):
                  protected={str(p): o.tree_snapshot(p, protected=True) for p in b.PROTECTED})
     require(h == host(o), 'host changed during snapshot')
     if name == 'before.json':
-        # S4: the P7 snapshot was taken on this epoch after S2 and S3; no P6-era disposition applies.
-        require(RECOVERY is None, 'no recovery admission in S4')
-        image = prior
+        # The S4 TERMINAL record was taken by this snapshot() after RESTORE on this epoch; its extra
+        # keys (providers, directories, cache access records) are not part of the compared image.
+        require(RECOVERY is None, 'no recovery admission')
+        image = {key: prior[key] for key in ACCEPTED_KEYS}
         if dependency_image(image) != dependency_image(value):
             save('before-refused-observation.json',value)
             raise RuntimeError('accepted baseline drift')
     value['providers'] = provider_pins(b,o)
-    accepted_provider=json.loads(read(Path(str(ACCEPTED)+'.provider-pins'),PROVIDER_SHA))
+    accepted_provider=json.loads(read(PROVIDER,PROVIDER_SHA))
     require(dependency_image(value['providers']) == dependency_image(accepted_provider), 'accepted provider drift')
     value['directories'] = directories(o)
     save(name, value)
