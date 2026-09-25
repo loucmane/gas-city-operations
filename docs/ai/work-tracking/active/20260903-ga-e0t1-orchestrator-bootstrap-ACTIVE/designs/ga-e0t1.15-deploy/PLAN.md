@@ -257,7 +257,35 @@ operator then chose "Relax it" explicitly.
 - **Run order.** The order below applies without step 2, and the timer pause still comes before
   accept.
 
-#### S2 live run order (final, after the FRESHEN and S2 r3 double pass at `f6a78caa`)
+#### S2 r5 run order (AUTHORITATIVE; supersedes every earlier FRESHEN-based order below)
+
+The run uses `systemd-run --user --wait --collect --pipe -p UMask=0022`. There is no FRESHEN, no
+forecast and no atime horizon. The package is atime-neutral: block 0 plus the metadata patch.
+
+1. Record the reconcile timer's state, pause it, and let any oneshot drain.
+2. Run `s2_transition.py accept`. Then an independent review of the accept output:
+   `delta-vs-r7.json`, with atime stripped from the template, is bound to the ga-nibd TERMINAL, the M5
+   pair and the receipts.
+3. Write `accepted.json`, regenerate with make_s2, run test_s2, commit, and review the regenerated
+   file (diff: the ACCEPTED constants only).
+4. Run `prepare`, `bind-envelope`, the independent full-envelope review, `recheck`, `submit`,
+   `postflight1` and `postflight2` (at least 5 s apart), inside the fixed 900 s window from prepare.
+5. Independent live readback review, then restore the timer to its recorded state.
+
+**Retry.** A terminal in accept, prepare, bind-envelope or recheck preserves its root. After fixing
+the cause:
+- write `retry.json` `{"retry": N, "reaccept": <true if the closure drifted>}`;
+- regenerate, which gives a fresh ROOT `…-tN` and attempt `r(14+N)` (and a fresh accept root when
+  reaccept is set);
+- stage `deadlines.py` into the new ROOT;
+- get a constants-only diff review, then rerun.
+A terminal in the submit phase is post-submit and a hard stop, unless the receipts directory lacks
+the request and the broker epoch is unchanged. Never reuse an envelope.
+
+Avoid reading the cache or the protected trees while a capture is running. Nothing is sensitive
+between captures.
+
+#### (superseded) S2 live run order (after the FRESHEN and S2 r3 double pass at `f6a78caa`)
 
 Run from `systemd-run --user --wait --collect --pipe -p UMask=0022`. Re-run the lstat forecast first;
 a valid FRESHEN time has no cache entry aged 20.5-24 h.

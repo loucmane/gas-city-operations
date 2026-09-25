@@ -369,6 +369,14 @@ def s14_tsv(name):
 # This hides no write: an unprivileged process can only backdate an atime with utimensat, which
 # also changes ctime, and ctime is still compared exactly. Reads only move atime forward, and a
 # read is not a mutation. The same standard as the reviewed window policy cache-atime-policy-r1.
+# The base metadata(s, include_atime=True) feeds every identity comparison: the before, fstat and
+# after checks in tree_snapshot, read_file (pin) and parent. With old atimes allowed, a concurrent
+# ordinary read could otherwise move an atime mid-observation and refuse (review A r4 should_fix 1).
+# Every comparison now uses the base's own atime-free form.
+_s14_metadata=c.o.metadata
+def s14_metadata(s,include_atime=True):
+    return _s14_metadata(s,False)
+c.o.metadata=s14_metadata
 _s14_tree_snapshot=c.o.tree_snapshot
 def s14_tree_snapshot(root,cache=False,protected=False):
     value=_s14_tree_snapshot(root,cache=cache,protected=protected)
@@ -395,7 +403,9 @@ def s14_build_window(start,cache,attempt):
     d.sample(start)
     d.require(isinstance(attempt,str) and _re.fullmatch(r'ga-mutg-adoption-[0-9-]+r[0-9]+',attempt),'attempt identity')
     d.require(bool(cache['inventory']),'empty cache')
-    return dict(attempt=attempt,start=start,renewal=d.integer(start['wall']+d.DAY),max_atime=start['wall'],
+    # max_atime=1: no cache atime is bound any more, so the future-dated check has nothing to guard. Tying
+    # it to start['wall'] would refuse on any backward wall-clock resync after prepare (review B r4).
+    return dict(attempt=attempt,start=start,renewal=d.integer(start['wall']+d.DAY),max_atime=1,
                 mono_deadline=d.integer(start['mono']+d.WINDOW),
                 boot_deadline=d.integer(start['boot_time']-start['span']+d.WINDOW))
 d.build_window=s14_build_window
@@ -476,8 +486,8 @@ c.s.quiet_scope=s14_quiet_scope
 
 # --- 3. Cache admission. After the new Core starts, exactly one new synthetic directory (S14_NEW_KEY)
 # must appear, and S14_OPTIONAL_KEY may appear. Their full contents must equal the S1b expectation,
-# with the marker derived per key. Every pre-existing entry stays exact, atime included. Only the
-# cache root entry's mtime, ctime and nlink may change.
+# with the marker derived per key. Every pre-existing entry stays exact (no atime is recorded; block 0).
+# Only the cache root entry's mtime, ctime and nlink may change.
 def s14_expected_files():
     data=Path(S14_EXPECTATION).read_bytes()
     c.o.require(s14_sha(data)==S14_EXPECTATION_SHA,'cache expectation drift')
@@ -829,6 +839,11 @@ def s14_accept():
         return s14_sha(data)
     raw=S14_R7.read_bytes();c.o.require(s14_sha(raw)==S14_R7_SHA,'R7 template drift')
     template=json.loads(raw)['closure']
+    # R7 inventories carry atime_ns; the new closure does not (block 0). Strip it from the template
+    # used for the review delta, so the delta shows real changes only (review B r4 should_fix 4).
+    for key in ('protected',):
+        for tree in template[key].values():
+            tree['inventory']={k:{f:v for f,v in m.items() if f!='atime_ns'} for k,m in tree['inventory'].items()}
     rec('start.json',dict(executor_sha256=s14_sha(Path(__file__).read_bytes()),r7_sha256=S14_R7_SHA))
     s14_city_rules(False)
     first=s14_observe_closure(template)

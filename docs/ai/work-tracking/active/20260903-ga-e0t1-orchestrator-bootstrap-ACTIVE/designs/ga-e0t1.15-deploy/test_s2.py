@@ -198,10 +198,13 @@ def test_missing_required_key_alone_refuses(s2):
         s2.s14_admit_cache(before, after)
 
 
-def test_freshen_roots_match_s2_roots(s2):
-    source = (HERE / 'freshen_cache.py').read_text()
-    assert f"ACCEPT_ROOT = Path('{s2.S14_ACCEPT_ROOT}')" in source
-    assert f"SEQ14_ROOT = Path('{s2.ROOT}')" in source
+def test_default_roots_without_retry(s2):
+    # freshen_cache.py is unused since r4, so its root coupling is not tested. Without retry.json
+    # the generator keeps the first-attempt roots.
+    if (HERE / 'retry.json').exists():
+        pytest.skip('retry in effect')
+    assert str(s2.ROOT) == '/var/tmp/ga-e0t1.15-seq14-20260925'
+    assert s2.ATTEMPT == 'ga-mutg-adoption-20260925-r14'
 
 
 def test_accept_preconditions_are_exact_in_source():
@@ -214,8 +217,10 @@ def test_accept_preconditions_are_exact_in_source():
 def test_snapshot_drops_only_atime(s2, tmp_path):
     (tmp_path / 'f').write_bytes(b'x')
     value = s2.c.o.tree_snapshot(str(tmp_path), cache=True)
+    want = {'device', 'inode', 'uid', 'gid', 'mode', 'type', 'nlink', 'size', 'mtime_ns', 'ctime_ns'}
     for meta in value['inventory'].values():
-        assert 'atime_ns' not in meta and 'ctime_ns' in meta and 'mtime_ns' in meta
+        assert set(meta) == want
+    assert set(s2.c.o.metadata((tmp_path / 'f').stat())) == want
 
 
 def test_history_check_ignores_atime_but_not_ctime(s2):
@@ -232,6 +237,13 @@ def test_window_keeps_its_bounds(s2):
                  wall=1_790_000_000 * 10**9, span=1000)
     w = s2.d.build_window(start, dict(inventory={'.': {}}), 'ga-mutg-adoption-20260925-r14')
     assert w['mono_deadline'] == start['mono'] + s2.d.WINDOW
-    assert w['renewal'] == start['wall'] + s2.d.DAY and w['max_atime'] == start['wall']
+    assert w['renewal'] == start['wall'] + s2.d.DAY and w['max_atime'] == 1
+    assert w['boot_deadline'] == start['boot_time'] - start['span'] + s2.d.WINDOW
+    later = dict(start, mono=start['mono'] + 5 * 10**9, boot_time=start['boot_time'] + 5 * 10**9,
+                 wall=start['wall'] - 30 * 10**9)
+    s2.d.window_check(w, later)  # a backward wall-clock step no longer refuses
+    expired = dict(later, mono=start['mono'] + s2.d.WINDOW)
+    with pytest.raises(Exception, match='monotonic window expired'):
+        s2.d.window_check(w, expired)
     with pytest.raises(Exception, match='attempt identity'):
         s2.d.build_window(start, dict(inventory={'.': {}}), 'other-r1')
