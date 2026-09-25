@@ -144,25 +144,38 @@ Changes from sequence 13:
    - the cache root's own mtime, ctime and nlink change caused by the new entries;
    - `.packman-cache.lock`, whose bytes must be unchanged;
    - the city shim moving from exactly `2e0a1f74` to exactly `a7bcaa7c`;
-   - the live-key repoint (r4). The new supervisor's stage-1 skill materialization
-     (`runStage1SkillMaterialization`, which runs at startup, on every tick and on reload, without a
-     suspension check) and formula materialization repoint links that embed the running binary's
-     cache key. The live inventory, taken read-only at r4, is `live-key-links.tsv`: 53 symlinks under
-     the city whose target lies inside `cache/repos/a21cc0a2…`:
-     - 7 each in `.claude/skills` and `.agents/skills`;
-     - 16 in `.beads/formulas`;
-     - 16 in `rigs/gascity/.beads`;
-     - 7 in `rigs/gascity/.claude/skills`.
-     `live-key-manifests.tsv` lists the three `.gc-skill-ownership.json` files that embed the key. All
-     three are byte-identical today at `77390929`. Per item, the postflight admits exactly one of two
-     states:
+   - the live-key repoint (r4, extended to every rig root in r5). Two materializers repoint links that
+     embed the running binary's cache key, both at city start and on reload, with no suspension
+     check (`prepareCityForSupervisor`):
+     - stage-1 skill materialization (`runStage1SkillMaterialization`), using tmp then rename;
+     - formula resolution (`ResolveFormulas`, for the city and every rig in `cfg.Rigs`), using
+       remove then symlink, which is not atomic. The initialization wait therefore covers the
+       `resolving_formulas` step, and a snapshot that sees a missing formula link refuses closed.
+
+     The roots are the city and its four rigs: `gas-city-native`, `rigs/gascity`, `dev/blog` and
+     `dev/hpfetcher-gc-main`, the set that restore-r9-routes-r3.py records. `live_key_inventory.py`
+     (read-only) writes the inventory, `live-key-links.tsv` and `live-key-manifests.tsv`:
+     - 143 symlinks whose target lies inside `cache/repos/a21cc0a2…`: 30 each in the city,
+       `gas-city-native`, `dev/blog` and `dev/hpfetcher-gc-main`, and 23 in `rigs/gascity`;
+     - 9 `.gc-skill-ownership.json` files that embed the key, all byte-identical today at `77390929`.
+     The inventory also proves that every key-bearing manifest entry names an existing link with the
+     same target, so a manifest has no stale key entry that `Run` would leave unsubstituted.
+
+     S2 preflight re-proves the inventory exactly: same items, same targets, same manifest digests.
+     Per item, the postflight admits exactly one of two states:
      - (a) unchanged;
      - (b) repointed. For a link, the target becomes the same string with `a21cc0a2…` replaced by
        `69fe9a2e…`, the link may get a new inode, and its parent directory's mtime, ctime and nlink
        may change. For a manifest, the bytes become exactly that key substitution: 1348 bytes,
        sha `f51ef649`.
-     A manifest in state (b) requires all of its sink's links to be in state (b). Any other target, a
-     new or removed link, or a change to any other manifest or file refuses.
+     A manifest in state (b) requires all of its sink's links to be in state (b). The reverse is
+     expected and admitted: links in (b) while their manifest is still in (a), because the manifest
+     is saved after the links and a failed save is only a warning. Any other target, a new or removed
+     link, a leftover `.<name>.tmp.<hex>` file, or a change to any other manifest or file under these
+     roots refuses.
+   - key-dependent runtime values that belong to the restart class sequence 13 already admits:
+     the config revision (it hashes source paths, including cache paths) in reload events and in the
+     trace.
      - Unaffected by construction: the sinks with no `a21cc0a2` targets (`.codex/skills`,
        `rigs/gascity/.codex/skills`, `.gc/agents/*/.claude/skills`, the `.claude.corrupt-*` archive).
        Hook and MCP projections copy embedded content, which is unchanged apart from
@@ -186,7 +199,14 @@ Changes from sequence 13:
 8. Independent live readback review.
 9. Restore the timer.
 
-It runs from a real terminal under `systemd-run --user -p UMask=0022`. All rigs stay suspended.
+It runs from a real terminal under `systemd-run --user -p UMask=0022`.
+
+The city itself and all rigs stay suspended from S2 preflight through S3's end. City suspension is
+required, not only rig suspension. The changed content, `nudge-on-route.sh`, is a city-scoped order
+that fires on `bead.updated`, and order dispatch is skipped only when the city is suspended. An
+unsuspended city could therefore let the new script write
+`.gc/runtime/packs/core/nudge-on-route-state.json` and queue or wake a session, which would blur the
+S4 acceptance evidence. S4 is the first stage that resumes the city, inside its own reviewed window.
 
 ### S3: metadata and receipt refresh (live)
 
@@ -246,7 +266,7 @@ These carry over from sequence 13:
 - an interactive signing prompt;
 - expiry of the fixed 900 s same-boot window or of the cache renewal horizon;
 - a missing independent full-envelope review before submit, or a missing live readback review after it;
-- any rig not suspended at any check.
+- the city or any rig not suspended at any check, from S2 preflight through the end of S3.
 
 A pre-submit failure restores only the timer, after proving no broker call occurred. A post-submit
 failure means inspecting the authoritative receipt and host. An ambiguous mutation is a stop, not
