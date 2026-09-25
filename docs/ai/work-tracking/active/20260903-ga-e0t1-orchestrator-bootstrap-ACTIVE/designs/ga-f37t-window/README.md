@@ -333,6 +333,40 @@ start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
   gate comment in `window-base-r11.py` ("refuses in STAGE") is the same statement without the PREFLIGHT
   span.
 
+## s7 (after the s6 r5 window stopped at HOLD and CLOSE; operator approved recovery)
+
+s6 r5 (`01d74775`) passed two job reviews and ran on 2026-09-25:
+- RECOVER passed at 09:36:07Z, and OBSERVE, PREFLIGHT, STAGE (its reload answered `no_change`, which the s6
+  fix accepted), ROUTE, WATCH-1 (routes unchanged) and RESUME followed, RESUME at 09:42:36Z.
+- The worker session `ci-yauk5` started in the correct worktree. WATCH-2..7 captured it idle at an empty
+  Claude prompt with ga-f37t unclaimed, and Core reaped it by 09:49Z. The attempt is consumed.
+- **Root cause, confirmed in the Core source.** `internal/bootstrap/packs/core/orders/nudge-on-route.toml`
+  says that `gc sling` does not nudge warm-idle workers, and that without this order a routed bead sits
+  unclaimed. The window overlay's `[orders] skip` list disables `nudge-on-route`. The next successor must
+  keep it enabled.
+- **Wind-down.** CONTAIN-1 passed city-suspend and ran rig-suspend, but its `gc status` observation was
+  partial ("runtime status probe incomplete"), so it refused and the lifecycle is stranded. HOLD-1 confirmed
+  the city and the gascity rig suspended. CLOSE-1 left no session, tmux server or worktree process. As the
+  run sheet requires, the window stopped before ADMIT, with the staged city.toml `9774a569` and the staged
+  receipt `0876abb8`.
+
+**RECOVER-2 (`recover-window-r2.py`, `operator/RECOVER-2.sh`, once).**
+- It checks the stopped root: the digest of its sorted listing, the pinned stage-pass, suspension-baseline,
+  before and rig-suspend failure records, and the pinned HOLD-1 and CLOSE-1 results.
+- It checks the live state: the staged city.toml and receipt, and a suspension state whose decoded image
+  equals the fully suspended baseline apart from `updated_at`.
+- It then performs the window's own restore transition (window-base `transition` direction 0):
+  - the confined `inner city 0`;
+  - a reload that accepts `applied` or `no_change` at the accepted revision, with a trace wait;
+  - the confined receipt `check`, `apply` and `verify` back to `0b30c23f`.
+- It records the recovered city.toml, receipt and suspension-state pins, and ends with the same ordinary
+  reads as RECOVER.
+- It writes no suspension state, route or Bead and starts no worker. Its wrapper refuses a live city tmux
+  server or a used output root (`/var/tmp/ga-f37t-recover-20260925-r2`).
+
+The next window belongs to a fifth successor Bead (ga-f37t's attempt is consumed). Its package will admit
+this recovery's pins, and its PREP overlay will keep `nudge-on-route` enabled.
+
 ## Phases
 
 1. **s1 (`912e4d48`):** its two reviews named only `operator/PREP.sh`, so the job runner admitted only PREP. PREP

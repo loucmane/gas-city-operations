@@ -443,6 +443,37 @@ class Derivation(unittest.TestCase):
         answer = json.loads(json.loads((refused/'stage-reload-phase.json').read_text())['stdout'])
         self.assertEqual(answer['outcome'], 'no_change')
 
+    def test_recover2_binds_the_stopped_window(self):
+        import hashlib as h
+        text = (HERE/'recover-window-r2.py').read_text()
+        [base] = re.findall(r"^BASE_SHA = '([0-9a-f]{64})'$", text, re.M)
+        [routes] = re.findall(r"^ROUTES_SHA = '([0-9a-f]{64})'$", text, re.M)
+        self.assertEqual(base, sha(HERE/'window-base-r11.py'))
+        self.assertEqual(routes, sha(HERE/'restore-r9-routes-r3.py'))
+        self.assertIn("STOPPED_ROOT = Path('/var/tmp/ga-f37t-window-20260925-r2')", text)
+        self.assertIn("ROOT = Path('/var/tmp/ga-f37t-recover-20260925-r2')", text)
+        # The window's restore transition order: city.toml, reload and trace, then receipt check, apply, verify.
+        order = ["'recover-city'", "'recover-reload'", "'recover-trace-'", "'recover-receipt-check'",
+                 "'recover-receipt-apply'", "'recover-receipt-verify'", "read_paths = list(w.stable_read_paths())",
+                 "w.save('result.json'"]
+        positions = [text.index(item) for item in order]
+        self.assertEqual(positions, sorted(positions))
+        self.assertIn("w.confined(['inner', 'apply', '0'], 'receipt')", text)
+        self.assertNotIn("'lifecycle'", text)
+        wrapper = (HERE/'operator'/'RECOVER-2.sh').read_text()
+        self.assertIn('step recover "$C/recover-window-r2.py" "$RECOVER_SHA"', wrapper)
+        self.assertIn('/var/tmp/ga-f37t-recover-20260925-r2', wrapper)
+        stopped = Path('/var/tmp/ga-f37t-window-20260925-r2')
+        if not stopped.exists():
+            self.skipTest('no stopped s6 r5 window root on this host')
+        [listing] = re.findall(r"^LISTING_SHA = '([0-9a-f]{64})'$", text, re.M)
+        self.assertEqual(listing, h.sha256('\n'.join(sorted(os.listdir(stopped))).encode()).hexdigest())
+        for path, pin in ((stopped/'stage-pass.json', 'STAGE_PASS_SHA'), (stopped/'suspension-baseline.json', 'BASELINE_SHA'),
+                          (stopped/'before.json', 'BEFORE_SHA'), (stopped/'suspension-rig-suspend-failure.json', 'FAILURE_SHA'),
+                          (Path('/var/tmp/ga-f37t-hold-20260925T095013Z/result.json'), 'HOLD_SHA'),
+                          (Path('/var/tmp/ga-f37t-close-20260925T095042Z/result.json'), 'CLOSE_SHA')):
+            self.assertIn("%s = '%s'" % (pin, sha(path)), text)
+
     def test_reload_captures_routes_before_the_city_write(self):
         window = (HERE/'window-r11.py').read_text()
         transition = window[window.index('def transition(i,b,o,owned,prefix):'):]
