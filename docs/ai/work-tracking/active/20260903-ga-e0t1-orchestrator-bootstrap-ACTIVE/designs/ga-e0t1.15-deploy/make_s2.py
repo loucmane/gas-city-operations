@@ -18,6 +18,11 @@ SOURCE = Path('/home/loucmane/.local/share/gas-city-staging/ga-mutg-20260920/'
               'ga-mutg-custody-adoption-20260920/capture_transition.py')
 SOURCE_SHA = '0a87790a659ed86a7c8e2ef1dbbe42754238443e856857886b3cc139c8ae120d'
 OUT = HERE / 's2_transition.py'
+# An optional first argument redirects the output, so test_s2.py never rewrites the tracked file.
+if __name__ == '__main__':
+    import sys as _sys
+    if len(_sys.argv) == 2:
+        OUT = Path(_sys.argv[1])
 
 OLD = '69d00186c098b84efe6658c03d888ce07f6d6528d6c446671b53d92f7bde89f9'
 OLD_SIZE = 134048098

@@ -236,14 +236,23 @@ def s14_capture(candidate):
                 # The admitted root atime is not recorded, so postflight1 and postflight2 still
                 # compare exactly. The tree summary hashes paths, modes, sizes and content, not times.
                 cache=copy.deepcopy(value)
-                cache['inventory']['.']={k:v for k,v in cache['inventory']['.'].items() if k!='atime_ns'}
+                # The admitted new entries also drop atime from the record. They were written
+                # moments ago, so their atime <= mtime, and the first ordinary read between the
+                # postflights would update it under relatime (review B r2 should_fix 2). Their
+                # content is proven by s14_admit_cache on every capture.
+                for entry in cache['inventory']:
+                    if entry=='.' or entry.split('/',1)[0] in admitted:
+                        cache['inventory'][entry]={k:v for k,v in cache['inventory'][entry].items() if k!='atime_ns'}
             else:
                 o.require(summary==wanted,'tree changed: '+path)
         else:
             o.require(summary==wanted,'tree changed: '+path)
         trees[path]=summary
+    o.require(cache is not None,'cache tree missing from the closure')
     if not candidate:
         o.require(cache==expected['cache'],'cache inventory changed')
+    else:
+        o.require(bool(admitted) and S14_NEW_KEY in admitted,'candidate cache not admitted')
     protected={}
     for path,wanted in expected['protected'].items():
         value=o.tree_snapshot(path,protected=True)
@@ -335,15 +344,16 @@ S14_LINKS_TSV_SHA='2dfb117b850b0472e8da333bc9a6b73181ee2162d3085f92bfe5357e10e87
 S14_MANIFESTS_TSV_SHA='940d382e1f9aee2b64ce405f692e1ec8ffea53653d2183b5183f5feb9129dfe2'
 
 def s14_scan_key_links(root,found,depth=0):
-    # O_NOATIME listing (review A r1 must_fix 1). The depth bound 4 covers every sink the
-    # materializers write: <root>/<vendor>/skills and <root>/.beads/formulas are at depth 2, and
-    # the nested rig root city/rigs/gascity adds 2 more.
+    # O_NOATIME listing (review A r1 must_fix 1). Directories at depths 0-4 of each root are listed,
+    # the same bound as live_key_inventory.py (MAX_DEPTH 4). Every sink the materializers write
+    # (<root>/<vendor>/skills, <root>/.beads/formulas) is at depth 2 of its own S14_ROOTS entry.
+    # The nested rig city/rigs/gascity is covered as its own root.
     for name in s14_listdir(root):
         p=os.path.join(root,name);st=os.lstat(p)
         if _stat.S_ISLNK(st.st_mode):
             t=os.readlink(p)
             if S14_LIVE_KEY in t or S14_NEW_KEY in t:found.add(p)
-        elif _stat.S_ISDIR(st.st_mode) and depth<3 and name not in ('.git','node_modules'):
+        elif _stat.S_ISDIR(st.st_mode) and depth<4 and name not in ('.git','node_modules'):
             s14_scan_key_links(p,found,depth+1)
 
 def s14_city_rules(after):
@@ -427,6 +437,15 @@ def s14_observe_closure(template):
         if path==str(S14_CACHE):cache=value
     protected={path:o.tree_snapshot(path,protected=True) for path in template['protected']}
     scope=s.quiet_scope(host)
+    # The predecessor properties the postflight depends on are checked here, before anything is
+    # submitted (review B r2 should_fix 1): the broker is exactly inactive with its socket listening
+    # (the base broker_precondition), and the dolt watchdog runs the live binary.
+    o.require(host['broker']==dict(MainPID='0',NRestarts='0',ExecMainStartTimestampMonotonic='0',
+              ActiveState='inactive',SubState='dead',UnitFileState='disabled',Result='success'),
+              'accepted broker is not exactly inactive')
+    o.require(host['broker_socket']==dict(ActiveState='active',SubState='listening',
+              UnitFileState='enabled',Result='success'),'accepted broker socket is not listening')
+    o.require(scope['dolt_members']['watchdog_image']=='live','accepted watchdog image is not live')
     s14_preimages()
     parents=s14_parents()
     o.require(o.host_observation()==host,'host changed during observation')

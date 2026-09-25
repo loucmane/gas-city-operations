@@ -35,9 +35,10 @@ def s2():
 
 
 def test_generated_file_equals_generator_output(tmp_path):
-    before = (HERE / 's2_transition.py').read_bytes()
-    subprocess.run([sys.executable, '-I', '-B', str(HERE / 'make_s2.py')], check=True, capture_output=True)
-    assert (HERE / 's2_transition.py').read_bytes() == before
+    out = tmp_path / 'generated.py'
+    subprocess.run([sys.executable, '-I', '-B', str(HERE / 'make_s2.py'), str(out)], check=True,
+                   capture_output=True)
+    assert out.read_bytes() == (HERE / 's2_transition.py').read_bytes()
 
 
 def test_marker_bytes_match_expectation(s2):
@@ -121,3 +122,70 @@ def test_main_refuses_placeholder_before_touching_root(s2):
         pytest.skip('accepted predecessor bound')
     with pytest.raises(Exception, match='not yet bound'):
         s2.main()
+
+
+def fresh_pair(s2):
+    b = base(s2)
+    b['pins'][s2.c.o.GC]['size'] = s2.c.NEW_SIZE
+    a = after_of(s2, b, core_pid=300, start=2000, watchdog=400, server=401, image='live', broker_active=True)
+    a['scope']['dolt_members']['server_proc'] = [400, 11]
+    return b, a
+
+
+@pytest.mark.parametrize('case, message', [
+    ('fresh-with-deleted-image', 'neither exactly fresh nor exactly survived'),
+    ('survived-changed-proc', 'neither exactly fresh nor exactly survived'),
+    ('predecessor-not-live', 'predecessor watchdog not live'),
+    ('socket-running-to-listening', 'broker socket transition'),
+    ('broker-nrestarts', 'broker invariant NRestarts'),
+])
+def test_transition_refusals_name_their_rule(s2, case, message):
+    b, a = fresh_pair(s2)
+    if case == 'fresh-with-deleted-image':
+        a['scope']['dolt_members']['watchdog_image'] = 'deleted-old'
+    elif case == 'survived-changed-proc':
+        a['scope']['dolt_members'].update(watchdog=200, server=201, watchdog_image='deleted-old',
+                                          watchdog_proc=[1, 99], server_proc=[200, 11])
+    elif case == 'predecessor-not-live':
+        b['scope']['dolt_members']['watchdog_image'] = 'deleted-old'
+    elif case == 'socket-running-to-listening':
+        b['host']['broker_socket']['SubState'] = 'running'
+        a['host']['broker_socket']['SubState'] = 'listening'
+    else:
+        a['host']['broker']['NRestarts'] = '1'
+    with pytest.raises(Exception, match=message):
+        s2.validate_successor_transition(b, a)
+
+
+def inventory(**entries):
+    return dict(inventory={k: dict(v) for k, v in entries.items()})
+
+
+META = dict(mode=0o40755, uid=1000, gid=1000, size=4096, nlink=3, mtime_ns=1, ctime_ns=1, atime_ns=5)
+
+
+@pytest.mark.parametrize('case, message', [
+    ('removed', 'cache entry removed'),
+    ('changed', 'pre-existing cache entry changed'),
+    ('unexpected-top', 'unexpected cache additions'),
+    ('missing-required', 'unexpected cache additions'),
+    ('root-mode', 'cache root metadata'),
+])
+def test_cache_admission_refusals_before_any_walk(s2, case, message):
+    before = inventory(**{'.': META, 'a21': META})
+    after = inventory(**{'.': dict(META, mtime_ns=9, ctime_ns=9, nlink=4, atime_ns=9), 'a21': META,
+                         s2.S14_NEW_KEY: META})
+    if case == 'removed':
+        del after['inventory']['a21']
+    elif case == 'changed':
+        after['inventory']['a21'] = dict(META, atime_ns=6)
+    elif case == 'unexpected-top':
+        after['inventory']['stranger'] = META
+    elif case == 'missing-required':
+        del after['inventory'][s2.S14_NEW_KEY]
+        after['inventory'][s2.S14_OPTIONAL_KEY] = META
+        after['inventory']['stranger'] = META
+    else:
+        after['inventory']['.']['mode'] = 0o40700
+    with pytest.raises(Exception, match=message):
+        s2.s14_admit_cache(before, after)
