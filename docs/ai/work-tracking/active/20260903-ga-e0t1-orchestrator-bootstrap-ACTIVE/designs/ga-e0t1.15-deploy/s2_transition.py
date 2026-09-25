@@ -908,4 +908,66 @@ def main():
     c.o.require(ACCEPTED_SHA!='0'*64,'accepted predecessor not yet bound; only the accept phase may run')
     return _s13_main()
 
+# --- 9. Recovery acceptance (sequence 13 precedent). The broker submission of 2026-09-25T17:34Z
+# succeeded (broker-result.json, submit-done.json in ROOT). postflight1 then refused with 'supervisor
+# scope membership', apparently a transient member seen at initialization. ROOT stays terminal and
+# preserved. This phase is read-only: no broker call, no timer change, no write outside
+# S14_RECOVERY_ROOT. It proves the adopted state with the same capture, transition, receipt and
+# city-rule checks as the postflights, over two complete observations at least 5 s apart, which must
+# be equal. It does not use the elapsed-window fence: the adoption itself happened inside the window
+# (submit-done.json), and this phase only reads.
+S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.15-seq14-recovery-20260925')
+
+def s14_recover(baseline_sha,binding_sha):
+    c.o.require(sys.flags.isolated and sys.flags.dont_write_bytecode and sys.flags.optimize==0,'use python3 -I -B')
+    c.o.require(json.loads((ROOT/'terminal.json').read_text())=={'phase':'postflight1','error_type':'Refused',
+                'reason':'supervisor scope membership','submission_started':True},'terminal disposition changed')
+    c.o.require(os.path.lexists(ROOT/'submit-done.json') and os.path.lexists(ROOT/'broker-result.json'),'submission record')
+    S14_RECOVERY_ROOT.mkdir(mode=0o700)
+    def rec(name,value):
+        data=json.dumps(value,indent=1,sort_keys=True).encode()
+        fd=os.open(S14_RECOVERY_ROOT/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
+        try:
+            view=memoryview(data)
+            while view:
+                n=os.write(fd,view);c.o.require(n>0,'short record write');view=view[n:]
+            os.fsync(fd)
+        finally:os.close(fd)
+        return s14_sha(data)
+    rec('start.json',dict(executor_sha256=s14_sha(Path(__file__).read_bytes()),baseline_sha256=baseline_sha,
+                          binding_sha256=binding_sha))
+    b=baseline(baseline_sha)
+    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)
+    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')
+    observations=[]
+    for n in (1,2):
+        s14_wait_initialized()
+        c.timer_inactive()
+        rules_before=s14_city_rules(True)
+        runtime=c.runtime_readiness()
+        closure=c.capture(True)
+        now=time.monotonic_ns()
+        rec('observation-%d-raw.json'%n,dict(closure=closure,runtime=runtime,monotonic_ns=now))
+        validate_successor_transition(b['closure'],closure)
+        c.o.require(not Path('/proc',str(b['closure']['host']['host']['pid'])).exists(),'old Core remains')
+        receipt=verified_receipt(binding,closure['host'],b['closure']['host'])
+        c.o.require(c.runtime_readiness()==runtime,'runtime changed during observation')
+        rules_after=s14_city_rules(True)
+        c.o.require(rules_after==rules_before,'city rules changed during observation')
+        observations.append(dict(closure=closure,runtime=runtime,monotonic_ns=now,receipt=receipt,rules=rules_after))
+        rec('observation-%d.json'%n,observations[-1])
+        if n==1:time.sleep(5)
+    first,second=observations
+    c.o.require(5*10**9<=second['monotonic_ns']-first['monotonic_ns']<=900*10**9,'observation interval')
+    c.o.require(first['closure']==second['closure'] and first['runtime']==second['runtime']
+                and first['receipt']==second['receipt'] and first['rules']==second['rules'],'observations differ')
+    rec('pass.json',dict(ok=True,recovery_acceptance=True,
+                         dolt_outcome=second['closure']['scope']['dolt_members']['watchdog_image'],
+                         admitted_cache_keys=second['closure'].get('admitted_cache_keys'),
+                         shim=second['rules']['shim'],repointed_sinks=second['rules']['repointed_sinks']))
+    print(json.dumps(dict(ok=True,root=str(S14_RECOVERY_ROOT)),sort_keys=True))
+
+if len(sys.argv)==4 and sys.argv[1]=='recover' and __name__=='__main__':
+    s14_recover(sys.argv[2],sys.argv[3]);sys.exit(0)
+
 if __name__=='__main__':main()
