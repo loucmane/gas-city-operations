@@ -28,7 +28,7 @@ import sys
 import types
 
 HERE = Path(__file__).parent
-PREREQS_SHA = 'bbb22c39232023408fabc0967bf0fd5b1abc6ff3a452fc898898233b73eaf4d7'  # s3/prereqs_m6.py
+PREREQS_SHA = 'a36824b89d6feb23a6d9a7ade26127c4848e71df6e4a0f525e308b0f02bd006e'  # s3/prereqs_m6.py
 GIT_EXACT = {'.', 'HEAD', 'index', 'FETCH_HEAD', 'ORIG_HEAD', 'COMMIT_EDITMSG', 'config', 'packed-refs',
              'objects', 'refs', 'logs', 'worktrees', 'lfs', 'lfs/cache', 'gas-city-workflow', 'rr-cache'}
 GIT_PREFIXES = ('objects/', 'refs/', 'logs/', 'worktrees/', 'lfs/cache/locks/', 'gas-city-workflow/', 'rr-cache/')
@@ -87,12 +87,13 @@ def config_drift(listing):
                 bad_branch_keys=[line for line in branch if not line.split('=', 1)[0].endswith(('.remote', '.merge'))])
 
 
-def carried_changes(s2_pins, live_pins, changed_inputs):
+def carried_changes(s2_pins, live_pins, changed_inputs, successor_sizes):
     """Pure: which S2-accepted pins changed, and which of those changes are not reviewed.
 
-    A reviewed changed input found at its predecessor in S2 must now be at its successor; one S2 already
-    recorded at its successor (libexpat, updated before S2) must be unchanged; any other S2 digest for it is
-    refused. Every other S2 pin must be unchanged (review B of dc5c46b5, must_fix 1).
+    A reviewed changed input found at its predecessor in S2 must now be exactly its successor pin: the
+    reviewed digest and byte size, with mode, uid and gid unchanged. One S2 already recorded at its successor
+    (libexpat, updated before S2) must be unchanged; any other S2 digest for it is refused. Every other S2
+    pin must be unchanged (review B of dc5c46b5 must_fix 1; review A of f8fcb751 must_fix 1).
     """
     reviewed = {path: (before, after) for path, before, after in changed_inputs}
     changes, problems = [], []
@@ -101,7 +102,7 @@ def carried_changes(s2_pins, live_pins, changed_inputs):
         if path in reviewed:
             old, new = reviewed[path]
             if before['sha256'] == old:
-                if now != dict(before, sha256=new):
+                if path not in successor_sizes or now != dict(before, sha256=new, size=successor_sizes[path]):
                     problems.append(path)
             elif before['sha256'] != new or now != before:
                 problems.append(path)
@@ -169,7 +170,7 @@ def main():
     for path, want in expected.items():
         if pins[path]['sha256'] != want['sha256'] or pins[path]['mode'] != want['mode']:
             drifts.append(dict(kind='file', path=path, expected=want, actual=pins[path]))
-    changes, unexpected = carried_changes(c.s2['pins'], pins, m.CHANGED_INPUTS)
+    changes, unexpected = carried_changes(c.s2['pins'], pins, m.CHANGED_INPUTS, m.SUCCESSOR_SIZES)
     if unexpected:
         drifts.append(dict(kind='carried-forward-pins', unexpected=unexpected, changed=[x['path'] for x in changes]))
     # Trees: the S2 trees exactly, the Template Git directory within its bound, and every root mode.

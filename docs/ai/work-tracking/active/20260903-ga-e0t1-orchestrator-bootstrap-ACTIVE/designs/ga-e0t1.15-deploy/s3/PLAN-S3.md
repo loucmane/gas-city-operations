@@ -35,8 +35,8 @@ a separate package) then refreshes the worker provisioning receipt.
 - **One narrowing: the PR 69 authority is replaced, not kept.** M5's frame had 3001 spare bytes, and
   a second 34-pin authority needs about 5.5 KB. The trial build with both would overflow the
   131,072-byte native frame. M6 therefore drops the PR 69 authority, its repository entry and its 12
-  input, 20 tree and 2 link pins, and adds the PR 71 ones. The frame is then 128,272 bytes, with 2800
-  spare. The PR 69 worktree stays on disk, clean and unreferenced. It is superseded: after P7, the
+  input, 20 tree and 2 link pins, and adds the PR 71 ones. At r3 the frame is 128,505 bytes, with 2567
+  spare (the test requires more than 2048). The PR 69 worktree stays on disk, clean and unreferenced. It is superseded: after P7, the
   receipt names `cfd353f3`.
 
 ## The complete delta (M5 `2d7eadce` → M6)
@@ -134,6 +134,14 @@ nobody writes a Bead note. Notes wait in staging, under the quiescent-window rul
   the authority worktree stay.
 - The executor's recoveries are unchanged from M5: `recover-preparation`, `recover-pause` and
   `restore-preapply`.
+- **No retry into the same package.** After a rollback, or once fetch, checkout or authority has
+  changed the Template `.git` away from `cac98745`, the `inventory` step can no longer pass. Any retry
+  needs a new, reviewed package that binds the new predecessor.
+- **Keep the city-config backup.** `reports/m6-inputs/city.toml.before` is in the gitignored
+  `reports/`. Core's `InspectIntegrity` checks managed backups, so the file must stay byte-exact at mode
+  0644 for as long as M6 is installed, as `reports/r5/i/00` did for M5.
+- A torn intent record from `inventory` needs manual cleanup. Torn `inventory` data records are
+  replaced by `resume inventory`.
 - Stop on any of these, and never retry into a consumed root:
   - any refusal;
   - host epoch drift;
@@ -156,3 +164,15 @@ nobody writes a Bead note. Notes wait in staging, under the quiescent-window rul
 | B should_fix 7: renderer blob | Pinned as `bb97950c` and required before the checkout. |
 | B should_fix 8: rollback blocked by a crashed `prepare` | Documented as the inherited M5 residual limit (`prereqs_m6.py` docstring). |
 | B should_fix 9: tests | Added: `carried_changes` against the real S2 closure, and the policy on the real legacy observer. `resume` and `rollback` live paths remain covered by their postcondition code, and the capture `main` by the live run. |
+
+## Review dispositions for r2 (`f8fcb751`: two HOLD verdicts, same must_fix)
+
+| Finding | Disposition |
+| --- | --- |
+| A and B must_fix: pins include `size`, and PR 71 grows the parser from 14178 to 14668 bytes, so `carried_changes` still refused | Fixed. `SUCCESSOR_SIZES` binds the exact cfd353f3 blob size. `carried_changes` requires the whole successor pin (digest, size, unchanged mode, uid and gid). The test uses the real successor size and refuses the old size or a mode change. `test_successor_size_matches_the_target_blob` checks the size against the blob. |
+| A should_fix: frame figure, full distinct-path restatement, resume branch test, backup retention | Frame recorded (128505). The path test now includes `receipt_path`, the default manifest path and both previous-metadata backups. Backup retention is stated above. The resume branch is below. |
+| B should_fix 1: `-f` wording | Corrected: it deletes no untracked file but overwrites one at a path 28539934 tracks. |
+| B should_fix 2: torn inventory records | `resume inventory` replaces its own torn data records atomically, only while the intent exists and the record does not. A torn intent needs manual cleanup (stated above). |
+| B should_fix 3: renderer bytes on disk | `post_checkout` now checks the on-disk renderer against `RENDERER_SHA`. |
+| B should_fix 4: retry after rollback | Stated above: a retry needs a new reviewed package. |
+| B should_fix 5: digest pins | `test_source_pins` asserts them; the r3 test run is recorded in the commit. |

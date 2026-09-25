@@ -102,7 +102,11 @@ def test_native_successor_rules(m, old, s2):
         now = candidate[previous['name']]
         assert (now['destination'], now['mode'], now['previous_sha256']) == (
             previous['destination'], previous['mode'], previous['sha256']), previous['name']
-    paths = [out['core']['source'], out['core']['destination'], out['backup_path']]
+    # manifest.go distinct-path rule: core source and destination, backup, receipt, the default manifest path,
+    # both previous-metadata backups, and every managed file's source, destination and backup.
+    paths = [out['core']['source'], out['core']['destination'], out['backup_path'], out['receipt_path'],
+             out['city_path'] + '/.gc/platform/install-manifest.json',
+             out['previous_metadata']['manifest_backup_path'], out['previous_metadata']['receipt_backup_path']]
     paths += [f[k] for f in out['managed_files'] for k in ('source', 'destination', 'backup_path')]
     assert len(paths) == len(set(paths))
     config = candidate['city-config']
@@ -331,16 +335,30 @@ def test_carried_changes_against_the_real_s2_closure(m, s2):
     parser, libexpat = m.CHANGED_INPUTS[0][0], m.CHANGED_INPUTS[1][0]
     assert s2['pins'][parser]['sha256'] == m.CHANGED_INPUTS[0][1]
     assert s2['pins'][libexpat]['sha256'] == m.CHANGED_INPUTS[1][2]  # updated before S2
+    assert s2['pins'][parser]['size'] != m.SUCCESSOR_SIZES[parser]  # PR 71 changes the size too
     live = copy.deepcopy(s2['pins'])
-    live[parser] = dict(live[parser], sha256=m.CHANGED_INPUTS[0][2])
-    changes, problems = c.carried_changes(s2['pins'], live, m.CHANGED_INPUTS)
+    live[parser] = dict(live[parser], sha256=m.CHANGED_INPUTS[0][2], size=m.SUCCESSOR_SIZES[parser])
+    changes, problems = c.carried_changes(s2['pins'], live, m.CHANGED_INPUTS, m.SUCCESSOR_SIZES)
     assert problems == [] and [x['path'] for x in changes] == [parser]
     for mutate, bad in ((lambda p: p.__setitem__(parser, s2['pins'][parser]), parser),
+                        (lambda p: p.__setitem__(parser, dict(p[parser], size=s2['pins'][parser]['size'])), parser),
+                        (lambda p: p.__setitem__(parser, dict(p[parser], mode=0o755)), parser),
                         (lambda p: p.__setitem__(libexpat, dict(p[libexpat], sha256=m.CHANGED_INPUTS[1][1])), libexpat),
                         (lambda p: p.__setitem__(m.GC, dict(p[m.GC], mode=0o700)), m.GC)):
         trial = copy.deepcopy(live)
         mutate(trial)
-        assert bad in c.carried_changes(s2['pins'], trial, m.CHANGED_INPUTS)[1]
+        assert bad in c.carried_changes(s2['pins'], trial, m.CHANGED_INPUTS, m.SUCCESSOR_SIZES)[1]
+
+
+def test_successor_size_matches_the_target_blob(m):
+    repo = os.environ.get('S3_DERIVE_REPO', m.TEMPLATE)
+    shown = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', repo, 'cat-file', 'blob',
+                            m.TEMPLATE_COMMIT + ':lib/gct_claude_signing_worker.py'], capture_output=True)
+    if shown.returncode != 0:
+        pytest.skip('repository does not hold cfd353f3 yet (before the fetch step)')
+    path = m.CHANGED_INPUTS[0][0]
+    assert hashlib.sha256(shown.stdout).hexdigest() == m.CHANGED_INPUTS[0][2]
+    assert len(shown.stdout) == m.SUCCESSOR_SIZES[path]
 
 
 def test_policy_on_the_real_legacy_observer(tmp_path):

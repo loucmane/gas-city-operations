@@ -71,6 +71,10 @@ CHANGED_INPUTS = (
      'ec6c12d33bb8f9d0e90804121adf19930f36b1b2a4aeb6e1a454b89c7a50c801',
      '286682ecbc5e59a638963b1a4e6351e65eb32fcf4bdcb9cb7569b6a61fe06a8d'),
 )
+# Exact successor byte sizes of the changed inputs the live prerequisites move (the cfd353f3 blob). The S2
+# closure pins size too, so the capture binds the whole successor pin (review A of f8fcb751, must_fix 1).
+# libexpat is absent: it was already at its successor in the S2 closure and must stay unchanged.
+SUCCESSOR_SIZES = {TEMPLATE + '/lib/gct_claude_signing_worker.py': 14668}
 # Canonical Template files that cfd353f3 leaves byte-identical (derive_m6.py proves it from Git objects).
 RETAINED_TEMPLATE_PINS = {
     TEMPLATE + '/bin/gct-claude-signing-worker':

@@ -26,7 +26,7 @@ records the exact postcondition under reports/m6-inputs. An interrupted step can
 proves the postcondition and never repeats the change.
 
 `rollback` returns the canonical checkout to 28539934 (a forced detach, which also repairs an interrupted
-checkout's tracked files). It runs only while the installed manifest is still M5 and no M6 executor window
+checkout's tracked files; it deletes no untracked file but overwrites one at a path 28539934 tracks). It runs only while the installed manifest is still M5 and no M6 executor window
 may hold the timer paused or may have launched an apply. The fetched objects and refs and the authority
 worktree stay; the record lists them. Residual limits, as in M5: a left-over index.lock, or untracked files
 a partial checkout added, need manual recovery; and a `prepare` that wrote its pause intent but crashed
@@ -285,10 +285,20 @@ def inventory_records(c):
             and sha(c.m.CITY_CONFIG_SOURCE) == c.m.CITY_CONFIG_SHA, 'installed city config is not the M5 bytes')
     for name, data, mode in (('template-git-before.json', encoded(tree), 0o600), ('city.toml.before', city, 0o644)):
         path = c.inputs/name
-        if os.path.lexists(path):
-            require(identity(path) == owned(digest(data), mode), 'existing inventory record differs: ' + name)
-        else:
+        if not os.path.lexists(path):
             write_exclusive(path, data, mode)
+        elif identity(path) != owned(digest(data), mode):
+            # Only reachable through `resume inventory` after an interrupted write: the record is this step's
+            # own, not live state, so it is replaced atomically by the freshly proved bytes (review B r2
+            # should_fix 2). A symlink or non-regular entry is never replaced.
+            require(stat.S_ISREG(os.lstat(path).st_mode) and os.path.lexists(c.record_path('inventory', '.intent'))
+                    and not os.path.lexists(c.record_path('inventory')), 'inventory record differs: ' + name)
+            tmp = path.parent/('.' + name + '.resume.tmp')
+            require(not os.path.lexists(tmp), 'leftover inventory temporary; inspect ' + str(tmp))
+            write_exclusive(tmp, data, mode)
+            os.replace(tmp, path)
+            fsync_dir(path.parent)
+            require(identity(path) == owned(digest(data), mode), 'inventory record replacement')
 
 
 def post_inventory(c):
@@ -322,6 +332,7 @@ def post_checkout(c):
     require(identity(path) == owned(after, 0o644), 'successor signing worker bytes')
     for pinned, value in c.m.RETAINED_TEMPLATE_PINS.items():
         require(sha(pinned) == value, 'retained Template bytes: ' + pinned)
+    require(sha(TEMPLATE/'bin/gct-managed-rig-permissions') == RENDERER_SHA, 'successor renderer bytes')
     version = run([str(TEMPLATE/'bin/gct-claude-signing-worker'), '--version'], CITY_ENV, timeout=60)
     require(version['returncode'] == 0 and version['stdout'].strip() == c.m.VERSION_NEW,
             'signing worker dependency version')
@@ -443,8 +454,9 @@ def rollback(c):
     head, _, status = checkout_state()
     if head != c.m.M5_COMMIT or status != UNTRACKED:
         # Also covers an interrupted checkout that left HEAD at either commit with a partly updated tree
-        # (review B should_fix 3). A forced detach restores tracked files only; untracked files, including
-        # deploy/ and the egg-info, are never touched or deleted.
+        # (review B should_fix 3). A forced detach discards every change to tracked files. It deletes no
+        # untracked file, but overwrites one that collides with a path 28539934 tracks; deploy/ and the
+        # egg-info do not collide.
         require(head in (c.m.M5_COMMIT, c.m.TEMPLATE_COMMIT), 'unknown canonical checkout; inspect by hand')
         require(not os.path.lexists(TEMPLATE/'.git/index.lock'), 'canonical checkout index is locked; inspect by hand')
         moved = git(TEMPLATE, 'checkout', '-f', '--detach', c.m.M5_COMMIT)
