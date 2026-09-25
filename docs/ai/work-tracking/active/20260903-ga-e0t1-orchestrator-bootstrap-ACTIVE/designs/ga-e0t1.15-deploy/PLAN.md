@@ -143,7 +143,32 @@ Changes from sequence 13:
    - `9c8c14fc`, only if present, under the same exact rule;
    - the cache root's own mtime, ctime and nlink change caused by the new entries;
    - `.packman-cache.lock`, whose bytes must be unchanged;
-   - the city shim moving from exactly `2e0a1f74` to exactly `a7bcaa7c`.
+   - the city shim moving from exactly `2e0a1f74` to exactly `a7bcaa7c`;
+   - the live-key repoint (r4). The new supervisor's stage-1 skill materialization
+     (`runStage1SkillMaterialization`, which runs at startup, on every tick and on reload, without a
+     suspension check) and formula materialization repoint links that embed the running binary's
+     cache key. The live inventory, taken read-only at r4, is `live-key-links.tsv`: 53 symlinks under
+     the city whose target lies inside `cache/repos/a21cc0a2…`:
+     - 7 each in `.claude/skills` and `.agents/skills`;
+     - 16 in `.beads/formulas`;
+     - 16 in `rigs/gascity/.beads`;
+     - 7 in `rigs/gascity/.claude/skills`.
+     `live-key-manifests.tsv` lists the three `.gc-skill-ownership.json` files that embed the key. All
+     three are byte-identical today at `77390929`. Per item, the postflight admits exactly one of two
+     states:
+     - (a) unchanged;
+     - (b) repointed. For a link, the target becomes the same string with `a21cc0a2…` replaced by
+       `69fe9a2e…`, the link may get a new inode, and its parent directory's mtime, ctime and nlink
+       may change. For a manifest, the bytes become exactly that key substitution: 1348 bytes,
+       sha `f51ef649`.
+     A manifest in state (b) requires all of its sink's links to be in state (b). Any other target, a
+     new or removed link, or a change to any other manifest or file refuses.
+     - Unaffected by construction: the sinks with no `a21cc0a2` targets (`.codex/skills`,
+       `rigs/gascity/.codex/skills`, `.gc/agents/*/.claude/skills`, the `.claude.corrupt-*` archive).
+       Hook and MCP projections copy embedded content, which is unchanged apart from
+       `nudge-on-route.sh`.
+     - S3 and S4 bind whichever state S2 observed. Their inventories admit a later (a)→(b) move under
+       the same rule.
    Every other cache entry and city file must stay exact, with atime as the policy allows. Any
    other change refuses.
 4. **Initialization wait.** The postflight waits, bounded, for city initialization before its exact
@@ -209,6 +234,7 @@ Each consumer is re-pinned in the stage shown.
 | R7 or observe closures | full closure | S2 fresh predecessor |
 | aegis-obsidian-reconcile timer | pauses and restores around S2 and S3; reads live state | S2, S3 |
 | City shim `.gc/scripts/gc-beads-bd.sh` | embeds the bd cache key, which follows the embedded pack content | S2 (supervisor rewrite, admitted exactly) |
+| 53 skill and formula symlinks and 3 skill ownership manifests (`live-key-*.tsv`) | embed the cache key | S2 (repoint admitted per item, unchanged or exact) |
 
 ## Stop conditions
 
