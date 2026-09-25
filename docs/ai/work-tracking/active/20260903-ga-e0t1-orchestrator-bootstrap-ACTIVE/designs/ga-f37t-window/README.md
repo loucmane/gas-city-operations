@@ -288,7 +288,9 @@ start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
     revision completed.
   - It records the recovered city.toml pin, and makes ordinary reads of the four start-gate objects so that
     relatime refreshes whatever it may.
-  - It never writes the receipt, the suspension state, a route or a Bead, and never starts a worker. Its
+  - It never writes the receipt, the suspension state or a Bead, and never starts a worker. It writes no route
+    itself; the reload makes the controller regenerate the five route files with unchanged content (new inodes,
+    new parent `.beads` times), which the script checks. Its
     wrapper refuses if a city tmux server is running.
 - **Admission.** `approved_recovery_image()` in window-base replaces only the city.toml pin entry, with the
   one the recovery recorded. That entry must keep the accepted content digest and shape. The disposition
@@ -301,6 +303,7 @@ start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
   consumed by the s5 r5 OBSERVE).
 - **Run order.**
   1. The cache lstat check, then RECOVER.
+  1a. The cache lstat check again, right before OBSERVE (RECOVER ran gc reload and trace).
   2. The start-gate forecast. The recovery's reads refresh what relatime allows. The suspension state and the
      provisioning directory stay gated by their own access times: under 19 hours until 18:50 and 19:23 CEST,
      then refreshable by a read after 23:50 CEST and 00:23 CEST.
@@ -316,7 +319,8 @@ start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
    first minutes after RESUME, so a silent start can be diagnosed before Core reaps the session; two reviews
    naming RECONCILE, BIND and the window wrappers.
 3. **Window:** RECONCILE (ga-4z38 to blocked) and BIND ran at s2 r2. Since s5 there is no FRESHEN step:
-   - the cache lstat check;
+   - since s6: the cache lstat check, then RECOVER (it must pass; OBSERVE refuses the staged city without it);
+   - the start-gate check (read-only), and the cache lstat check again, right before OBSERVE (RECOVER ran gc);
    - OBSERVE, PREFLIGHT (with its start gate), STAGE and ROUTE;
    - WATCH-1, then RESUME only if WATCH-1 recorded `routes_unchanged_since_stage` true (otherwise stop; see
      the WATCH-1 rule in s5 r2);

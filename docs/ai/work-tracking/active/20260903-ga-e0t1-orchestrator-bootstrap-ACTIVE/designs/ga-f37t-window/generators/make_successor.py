@@ -165,7 +165,8 @@ S3_SUBS = {
          '    # snapshot below and admitted against the recorded TERMINAL entry (approved_restore_image).'),
         ('    # with the reviewed disposition (approved_historical_image) and the accepted provider pins.',
          '    # with the reviewed dispositions approved_historical_image, approved_epoch_image,\n'
-         '    # approved_restore_image and approved_coordinator_cache_image, and the accepted provider pins.')],
+         '    # approved_restore_image, approved_coordinator_cache_image and (with RECOVERY set below)\n'
+         '    # approved_recovery_image, and the accepted provider pins.')],
 }
 # s5 (operator chose it over waiting for a FRESHEN opening): reads may advance access times, and the
 # window accounts them instead of requiring every compared object to be refreshed beforehand.
@@ -299,7 +300,8 @@ that exact recorded state, puts city.toml back to its accepted bytes with the re
 reloads, and waits until the controller has completed the accepted revision. Its result records the recovered
 city.toml pin, which the next window's OBSERVE admits (approved_recovery_image). Finally it makes ordinary reads
 of the four objects the next PREFLIGHT start gate checks, so relatime refreshes any access time it may refresh.
-It never writes the receipt, the suspension state, a route or a Bead, and never starts a worker.
+It never writes the receipt, the suspension state or a Bead, and never starts a worker. It writes no route
+itself; the reload makes the controller regenerate the route files with unchanged content (checked).
 """
 import hashlib
 import json
@@ -446,7 +448,8 @@ if __name__ == '__main__':
 '''
 RECOVER_WRAPPER = '''#!/bin/sh
 # ga-f37t s6 recovery: return the city to its accepted image after the refused s5 r5 STAGE (city.toml
-# restored, reload). Once; never writes the receipt, the suspension state, a route or a Bead.
+# restored, reload). Once; never writes the receipt, the suspension state or a Bead (the reload makes the
+# controller regenerate the route files with unchanged content).
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
 # Log: ~/.local/share/gas-city-staging/ga-f37t-window/recover-<timestamp>.txt. Exits with the first failing
