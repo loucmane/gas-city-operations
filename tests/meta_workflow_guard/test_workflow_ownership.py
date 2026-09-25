@@ -13,7 +13,14 @@ from tests.meta_workflow_guard.test_gas_city_workflow_transitions import (
 from workflow_begin import begin, resume
 from workflow_common import WorkflowError, BeginSpec
 from workflow import _checkpoint
-from workflow_ownership import OWNER_KEY, bead_digest, owner_binding, owner_payload
+from workflow_ownership import (
+    OWNER_KEY,
+    bead_digest,
+    owner_binding,
+    owner_payload,
+    require_binding,
+    require_external_candidate,
+)
 from workflow_ownership_reconcile import adopt_external
 from workflow_lock import workflow_lock
 
@@ -246,3 +253,39 @@ def test_explicit_wire_repair_matches_only_the_exact_preserved_failure(tmp_path,
     )
     assert not runner.bead.get("assignee")
     assert sum("update" in call for call in runner.calls) == 1
+
+
+_BINDING = "external-coordinator.v1:" + "0" * 64
+
+
+def _owned(status, **metadata):
+    return {"id": "ga-attached", "status": status, "metadata": {OWNER_KEY: _BINDING, **metadata}}
+
+
+def test_closed_attached_bead_may_carry_core_closeout_outcome():
+    # ga-4p6f: Core closeout wrote gc.work_outcome on a closed attached bead,
+    # and every coordination verb on the primary was refused from then on.
+    require_binding(_owned("closed", **{"gc.work_outcome": "shipped"}), _BINDING, allow_closed=True)
+
+
+@pytest.mark.parametrize(
+    "status, allow_closed, metadata",
+    [
+        ("in_progress", True, {"gc.work_outcome": "shipped"}),
+        ("in_progress", False, {"gc.work_outcome": "shipped"}),
+        ("closed", False, {"gc.work_outcome": "shipped"}),
+        ("closed", True, {"gc.work_outcome": "shipped", "gc.routed_to": "rig/worker"}),
+        ("closed", True, {"gc.session_id": "ci-1"}),
+        ("closed", True, {"gc.work_branch": "agent/x"}),
+        ("closed", True, {"routed_to": "rig/worker"}),
+    ],
+)
+def test_only_the_closeout_outcome_on_a_closed_bead_is_tolerated(status, allow_closed, metadata):
+    with pytest.raises(WorkflowError):
+        require_binding(_owned(status, **metadata), _BINDING, allow_closed=allow_closed)
+
+
+def test_begin_path_still_refuses_closeout_outcome():
+    # Adoption and begin call the candidate check without closed_outcome.
+    with pytest.raises(WorkflowError, match="native control metadata"):
+        require_external_candidate(_owned("closed", **{"gc.work_outcome": "shipped"}))

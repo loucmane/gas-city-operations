@@ -56,7 +56,15 @@ def bead_digest(bead: Mapping[str, Any]) -> str:
     return hashlib.sha256(canonical_json(bead).encode()).hexdigest()
 
 
-def require_external_candidate(bead: Mapping[str, Any]) -> None:
+# Core records a closeout outcome on the bead it closes. That key describes
+# finished work, not routing or a session claim, so an owned bead that is
+# already closed may carry it. Every other gc.* key stays refused.
+CLOSED_OUTCOME_KEYS = frozenset({"gc.work_outcome"})
+
+
+def require_external_candidate(
+    bead: Mapping[str, Any], *, closed_outcome: bool = False
+) -> None:
     if os.environ.get("GC_SESSION_ID") or os.environ.get("GC_SESSION_NAME"):
         raise WorkflowError("native sessions must retain the managed claim protocol")
     if bead.get("assignee"):
@@ -66,8 +74,12 @@ def require_external_candidate(bead: Mapping[str, Any]) -> None:
     metadata = bead.get("metadata", {})
     if not isinstance(metadata, dict):
         raise WorkflowError("bead metadata is not an object")
+    tolerated = (
+        CLOSED_OUTCOME_KEYS if closed_outcome and bead.get("status") == "closed" else frozenset()
+    )
     if any(
-        value and (key.startswith("gc.") or key in NATIVE_KEYS) for key, value in metadata.items()
+        value and (key.startswith("gc.") or key in NATIVE_KEYS) and key not in tolerated
+        for key, value in metadata.items()
     ):
         raise WorkflowError("external source workflow refuses native control metadata")
     if any(
@@ -106,7 +118,7 @@ def owner_binding(spec: BeginSpec, context: Mapping[str, Any]) -> str:
 
 
 def require_binding(bead: Mapping[str, Any], binding: str, *, allow_closed: bool = False) -> None:
-    require_external_candidate(bead)
+    require_external_candidate(bead, closed_outcome=allow_closed)
     if bead.get("metadata", {}).get(OWNER_KEY) != binding:
         raise WorkflowError(
             "external ownership binding missing or changed; explicit reconciliation required"
