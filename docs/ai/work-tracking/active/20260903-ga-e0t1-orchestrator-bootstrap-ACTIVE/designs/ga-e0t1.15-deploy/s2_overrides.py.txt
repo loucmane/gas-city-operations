@@ -1,0 +1,385 @@
+
+# ===================== ga-e0t1.15 sequence 14 overrides (make_s2.py) =====================
+# Everything below replaces or wraps reviewed sequence 13 behaviour for the post-M5 host. Each block
+# names what it changes and why. Nothing above this line was edited, apart from make_s2 SUBSTITUTIONS.
+import re as _re
+import stat as _stat
+
+S14_HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1.15-deploy')
+S14_CACHE=Path('/home/loucmane/gascity/home/cache/repos')
+S14_CITY=Path('/home/loucmane/gascity/city')
+S14_GC_BIN='/home/loucmane/gascity/bin/gc'
+S14_DOLT_BIN='/home/loucmane/gascity/bin/dolt'
+S14_DOLT_CFG='/home/loucmane/gascity/city/.gc/runtime/packs/dolt/dolt-config.yaml'
+S14_DOLT_LOG='/home/loucmane/gascity/city/.gc/runtime/packs/dolt/dolt.log'
+S14_LIVE_KEY='a21cc0a2fbf22c14fbe59cf508d05bcc230774f5c0d9cd386215369d43a2410a'
+S14_NEW_KEY='69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f'
+S14_OPTIONAL_KEY='9c8c14fc1968fe278e18cf0a3721760b544fec231bb65779ce83cf59cabb7e47'
+S14_COMMIT_BY_KEY={S14_NEW_KEY:'f895c0ff47d6ee9334ed282a416387eb5b084d24',
+                   S14_OPTIONAL_KEY:'3b3b89f2011e06d84459aa7bea1552382f13930a'}
+S14_NEW_HASH='sha256:81f8a5b283c895cfbd1322606cce8a1df81df9409af0869cb6418fcd6356d979'
+S14_EXPECTATION=Path('/var/tmp/ga-e0t1.15-cache-expect-20260925/expectation.json')
+S14_EXPECTATION_SHA='62c5bb84de0f80d12da58f1c1a5a3656721aafe1a370232c5c0a353615e453e3'
+S14_SHIM=S14_CITY/'.gc/scripts/gc-beads-bd.sh'
+S14_SHIM_BEFORE='2e0a1f7462a913c2c5fab1078d2837a272b225b09f3b500f2df971427c2eaa6e'
+S14_SHIM_AFTER='a7bcaa7cce9261b987bb766fba19db46cc7f4ae8d8b22b6d8059bb884d8788d2'
+S14_MANIFEST_BEFORE='7739092947074ba1cdcb389657baf41623efb12ab50944a97bc9b2d53de92b34'
+S14_MANIFEST_AFTER='f51ef6490bbc3ae9c595b2fe0aaf5a4d825c0db4e5edbc56c59d315e6dc3cf10'
+S14_ROOTS=['/home/loucmane/gascity/city','/home/loucmane/gas-city-native',
+           '/home/loucmane/gascity/city/rigs/gascity','/home/loucmane/dev/blog',
+           '/home/loucmane/dev/hpfetcher-gc-main']
+S14_RIGS={'gas-city-template':'/home/loucmane/gas-city-native','gascity':'/home/loucmane/gascity/city/rigs/gascity',
+          'blog':'/home/loucmane/dev/blog','hpfetcher':'/home/loucmane/dev/hpfetcher-gc-main'}
+S14_M5_MANIFEST=dict(sha256='2d7eadce62c4e567697813cc9122414f1e94c3bd9d389aef92015adef7f36319',mode=0o644,uid=1000,gid=1000,size=127269)
+S14_M5_RECEIPT=dict(sha256='9342b33eb7b0fd4e68a34c8cee3b8a89b9011a091d7121d249b88c84378fed94',mode=0o644,uid=1000,gid=1000,size=2546)
+S14_VENDOR=('.claude','.agents','.gemini','.opencode','.mimocode','.beads')
+S14_INIT_WAIT_NS=180*d.SECOND
+
+def s14_sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+def s14_tsv(name):
+    rows=[line.split('\t') for line in (S14_HERE/name).read_text().splitlines() if line]
+    return rows
+
+# --- 1. Metadata preimages. Sequence 13 required the platform install manifest and receipt to be
+# ABSENT (the r5 metadata apply precondition). M5 created them on 2026-09-23. Sequence 14 requires
+# the exact M5-accepted pair instead, and the r5 before-files are still absent.
+def s14_preimages(_manifest=None):
+    c.o.require(c.s.pin(S14_CITY/'.gc/platform/install-manifest.json',{})==S14_M5_MANIFEST,'M5 install manifest drift')
+    c.o.require(c.s.pin(S14_CITY/'.gc/platform/install-receipt.json',{})==S14_M5_RECEIPT,'M5 install receipt drift')
+    for name in ('install-manifest.before.json','install-receipt.before.json'):
+        c.o.require(not os.path.lexists('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/r5/b/'+name),
+                    'r5 before file materialized')
+c.s.preimages=s14_preimages
+
+# --- 2. Quiet scope. Since the 2026-09-24 boot, the managed dolt watchdog and server run inside the
+# supervisor unit's cgroup (the watchdog is parented by the user manager, the server by the watchdog).
+# Sequence 13 required the supervisor to be alone there. Exactly these two members are admitted,
+# identified by exact argv and executable, and nothing else.
+def s14_proc(pid):
+    argv=Path('/proc',str(pid),'cmdline').read_bytes().split(b'\0')[:-1]
+    exe=os.readlink('/proc/'+str(pid)+'/exe')
+    return [a.decode() for a in argv],exe
+
+def s14_quiet_scope(host):
+    o,s=c.o,c.s
+    pid=host['host']['pid']
+    first={n:s.members(n) for n in (o.SERVICE,o.RECONCILER)}
+    table=s.process_table()
+    o.require(first[o.RECONCILER]==set(),'reconciler scope residue')
+    others=sorted(first[o.SERVICE]-{pid})
+    o.require(pid in first[o.SERVICE] and len(others)==2,'supervisor scope membership')
+    ident={p:s14_proc(p) for p in others}
+    watchdog=[p for p,(argv,_) in ident.items() if argv[:2]==[S14_GC_BIN,'__gc-managed-dolt-scope-watchdog']]
+    server=[p for p,(argv,_) in ident.items() if argv[:2]==['dolt','sql-server']]
+    o.require(len(watchdog)==1 and len(server)==1,'dolt scope members')
+    w,sv=watchdog[0],server[0]
+    o.require(ident[w]==([S14_GC_BIN,'__gc-managed-dolt-scope-watchdog',S14_DOLT_CFG,S14_DOLT_LOG,str(S14_CITY)],S14_GC_BIN),
+              'dolt watchdog identity')
+    o.require(ident[sv]==(['dolt','sql-server','--config',S14_DOLT_CFG],S14_DOLT_BIN),'dolt server identity')
+    o.require(table[sv][0]==w,'dolt server parent')
+    o.require(s.descendants(table,{pid})=={pid},'supervisor descendant residue')
+    o.require(s.descendants(table,{w})=={w,sv},'dolt descendant residue')
+    second=s.process_table()
+    o.require(all(table.get(p)==second.get(p) for p in (pid,w,sv)) and first=={n:s.members(n) for n in first},
+              'scope changed during observation')
+    tmux=subprocess.run(['/usr/bin/tmux','-L','city','list-sessions'],env=o.ENV,cwd='/',stdin=subprocess.DEVNULL,
+                        capture_output=True,timeout=10,check=False)
+    o.require(tmux.returncode==1 and not tmux.stdout and
+              (b'no server running' in tmux.stderr or
+               (b'error connecting to' in tmux.stderr and b'No such file or directory' in tmux.stderr)),
+              'city tmux residue or unexplained refusal')
+    return dict(core_members=[pid],dolt_members=dict(watchdog=w,server=sv),reconciler_members=[],descendants=[],
+                city_tmux_absent=True)
+c.s.quiet_scope=s14_quiet_scope
+
+# --- 3. Cache admission. After the new Core starts, exactly one new synthetic directory (S14_NEW_KEY)
+# must appear, and S14_OPTIONAL_KEY may appear. Their full contents must equal the S1b expectation,
+# with the marker derived per key. Every pre-existing entry stays exact, atime included. Only the
+# cache root entry's mtime, ctime and nlink may change.
+def s14_expected_files():
+    data=Path(S14_EXPECTATION).read_bytes()
+    c.o.require(s14_sha(data)==S14_EXPECTATION_SHA,'cache expectation drift')
+    return {f['Path']:f for f in json.loads(data)['new']['materialized_files']}
+
+def s14_marker(commit):
+    return ('schema = 1\nrepository = "https://github.com/gastownhall/gascity.git"\n'
+            'commit = "'+commit+'"\ncontent_hash = "'+S14_NEW_HASH+'"\n').encode()
+
+def s14_check_new_dir(key):
+    expected=s14_expected_files()
+    root=S14_CACHE/key
+    seen=set()
+    for dirpath,dirnames,filenames in os.walk(root):
+        rel_dir=os.path.relpath(dirpath,root)
+        for name in list(dirnames)+filenames:
+            path=Path(dirpath,name);rel=os.path.normpath(os.path.join(rel_dir,name))
+            st=os.lstat(path);seen.add(rel)
+            want=expected.get(rel);c.o.require(want is not None,'unexpected cache entry '+key+'/'+rel)
+            mode=int(want['Mode'],8)
+            if _stat.S_ISDIR(st.st_mode):
+                c.o.require(mode&(1<<31) and _stat.S_IMODE(st.st_mode)==mode&0o777,'cache dir mode '+rel)
+                continue
+            c.o.require(_stat.S_ISREG(st.st_mode) and _stat.S_IMODE(st.st_mode)==mode&0o777,'cache file mode '+rel)
+            fd=os.open(path,os.O_RDONLY|os.O_NOATIME|os.O_NOFOLLOW|os.O_CLOEXEC)
+            try:
+                data=b''
+                while True:
+                    part=os.read(fd,1048576)
+                    if not part:break
+                    data+=part
+            finally:os.close(fd)
+            if rel=='.gc-bundled-pack-cache.toml':
+                c.o.require(data==s14_marker(S14_COMMIT_BY_KEY[key]),'cache marker '+key)
+            else:
+                c.o.require(len(data)==want['Size'] and s14_sha(data)==want['SHA256'],'cache content '+key+'/'+rel)
+    c.o.require(seen=={p for p in expected if p!='.'},'cache entry set '+key)
+
+def s14_admit_cache(before,after):
+    b,a=before['inventory'],after['inventory']
+    c.o.require(set(b)<=set(a),'cache entry removed')
+    for key,meta in b.items():
+        if key=='.':
+            strip=lambda m:{k:v for k,v in m.items() if k not in ('mtime_ns','ctime_ns','nlink','atime_ns')}
+            c.o.require(strip(a[key])==strip(meta),'cache root metadata')
+        else:
+            c.o.require(a[key]==meta,'pre-existing cache entry changed: '+key)
+    added=set(a)-set(b)
+    tops={k.split('/',1)[0] for k in added}
+    c.o.require(S14_NEW_KEY in tops and tops<={S14_NEW_KEY,S14_OPTIONAL_KEY},'unexpected cache additions')
+    for key in sorted(tops):
+        s14_check_new_dir(key)
+    return sorted(tops)
+
+# --- 4. Capture. This is the base capture() with the stale r5 manifest reads removed (the
+# preimages come from block 1) and with a candidate cache admitted through block 3 instead of
+# required equal.
+def s14_capture(candidate):
+    o,s=c.o,c.s
+    expected=c.expected_predecessor()
+    o.GC_SHA=c.NEW if candidate else c.OLD
+    host=o.host_observation()
+    if not candidate:
+        s.broker_precondition(host)
+    else:
+        service=host['broker']
+        o.require(service['ActiveState']=='active' and service['SubState']=='running'
+                  and service['NRestarts']=='0' and service['Result']=='success'
+                  and service['UnitFileState']=='disabled' and int(service['MainPID'])>1,'broker post-activation state')
+        o.require(host['broker_socket']['ActiveState']=='active','broker socket inactive')
+    s.preimages(None)
+    links=expected['links']
+    for path,target in links.items():
+        o.require(os.path.islink(path) and os.readlink(path)==target,'link changed')
+    pins={}
+    for path,wanted in expected['pins'].items():
+        if candidate and path==o.GC:
+            wanted=dict(wanted,sha256=c.NEW,size=c.NEW_SIZE)
+        actual=s.pin(path,links)
+        o.require(actual==wanted,'infrastructure pin changed: '+path)
+        pins[path]=actual
+    suspension=s.pin(o.CITY/'.gc/runtime/suspension-state.json',links)
+    o.require(suspension==expected['suspension'],'suspension changed')
+    trees,cache,admitted={},None,None
+    for path,wanted in expected['trees'].items():
+        is_cache=path==str(S14_CACHE)
+        value=o.tree_snapshot(path,cache=is_cache)
+        summary={k:value[k] for k in ('sha256','entries','file_bytes')}
+        if is_cache:
+            cache=value
+            if candidate:
+                admitted=s14_admit_cache(expected['cache'],value)
+            else:
+                o.require(summary==wanted,'tree changed: '+path)
+        else:
+            o.require(summary==wanted,'tree changed: '+path)
+        trees[path]=summary
+    if not candidate:
+        o.require(cache==expected['cache'],'cache inventory changed')
+    protected={}
+    for path,wanted in expected['protected'].items():
+        value=o.tree_snapshot(path,protected=True)
+        o.require(value==wanted,'protected inventory changed: '+path)
+        protected[path]=value
+    scope=s.quiet_scope(host)
+    s.preimages(None)
+    o.require(o.host_observation()==host,'host changed during observation')
+    observed=dict(host=host,pins=pins,suspension=suspension,trees=trees,cache=cache,
+                  protected=protected,links=links,scope=scope)
+    if not candidate:
+        o.require(observed==expected,'predecessor closure changed')
+    else:
+        observed['admitted_cache_keys']=admitted
+    return observed
+c.capture=s14_capture
+
+# --- 5. Transition. This is sequence 13's rule (fresh Core epoch, the gc pin at NEW) plus fresh dolt
+# members with the same identities, the admitted cache, and its tree summary.
+def validate_successor_transition(before,after):
+    adjusted=copy.deepcopy(before)
+    prior,current=before['host'],after['host']
+    for key in ('pid','start','listener'):
+        c.o.require(current['host'][key]!=prior['host'][key],'Core host epoch not fresh '+key)
+        adjusted['host']['host'][key]=current['host'][key]
+    core=current['core'];old=prior['core']
+    c.o.require(int(core['MainPID'])>1 and core['MainPID']!=old['MainPID'],'Core PID not fresh')
+    c.o.require(int(core['ExecMainStartTimestampMonotonic'])>int(old['ExecMainStartTimestampMonotonic']),'Core start not fresh')
+    for key in ('MainPID','ExecMainStartTimestampMonotonic'):
+        adjusted['host']['core'][key]=core[key]
+    adjusted['pins'][c.o.GC]=dict(adjusted['pins'][c.o.GC],sha256=c.NEW,size=c.NEW_SIZE)
+    new_scope=after['scope']
+    for role in ('watchdog','server'):
+        c.o.require(new_scope['dolt_members'][role]!=before['scope']['dolt_members'][role],'dolt member not fresh '+role)
+    adjusted['scope']=dict(adjusted['scope'],core_members=new_scope['core_members'],dolt_members=new_scope['dolt_members'])
+    cache_path=str(S14_CACHE)
+    adjusted['cache']=after['cache'];adjusted['trees'][cache_path]=after['trees'][cache_path]
+    adjusted['admitted_cache_keys']=after.get('admitted_cache_keys')
+    c.o.require(adjusted==after,'unexpected full-closure transition')
+
+# --- 6. City rules outside the closure: rig roots, suspension, the shim, and the live-key links and
+# manifests (PLAN S1b, S2 item 3).
+def s14_rig_roots():
+    import tomllib as _toml
+    city=_toml.loads((S14_CITY/'city.toml').read_text())
+    site=_toml.loads((S14_CITY/'.gc/site.toml').read_text())
+    c.o.require(sorted(r['name'] for r in city.get('rigs',[]))==sorted(S14_RIGS),'city.toml rig set')
+    c.o.require({r['name']:r['path'] for r in site.get('rig',[])}==S14_RIGS,'site.toml rig paths')
+
+def s14_suspended():
+    state=json.loads((S14_CITY/'.gc/runtime/suspension-state.json').read_text())
+    c.o.require(state['city']=={'suspended':True},'city not suspended')
+    for name in S14_RIGS:
+        c.o.require(state['rigs'].get(name)=={'suspended':True},'rig not suspended '+name)
+
+def s14_no_symlinked_vendor_dirs():
+    for root in S14_ROOTS:
+        for vendor in S14_VENDOR:
+            for part in (vendor,vendor+'/skills',vendor+'/formulas'):
+                p=Path(root,part)
+                c.o.require(not p.is_symlink(),'symlinked sink component '+str(p))
+
+def s14_city_rules(after):
+    s14_rig_roots();s14_suspended();s14_no_symlinked_vendor_dirs()
+    shim=s14_sha(S14_SHIM.read_bytes())
+    c.o.require(shim==(S14_SHIM_AFTER if after else S14_SHIM_BEFORE),'city shim state')
+    c.o.require(_stat.S_IMODE(os.lstat(S14_SHIM).st_mode)==0o755,'city shim mode')
+    links=s14_tsv('live-key-links.tsv');state_by_sink={}
+    for path,target in links:
+        c.o.require(os.path.islink(path),'live-key link missing '+path)
+        now=os.readlink(path)
+        new=target.replace(S14_LIVE_KEY,S14_NEW_KEY)
+        c.o.require(now==target or (after and now==new),'live-key link target '+path)
+        state_by_sink.setdefault(str(Path(path).parent),set()).add(now==new)
+    for path,before_sha,size,after_sha in s14_tsv('live-key-manifests.tsv'):
+        data=Path(path).read_bytes();digest=s14_sha(data)
+        c.o.require(digest==before_sha or (after and digest==after_sha),'manifest state '+path)
+        c.o.require(b'c5f076a22' not in data,'manifest references c5f076a22')
+        if digest==after_sha:
+            c.o.require(state_by_sink.get(str(Path(path).parent))=={True},'manifest repointed before its links '+path)
+        for leftover in Path(path).parent.iterdir():
+            c.o.require(not _re.fullmatch(r'\..+\.tmp\.[0-9a-f]+',leftover.name),'leftover materialize temp '+str(leftover))
+    for root in S14_ROOTS:
+        for dirpath,dirnames,filenames in os.walk(root):
+            depth=len(Path(dirpath).relative_to(root).parts)
+            if depth>=4:dirnames[:]=[]
+            dirnames[:]=[x for x in dirnames if x not in ('.git','node_modules') and not os.path.islink(os.path.join(dirpath,x))]
+            for name in filenames+[x for x in os.listdir(dirpath) if os.path.islink(os.path.join(dirpath,x))]:
+                p=os.path.join(dirpath,name)
+                if os.path.islink(p):
+                    t=os.readlink(p)
+                    if S14_LIVE_KEY in t or S14_NEW_KEY in t:
+                        c.o.require(any(p==row[0] for row in links),'unlisted live-key link '+p)
+    return dict(shim=shim,repointed_sinks=sorted(k for k,v in state_by_sink.items() if v=={True}))
+
+# --- 7. The initialization wait (sequence 13 lesson) and the wrappers.
+def s14_wait_initialized():
+    start=time.monotonic_ns();last=None
+    while time.monotonic_ns()-start<S14_INIT_WAIT_NS:
+        try:
+            c.runtime_readiness();return
+        except Exception as exc:
+            last=str(exc);time.sleep(5)
+    c.o.require(False,'runtime not initialized within bound: '+str(last))
+
+# --- 8. The 'accept' phase: the fresh predecessor. It observes the current image over the exact
+# path sets of the accepted R7 closure, using the block 1 and block 2 primitives. It takes two
+# observations at least 5 s apart, which must be equal. It records the delta against R7 for review.
+# It writes only to ACCEPT_ROOT, never to ROOT, and never pauses the timer or signs.
+S14_R7=Path('/home/loucmane/.local/share/gas-city-staging/ga-mutg-20260920/ga-mutg-adoption-20260920-r7/second.json')
+S14_R7_SHA='29c339b5ca9c4d6bcaf95dc306e55455877cfa0535851083d0d6cc1b1d212563'
+S14_ACCEPT_ROOT=Path('/var/tmp/ga-e0t1.15-predecessor-20260925-r2')
+
+def s14_observe_closure(template):
+    o,s=c.o,c.s
+    o.GC_SHA=c.OLD
+    host=o.host_observation()
+    # No broker precondition here: the accepted broker state is what this phase records. The
+    # sequence 13 precondition compares against the accepted predecessor, which does not exist yet.
+    s14_preimages()
+    links={}
+    for path,target in template['links'].items():
+        o.require(os.path.islink(path),'R7 link missing '+path)
+        links[path]=os.readlink(path)
+    pins={}
+    for path in template['pins']:
+        o.require(os.path.lexists(path),'R7 pin missing '+path)
+        pins[path]=s.pin(path,links)
+    suspension=s.pin(o.CITY/'.gc/runtime/suspension-state.json',links)
+    trees,cache={},None
+    for path in template['trees']:
+        o.require(os.path.lexists(path),'R7 tree missing '+path)
+        value=o.tree_snapshot(path,cache=(path==str(S14_CACHE)))
+        trees[path]={k:value[k] for k in ('sha256','entries','file_bytes')}
+        if path==str(S14_CACHE):cache=value
+    protected={path:o.tree_snapshot(path,protected=True) for path in template['protected']}
+    scope=s.quiet_scope(host)
+    s14_preimages()
+    o.require(o.host_observation()==host,'host changed during observation')
+    return dict(host=host,pins=pins,suspension=suspension,trees=trees,cache=cache,
+                protected=protected,links=links,scope=scope)
+
+def s14_accept():
+    c.o.require(sys.flags.isolated and sys.flags.dont_write_bytecode,'use python3 -I -B')
+    S14_ACCEPT_ROOT.mkdir(mode=0o700)
+    def rec(name,value):
+        with (S14_ACCEPT_ROOT/name).open('x') as stream:
+            json.dump(value,stream,indent=1,sort_keys=True)
+        return s14_sha((S14_ACCEPT_ROOT/name).read_bytes())
+    raw=S14_R7.read_bytes();c.o.require(s14_sha(raw)==S14_R7_SHA,'R7 template drift')
+    template=json.loads(raw)['closure']
+    rec('start.json',dict(executor_sha256=s14_sha(Path(__file__).read_bytes()),r7_sha256=S14_R7_SHA))
+    s14_city_rules(False)
+    first=s14_observe_closure(template)
+    first_sha=rec('first.json',dict(closure=first,monotonic_ns=time.monotonic_ns()))
+    time.sleep(5)
+    second=s14_observe_closure(template)
+    second_sha=rec('second.json',dict(closure=second,monotonic_ns=time.monotonic_ns()))
+    c.o.require(second==first,'predecessor not stable across 5 s')
+    s14_city_rules(False)
+    changed={k:sorted(p for p in set(template[k])|set(second[k]) if template[k].get(p)!=second[k].get(p))
+             for k in ('links','pins','trees','protected')}
+    rec('delta-vs-r7.json',dict(changed=changed,suspension_changed=template['suspension']!=second['suspension'],
+                               host_keys=sorted(k for k in second['host'] if second['host'][k]!=template['host'].get(k))))
+    rec('pass.json',dict(ok=True,first_sha256=first_sha,second_sha256=second_sha,review_required=True))
+    print(json.dumps(dict(ok=True,second_sha256=second_sha,
+                          changed={k:len(v) for k,v in changed.items()}),sort_keys=True))
+
+if len(sys.argv)==2 and sys.argv[1]=='accept' and __name__=='__main__':
+    s14_accept();sys.exit(0)
+
+_s13_prepare=prepare
+def prepare():
+    s14_city_rules(False)
+    result=_s13_prepare()
+    record('city-rules-preflight.json',s14_city_rules(False))
+    return result
+
+_s13_observe=observe
+def observe(args):
+    after=args.phase.startswith('postflight')
+    if after:
+        s14_wait_initialized()
+    result=_s13_observe(args)
+    record(args.phase+'-city-rules.json',s14_city_rules(after))
+    return result
