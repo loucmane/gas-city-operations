@@ -12,7 +12,9 @@ import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-OWN = {'README.md', 'test_successor.py', 'generators/make_successor.py'}
+OWN = {'README.md', 'test_successor.py', 'generators/make_successor.py',
+       # s3: hand-written recovery of the refused ga-gegx RESTORE (not derived).
+       'recover-restore-r1.py', 'operator/RECOVER-3.sh'}
 # ga-f37t may appear only in these exact places (RECONCILE's held predecessor is checked separately).
 ALLOWED = ['/var/tmp/ga-f37t-recover-20260925-r2',
            '/var/tmp/ga-f37t-window-20260925-r2/suspension-baseline.json',
@@ -316,6 +318,61 @@ class Derivation(unittest.TestCase):
         self.assertEqual(root, '/var/tmp/ga-gegx-reconcile-20260925-r1')
         self.assertEqual(set(re.findall(r'/var/tmp/ga-gegx-reconcile-[0-9]+-r[0-9]+', wrapper)), {root})
         self.assertNotIn('ga-4z38', wrapper)
+
+    def test_recover3_is_pinned_and_bound(self):
+        wrapper = (HERE/'operator'/'RECOVER-3.sh').read_text()
+        [pin] = re.findall(r'^RECOVER_SHA=([0-9a-f]{64})$', wrapper, re.M)
+        self.assertEqual(pin, sha(HERE/'recover-restore-r1.py'))
+        self.assertIn('"$C/recover-restore-r1.py" "$RECOVER_SHA"', wrapper)
+        m = load_file('recover3', HERE/'recover-restore-r1.py')
+        self.assertEqual(m.BASE_SHA, sha(HERE/'window-base-r11.py'))
+        self.assertEqual(m.ROUTES_SHA, sha(HERE/'restore-r9-routes-r3.py'))
+        self.assertEqual(m.ROOT, Path('/var/tmp/ga-gegx-recover-20260925-r3'))
+        self.assertIn(str(m.ROOT), wrapper)
+        self.assertEqual(m.WINDOW_SHA, sha(HERE/'window-r11.py'))
+        self.assertEqual(m.STOPPED_ROOT, self.base().ROOT)
+        if not m.STOPPED_ROOT.exists():
+            self.skipTest('NOT PROVEN on this host: no stopped ga-gegx window root')
+        for name, pin in m.PINNED.items():
+            self.assertEqual(sha(m.STOPPED_ROOT/name), pin, name)
+        self.assertEqual(sha(m.CLOSE_RESULT), m.CLOSE_SHA)
+        names = sorted(os.listdir(m.STOPPED_ROOT))
+        self.assertEqual(hashlib.sha256('\n'.join(names).encode()).hexdigest(), m.LISTING_SHA)
+
+    def test_recover3_waits_out_the_auto_trace_arm(self):
+        m = load_file('recover3_cycle', HERE/'recover-restore-r1.py')
+        base = self.base()
+        rev = base.REVISION[0]
+        now = 1_800_000_000.0
+
+        def row(seq, age, count, touched, revision=rev, pid=2331, status='completed', **extra):
+            ts = __import__('datetime').datetime.fromtimestamp(now - age, __import__('datetime').timezone.utc)
+            fields = dict(active_template_count=count, templates_touched=touched, decision_counts={},
+                          mutation_counts={})
+            fields.update(extra)
+            return dict(seq=seq, ts=ts.isoformat().replace('+00:00', 'Z'), controller_pid=pid,
+                        config_revision=revision, completion_status=status, fields=fields)
+        armed = [m.TEMPLATE]
+        self.assertIsNone(m.settled_cycle([], rev, now))
+        self.assertIsNone(m.settled_cycle([row(1, 20, 1, armed)], rev, now))
+        settled = row(2, 5, 0, None)
+        self.assertEqual(m.settled_cycle([row(1, 20, 1, armed), settled], rev, now), settled)
+        for bad, reason in [(row(3, 5, 0, None, revision='x' * 64), 'accepted revision'),
+                            (row(3, 5, 0, None, pid=1), 'foreign'),
+                            (row(3, 500, 0, None), 'stale'),
+                            (row(3, 5, 0, None, status='failed'), 'accepted revision'),
+                            (row(3, 5, 1, ['other/template']), 'unexpected active template'),
+                            (row(3, 5, 2, armed + ['other/template']), 'unexpected active template'),
+                            (row(3, 5, 1, armed, decision_counts={'start': 1}), 'unexpected active template')]:
+            with self.assertRaisesRegex(RuntimeError, reason):
+                m.settled_cycle([bad], rev, now)
+        # The refused RESTORE's own last read: at the accepted revision, only the armed template.
+        refused = Path('/var/tmp/ga-gegx-window-20260925-r2/restore-reload-trace-0-phase.json')
+        if refused.exists():
+            rows = json.loads(json.loads(refused.read_text())['stdout'])['records']
+            newest = max(rows, key=lambda r: r['seq'])
+            stamp = __import__('datetime').datetime.fromisoformat(newest['ts'].replace('Z', '+00:00')).timestamp()
+            self.assertIsNone(m.settled_cycle(rows, rev, stamp + 10))
 
     def test_observe_binds_the_recover2_result(self):
         observe = (HERE/'observe-integrity-r11.py').read_text()

@@ -393,3 +393,50 @@ the PREFLIGHT start gate refuses, it refuses before the window root exists, but 
 **RECONCILE wrapper root (s2 r2).** `operator/RECONCILE.sh` now checks
 `/var/tmp/ga-gegx-reconcile-20260925-r1`, which is the root `reconcile-predecessor-r3.py` writes. A test
 requires the two to be equal.
+
+## s3: the ga-gegx window and its recovery
+
+**The window (s2 r9 `cb949793`, 2026-09-25, CEST).**
+- OBSERVE (full native integrity), PREFLIGHT, STAGE, ROUTE and WATCH-1 (routes unchanged) all passed.
+  RESUME passed at 14:04:33.
+- The worker `ci-ki0gd` went active at 14:04:49 in the right worktree, with dontAsk and no dialog. It sat at
+  an empty prompt.
+- `nudge-on-route` fired five times, and the routed `bead.updated` for ga-gegx arrived at 14:05:13. The
+  order's state file was never rewritten.
+- Core reaped `ci-ki0gd` as `stale-session` by 14:11. The attempt is consumed.
+- CONTAIN-1 passed (the s2 r2 barrier fix held).
+- HOLD-1 refused by design, because the lifecycle was not stranded.
+- CLOSE-1 and ADMIT passed.
+
+**Why nudge-on-route never nudged.** This was reproduced read-only after the stop. `gc events` answers through
+the supervisor API, which wraps each `bead.updated` payload as `.payload.bead.{id,metadata}`. The live pack
+script filters the flat `.payload.metadata` (Core `c43feb6b0`, "match flat bead.updated payload"), which is
+the on-disk `events.jsonl` shape. So jq matches nothing, and the script exits 0 without a word. With the
+nested path, the same output yields exactly `ga-gegx -> gascity/gc.implementation-worker`. The same bug
+explains the ga-f37t silent start.
+
+**Why RESTORE refused.** RESTORE wrote the accepted `city.toml` (`4f7e170f`), and the reload answered
+`no_change` at the accepted revision `d6ca85cd`. The trace check then refused on its first read. The newest
+cycle was already at `d6ca85cd`, but it counted one active template.
+
+Core had auto-armed detailed tracing for the worker template when the session started (`gc trace status`:
+source `auto`, trigger `start`, extended at 12:10:32Z, expiring at 12:20:32Z). Every cycle counts an armed
+template as touched. Cycles returned to zero at 12:20:44Z. `reload()` requires zero on every read instead of
+waiting for it. RESTORE is consumed, and the receipt is still the staged `9c5765b8`.
+
+**RECOVER-3** (`recover-restore-r1.py`, `operator/RECOVER-3.sh`) is hand-written, like the ga-f37t RECOVER-2
+it follows.
+- **Checks, all pinned by digest.** The stopped window root's listing and its stage, before, suspension
+  baseline, RESTORE city, reload, trace, consumed, admission and CONTAIN records; the CLOSE result; the
+  completed lifecycle (`verified_lifecycle(terminal=True)`), with the live suspension state at its
+  endpoint; the accepted `city.toml`; the staged receipt; and route content equal to the pre-stage
+  content. A read-only dry run of these checks against the live state passed.
+- **Action.** It writes no `city.toml` and runs no reload. It waits, for up to 20 minutes, for a cycle at
+  the accepted revision with no active template (`settled_cycle`). A cycle that counts only the
+  auto-armed worker template, with no decisions or mutations, is waited out. Any other controller,
+  revision, incomplete or stale cycle, or template refuses. It then runs the confined receipt check,
+  apply and verify, direction 0, back to `0b30c23f`.
+- **Result.** It records the recovered `city.toml`, receipt and suspension pins for the next successor's
+  admission, then makes the same ordinary start-gate and route reads as RECOVER-2.
+
+Its root is `/var/tmp/ga-gegx-recover-20260925-r3`. Its reviews name only `operator/RECOVER-3.sh`.
