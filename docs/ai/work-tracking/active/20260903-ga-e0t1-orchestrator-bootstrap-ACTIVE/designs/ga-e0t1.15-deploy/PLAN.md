@@ -60,10 +60,21 @@ S1 supplements (r2, answering the S1 reviews of `5416651f`: A SOURCE_PASS, B HOL
 - Known S1 deviations, recorded rather than rerun:
   - The input audit's git calls used the ambient operator environment, as in the retained function,
     rather than the pinned build ENV.
-  - The `version --json` probe of the new binary ran with the operator HOME and without
-    `DO_NOT_TRACK`. It wrote only product-metrics state under HOME, not city state, and every later
-    executor sets `DO_NOT_TRACK=1` and `GC_DISABLE_USAGE_METRICS=1`.
-  - Neither changes an asserted fact (HEAD, tree, clean status, signature, blob hashes).
+  - **Correction (r3): the `version --json` probe caused live city drift.** It ran the unadopted
+    binary with the operator HOME and GC_HOME unset. Its config load ran `EnsureBuiltinRuntimeAssets`
+    against the registered live city and, at 17:28:57 CEST, rewrote
+    `/home/loucmane/gascity/city/.gc/scripts/gc-beads-bd.sh` to exec
+    `~/.gc/cache/repos/69fe9a2e…`. The new sha was `bc0b3e88`; review B of r2 found it. The r2 claim
+    "not city state" was false.
+    - `~/.gc/cache/repos/69fe9a2e` itself was created at 16:34 by Core test runs with the default HOME.
+    - The operator chose restoration. `restore_shim.py` (`55180381`, two SOURCE_PASS) wrote back the
+      live supervisor's bytes `2e0a1f74` (GC_HOME `/home/loucmane/gascity/home`, key `a21cc0a2`) with
+      mode 755 and a readback. Evidence is in `/var/tmp/ga-e0t1.15-shim-restore-20260925`, and the
+      restore is recorded on ga-e0t1.
+    - The bd script bytes are identical at both targets, so behaviour did not change while drifted.
+    - From now on, every executor that runs gc, a gc-invoking test or a Core test suite uses an
+      isolated HOME and GC_HOME, plus `DO_NOT_TRACK=1` and `GC_DISABLE_USAGE_METRICS=1`.
+  - The input-audit deviation changes no asserted fact (HEAD, tree, clean status, signature, blob hashes).
 
 ### S1b: synthetic pack-cache expectation (done, offline)
 
@@ -79,11 +90,30 @@ the first attempt is preserved as `.attempt1`.
   - `a21cc0a2…` for pin `f895c0ff` (core, bd);
   - `c5f076a22…` for pin `3b3b89f2` (public gascity).
   The pin `33d3a430` (public gastown) is not imported by this city and has no directory.
-- **Expectation.** Content hash `81f8a5b283c895cfbd1322606cce8a1df81df9409af0869cb6418fcd6356d979`, and exactly two new directories:
-  - `69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f`
-  - `9c8c14fc1968fe278e18cf0a3721760b544fec231bb65779ce83cf59cabb7e47`
-- **Contents.** 713 entries each. The materialized content differs from the live directories only
-  in the marker (commit and content hash) and in `internal/bootstrap/packs/core/assets/scripts/nudge-on-route.sh`.
+- **Expectation.** Content hash `81f8a5b283c895cfbd1322606cce8a1df81df9409af0869cb6418fcd6356d979`.
+  - **Required at startup:** `69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f`, for pin `f895c0ff`.
+    `requiredBuiltinSources` (cmd/gc/embed_builtin_packs.go) covers only core, bd and dolt, all at
+    `f895c0ff`. The public gascity pack is never required, and this city imports the
+    `loucmane/gascity-packs` fork instead.
+  - **Allowed if present, never required:** `9c8c14fc1968fe278e18cf0a3721760b544fec231bb65779ce83cf59cabb7e47`,
+    for pin `3b3b89f2`. The code path that created today's `c5f076a22` is not identified, so it is
+    admitted only with the exact manifest. S3 and S4 inventories also allow it to appear late,
+    under the same exact-manifest rule.
+- **Contents.** 713 entries in each directory. Against the matching live directory for the same pin,
+  the materialized content differs only in two places:
+  - the marker, where the content hash changes and the commit stays the same;
+  - `internal/bootstrap/packs/core/assets/scripts/nudge-on-route.sh`.
+  The marker bytes depend on the key. The postflight derives each marker from
+  `marker_commit_by_key` plus the content hash; it never uses the manifest digest of the `f895c0ff`
+  materialization for `9c8c14fc`.
+- **Shim.** The new supervisor rewrites the city shim `.gc/scripts/gc-beads-bd.sh` at startup
+  (`ensureGcBeadsBdShim`), from `2e0a1f74` (key `a21cc0a2`) to exactly `a7bcaa7c…`, 312 bytes, mode 755.
+  The new bytes exec `/home/loucmane/gascity/home/cache/repos/69fe9a2e…/examples/bd/assets/scripts/gc-beads-bd.sh`.
+  The template is unchanged between the two sources.
+- **Cache root.** The supervisor's GC_HOME is `/home/loucmane/gascity/home`, read from
+  `/proc/<MainPID>/environ`. S2 watches `/home/loucmane/gascity/home/cache/repos` and proves that
+  binding at preflight and at both postflights. `~/.gc/cache/repos`, the default-HOME root used by
+  tests, is outside the city image and is not a delivery path.
 - **Record.** `expectation.json` sha `62c5bb84` records the full manifest.
 - **Delivery path.** Because the city imports core at the canonical pin through `packs.lock`, the
   script is served from the synthetic cache of the running binary. Adopting the binary is therefore
@@ -107,10 +137,15 @@ Changes from sequence 13:
    image, the successor of R7 `observe.py`: two stable observations at least 5 s apart, bound to the
    ga-nibd TERMINAL result (`full_native_integrity` true) and the current platform and worker
    receipts. R7 `second.json` predates M5, P6 and the worker windows, so it cannot be reused.
-3. **Cache transition.** The postflight admits exactly the S1b transition:
-   - the two new directories, whose complete manifest and markers must equal `expectation.json`;
-   - every existing cache entry must stay exact (atime as the policy allows);
-   - any other cache change refuses.
+3. **Cache and city transition.** The postflight admits exactly the S1b transition:
+   - the required directory `69fe9a2e`, whose complete manifest must equal `expectation.json` and
+     whose marker must be derived for its key;
+   - `9c8c14fc`, only if present, under the same exact rule;
+   - the cache root's own mtime, ctime and nlink change caused by the new entries;
+   - `.packman-cache.lock`, whose bytes must be unchanged;
+   - the city shim moving from exactly `2e0a1f74` to exactly `a7bcaa7c`.
+   Every other cache entry and city file must stay exact, with atime as the policy allows. Any
+   other change refuses.
 4. **Initialization wait.** The postflight waits, bounded, for city initialization before its exact
    comparison, the sequence 13 lesson. The corrected singleton cgroup-member transition from the
    sequence 13 recovery is carried forward.
@@ -173,6 +208,7 @@ Each consumer is re-pinned in the stage shown.
 | Window packages (observe-integrity `GC_SHA`, window-base pins, cache inventories) | gc sha, cache dirs | S4 successor |
 | R7 or observe closures | full closure | S2 fresh predecessor |
 | aegis-obsidian-reconcile timer | pauses and restores around S2 and S3; reads live state | S2, S3 |
+| City shim `.gc/scripts/gc-beads-bd.sh` | embeds the bd cache key, which follows the embedded pack content | S2 (supervisor rewrite, admitted exactly) |
 
 ## Stop conditions
 
