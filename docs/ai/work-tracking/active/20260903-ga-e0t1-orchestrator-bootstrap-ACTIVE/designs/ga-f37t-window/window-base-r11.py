@@ -211,8 +211,10 @@ def approved_coordinator_cache_image(prior):
     # 22:39:03Z the coordinator ran the canonical workflow.py coordinate note, whose ownership check read
     # the Bead through bd without GIT_OPTIONAL_LOCKS=0 before it refused. That advanced only the pack
     # cache repo's .git directory mtime and ctime (22:39:06.179Z). The s3 r4 OBSERVE refusal found every
-    # other cache, pin, protected-tree and host value equal. No workflow.py call runs during this window.
-    # Never reuse this for fresh drift.
+    # other cache, pin, protected-tree and host value equal. From that refusal (22:50:43Z) until TERMINAL,
+    # no workflow.py call of any verb (including post-commit log or discharge) and no bd or gc call
+    # without GIT_OPTIONAL_LOCKS=0 runs, and a read-only lstat before FRESHEN-1 confirms both times still
+    # equal the recorded value. Never reuse this for fresh drift.
     value=json.loads(json.dumps(prior))
     entry=value['cache']['inventory'][CACHE_DIRECTORY]
     for key in ('mtime_ns','ctime_ns'):

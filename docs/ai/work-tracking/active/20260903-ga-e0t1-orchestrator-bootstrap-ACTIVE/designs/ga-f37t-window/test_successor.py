@@ -139,6 +139,10 @@ class Derivation(unittest.TestCase):
         self.assertEqual(m.dependency_image(full), m.dependency_image(value))
         self.assertNotEqual(m.dependency_image(restored), m.dependency_image(value))
         self.assertNotEqual(m.dependency_image(m.approved_coordinator_cache_image(epoch)), m.dependency_image(value))
+        no_epoch = m.approved_coordinator_cache_image(m.approved_restore_image(m.approved_historical_image(prior)))
+        self.assertNotEqual(m.dependency_image(no_epoch), m.dependency_image(value))
+        with self.assertRaisesRegex(RuntimeError, 'coordinator cache exception preimage'):
+            m.approved_coordinator_cache_image(m.approved_restore_image(m.approved_epoch_image(prior, value['host'])))
         # The s2 r2 refusal (r2) equals the chain without the cache disposition: between r2 and r3 only the
         # pack cache .git times changed.
         older = json.loads(r2.read_text())
@@ -156,11 +160,21 @@ class Derivation(unittest.TestCase):
         image = m.approved_coordinator_cache_image(historical)
         changed = {k for k in entry if image['cache']['inventory'][m.CACHE_DIRECTORY][k] != entry[k]}
         self.assertEqual(changed, {'mtime_ns', 'ctime_ns'})
-        self.assertEqual(image['cache']['inventory'][m.CACHE_DIRECTORY]['mtime_ns'], 1790289546179167691)
-        other = json.loads(json.dumps(historical))
-        other['cache']['inventory'][m.CACHE_DIRECTORY]['mtime_ns'] += 1
-        with self.assertRaisesRegex(RuntimeError, 'coordinator cache exception preimage'):
-            m.approved_coordinator_cache_image(other)
+        for key in ('mtime_ns', 'ctime_ns'):
+            self.assertEqual(historical['cache']['inventory'][m.CACHE_DIRECTORY][key], 1790178703592685769)
+            self.assertEqual(image['cache']['inventory'][m.CACHE_DIRECTORY][key], 1790289546179167691)
+            other = json.loads(json.dumps(historical))
+            other['cache']['inventory'][m.CACHE_DIRECTORY][key] += 1
+            with self.assertRaisesRegex(RuntimeError, 'coordinator cache exception preimage'):
+                m.approved_coordinator_cache_image(other)
+        # Nothing but the cache directory entry differs from the historical image.
+        rest = json.loads(json.dumps(image))
+        rest['cache']['inventory'][m.CACHE_DIRECTORY] = historical['cache']['inventory'][m.CACHE_DIRECTORY]
+        self.assertEqual(rest, historical)
+
+    def test_preflight_pins_this_freshen(self):
+        [pin] = re.findall(r'^FRESHEN_SHA=([0-9a-f]{64})$', (HERE/'operator'/'PREFLIGHT.sh').read_text(), re.M)
+        self.assertEqual(pin, sha(HERE/'freshen-r11.py'))
 
     def test_restore_disposition_refuses_changed_content(self):
         if not Path('/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json').exists():

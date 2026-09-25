@@ -1,4 +1,4 @@
-"""Successor derivation (s1 to s3 r4): derive the ga-f37t window package from the reviewed ga-4z38 r14 package.
+"""Successor derivation (s1 to s4 r2): derive the ga-f37t window package from the reviewed ga-4z38 r14 package.
 
   python3 -B make_successor.py <output package dir>
 
@@ -131,8 +131,10 @@ def approved_coordinator_cache_image(prior):
     # 22:39:03Z the coordinator ran the canonical workflow.py coordinate note, whose ownership check read
     # the Bead through bd without GIT_OPTIONAL_LOCKS=0 before it refused. That advanced only the pack
     # cache repo's .git directory mtime and ctime (22:39:06.179Z). The s3 r4 OBSERVE refusal found every
-    # other cache, pin, protected-tree and host value equal. No workflow.py call runs during this window.
-    # Never reuse this for fresh drift.
+    # other cache, pin, protected-tree and host value equal. From that refusal (22:50:43Z) until TERMINAL,
+    # no workflow.py call of any verb (including post-commit log or discharge) and no bd or gc call
+    # without GIT_OPTIONAL_LOCKS=0 runs, and a read-only lstat before FRESHEN-1 confirms both times still
+    # equal the recorded value. Never reuse this for fresh drift.
     value=json.loads(json.dumps(prior))
     entry=value['cache']['inventory'][CACHE_DIRECTORY]
     for key in ('mtime_ns','ctime_ns'):
@@ -158,7 +160,7 @@ S3_SUBS = {
          '    # with the reviewed dispositions approved_historical_image, approved_epoch_image,\n'
          '    # approved_restore_image and approved_coordinator_cache_image, and the accepted provider pins.')],
 }
-# The ga-f37t integrity root r2 was created by the refused s2 r2 OBSERVE; s3 uses a fresh one.
+# The refused s2 r2 and s3 r4 OBSERVE runs consumed integrity roots r2 and r3; s4 uses a fresh r4.
 S3_ROOT = ('/var/tmp/ga-f37t-integrity-20260924-r2', '/var/tmp/ga-f37t-integrity-20260925-r4')
 # Applied after the rename: the ga-f37t PREP outputs (job ga-f37t-prep, 22:05:00Z).
 S2_PINS = {

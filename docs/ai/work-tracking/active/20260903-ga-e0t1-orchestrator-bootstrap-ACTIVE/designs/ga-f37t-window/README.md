@@ -127,12 +127,19 @@ s3 r4 (`9bf8e544`) passed two job reviews. FRESHEN-1 passed at 2026-09-24 22:50:
   and host value; the coordinator's env-prefixed gc calls at 22:37, 22:41 and 22:48Z changed nothing.
 - **Disposition (operator-approved).** `approved_coordinator_cache_image()` in `window-base-r11.py`, chained
   last, requires exactly the historical value and replaces only those two fields with the recorded ones. Tests
-  prove the r3 refusal is admitted only by the full chain, that the s2 r2 refusal equals the chain without it
-  (so nothing else changed between the two), and that any other preimage refuses.
+  prove the r3 refusal is admitted by the full chain, that the s2 r2 refusal equals the chain without it (so
+  nothing else changed between the two), and that any other preimage refuses.
 - **Fresh root.** The refused OBSERVE consumed `/var/tmp/ga-f37t-integrity-20260925-r3`, so s4 uses
   `/var/tmp/ga-f37t-integrity-20260925-r4`.
-- **Operating rule.** No `workflow.py` call of any verb runs from FRESHEN-1 until TERMINAL; outcomes are recorded
-  only with the env-prefixed gc form.
+- **Operating rule (s4 r2).** The disposition admits one exact value, so the cache must stay untouched from the s3
+  r4 refusal (2026-09-24 22:50:43Z) until TERMINAL. In that span no `workflow.py` call of any verb runs (including
+  the post-commit `log` and `discharge` the stationary flow prescribes), and no bd or gc call runs without
+  `GIT_OPTIONAL_LOCKS=0`; outcomes are recorded only with the env-prefixed gc form. Just before FRESHEN-1 a
+  read-only lstat of the cache repo `954ed149…/.git` must show `mtime_ns` and `ctime_ns` both equal to
+  `1790289546179167691` (true at 2026-09-25 03:58Z); otherwise the window does not start.
+- **Tests (s4 r2).** The r3 refusal is admitted by the full chain and differs without the cache, restore or epoch
+  step; without the historical step the cache step refuses its preimage. Another preimage in either field refuses,
+  both fields end at the recorded value, and nothing else changes. PREFLIGHT's `FRESHEN_SHA` is tested directly.
 
 ## Phases
 
