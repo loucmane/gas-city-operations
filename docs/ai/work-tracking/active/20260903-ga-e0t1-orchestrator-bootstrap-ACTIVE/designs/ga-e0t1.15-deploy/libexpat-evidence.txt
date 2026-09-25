@@ -1,0 +1,7 @@
+## dpkg --verify libexpat1
+rc=0
+Status: install ok installed
+Version: 2.6.1-2ubuntu0.6
+286682ecbc5e59a638963b1a4e6351e65eb32fcf4bdcb9cb7569b6a61fe06a8d  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+22f36128fd7245e2d12c721802f49b8b  usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
+22f36128fd7245e2d12c721802f49b8b  /usr/lib/x86_64-linux-gnu/libexpat.so.1.9.1
