@@ -198,6 +198,75 @@ NUDGE_OVERRIDE = ('\n[[orders.overrides]]\nname = "nudge-on-route"\n'
                   'env = {GC_NUDGE_ON_ROUTE_LOOKBACK = "45m", GC_NUDGE_ON_ROUTE_RETENTION = "2h"}\n')
 PREP_ROOT = ('/var/tmp/ga-gegx-prep-20260923-r2', '/var/tmp/ga-gegx-prep-20260925-r3')
 
+# s2: window-base pins the ga-gegx PREP r5 outputs (job ga-gegx-s1r3-prep, 2026-09-25 10:38:03Z) in place of
+# the ga-f37t PREP outputs it inherited.
+PREP_PINS = [
+    ("'9774a5692ec5537713b212bc3fef5c88edc34c82cb6fdcc11e949e7eefc8343e'",
+     "'e6e24bd75d374a1e69719a9a9d2aa95060569d692d8ae8d63888fd05438c9540'"),
+    ("'0876abb88879ce546502e34228a710a60a69a2b20f85791b3c9ce9f0ebce2451'",
+     "'9c5765b8588e1aec3a5fa3ffe31d170d4cfdc23052f7ac90a780da819cd587f6'"),
+    ("'758aa29b154babfe18468c6e2f650e04c23be18f9ba0c4a2bb4ccb087553d87f'",
+     "'56f39eb270cbe057d5f9fc313eca21c24cc469bcc18676bf38dd7c66a95b6363'"),
+    ("'0c071f7c97706059792bdec16ce3de952bf9114159ba493b5baad62d71e5d6d1'",
+     "'22e16a70309343f7abc6ebe976257a69c629d859306a291cbbe8c5f9eaebde58'"),
+]
+PREP_R5 = Path('/var/tmp/ga-gegx-prep-20260925-r3')
+
+NUDGE_EVIDENCE = '''
+
+def nudge_evidence(w):
+    """Read-only nudge-on-route evidence: the order's recorded pair for the task and Core's queued nudges.
+
+    Both files are read once through the base read() (O_NOATIME, regular file, uid 1000, nlink 1, one
+    stable descriptor) and never locked. Both writers replace the file by rename, so a read sees one whole
+    version. A missing file is recorded as absent. Evidence only: nothing here refuses a WATCH.
+    """
+    value = dict(order_pair=None, order_state_present=False, queue_present=False, queued=None, pending=[],
+                 in_flight=[], dead=None)
+    try:
+        state = json.loads(w.read(ORDER_STATE))
+        value['order_state_present'] = True
+        value['order_pair'] = state.get(ORDER_KEY) if isinstance(state, dict) else None
+    except FileNotFoundError:
+        pass
+    try:
+        queue = json.loads(w.read(NUDGE_QUEUE))
+        value['queue_present'] = True
+        for kind in ('pending', 'in_flight'):
+            value[kind] = [dict(id=i.get('id'), agent=i.get('agent'), session_id=i.get('session_id'),
+                                source=i.get('source'), message=i.get('message'),
+                                deliver_after=i.get('deliver_after'), attempts=i.get('attempts'))
+                           for i in queue.get(kind) or []]
+        value['dead'] = len(queue.get('dead') or [])
+        value['queued'] = len(value['pending']) + len(value['in_flight'])
+    except FileNotFoundError:
+        pass
+    return value
+'''
+
+WATCH_SUBS = [
+    ("EVIDENCE = '.gc/worker-evidence/ga-gegx'\n",
+     "EVIDENCE = '.gc/worker-evidence/ga-gegx'\n"
+     "# ga-gegx s2: nudge-on-route evidence. The order records each (bead, routed_to) pair it nudged in its\n"
+     "# pack state file; Core keeps a nudge it could not deliver at once in the flock'd queue file.\n"
+     "ORDER_STATE = Path('/home/loucmane/gascity/city/.gc/runtime/packs/core/nudge-on-route-state.json')\n"
+     "ORDER_KEY = TASK + '|' + TEMPLATE\n"
+     "NUDGE_QUEUE = Path('/home/loucmane/gascity/city/.gc/nudges/state.json')\n"),
+    ("    w.save('pane-unnamed.json', unnamed)\n",
+     "    w.save('pane-unnamed.json', unnamed)\n"
+     "    nudge = nudge_evidence(w)\n"
+     "    w.save('nudge.json', nudge)\n"),
+    ("                  directories_pass_admission_check=directories_unchanged)\n"
+     "    w.save('result.json', result)\n",
+     "                  directories_pass_admission_check=directories_unchanged,\n"
+     "                  order_nudge_recorded=nudge['order_pair'] is not None, queued_nudges=nudge['queued'])\n"
+     "    w.save('result.json', result)\n"),
+    ("                          directories_pass_admission_check=directories_unchanged)))\n",
+     "                          directories_pass_admission_check=directories_unchanged,\n"
+     "                          order_nudge_recorded=result['order_nudge_recorded'], queued_nudges=nudge['queued'])))\n"),
+    ("\n\ndef main():\n", NUDGE_EVIDENCE + "\n\ndef main():\n"),
+]
+
 
 def sha(raw):
     return hashlib.sha256(raw).hexdigest()
@@ -267,6 +336,14 @@ def rebind(files):
         for index, phrase in enumerate(KEEP):
             text = text.replace('\x00KEEP%d\x00' % index, phrase)
         text = text.replace(*PREP_ROOT)
+        if name == 'window-base-r11.py':
+            for old, new in PREP_PINS:
+                assert text.count(old) == 1, old
+                text = text.replace(old, new)
+        if name == 'watch-r11.py':
+            for old, new in WATCH_SUBS:
+                assert text.count(old) == 1, old[:60]
+                text = text.replace(old, new)
         if name == 'prep-r11.py':
             for old, new in PREP_SUBS:
                 assert text.count(old) == 1, old[:60]

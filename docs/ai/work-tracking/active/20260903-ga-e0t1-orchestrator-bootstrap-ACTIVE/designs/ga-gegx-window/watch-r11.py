@@ -29,12 +29,17 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-gegx-window/window-base-r11.py')
-BASE_SHA = '95b861c4edbcf9c4a405ea28b937e9940f3af382797b4a123c035abc82679970'
+BASE_SHA = '4eb744287085548bd6aeccb996b91117b961acbe8b7777c74ece9f81dcc7f9e1'
 TASK = 'ga-gegx'
 WINDOW = Path('/var/tmp/ga-gegx-window-20260925-r2')
 VAR = Path('/var/tmp')
 TEMPLATE = 'gascity/gc.implementation-worker'
 EVIDENCE = '.gc/worker-evidence/ga-gegx'
+# ga-gegx s2: nudge-on-route evidence. The order records each (bead, routed_to) pair it nudged in its
+# pack state file; Core keeps a nudge it could not deliver at once in the flock'd queue file.
+ORDER_STATE = Path('/home/loucmane/gascity/city/.gc/runtime/packs/core/nudge-on-route-state.json')
+ORDER_KEY = TASK + '|' + TEMPLATE
+NUDGE_QUEUE = Path('/home/loucmane/gascity/city/.gc/nudges/state.json')
 
 
 def load():
@@ -180,6 +185,36 @@ def entry(w, path):
     return row
 
 
+def nudge_evidence(w):
+    """Read-only nudge-on-route evidence: the order's recorded pair for the task and Core's queued nudges.
+
+    Both files are read once through the base read() (O_NOATIME, regular file, uid 1000, nlink 1, one
+    stable descriptor) and never locked. Both writers replace the file by rename, so a read sees one whole
+    version. A missing file is recorded as absent. Evidence only: nothing here refuses a WATCH.
+    """
+    value = dict(order_pair=None, order_state_present=False, queue_present=False, queued=None, pending=[],
+                 in_flight=[], dead=None)
+    try:
+        state = json.loads(w.read(ORDER_STATE))
+        value['order_state_present'] = True
+        value['order_pair'] = state.get(ORDER_KEY) if isinstance(state, dict) else None
+    except FileNotFoundError:
+        pass
+    try:
+        queue = json.loads(w.read(NUDGE_QUEUE))
+        value['queue_present'] = True
+        for kind in ('pending', 'in_flight'):
+            value[kind] = [dict(id=i.get('id'), agent=i.get('agent'), session_id=i.get('session_id'),
+                                source=i.get('source'), message=i.get('message'),
+                                deliver_after=i.get('deliver_after'), attempts=i.get('attempts'))
+                           for i in queue.get(kind) or []]
+        value['dead'] = len(queue.get('dead') or [])
+        value['queued'] = len(value['pending']) + len(value['in_flight'])
+    except FileNotFoundError:
+        pass
+    return value
+
+
 def main():
     w = load()
     w.require(globals().get('_SOURCE_SHA') and os.getuid() == os.geteuid() == 1000, 'bound source launcher required')
@@ -231,6 +266,8 @@ def main():
         run('pane-%d' % index, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', name],
             expected=(0, 1))
     w.save('pane-unnamed.json', unnamed)
+    nudge = nudge_evidence(w)
+    w.save('nudge.json', nudge)
     processes = []
     for proc in Path('/proc').iterdir():
         if not proc.name.isdigit():
@@ -287,13 +324,15 @@ def main():
                             metadata=bead.get('metadata') or {}),
                   matching_processes=len(processes), routes_unchanged_since_stage=routes_unchanged,
                   runtime_children_unchanged_since_preflight=children_unchanged,
-                  directories_pass_admission_check=directories_unchanged)
+                  directories_pass_admission_check=directories_unchanged,
+                  order_nudge_recorded=nudge['order_pair'] is not None, queued_nudges=nudge['queued'])
     w.save('result.json', result)
     print(json.dumps(dict(ok=True, root=str(root), head=head, status_records=len(records),
                           live_sessions=len(result['live_sessions'] or []), matching_processes=len(processes),
                           routes_unchanged_since_stage=routes_unchanged,
                           runtime_children_unchanged_since_preflight=children_unchanged,
-                          directories_pass_admission_check=directories_unchanged)))
+                          directories_pass_admission_check=directories_unchanged,
+                          order_nudge_recorded=result['order_nudge_recorded'], queued_nudges=nudge['queued'])))
 
 
 if __name__ == '__main__':

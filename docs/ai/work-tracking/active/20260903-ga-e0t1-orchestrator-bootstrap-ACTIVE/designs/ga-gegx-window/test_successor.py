@@ -177,6 +177,58 @@ class Derivation(unittest.TestCase):
         # The lookback is not a controller-reserved exec env key (Core internal/orders/env.go).
         self.assertTrue(all(key.startswith('GC_NUDGE_ON_ROUTE_') for key in NUDGE_ENV))
 
+    def test_window_base_pins_the_prep_r5_outputs(self):
+        base = (HERE/'window-base-r11.py').read_text()
+        root = Path('/var/tmp/ga-gegx-prep-20260925-r3')
+        self.assertIn("PREP = Path('/var/tmp/ga-gegx-prep-20260925-r3')", base)
+        for old in ('9774a569', '0876abb8', '758aa29b', '0c071f7c'):
+            self.assertNotIn(old, base)
+        if not (root/'result.json').exists():
+            self.skipTest('NOT PROVEN on this host: no PREP r5 evidence')
+        result = json.loads((root/'result.json').read_text())
+        self.assertTrue(result['ok'])
+        self.assertEqual(result['nudge_env'], NUDGE_ENV)
+        self.assertIn("read(PREP/'result.json', '%s')" % sha(root/'result.json'), base)
+        self.assertIn("'%s')\nRECEIPT_SHA" % result['city_after_sha256'], base)
+        self.assertEqual(result['city_after_sha256'], sha(root/'city.isolated.toml'))
+        self.assertIn("'%s')\nREVISION" % result['receipt_after_sha256'], base)
+        self.assertEqual(result['receipt_after_sha256'], sha(root/'receipt.final.json'))
+        self.assertIn("'%s')\nINPUT" % result['revision_after'], base)
+
+    def test_watch_records_nudge_evidence_read_only(self):
+        watch = (HERE/'watch-r11.py').read_text()
+        self.assertIn("ORDER_STATE = Path('/home/loucmane/gascity/city/.gc/runtime/packs/core/nudge-on-route-state.json')", watch)
+        self.assertIn("NUDGE_QUEUE = Path('/home/loucmane/gascity/city/.gc/nudges/state.json')", watch)
+        self.assertLess(watch.index("w.save('pane-unnamed.json', unnamed)"), watch.index('nudge = nudge_evidence(w)'))
+        spec = __import__('importlib.util').util.spec_from_file_location('watch', HERE/'watch-r11.py')
+        watch_module = __import__('importlib.util').util.module_from_spec(spec)
+        spec.loader.exec_module(watch_module)
+        self.assertEqual(watch_module.ORDER_KEY, 'ga-gegx|gascity/gc.implementation-worker')
+        with tempfile.TemporaryDirectory() as scratch:
+            scratch = Path(scratch)
+            reads = []
+
+            class W:
+                @staticmethod
+                def read(path):
+                    reads.append(path)
+                    return Path(path).read_bytes()
+            watch_module.ORDER_STATE = scratch/'order.json'
+            watch_module.NUDGE_QUEUE = scratch/'queue.json'
+            absent = watch_module.nudge_evidence(W)
+            self.assertEqual((absent['order_state_present'], absent['queue_present'], absent['queued']),
+                             (False, False, None))
+            (scratch/'order.json').write_text(json.dumps({watch_module.ORDER_KEY: '2026-09-25T12:00:00Z',
+                                                          'other|x': '2026-09-25T11:00:00Z'}))
+            (scratch/'queue.json').write_text(json.dumps(dict(
+                pending=[dict(id='n1', agent='gascity/gc.implementation-worker', session_id='ci-x',
+                              source='session', message='check for assigned work')],
+                in_flight=[], dead=[dict(id='d1'), dict(id='d2')])))
+            found = watch_module.nudge_evidence(W)
+            self.assertEqual(found['order_pair'], '2026-09-25T12:00:00Z')
+            self.assertEqual((found['queued'], found['dead'], found['pending'][0]['id']), (1, 2, 'n1'))
+            self.assertEqual(reads, [scratch/'order.json', scratch/'queue.json'] * 2)
+
     def test_observe_binds_the_recover2_result(self):
         observe = (HERE/'observe-integrity-r11.py').read_text()
         self.assertIn("RECOVER_ROOT='/var/tmp/ga-f37t-recover-20260925-r2'", observe)
