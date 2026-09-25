@@ -310,7 +310,8 @@ BARRIER_SUBS = [
      "    # ga-gegx s2 r2: a status whose only gap is the runtime probe is not yet an observation. It is\n"
      "    # recorded and polled again. A suspend (city-suspend, rig-suspend) accepts it only in the last\n"
      "    # PROBE_LATE seconds of the deadline, with every other check unchanged. The window's later CLOSE\n"
-     "    # proves the process state from cgroup membership, not from this status. A resume never accepts it.\n"
+     "    # proves the process state without this status: no session in gc session list, no session on the\n"
+     "    # city tmux server, and no process whose argv or cwd names the worktree. A resume never accepts it.\n"
      "    deadline=time.monotonic()+BARRIER_SECONDS;index=0\n"),
     ("        if (suspension_status_matches(json.loads(r['stdout']),expected)\n"
      "                and suspension_atime_stable(flags,current['pin']['metadata'],time.time_ns())):\n"
@@ -422,6 +423,10 @@ def rebind(files):
         if name == 'operator/RECONCILE.sh':
             assert text.count(RECONCILE_WRAPPER[0]) == 3
             text = text.replace(*RECONCILE_WRAPPER)
+            # The inherited header names the predecessor the ga-f37t window held; ga-gegx holds ga-f37t.
+            old = 'status-only hold of the consumed predecessor ga-4z38\n'
+            assert text.count(old) == 1
+            text = text.replace(old, 'status-only hold of the consumed fourth-successor task\n')
         if name == 'watch-r11.py':
             for old, new in WATCH_SUBS:
                 assert text.count(old) == 1, old[:60]

@@ -171,10 +171,23 @@ its highlighted choice with `❯ `, so an order nudge could answer any menu on s
   The ga-f37t worktree had the same layout and the same absence of its own entry. Its first two WATCH
   captures (`/var/tmp/ga-f37t-watch-20260925T094247Z` and `...094319Z`, `pane-0-phase.json`) show the
   Claude banner, an empty `❯` prompt and "don't ask on", with no trust prompt.
-- **Residual.** If a trust prompt did appear, a live order nudge could accept it. That grants workspace
-  trust for a worktree of an already trusted repository. It grants no tool permission, and dontAsk still
-  applies. The early WATCH captures would record it, and the coordinator treats any visible menu as a
-  stop and contains.
+- **The project MCP approval dialog is not expected.** The Core worktree tracks a project `.mcp.json`
+  (one http server, `excalidraw`). Its approval dialog would be another `❯` menu. The city settings file
+  the worker receives with `--settings` (`city/.gc/settings.json`, copied to the session's
+  `.gc/settings.json`) sets `enableAllProjectMcpServers: true`, so Claude does not ask. The ga-f37t worktree
+  had a byte-identical `.mcp.json` (sha256 `acaa57f6...`), and its captures show no dialog.
+- **Residual, stated exactly.** If either dialog did appear, a `wait-idle` order nudge presses Enter as soon
+  as two consecutive polls see a `❯ ` line. It would accept the highlighted choice about 16 to 22 seconds
+  after the worker goes active, which is likely before any WATCH captures the pane. Detection is
+  therefore not assured by WATCH. After the fact, the only durable trace is in `~/.claude.json`: a trust
+  entry, or an MCP approval, for the ga-gegx worktree path. The consequence is bounded:
+  - accepting trust grants workspace trust for a worktree of an already trusted repository;
+  - accepting the MCP dialog enables the one project MCP server, which settings already enable;
+  - neither grants a tool permission, and dontAsk still denies every tool call that is not pre-allowed.
+
+  Coordinator procedure: after TERMINAL, read `~/.claude.json` once, read-only, for an entry for the
+  ga-gegx worktree path and record the result on ga-e0t1. If an entry appeared during the window, it is
+  recorded as the residual having occurred, and it is kept, not deleted.
 
 **WATCH nudge evidence.** Each WATCH reads two files once, read-only:
 - the order's pack state file, `city/.gc/runtime/packs/core/nudge-on-route-state.json`;
@@ -190,7 +203,8 @@ in-flight queued nudge (`queued_nudges`), in `nudge.json` and the result. Tests 
 valid, second-link, one-newline, bad-shape and oversize cases against the real `bounded_read`.
 
 Operating rule: a WATCH after RESUME is expected to show `order_nudge_recorded` true and the worker
-claiming. Any visible menu or dialog in a pane capture is a stop, and the coordinator contains.
+claiming. Any visible menu or dialog in a pane capture is a stop, and the coordinator contains. This rule
+cannot catch a dialog that the order's nudge already answered (see the residual above).
 
 Before the window (2026-09-25), read-only:
 - the queue file held 26 dead items and nothing pending;
@@ -215,9 +229,12 @@ Before the window (2026-09-25), read-only:
   under operator-accepted residual (1) (`stable_read_times`). It is not a new admission.
 - A nudge that is queued creates a shadow nudge bead in the city store (Core `ensureQueuedNudgeBead`). The
   city runs the legacy nudge dispatcher (`NudgeDispatcher` is empty in PREP r5 `config.isolated.json`), so a
-  queued nudge also starts a detached `gc nudge poll` sidecar. That sidecar lives as long as the session,
-  which is through CONTAIN until CLOSE. Its argv and working directory do not name the worktree, and its
-  files are under `.gc/nudges`, so no WATCH, CLOSE or preservation check counts it.
+  queued nudge also starts a detached `gc nudge poll` sidecar. That sidecar lives as long as the session.
+  While pending or in-flight items remain, it also survives the session's disappearance for up to five
+  minutes (`defaultNudgePollStartGrace`), so it can outlive CLOSE. Its argv and working directory do not
+  name the worktree, and its files are under `.gc/nudges`, so no WATCH, CLOSE or preservation check counts
+  it, and none proves it gone. WATCH records the queue, and the coordinator reads the queue file once more,
+  read-only, before ADMIT and records it.
 - Fallback path: when no active member is listed yet, the script nudges the template name itself. For a
   managed session that is not running, Core then queues the nudge and requests a wake (`cmd_nudge.go`
   `shouldQueueManagedNudgeWake`). The only session for the template is the worker's own, which Core is
@@ -240,9 +257,24 @@ showed every rig suspended and no running agent.
 - A resume never accepts it.
 - Any other partial status still refuses at once.
 
-CLOSE proves process state from cgroup membership, not from this status. A test drives the real barrier
+CLOSE proves process state without this status. It requires no session in `gc session list`, no
+session on the city tmux server, and no process whose argv or cwd names the worktree (`close-r11.py`).
+A test drives the real barrier
 function with a fake clock through four cases: the ga-f37t sequence, a suspend that only ever sees the
 partial status, a resume and another partial error.
+
+Refusal texts, for HOLD triage: a barrier that never reaches its endpoint refuses with "suspension
+observation timeout; no lifecycle retry". When fewer than 15 seconds remain, the status phase itself
+can time out and refuse as a failed phase instead. Both leave `suspension-<action>-failure.json`, and
+a resume that only ever sees the probe partial refuses after 90 seconds, no longer after 30. Any other
+`partial_errors` from `gc status`, for example the API path's work, mail or store-health errors (Core
+`internal/api/handler_status.go`), still refuses at once and strands the lifecycle by design. That case
+goes to HOLD.
+
+**Start gate after BIND.** RECONCILE and BIND write Beads after the coordinator's read-only lstat of
+the four gated objects, and OBSERVE lists directories with O_NOATIME, so nothing refreshes them. If
+the PREFLIGHT start gate refuses, it refuses before the window root exists, but the only
+(commit, PREFLIGHT.sh) pair is spent: that is a stop, and the window needs a new successor round.
 
 **RECONCILE wrapper root (s2 r2).** `operator/RECONCILE.sh` now checks
 `/var/tmp/ga-gegx-reconcile-20260925-r1`, which is the root `reconcile-predecessor-r3.py` writes. A test

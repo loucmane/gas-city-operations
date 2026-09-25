@@ -515,7 +515,8 @@ def observed_suspension_endpoint(action,b,o,owned):
     # ga-gegx s2 r2: a status whose only gap is the runtime probe is not yet an observation. It is
     # recorded and polled again. A suspend (city-suspend, rig-suspend) accepts it only in the last
     # PROBE_LATE seconds of the deadline, with every other check unchanged. The window's later CLOSE
-    # proves the process state from cgroup membership, not from this status. A resume never accepts it.
+    # proves the process state without this status: no session in gc session list, no session on the
+    # city tmux server, and no process whose argv or cwd names the worktree. A resume never accepts it.
     deadline=time.monotonic()+BARRIER_SECONDS;index=0
     while True:
         remaining=deadline-time.monotonic()

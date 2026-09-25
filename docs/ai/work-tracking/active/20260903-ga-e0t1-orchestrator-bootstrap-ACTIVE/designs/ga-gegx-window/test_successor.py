@@ -276,7 +276,8 @@ class Derivation(unittest.TestCase):
             return m.observed_suspension_endpoint(action, None, None, None), saved
 
         # The ga-f37t CONTAIN-1 case: one probe-partial observation, then a complete one.
-        _, saved = run('rig-suspend', [partial, full])
+        endpoint, saved = run('rig-suspend', [partial, full])
+        self.assertEqual(endpoint['pin']['sha256'], 'x')
         self.assertIn('suspension-rig-suspend-barrier-partial-0.json', saved)
         self.assertNotIn('suspension-rig-suspend-partial-accepted.json', saved)
         # A suspend that only ever sees the probe partial accepts it in the last PROBE_LATE seconds.
@@ -287,6 +288,14 @@ class Derivation(unittest.TestCase):
         # A resume never accepts it, and any other partial status still refuses at once.
         with self.assertRaisesRegex(RuntimeError, 'suspension observation timeout'):
             run('city-resume', [partial] * 20)
+        # A late probe partial is still held to every other check.
+        stray = dict(partial, agents=[dict(running=True, qualified_name='gascity/gc.other')],
+                     summary=dict(running_agents=1), health=dict(signals=['city_suspended']))
+        with self.assertRaisesRegex(RuntimeError, 'unexpected live worker'):
+            run('city-suspend', [stray] * 20)
+        signal = dict(partial, health=dict(signals=['city_suspended', 'something_else']))
+        with self.assertRaisesRegex(RuntimeError, 'unexpected city health signal'):
+            run('city-suspend', [signal] * 20)
         other = dict(full, partial=True, partial_errors=['store probe incomplete'])
         with self.assertRaisesRegex(RuntimeError, 'incomplete/wrong-controller'):
             run('rig-suspend', [other])
@@ -297,12 +306,16 @@ class Derivation(unittest.TestCase):
         if evidence.exists():
             observed = json.loads(json.loads(evidence.read_text())['stdout'])
             self.assertTrue(m.runtime_probe_partial(observed))
+            # The recorded ga-f37t status passes every other check, so CONTAIN can finish on it.
+            self.assertTrue(m.suspension_status_matches(observed, expected, True))
+        self.assertNotIn('cgroup', (HERE/'window-base-r11.py').read_text())
 
     def test_reconcile_wrapper_checks_the_root_it_writes(self):
         wrapper = (HERE/'operator'/'RECONCILE.sh').read_text()
         [root] = re.findall(r"^ROOT=Path\('([^']+)'\)$", (HERE/'reconcile-predecessor-r3.py').read_text(), re.M)
         self.assertEqual(root, '/var/tmp/ga-gegx-reconcile-20260925-r1')
         self.assertEqual(set(re.findall(r'/var/tmp/ga-gegx-reconcile-[0-9]+-r[0-9]+', wrapper)), {root})
+        self.assertNotIn('ga-4z38', wrapper)
 
     def test_observe_binds_the_recover2_result(self):
         observe = (HERE/'observe-integrity-r11.py').read_text()
