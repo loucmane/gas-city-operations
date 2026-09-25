@@ -208,6 +208,39 @@ unsuspended city could therefore let the new script write
 `.gc/runtime/packs/core/nudge-on-route-state.json` and queue or wake a session, which would blur the
 S4 acceptance evidence. S4 is the first stage that resumes the city, inside its own reviewed window.
 
+#### S2 package decisions (r2, answering both S1-package reviews of `99a62bf5`)
+
+- **Dolt outcome.** The supervisor unit uses `KillMode=process` with
+  `GC_SUPERVISOR_PRESERVE_SESSIONS_ON_SIGNAL=1`, so the broker's stop and start signals only the
+  supervisor. The managed dolt watchdog and server may survive. The postflight admits exactly one of
+  two outcomes:
+  - **fresh:** new watchdog and server PIDs, with the watchdog on the live new binary;
+  - **survived:** identical PIDs and process records, with the watchdog mapping the deleted image,
+    which must hash exactly to `69d00186`.
+
+  In the survived case, dolt keeps running under the old watchdog image until its next restart.
+  That is accepted: the watchdog code path is not part of either fix. S4 records which outcome
+  occurred.
+- **Broker activation.** The privileged broker service is inactive, with its socket listening. The
+  one submission socket-activates it. The postflight admits the base rule: inactive to active and
+  running with a fresh epoch, every other field fixed. The socket either stays unchanged or goes
+  from listening to running.
+- **Preimages and parents.** Sequence 13 pinned the install manifest and receipt as present
+  preimages (r5 `bf2db830`, `ab463a07`). Sequence 14 pins the M5 pair instead. The three parent
+  directories are part of the closure (`parents`) and are compared at every capture.
+- **No atime movement.** Every listing the package makes uses `O_NOATIME` directory fds. Only the
+  cache root's atime is admitted, and it is excluded from the recorded candidate inventory.
+- **Setup before any phase.** `/var/tmp/ga-e0t1.15-seq14-20260925/deadlines.py` is staged byte-for-byte
+  (`1486dbbc`), and the r4/r3/base chain is restored into `/tmp`. `main` refuses every phase except
+  `accept` until `accepted.json` binds the reviewed predecessor.
+- **Accept review duty.** The accept output is bound to the ga-nibd TERMINAL result, the M5 pair,
+  and the worker and platform receipts by its independent reviewer, through `delta-vs-r7.json`. The
+  code binds only the M5 pair.
+- **Known fail-closed limit.** A `9c8c14fc` directory appearing between postflight 1 and postflight 2
+  refuses under `validate_second`. That is a stop with preserved evidence, not a silent pass.
+- **Order.** FRESHEN (the cache atime refresh) comes before `accept`, because every cache atime must
+  be under 24 h old for the whole window. `accept` must also precede `prepare` within that horizon.
+
 ### S3: metadata and receipt refresh (live)
 
 A successor of M5 and P6, in this order within one reviewed window:
