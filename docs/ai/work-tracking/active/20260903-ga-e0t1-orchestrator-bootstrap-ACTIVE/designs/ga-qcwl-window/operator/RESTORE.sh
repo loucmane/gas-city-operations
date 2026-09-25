@@ -10,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-qcwl-window
 COMMIT=${1:?usage: RESTORE.sh <reviewed commit>}
-WINDOW_SHA=a1861522ad6a62de4e715ecdf5006dcd80d5e0861deb29e9adad8fd4cb4d6fba
+WINDOW_SHA=36450f1ba6dad0398ffd49db5a4308119e8f3da0cd53f3dae7b60ea57c416ff1
 BUDGET_SHA=d87907050673d2f80e8479f6fe2974b498cb31268a56eb735d4ad88015e35418
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

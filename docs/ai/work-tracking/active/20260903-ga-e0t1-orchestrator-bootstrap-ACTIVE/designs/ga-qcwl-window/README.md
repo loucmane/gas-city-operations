@@ -68,15 +68,39 @@ docstring. In short:
   - allowed set: the ten ga-qcwl code and test files plus `.gitignore`;
   - the brief's task section, probe package, staging wording and commit message are replaced.
 
-There are 12 tests.
+There were 12 tests in s1; s2 has 16.
 
 ## Phases
 
-1. **s1 (this commit):** two SOURCE_PASS reviews naming only `operator/PREP.sh`. Then the PREP job.
-2. **s2:**
-   - `window-base-r11.py` pins the ga-qcwl PREP outputs (overlay, receipt image, revision, result);
-   - a test checks each pin against the result fields;
-   - its two reviews name the 34 window wrappers.
+1. **s1 (`9de378a8`):** two SOURCE_PASS reviews naming only `operator/PREP.sh`, then the PREP job.
+   - Job `ga-qcwl-s1-prep-2` ran on 2026-09-25 at 22:07 CEST (20:07 UTC) and printed PREP PASS.
+   - Result `9d59a0b4`:
+     - overlay `449346e3`;
+     - receipt `7cf59ab9` became `c1761144`, with only `permission_revision` and `receipt_sha256` changed;
+     - isolated revision `2de85e1e`;
+     - the only effective order is `nudge-on-route` from the post-S2 core pack (cache key `69fe9a2e`), with the
+       45m/2h env;
+     - the worker was not launched, and the live city and receipt are unchanged.
+2. **s2 (this commit):**
+   - `window-base-r11.py` pins the ga-qcwl PREP outputs: overlay, receipt image, revision and result.
+   - `pins()` also pins the isolated order list (`b57082cf`) and the ga-odny `nudge-on-route.sh` bytes
+     (`7f49bf8b`) in cache key `69fe9a2e`. The pre-S2 key `a21cc0a2` is still on disk, so a stale resolution
+     refuses.
+   - The source and signing releases admit every other `ProviderPin` consumer and its tests:
+     - `canary.go` and `canary_profile.go`;
+     - `receipt.go`;
+     - the launch preflight wiring.
+
+     SIGNING-RELEASE refuses any other staged path, so without them the brief's designs could not be signed.
+     The brief says so, and it accepts a checkpoint with preserved RED if the budget runs short.
+   - Tests:
+     - each pin is checked against the PREP files and `result.json`;
+     - the nudge order and script pins;
+     - `PREP_SHA` equals the digest of `prep-r11.py`;
+     - the widened allowed set.
+
+     There are 16 tests. `pins()` passed read-only against the live files.
+   - The two reviews name the 33 window wrappers.
 3. **Window:**
    - BIND;
    - the read-only cache lstat and start-gate checks, and a fresh `~/.claude.json` snapshot;

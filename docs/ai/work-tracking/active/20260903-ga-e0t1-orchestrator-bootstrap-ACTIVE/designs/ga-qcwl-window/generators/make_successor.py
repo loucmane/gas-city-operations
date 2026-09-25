@@ -82,9 +82,34 @@ ALLOWED = ('internal/managedworker/preflight.go', 'internal/managedworker/prefli
            'internal/api/handler_provider_readiness.go', 'internal/api/handler_provider_readiness_test.go',
            'internal/platforminstall/integrity.go', 'internal/platforminstall/integrity_test.go',
            'cmd/gc/managed_product_dispatch_gate.go', 'cmd/gc/managed_product_dispatch_gate_test.go',
-           'cmd/gc/cmd_platform_canary.go', 'cmd/gc/cmd_platform_canary_test.go', '.gitignore')
-# s2 fills these with the ga-qcwl PREP outputs (overlay, receipt image, revision, result); s1 keeps ga-nibd's.
-PREP_PINS = []
+           'cmd/gc/cmd_platform_canary.go', 'cmd/gc/cmd_platform_canary_test.go',
+           # s2: every other ProviderPin consumer the brief's designs reach (the canary's unique-name provider
+           # order, profile scope and environment comparison, receipt pin validation, launch preflight wiring)
+           # and their tests, so no design is stranded at SIGNING-RELEASE, which refuses any other staged path.
+           'internal/managedworker/canary.go', 'internal/managedworker/canary_test.go',
+           'internal/managedworker/canary_profile.go', 'internal/managedworker/canary_profile_test.go',
+           'internal/managedworker/receipt.go', 'internal/managedworker/profile_contract_test.go',
+           'cmd/gc/managed_worker_preflight.go', 'cmd/gc/managed_worker_preflight_boundary_test.go',
+           'cmd/gc/managed_worker_policy_test.go', 'cmd/gc/managed_worker_typed_launch_test.go', '.gitignore')
+# s2: the ga-qcwl PREP outputs (job ga-qcwl-s1-prep-2 at 9de378a8, PREP PASS 2026-09-25 20:07Z) replace ga-nibd's:
+# the isolated overlay, the final receipt image, the isolated revision and the result record.
+PREP_ROOT = Path('/var/tmp/ga-qcwl-prep-20260925-r1')
+PREP_PINS = [
+    ('c38c6cb43b6c1124529d66e1a10e1d69fc8cb3b21d4f1f12255de16dd991f5e9',
+     '449346e33f73c1882dfd52e3caa0dfc8066ddfdb6eb4ef6c422603be60e817ac'),
+    ('77cd84868bf5bf4dc5490a579b5c1cfb5d3d1492728ad96f0c9957dffed2bbd5',
+     'c1761144d7ab3b1d557e097902d681325b647324957df56eff4ee8afa77f78eb'),
+    ('42e67fba14e666e44de66d3bf12a49dd66f1ffeef5977cbe7aea358a74ce8a44',
+     '2de85e1eb06c2b4898aa49896d0683bdd22b77597b8402311dcd956850d93348'),
+    ('dff7cad90face39def59c500f569893f1f4ec8ea6a6dc318a783291908f9bddc',
+     '9d59a0b4c2c3ce2d12668039559b0b11eb60f45e625a98996185573816744c92'),
+]
+# s2: S4's acceptance rests on the ga-odny nudge-on-route script. PREP resolved the only effective order from the
+# core pack materialized by S2 (cache key 69fe9a2e); the pre-S2 key a21cc0a2 is still on disk, so pin both the
+# isolated order list and the script bytes.
+ORDERS_SHA = 'b57082cf8c065a460e4b8414c380c4fdedde6cc83a3b5426206aa4f73f0d02a1'
+NUDGE_PACK = '/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core'
+NUDGE_SCRIPT_SHA = '7f49bf8b51b5d293bb0a62e82cf1dc2814c1e8cd888251d18c138e456324cc68'
 
 
 def sha(raw):
@@ -179,6 +204,15 @@ def window_base(text):
                "post-S3 baseline (M6 metadata, receipt 7cf59ab9, gc b2760ea4) and task ga-qcwl.")
     for old, new in PREP_PINS:
         text = sub(text, "'%s'" % old, "'%s'" % new)
+    text = sub(text, "    read(PREP/'receipt.final.json', RECEIPT_SHA[1])\n",
+               "    read(PREP/'receipt.final.json', RECEIPT_SHA[1])\n"
+               "    # s2: the only effective order is the ga-odny nudge-on-route of the post-S2 core pack.\n"
+               "    orders = json.loads(read(PREP/'orders.isolated.json', '%s'))\n"
+               "    require([(x['name'], x['source'], x['exec']) for x in orders['orders']] == [('nudge-on-route',\n"
+               "            '%s/orders/nudge-on-route.toml', '$PACK_DIR/assets/scripts/nudge-on-route.sh')],\n"
+               "            'nudge-on-route is not the post-S2 core pack order')\n"
+               "    read(Path('%s/assets/scripts/nudge-on-route.sh'), '%s')\n"
+               % (ORDERS_SHA, NUDGE_PACK, NUDGE_PACK, NUDGE_SCRIPT_SHA))
     return text
 
 
@@ -264,6 +298,9 @@ of the same name. Make several pinned wrappers of one provider family coexist: f
 and path (or a pin id the profile carries), or probe readiness by provider family rather than by pin name. Keep
 every existing single-wrapper behaviour, every refusal of an unpinned, drifted or ambiguous provider, and the
 fail-closed reads. No live change, no Template or Operations change, no receipt or manifest edit on disk.
+Change only the allowed source files listed above and put new tests in the listed _test.go files, because
+SIGNING-RELEASE refuses any other staged path, including a new file. If the budget runs short, a checkpoint
+with preserved RED and a clear limitation is better than an unreviewed shortcut.
 
 Focused RED first, then GREEN:
 - A receipt with the Core signing profile and two candidate claude-family profiles, each with its own wrapper
@@ -294,7 +331,7 @@ def brief(text):
     text = sub(text, "`go test ./internal/sling -run '^TestGaqcwlCapabilityProbeNoTests$'`",
                "`go test ./internal/managedworker -run '^TestGaqcwlCapabilityProbeNoTests$'`")
     text, found = re.subn(r'## Worker-owned implementation and tests\n.*?(?=\n## Artifact and managed signing contract\n)',
-                          BRIEF_TASK.rstrip('\n'), text, flags=re.S)
+                          BRIEF_TASK.rstrip('\n') + '\n', text, flags=re.S)
     assert found == 1
     text = sub(text, 'After all tests, stage ONLY the three allowed source paths and .gitignore, with no',
                'After all tests, stage ONLY the allowed source paths you changed and .gitignore, with no')

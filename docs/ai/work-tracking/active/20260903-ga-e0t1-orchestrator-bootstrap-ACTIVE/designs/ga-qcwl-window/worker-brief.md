@@ -17,7 +17,7 @@ never retry targets.
 - Git common directory /home/loucmane/gascity/city/rigs/gascity/.git.
 - Evidence only under .gc/worker-evidence/ga-qcwl/ in this worktree (`.gc/` is
   already ignored by the tracked .gitignore).
-- Allowed source: internal/managedworker/preflight.go, internal/managedworker/preflight_test.go, internal/api/handler_provider_readiness.go, internal/api/handler_provider_readiness_test.go, internal/platforminstall/integrity.go, internal/platforminstall/integrity_test.go, cmd/gc/managed_product_dispatch_gate.go, cmd/gc/managed_product_dispatch_gate_test.go, cmd/gc/cmd_platform_canary.go, cmd/gc/cmd_platform_canary_test.go and the exact .gitignore addition named in
+- Allowed source: internal/managedworker/preflight.go, internal/managedworker/preflight_test.go, internal/api/handler_provider_readiness.go, internal/api/handler_provider_readiness_test.go, internal/platforminstall/integrity.go, internal/platforminstall/integrity_test.go, cmd/gc/managed_product_dispatch_gate.go, cmd/gc/managed_product_dispatch_gate_test.go, cmd/gc/cmd_platform_canary.go, cmd/gc/cmd_platform_canary_test.go, internal/managedworker/canary.go, internal/managedworker/canary_test.go, internal/managedworker/canary_profile.go, internal/managedworker/canary_profile_test.go, internal/managedworker/receipt.go, internal/managedworker/profile_contract_test.go, cmd/gc/managed_worker_preflight.go, cmd/gc/managed_worker_preflight_boundary_test.go, cmd/gc/managed_worker_policy_test.go, cmd/gc/managed_worker_typed_launch_test.go and the exact .gitignore addition named in
   the source release. Stage only those you actually change.
 - Negative native target /home/loucmane/gascity/.ga-qcwl-denied-native-write.
 - Negative shell target /home/loucmane/gascity/.ga-qcwl-denied-shell-write.
@@ -139,6 +139,9 @@ of the same name. Make several pinned wrappers of one provider family coexist: f
 and path (or a pin id the profile carries), or probe readiness by provider family rather than by pin name. Keep
 every existing single-wrapper behaviour, every refusal of an unpinned, drifted or ambiguous provider, and the
 fail-closed reads. No live change, no Template or Operations change, no receipt or manifest edit on disk.
+Change only the allowed source files listed above and put new tests in the listed _test.go files, because
+SIGNING-RELEASE refuses any other staged path, including a new file. If the budget runs short, a checkpoint
+with preserved RED and a clear limitation is better than an unreviewed shortcut.
 
 Focused RED first, then GREEN:
 - A receipt with the Core signing profile and two candidate claude-family profiles, each with its own wrapper
@@ -153,6 +156,7 @@ Run the complete `go test ./internal/managedworker ./internal/api ./internal/pla
 packages and `git diff --check`. Preserve RED and failed attempts. No unrelated broad suites or network fallback.
 Capture checkpoint with exact identity, base, patch digest, changed paths, tests and limitations. Read back this
 Bead before handoff. Do not modify parent plans or other Beads.
+
 ## Artifact and managed signing contract
 
 Use receipt-pinned build-artifact-valid.sh, never a checkout substitute. Emit

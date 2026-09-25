@@ -29,7 +29,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-qcwl-window/window-base-r11.py')
-BASE_SHA = '7e9208c15c4b6ced5e6275a8f8e3f376006fb3ab1801cc56e937e1da3c5c1445'
+BASE_SHA = '82c5ddcd69995c78183740c379998aa5844f58f7d3349ae9644564c5f340bd4c'
 TASK = 'ga-qcwl'
 WINDOW = Path('/var/tmp/ga-qcwl-window-20260925-r2')
 VAR = Path('/var/tmp')

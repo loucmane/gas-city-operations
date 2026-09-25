@@ -14,8 +14,8 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-qcwl-window')
 ROOT=Path('/var/tmp/ga-qcwl-bind-20260923-r1')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='7e9208c15c4b6ced5e6275a8f8e3f376006fb3ab1801cc56e937e1da3c5c1445'
-BRIEF_SHA='813153994136a16178ef7238a38f5b7716555fc32829ce78aa711b7ff34dae91'
+HELPER_SHA='82c5ddcd69995c78183740c379998aa5844f58f7d3349ae9644564c5f340bd4c'
+BRIEF_SHA='8c43eaf4104c647d4efc24ccb88051f6740a7f4f18c7534cc5aa129df32f57a9'
 BEAD='ga-qcwl'
 TARGET='gascity/gc.implementation-worker'
 WORK='/home/loucmane/gascity-core-worktrees/ga-qcwl-provider-pins'

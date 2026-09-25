@@ -167,10 +167,49 @@ def test_inspector_sources_are_the_reviewed_rebind():
     assert record['binary_sha256'] == sha('/var/tmp/ga-e0t1.15-platform-inspector-20260925/platform-inspect')
 
 
+def test_prep_outputs_are_pinned(gen):
+    """s2: each window-base PREP pin is the digest of the ga-qcwl PREP output it names and agrees with result.json."""
+    root = gen.PREP_ROOT
+    result = json.loads((root/'result.json').read_bytes())
+    assert result['ok'] is True and result['worker_launched'] is False and result['installed'] is False
+    assert result['changed_receipt_fields'] == ['permission_revision', 'receipt_sha256']
+    assert result['effective_order_names'] == ['nudge-on-route']
+    base = (HERE/'window-base-r11.py').read_text()
+    [city] = re.findall(r"CITY_SHA = \('[0-9a-f]{64}',\n +'([0-9a-f]{64})'\)", base)
+    [receipt] = re.findall(r"RECEIPT_SHA = \('[0-9a-f]{64}',\n +'([0-9a-f]{64})'\)", base)
+    [revision] = re.findall(r"REVISION = \('[0-9a-f]{64}',\n +'([0-9a-f]{64})'\)", base)
+    assert city == sha(root/'city.isolated.toml') == result['city_after_sha256']
+    assert receipt == sha(root/'receipt.final.json') == result['receipt_after_sha256']
+    assert revision == result['revision_after']
+    assert "read(PREP/'result.json', '%s')" % sha(root/'result.json') in base
+    for old, _ in gen.PREP_PINS:
+        assert old not in base
+
+
+def test_nudge_order_is_the_post_s2_core_pack(gen):
+    orders = json.loads((gen.PREP_ROOT/'orders.isolated.json').read_bytes())
+    assert sha(gen.PREP_ROOT/'orders.isolated.json') == gen.ORDERS_SHA
+    assert [(x['name'], x['source']) for x in orders['orders']] == [
+        ('nudge-on-route', gen.NUDGE_PACK + '/orders/nudge-on-route.toml')]
+    base = (HERE/'window-base-r11.py').read_text()
+    assert "orders = json.loads(read(PREP/'orders.isolated.json', '%s'))" % gen.ORDERS_SHA in base
+    assert "read(Path('%s/assets/scripts/nudge-on-route.sh'), '%s')" % (gen.NUDGE_PACK, gen.NUDGE_SCRIPT_SHA) in base
+
+
+def test_prep_wrapper_runs_the_prep_script():
+    text = (HERE/'operator'/'PREP.sh').read_text()
+    assert re.search(r'^PREP_SHA=([0-9a-f]{64})$', text, re.M).group(1) == sha(HERE/'prep-r11.py')
+
+
+def test_release_admits_every_provider_pin_consumer(gen):
+    for path in ('internal/managedworker/canary.go', 'internal/managedworker/canary_profile.go',
+                 'internal/managedworker/receipt.go', 'cmd/gc/managed_worker_preflight.go'):
+        assert path in gen.ALLOWED
+    assert gen.ALLOWED[-1] == '.gitignore' and len(set(gen.ALLOWED)) == len(gen.ALLOWED) == 21
+
+
 def test_worktree_is_fresh_at_the_base():
     work = '/home/loucmane/gascity-core-worktrees/ga-qcwl-provider-pins'
-    if not Path(work).exists():
-        pytest.skip('worktree not created yet')
     head = subprocess.run(['git', '--no-optional-locks', '-C', work, 'rev-parse', 'HEAD', 'HEAD^{tree}'],
                           capture_output=True, text=True, check=True).stdout.split()
     assert head == ['b6843d3f539eeebaf9d9c12e7d095d25cdee585d', 'c9f19d215d271a5dda0bce296dc72c32dfc35499']

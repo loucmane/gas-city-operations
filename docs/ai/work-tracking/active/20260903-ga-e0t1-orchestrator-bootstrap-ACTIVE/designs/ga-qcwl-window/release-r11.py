@@ -68,7 +68,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-qcwl-window/window-base-r11.py')
-BASE_SHA = '7e9208c15c4b6ced5e6275a8f8e3f376006fb3ab1801cc56e937e1da3c5c1445'
+BASE_SHA = '82c5ddcd69995c78183740c379998aa5844f58f7d3349ae9644564c5f340bd4c'
 WINDOW = Path('/var/tmp/ga-qcwl-window-20260925-r2')
 INPUT = Path('/home/loucmane/.local/share/gas-city-staging/ga-qcwl-window/release')
 TASK = 'ga-qcwl'
@@ -76,7 +76,7 @@ TEMPLATE = 'gascity/gc.implementation-worker'
 BASE_COMMIT = 'b6843d3f539eeebaf9d9c12e7d095d25cdee585d'
 VAR = Path('/var/tmp')
 WORKER_FILE_LIMIT = 1 << 20
-ALLOWED = {'internal/managedworker/preflight.go', 'internal/managedworker/preflight_test.go', 'internal/api/handler_provider_readiness.go', 'internal/api/handler_provider_readiness_test.go', 'internal/platforminstall/integrity.go', 'internal/platforminstall/integrity_test.go', 'cmd/gc/managed_product_dispatch_gate.go', 'cmd/gc/managed_product_dispatch_gate_test.go', 'cmd/gc/cmd_platform_canary.go', 'cmd/gc/cmd_platform_canary_test.go', '.gitignore'}
+ALLOWED = {'internal/managedworker/preflight.go', 'internal/managedworker/preflight_test.go', 'internal/api/handler_provider_readiness.go', 'internal/api/handler_provider_readiness_test.go', 'internal/platforminstall/integrity.go', 'internal/platforminstall/integrity_test.go', 'cmd/gc/managed_product_dispatch_gate.go', 'cmd/gc/managed_product_dispatch_gate_test.go', 'cmd/gc/cmd_platform_canary.go', 'cmd/gc/cmd_platform_canary_test.go', 'internal/managedworker/canary.go', 'internal/managedworker/canary_test.go', 'internal/managedworker/canary_profile.go', 'internal/managedworker/canary_profile_test.go', 'internal/managedworker/receipt.go', 'internal/managedworker/profile_contract_test.go', 'cmd/gc/managed_worker_preflight.go', 'cmd/gc/managed_worker_preflight_boundary_test.go', 'cmd/gc/managed_worker_policy_test.go', 'cmd/gc/managed_worker_typed_launch_test.go', '.gitignore'}
 # Claude Code permission dialogs, plus the two markers Core's own tmux approval parser reads
 # (internal/runtime/tmux/interaction.go requiresApprovalRe). The immediate nudge ends with Enter, which
 # would answer a visible dialog, so a release never nudges over one.
