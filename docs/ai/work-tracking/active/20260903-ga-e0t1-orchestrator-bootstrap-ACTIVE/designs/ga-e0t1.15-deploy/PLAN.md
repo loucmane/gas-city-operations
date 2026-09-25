@@ -313,6 +313,10 @@ step 4 regeneration.
 
 ### S3: metadata and receipt refresh (live)
 
+**Correction (2026-09-25, after S2):** the live Template checkout was `28539934`, not `e6195b10`, so the
+move to `cfd353f3` also ships PR 70; the operator chose that scope. `s3/PLAN-S3.md` is authoritative
+for S3 part 1, the M6 metadata successor, and records the order, delta, narrowing and run steps.
+
 A successor of M5 and P6, in this order within one reviewed window:
 1. **Bind S2.** The metadata successor binds the S2 outputs:
    - the new Core image `b2760ea4`;
