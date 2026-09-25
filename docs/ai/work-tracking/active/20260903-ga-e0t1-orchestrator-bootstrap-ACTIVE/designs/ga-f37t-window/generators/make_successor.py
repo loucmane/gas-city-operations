@@ -31,6 +31,10 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
    BIND ran with at s2 r2 (36b4158d); BIND never runs again, while BIND.sh and bind-task-r3.py carry the
    propagated digests. s3 r3 and s3 r4 change only documentation, comments and tests (comment edits move
    digests).
+9. s4 (after OBSERVE refused at s3 r4; operator chose the narrow disposition) adds
+   approved_coordinator_cache_image, chained last, for the pack cache .git time change a coordinator
+   workflow.py call caused at 22:39:06Z, and moves the integrity root to -20260925-r4 (r2 and r3 were
+   consumed by refused OBSERVE runs).
 """
 import hashlib
 import re
@@ -121,22 +125,41 @@ def approved_restore_image(prior):
         value['pins'][path] = after
     return value
 '''
+COORDINATOR_CACHE = '''
+def approved_coordinator_cache_image(prior):
+    # ga-f37t s4 disposition, operator-approved 2026-09-25, for independent review: at 2026-09-24
+    # 22:39:03Z the coordinator ran the canonical workflow.py coordinate note, whose ownership check read
+    # the Bead through bd without GIT_OPTIONAL_LOCKS=0 before it refused. That advanced only the pack
+    # cache repo's .git directory mtime and ctime (22:39:06.179Z). The s3 r4 OBSERVE refusal found every
+    # other cache, pin, protected-tree and host value equal. No workflow.py call runs during this window.
+    # Never reuse this for fresh drift.
+    value=json.loads(json.dumps(prior))
+    entry=value['cache']['inventory'][CACHE_DIRECTORY]
+    for key in ('mtime_ns','ctime_ns'):
+        require(entry[key] == 1790178703592685769, 'coordinator cache exception preimage')
+        entry[key] = 1790289546179167691
+    return value
+'''
 S3_SUBS = {
     'window-base-r11.py': [
         ('\ndef directories(o):', RESTORE_DISPOSITION + '\ndef directories(o):'),
         ('if dependency_image(approved_epoch_image(approved_historical_image(prior), h)) != dependency_image(value):',
-         'if dependency_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h))) != dependency_image(value):')],
+         'if dependency_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h))) != dependency_image(value):'),
+        # s4: the coordinator cache disposition, chained last.
+        ('\ndef directories(o):', COORDINATOR_CACHE + '\ndef directories(o):'),
+        ('if dependency_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h))) != dependency_image(value):',
+         'if dependency_image(approved_coordinator_cache_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h)))) != dependency_image(value):')],
     'observe-integrity-r11.py': [
         ('M5 baseline. It admits the live state against the P6 accepted snapshot plus the reviewed disposition,',
          'M5 baseline. It admits the live state against the P6 accepted snapshot plus the reviewed dispositions,'),
         ('    # snapshot below and admitted against the P6 accepted state.',
          '    # snapshot below and admitted against the recorded TERMINAL entry (approved_restore_image).'),
         ('    # with the reviewed disposition (approved_historical_image) and the accepted provider pins.',
-         '    # with the reviewed dispositions approved_historical_image, approved_epoch_image and\n'
-         '    # approved_restore_image, and the accepted provider pins.')],
+         '    # with the reviewed dispositions approved_historical_image, approved_epoch_image,\n'
+         '    # approved_restore_image and approved_coordinator_cache_image, and the accepted provider pins.')],
 }
 # The ga-f37t integrity root r2 was created by the refused s2 r2 OBSERVE; s3 uses a fresh one.
-S3_ROOT = ('/var/tmp/ga-f37t-integrity-20260924-r2', '/var/tmp/ga-f37t-integrity-20260925-r3')
+S3_ROOT = ('/var/tmp/ga-f37t-integrity-20260924-r2', '/var/tmp/ga-f37t-integrity-20260925-r4')
 # Applied after the rename: the ga-f37t PREP outputs (job ga-f37t-prep, 22:05:00Z).
 S2_PINS = {
     'window-base-r11.py': [

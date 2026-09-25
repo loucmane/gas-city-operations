@@ -115,6 +115,25 @@ passed at 22:23:38Z. OBSERVE then refused at 22:24:14Z with "accepted baseline d
   and a WATCH runs up to about 15 phases. The +1..+5 minute captures after RESUME are therefore as close to one
   minute apart as the runner allows.
 
+## s4 (after OBSERVE refused at s3 r4)
+
+s3 r4 (`9bf8e544`) passed two job reviews. FRESHEN-1 passed at 2026-09-24 22:50:09Z; OBSERVE refused at
+22:50:43Z with "accepted baseline drift".
+- **Cause.** At 22:39:03Z the coordinator ran the canonical `workflow.py coordinate --action note` on ga-e0t1.
+  It refused ("external source workflow refuses native control metadata", `workflow_ownership.py:72`), but its
+  ownership check had first read the Bead through bd without `GIT_OPTIONAL_LOCKS=0`. That advanced only the
+  pack cache repo's `.git` directory mtime and ctime, from `1790178703592685769` to `1790289546179167691`
+  (22:39:06.179Z). The refused observation equals the full s3 chain in every other cache, pin, protected-tree
+  and host value; the coordinator's env-prefixed gc calls at 22:37, 22:41 and 22:48Z changed nothing.
+- **Disposition (operator-approved).** `approved_coordinator_cache_image()` in `window-base-r11.py`, chained
+  last, requires exactly the historical value and replaces only those two fields with the recorded ones. Tests
+  prove the r3 refusal is admitted only by the full chain, that the s2 r2 refusal equals the chain without it
+  (so nothing else changed between the two), and that any other preimage refuses.
+- **Fresh root.** The refused OBSERVE consumed `/var/tmp/ga-f37t-integrity-20260925-r3`, so s4 uses
+  `/var/tmp/ga-f37t-integrity-20260925-r4`.
+- **Operating rule.** No `workflow.py` call of any verb runs from FRESHEN-1 until TERMINAL; outcomes are recorded
+  only with the env-prefixed gc form.
+
 ## Phases
 
 1. **s1 (`912e4d48`):** its two reviews named only `operator/PREP.sh`, so the job runner admitted only PREP. PREP

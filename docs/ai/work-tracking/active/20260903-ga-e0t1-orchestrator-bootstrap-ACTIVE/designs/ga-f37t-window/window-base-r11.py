@@ -206,6 +206,20 @@ def approved_restore_image(prior):
         value['pins'][path] = after
     return value
 
+def approved_coordinator_cache_image(prior):
+    # ga-f37t s4 disposition, operator-approved 2026-09-25, for independent review: at 2026-09-24
+    # 22:39:03Z the coordinator ran the canonical workflow.py coordinate note, whose ownership check read
+    # the Bead through bd without GIT_OPTIONAL_LOCKS=0 before it refused. That advanced only the pack
+    # cache repo's .git directory mtime and ctime (22:39:06.179Z). The s3 r4 OBSERVE refusal found every
+    # other cache, pin, protected-tree and host value equal. No workflow.py call runs during this window.
+    # Never reuse this for fresh drift.
+    value=json.loads(json.dumps(prior))
+    entry=value['cache']['inventory'][CACHE_DIRECTORY]
+    for key in ('mtime_ns','ctime_ns'):
+        require(entry[key] == 1790178703592685769, 'coordinator cache exception preimage')
+        entry[key] = 1790289546179167691
+    return value
+
 def directories(o):
     fd = os.open(CITY, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_NOATIME)
     try:
@@ -265,7 +279,7 @@ def snapshot(name, b, o):
                  protected={str(p): o.tree_snapshot(p, protected=True) for p in b.PROTECTED})
     require(h == host(o), 'host changed during snapshot')
     if name == 'before.json':
-        if dependency_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h))) != dependency_image(value):
+        if dependency_image(approved_coordinator_cache_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h)))) != dependency_image(value):
             save('before-refused-observation.json',value)
             raise RuntimeError('accepted baseline drift')
     value['providers'] = provider_pins(b,o)

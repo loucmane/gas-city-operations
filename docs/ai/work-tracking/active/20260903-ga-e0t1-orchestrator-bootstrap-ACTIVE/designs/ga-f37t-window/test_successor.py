@@ -125,16 +125,42 @@ class Derivation(unittest.TestCase):
         return m, json
 
     def test_restore_disposition_admits_the_restored_city(self):
-        refused = Path('/var/tmp/ga-f37t-integrity-20260924-r2/before-refused-observation.json')
-        if not refused.exists():
-            self.skipTest('no s2 r2 refused observation on this host')
+        r2 = Path('/var/tmp/ga-f37t-integrity-20260924-r2/before-refused-observation.json')
+        r3 = Path('/var/tmp/ga-f37t-integrity-20260925-r3/before-refused-observation.json')
+        if not (r2.exists() and r3.exists()):
+            self.skipTest('no s2 r2 and s3 r4 refused observations on this host')
         m, json = self.base()
         prior = json.loads(m.read(m.ACCEPTED, m.ACCEPTED_SHA))
-        value = json.loads(refused.read_text())
-        chained = m.approved_restore_image(m.approved_epoch_image(m.approved_historical_image(prior), value['host']))
-        self.assertEqual(m.dependency_image(chained), m.dependency_image(value))
-        without = m.approved_epoch_image(m.approved_historical_image(prior), value['host'])
-        self.assertNotEqual(m.dependency_image(without), m.dependency_image(value))
+        # The s3 r4 refusal (r3) is admitted by the full chain, and by nothing shorter.
+        value = json.loads(r3.read_text())
+        epoch = m.approved_epoch_image(m.approved_historical_image(prior), value['host'])
+        restored = m.approved_restore_image(epoch)
+        full = m.approved_coordinator_cache_image(restored)
+        self.assertEqual(m.dependency_image(full), m.dependency_image(value))
+        self.assertNotEqual(m.dependency_image(restored), m.dependency_image(value))
+        self.assertNotEqual(m.dependency_image(m.approved_coordinator_cache_image(epoch)), m.dependency_image(value))
+        # The s2 r2 refusal (r2) equals the chain without the cache disposition: between r2 and r3 only the
+        # pack cache .git times changed.
+        older = json.loads(r2.read_text())
+        before_cache = m.approved_restore_image(m.approved_epoch_image(m.approved_historical_image(prior), older['host']))
+        self.assertEqual(m.dependency_image(before_cache), m.dependency_image(older))
+
+    def test_coordinator_cache_disposition_refuses_another_preimage(self):
+        m, json = self.base()
+        prior = json.loads(m.read(m.ACCEPTED, m.ACCEPTED_SHA))
+        entry = prior['cache']['inventory'][m.CACHE_DIRECTORY]
+        # P6 carries the pre-historical value, so the cache disposition alone must refuse it.
+        with self.assertRaisesRegex(RuntimeError, 'coordinator cache exception preimage'):
+            m.approved_coordinator_cache_image(prior)
+        historical = m.approved_historical_image(prior)
+        image = m.approved_coordinator_cache_image(historical)
+        changed = {k for k in entry if image['cache']['inventory'][m.CACHE_DIRECTORY][k] != entry[k]}
+        self.assertEqual(changed, {'mtime_ns', 'ctime_ns'})
+        self.assertEqual(image['cache']['inventory'][m.CACHE_DIRECTORY]['mtime_ns'], 1790289546179167691)
+        other = json.loads(json.dumps(historical))
+        other['cache']['inventory'][m.CACHE_DIRECTORY]['mtime_ns'] += 1
+        with self.assertRaisesRegex(RuntimeError, 'coordinator cache exception preimage'):
+            m.approved_coordinator_cache_image(other)
 
     def test_restore_disposition_refuses_changed_content(self):
         if not Path('/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json').exists():
@@ -146,9 +172,9 @@ class Derivation(unittest.TestCase):
             m.approved_restore_image(prior)
 
     def test_restore_disposition_refuses_every_other_change(self):
-        refused = Path('/var/tmp/ga-f37t-integrity-20260924-r2/before-refused-observation.json')
+        refused = Path('/var/tmp/ga-f37t-integrity-20260925-r3/before-refused-observation.json')
         if not refused.exists():
-            self.skipTest('no s2 r2 refused observation on this host')
+            self.skipTest('no s3 r4 refused observation on this host')
         m, json = self.base()
         prior = json.loads(m.read(m.ACCEPTED, m.ACCEPTED_SHA))
         suspension = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
@@ -171,7 +197,9 @@ class Derivation(unittest.TestCase):
             m.approved_restore_image(shaped)
         # A restored file with any other inode, and any other pin that drifts, still differ.
         value = json.loads(refused.read_text())
-        chained = m.approved_restore_image(m.approved_epoch_image(m.approved_historical_image(prior), value['host']))
+        chained = m.approved_coordinator_cache_image(
+            m.approved_restore_image(m.approved_epoch_image(m.approved_historical_image(prior), value['host'])))
+        self.assertEqual(m.dependency_image(chained), m.dependency_image(value))
         for path in (city, next(p for p in sorted(value['pins']) if p not in m.RESTORED_PINS)):
             drifted = json.loads(json.dumps(value))
             drifted['pins'][path]['metadata']['inode'] += 1

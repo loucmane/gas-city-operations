@@ -12,9 +12,9 @@ import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-f37t-window')
-ROOT=Path('/var/tmp/ga-f37t-integrity-20260925-r3')
+ROOT=Path('/var/tmp/ga-f37t-integrity-20260925-r4')
 BUILD=Path('/var/tmp/ga-4z38-platform-inspector-20260924-r1')
-W_SHA='99f1c1d8db088efad75bd9693aae16897f0fbe081744dbb4fa860103148c965a'
+W_SHA='2cb3822dee0bcb16703dd7d8fae744ecd4b790fb823bc3642914e475d0f92a75'
 BINARY_SHA='b8ebcde38a9ee8078752949226f6736ea14a25413fba73db4d95076261658d13'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='2d7eadce62c4e567697813cc9122414f1e94c3bd9d389aef92015adef7f36319'
@@ -68,8 +68,8 @@ def main():
     w.save('intent.json',dict(executor_sha256=_SOURCE_SHA,binary_sha256=BINARY_SHA,
         version_probes_only=True,worker_launch=False))
     # The base snapshot named before.json admits the live state against the P6 accepted snapshot
-    # with the reviewed dispositions approved_historical_image, approved_epoch_image and
-    # approved_restore_image, and the accepted provider pins.
+    # with the reviewed dispositions approved_historical_image, approved_epoch_image,
+    # approved_restore_image and approved_coordinator_cache_image, and the accepted provider pins.
     w.snapshot('before.json',b,o)
     before=w.record('before.json')
     argv=['/usr/bin/bwrap','--ro-bind','/','/','--unshare-net','--unshare-pid',
