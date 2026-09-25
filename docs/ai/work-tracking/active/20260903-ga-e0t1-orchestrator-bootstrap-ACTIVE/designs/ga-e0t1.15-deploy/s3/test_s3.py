@@ -418,6 +418,20 @@ def test_executor_closed(tmp_path):
     assert not c.executor_closed()
 
 
+def test_executor_source_inventory():
+    """source-pins.json names the launcher's six sources at their committed bytes, in the loader's authority."""
+    import stat as _stat
+    pins = json.loads((HERE/'source-pins.json').read_bytes())
+    launch = load('launch.py', 'launch')
+    assert set(pins) == launch.NAMES
+    for name, digest in pins.items():
+        info = os.lstat(HERE/name)
+        assert sha(HERE/name) == digest, name
+        assert (_stat.S_IMODE(info.st_mode), info.st_uid, info.st_gid, info.st_nlink) == (0o644, 1000, 1000, 1), name
+    info = os.lstat(HERE/'source-pins.json')
+    assert (_stat.S_IMODE(info.st_mode), info.st_nlink) == (0o644, 1)
+
+
 def test_source_pins():
     for name in ('source_runtime.py', 'launch.py', 'metadata_executor.py'):
         assert sha(HERE/name) == sha(M5/name), name

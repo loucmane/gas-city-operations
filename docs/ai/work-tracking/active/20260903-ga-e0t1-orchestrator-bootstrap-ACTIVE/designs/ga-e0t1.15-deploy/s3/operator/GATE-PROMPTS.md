@@ -11,11 +11,18 @@ These are the M5 gate prompts, rebound to M6. Fill in `{COMMIT}`, `{EXTRACT}`, `
   `/home/loucmane/.local/share/gas-city-staging/ga-e0t1.15-s3`, never into the package checkout.
   Each draft is `{reviewer_id, verdict, bindings, assessment}`, with the bindings exactly as
   `record_review.py bindings <KIND>` prints them. Then run `record_review.py record <KIND> <a> <b>`.
-- **Any HOLD, refusal or missing verdict:** stop at that gate.
-  - Before `paired` launches, the valid exit is `restore-preapply`.
-  - After a pause failure, the recovery the executor names applies.
-- **Quiescence:** from `prepare` until `restore-accepted`, make no tracked or unignored write in the
-  package checkout, run no gc or `workflow.py`, and write no Bead note.
+- **Any HOLD, refusal or missing verdict:** stop at that gate and take the exit for that point:
+  - SOURCE_PASS gate (after `prepare`, before `pause`; no `window.json` yet):
+    `recover-preparation <sha256 of q/preparation-pause-intent.json>`.
+  - A `pause` failure: `recover-pause` if `q/pause-consumed.json` exists and `window.json` does not;
+    otherwise the recovery the executor names.
+  - PAIRING_PASS gate, or anywhere after `window.json` and before `paired` launches: `restore-preapply`.
+  - After `paired`: never restore-preapply; inspect the commit evidence and stop.
+- **Quiescence:** from the capture until `restore-accepted`, make no tracked or unignored write in the
+  package checkout, run no gc or `workflow.py`, write no Bead note, and run no git command at all in
+  the canonical Template, any of its linked worktrees (the PR 71, PR 69 and PR 61 authorities and every
+  review worktree), the Core rig, the codex authorities or the packs repository. The baseline pins
+  their common Git directories exactly.
 - **Timing:** start `observe` only with more than 180 s of window left, and `paired` only with more
   than 300 s. The executor's own deadline checks remain authoritative.
 
@@ -45,7 +52,7 @@ Coordinator extract (a claim): {EXTRACT}
    - previous_manifest 2d7eadce...;
    - last_repository template-pr71-authority at cfd353f30f465cdf67bbd41fab48812fe5b9617e;
    - pr69_authority_absent true;
-   - counts 686/49/23;
+   - counts 687/49/23;
    - every changed_inputs value true;
    - core source /var/tmp/ga-e0t1.15-build-20260925/gc-a with sha b2760ea4...;
    - activation expected_commit 9faeabc2... and previous_commit 796d9a7a...;

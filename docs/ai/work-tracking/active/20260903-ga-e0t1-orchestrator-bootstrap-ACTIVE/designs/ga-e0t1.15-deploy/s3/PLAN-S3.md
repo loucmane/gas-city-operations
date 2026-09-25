@@ -80,7 +80,7 @@ Counts: 687 inputs, 49 trees, 23 links.
 | `metadata_closure.py` | M5 bytes, plus `install_policy`: the S2 access-time and dolt-scope policies, and the suspension record from the candidate (`c30776de`, which S2 left). |
 | `source_runtime.py`, `launch.py`, `metadata_executor.py` | Byte-identical to M5 (`2585357a`, `43ad2ac9`, `5a6694ab`). |
 | `record_review.py` | The M5 recorder, with its two paths moved to `reports/m6/q` and `reports/m6-reviews`. |
-| `test_s3.py` | 30 tests. The derivation test needs a repository that holds `cfd353f3`. |
+| `test_s3.py` | 33 tests at r5 (31 at r3 counting parametrized cases, plus the frozen-baseline build and the source-pins binding). The derivation test needs a repository that holds `cfd353f3`. |
 | `operator/gate_extract.py`, `operator/GATE-PROMPTS.md` | The M5 in-window gate extract and prompts, rebound to `reports/m6/q` and the M6 facts. |
 
 External reviewed dependencies:
@@ -125,7 +125,9 @@ the package worktree must be clean at the reviewed commit.
 5. **P7.** The receipt refresh, as a separate reviewed package.
 
 **Quiescence.** From the capture until `restore-accepted`, nobody runs gc or `workflow.py`, and
-nobody writes a Bead note. Notes wait in staging, under the quiescent-window rule.
+nobody writes a Bead note. Notes wait in staging, under the quiescent-window rule. Nobody runs git in
+the canonical Template, its linked worktrees, the Core rig, the codex authorities or the packs
+repository: the baseline pins their Git directories exactly.
 
 ## Rollback and stop conditions
 
