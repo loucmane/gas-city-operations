@@ -123,8 +123,11 @@ The worktree `/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles` 
    - s2 r4 (`bb8f09f9`) changed only this README, stating Core's own startup-dialog acceptance and the
      `~/.claude.json` comparison. The runner-fit review passed it; the correctness review held it,
      because the comparison covered only trust and MCP.
-   - s2 r5 (this commit) changes only this README. It lists every Claude dialog class Core answers, widens
-     the snapshot to the fields they write, and corrects the provider chain.
+   - s2 r5 (`19d07962`) changed only this README. The runner-fit review passed it; the correctness review
+     held it for the missing rate-limit handler and an inaccurate claim about the import dialog.
+   - s2 r6 (this commit) changes only this README. It lists all nine of Core's dialog handlers from the
+     code, and states where the order can accept more than Core. The snapshot now covers five keys and
+     records no credential.
    Its two reviews name the 34 window wrappers (every wrapper except PREP).
 3. **Window:**
    - RECONCILE and BIND;
@@ -169,82 +172,95 @@ presses Enter once any of the last 120 pane lines starts with `❯ `. A queued n
 poller once the session has been quiet long enough. Neither path checks for a dialog (Core
 `cmd/gc/cmd_nudge.go`; `internal/runtime/tmux/tmux.go` `WaitForIdle` and `matchesPromptPrefix`). A Claude
 selection menu marks its highlighted choice with `❯ `, so an order nudge could answer any menu still on
-screen.
+screen, choosing whatever option is highlighted.
 
-- **Permission dialogs cannot occur.** The worker profile runs Claude with `--permission-mode dontAsk`
-  (PREP r5 `receipt.final.json`). In that mode Claude denies every tool call that is not pre-allowed and
-  never shows a permission dialog.
-- **Core itself answers the startup dialogs, before the session is active.** During every managed launch,
-  Core runs `AcceptStartupDialogs` twice, once before and once after readiness
-  (`internal/runtime/tmux/adapter.go`, both `ShouldAcceptStartupDialogs` branches).
-  - It answers every dialog class listed in `internal/runtime/dialog.go` (`AcceptStartupDialogs`). Those
-    that apply to Claude are:
-    - the resume selector;
-    - the workspace trust dialog;
-    - the external CLAUDE.md imports dialog (Enter allows);
-    - the project MCP dialog ("Use this and all future MCP servers in this project", Down and Enter,
-      persisted to `~/.claude.json`);
-    - the bypass-permissions warning;
-    - the custom API key confirmation (Up and Enter, "Yes").
+**Permission dialogs cannot occur.** The worker profile runs Claude with `--permission-mode dontAsk` (PREP
+r5 `receipt.final.json`). In that mode Claude denies every tool call that is not pre-allowed and never
+shows a permission dialog.
 
-    The Codex update and hook-review dialogs, and other providers' trust prompts, are for other providers.
-  - This applies to this worker. Its resolved provider is `claude-signing` (PREP r5 `config.isolated.json`).
-    `claude-signing` is based on `provider:claude`, which is based on `builtin:claude`. None of the three
-    sets `AcceptStartupDialogs` or `ProcessNames`. The builtin profile names the node and claude processes
-    (`internal/worker/builtin/profiles.go`), so `ShouldAcceptStartupDialogs` is true
-    (`internal/runtime/startup_hints.go`).
+**Core's own startup-dialog handling.** During every managed launch, Core runs `AcceptStartupDialogs`
+twice, before and after readiness, each call with an 8 second budget per dialog class
+(`internal/runtime/tmux/adapter.go`, both `ShouldAcceptStartupDialogs` branches;
+`internal/runtime/tmux/tmux.go` `DismissKnownDialogs`).
 
-  Every earlier window ran with this Core behaviour too. The ga-f37t captures (an empty `❯` prompt, no
-  dialog) therefore show only that no dialog was left on screen after Core's launch sequence. They do not
-  show that none appeared. An order nudge arrives about 16 to 22 seconds after the session is active, so it
-  can meet only a dialog that Core's launch sequence did not answer. The order adds no dialog acceptance
-  beyond what Core already performs on every launch.
-- **Why these dialogs are not expected anyway.**
-  - Trust: `~/.claude.json` records no entry for the ga-gegx worktree or its parents (`/home/loucmane` is
-    `false`). The worktree's repository key, `/home/loucmane/gascity/city/rigs/gascity` (Git common
-    directory `rigs/gascity/.git`), has `hasTrustDialogAccepted: true`. No Core worktree where a worker ran
-    (ga-5ot6, ga-4z38, ga-f37t) has a project entry of its own. Claude very likely keys project state for
-    these linked worktrees by the repository root. That is an inference from the recorded state, not from
-    Claude source.
-  - MCP: the worker's argv passes `--settings` twice, first the core signing control policy and then
-    `city/.gc/settings.json`. Only the second sets `enableAllProjectMcpServers: true`, and the policy file
-    has no such key. The ga-f37t worktree had a byte-identical `.mcp.json` (sha256 `acaa57f6...`).
-  - The other Claude dialogs Core answers are not expected either:
-    - resume selector: the session is a fresh start;
-    - external CLAUDE.md imports: the worktree `CLAUDE.md` imports only the in-tree `@AGENTS.md`;
-    - bypass-permissions warning: the argv selects `--permission-mode dontAsk`, not bypass;
-    - custom API key confirmation: `UpstreamEnv.APIKey` is empty in PREP r5 `config.isolated.json`, and the
-      worker runs on the subscription.
-- **Bound, if a dialog did appear.** Whether Core or an order nudge answers it:
-  - trust is granted to a worktree of an already trusted repository;
-  - the MCP choice enables all current and future project MCP servers for that project key (today one
-    http server, `excalidraw`);
-  - an accepted external import lets CLAUDE.md read an import outside the worktree;
-  - a custom API key approval records that key as approved;
-  - none of these grants a tool permission, and dontAsk still denies every tool call that is not
-    pre-allowed.
-- **Coordinator procedure.** The snapshot is taken by `claude_json_snapshot.py`, which lives in the
-  coordinator's scratchpad (sha256 `863d93d5...`). It reads `~/.claude.json` once with O_NOATIME and
-  no directory access.
-  - Project fields, for the `rigs/gascity` key and the two worktree paths: `hasTrustDialogAccepted`,
-    `hasClaudeMdExternalIncludesApproved`, `hasClaudeMdExternalIncludesWarningShown`,
-    `enabledMcpjsonServers`, `disabledMcpjsonServers`, `enableAllProjectMcpServers`, `allowedTools` and
-    `mcpServers`.
-  - Top-level fields, which the bypass and API key dialogs write: `bypassPermissionsModeAccepted` and
-    `customApiKeyResponses`.
+This applies to this worker. Its resolved provider is `claude-signing` (PREP r5 `config.isolated.json`),
+based on `provider:claude`, which is based on `builtin:claude`. Neither city provider entry sets
+`AcceptStartupDialogs` or `ProcessNames`, and the builtin profile sets `ProcessNames` node and claude and
+`EmitsPermissionWarning` (`internal/worker/builtin/profiles.go`). So `ShouldAcceptStartupDialogs` is true
+(`internal/runtime/startup_hints.go`).
 
-  The pre-window snapshot was taken on 2026-09-25 and saved as `claude-json-snapshot-pre-window-r2.json`
-  (sha256 `f2f6204c...`):
-  - `rigs/gascity` has trust `true`, both external-import flags `false`, empty MCP lists, empty
-    `allowedTools` and empty `mcpServers`, and `enableAllProjectMcpServers` is absent;
-  - neither worktree path has an entry;
-  - `bypassPermissionsModeAccepted` is absent;
-  - `customApiKeyResponses` has none approved and one rejected.
+`AcceptStartupDialogsWithTimeout` (`internal/runtime/dialog.go`) calls exactly nine handlers, in this
+order. Two are for Codex only: the update dialog (handler 2) and the hook review (handler 6). The seven
+that can apply to Claude are:
 
-  After TERMINAL, the coordinator runs the same script once and compares the two outputs exactly. It
-  records the comparison on ga-e0t1. Other session metadata that Claude writes into project entries is
-  not an approval and is not compared. A changed field is recorded as a dialog having been accepted
-  during the window, and is kept, not reverted.
+| # | Dialog | Core's answer | Expected here? | Effect if answered |
+|---|---|---|---|---|
+| 1 | Resume selector | Down, Enter ("Resume full session") | No: the session is a fresh start. | Resumes a prior conversation; no grant; not persisted. |
+| 3 | Workspace trust | accepts | No: trust comes from the repository key (below). | Workspace trust for a worktree of an already trusted repository. |
+| 4 | External CLAUDE.md imports | Enter ("allow"), but only when every listed import resolves inside the repository root (`git rev-parse --git-common-dir`) and passes through no dot-directory; otherwise Core leaves the dialog for a human (`internal/runtime/import_trust.go`, `WithTrustedImportRoot`) | No: the worktree `CLAUDE.md` imports only the in-tree `@AGENTS.md`, and `AGENTS.md` has no `@` import. | CLAUDE.md may read an import; an order nudge's Enter would allow imports Core refuses, up to any file outside the worktree. |
+| 5 | Project MCP servers | Down, Enter ("Use this and all future MCP servers in this project"), persisted to `~/.claude.json` | No: the second `--settings` file, `city/.gc/settings.json`, sets `enableAllProjectMcpServers: true`; the first (the core signing policy) has no MCP key. | Enables all current and future project MCP servers for that project key (today one http server, `excalidraw`). |
+| 7 | Bypass-permissions warning | Down, Enter | No: the argv selects `--permission-mode dontAsk`, and no `dangerously` flag appears in the receipt. | Accepts bypass mode for that launch. |
+| 8 | Custom API key | Up, Enter ("Yes") | No: `UpstreamEnv.APIKey` is empty, and no API key variable appears in the receipt; the worker runs on the subscription. | Records that key as approved. |
+| 9 | Rate limit | Down, Enter ("Stop"), which ends the session; the reconciler then quarantines it as rate-limited | Only if the subscription hits its limit. | Ends the worker session and so the attempt; grants nothing; not persisted. An order nudge's Enter would choose the highlighted option instead. |
+
+**What this means for the order nudge.** The order nudge arrives about 16 to 22 seconds after the session
+is active, after both of Core's launch passes. For dialogs 1, 3, 5, 7, 8 and 9, it can meet only a dialog
+that Core's launch passes did not answer. For dialog 4, the order *can* accept more than Core does: Core
+leaves an import dialog that names an import outside the repository, and the order's Enter would allow
+it. That is bounded by the row above, and the worktree's CLAUDE.md has no such import. No answer grants a
+tool permission, and dontAsk still denies every tool call that is not pre-allowed.
+
+The ga-f37t captures (an empty `❯` prompt and no dialog) show only that no dialog was left on screen after
+Core's launch passes. They do not show that none appeared.
+
+**Which `~/.claude.json` key.** `~/.claude.json` records no entry for the ga-gegx worktree, for
+`/home/loucmane/gascity-core-worktrees` (passed with `--add-dir`), or for the ga-f37t worktree. The
+worktree's repository key, `/home/loucmane/gascity/city/rigs/gascity` (Git common directory
+`rigs/gascity/.git`), has `hasTrustDialogAccepted: true`, and `/home/loucmane` has `false`. No Core
+worktree where a worker ran (ga-5ot6, ga-4z38, ga-f37t) has a project entry of its own. Claude very likely
+keys project state for these linked worktrees by the repository root. That is an inference from the
+recorded state, not from Claude source.
+
+The top-level fields `bypassPermissionsModeAccepted` and `customApiKeyResponses` are likewise believed to
+hold the bypass and API key answers. That is also an inference: some Claude versions keep the bypass
+acceptance in settings instead.
+
+**Coordinator procedure.** The snapshot is taken by `claude_json_snapshot.py`, which lives in the
+coordinator's scratchpad (sha256 `0e881d36...`). It opens `~/.claude.json` once with O_NOFOLLOW and
+O_NOATIME, with no directory access. On the open descriptor it requires a regular file owned by uid 1000
+of at most 16 MiB, unchanged while read.
+
+It records these fields:
+- Project fields, for five keys (`rigs/gascity`, both worktree paths, `/home/loucmane/gascity-core-worktrees`
+  and `/home/loucmane`): `hasTrustDialogAccepted`, `hasClaudeMdExternalIncludesApproved`,
+  `hasClaudeMdExternalIncludesWarningShown`, `enabledMcpjsonServers`, `disabledMcpjsonServers`,
+  `enableAllProjectMcpServers`, `allowedTools`, and a digest of `mcpServers`.
+- Top-level fields: `bypassPermissionsModeAccepted`, and the approved and rejected counts plus a digest of
+  `customApiKeyResponses`.
+
+No credential or key suffix is recorded: `mcpServers` can hold credentials in argv, and
+`customApiKeyResponses` holds key suffixes.
+
+The pre-window snapshot was taken on 2026-09-25 and saved as `claude-json-snapshot-pre-window-r5.json`
+(sha256 `03151cbe...`):
+- `rigs/gascity`: trust `true`, both external-import flags `false`, empty MCP lists and `allowedTools`;
+- `/home/loucmane`: trust `false`, both external-import flags `false`, empty lists;
+- the worktree paths and `/home/loucmane/gascity-core-worktrees`: no entry;
+- `bypassPermissionsModeAccepted`: absent;
+- `customApiKeyResponses`: none approved, one rejected.
+
+After TERMINAL, the coordinator runs the same script once and compares the two outputs exactly. It records
+the comparison on ga-e0t1. Other session metadata that Claude writes into project entries is not an
+approval and is not compared. A changed field is recorded as a dialog having been accepted during the
+window, and is kept, not reverted.
+
+The comparison cannot detect four things:
+- a resume-selector or rate-limit answer, since neither is persisted (a rate-limit stop shows up instead as
+  the session ending);
+- an answer written under a project key the script does not read;
+- an answer Claude keeps outside `~/.claude.json`;
+- any menu the order's nudge might answer that is not one of these dialogs. Under dontAsk no permission
+  menu exists, and the worker brief starts no other interactive command.
 
 **WATCH nudge evidence.** Each WATCH reads two files once, read-only:
 - the order's pack state file, `city/.gc/runtime/packs/core/nudge-on-route-state.json`;
@@ -262,11 +278,7 @@ valid, second-link, one-newline, bad-shape and oversize cases against the real `
 Operating rule: a WATCH after RESUME is expected to show `order_nudge_recorded` true and the worker
 claiming. Any visible menu or dialog in a pane capture is a stop, and the coordinator contains. This rule
 cannot catch a dialog that Core or the order's nudge already answered. The `~/.claude.json` comparison
-after TERMINAL covers that case for every Claude startup dialog class that records its answer in the
-compared fields. Two exceptions are not persisted there:
-- the resume selector, which is not expected on a fresh session;
-- any menu the order's nudge might answer that is not a Core startup dialog. Under dontAsk no permission
-  menu exists, and the worker brief starts no other interactive command.
+after TERMINAL covers what it can, within the limits listed above.
 
 Before the window (2026-09-25), read-only:
 - the queue file held 26 dead items and nothing pending;
