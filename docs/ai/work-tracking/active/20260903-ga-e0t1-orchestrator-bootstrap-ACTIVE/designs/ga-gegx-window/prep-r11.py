@@ -40,6 +40,12 @@ r4 (ga-gegx, after the ga-f37t window's silent start):
 - The isolated order list must be exactly that one order, equal to its baseline entry, and the result
   records effective_orders=1.
 
+r5 (ga-gegx): the overlay also gives nudge-on-route a 45m event lookback (and 2h dedup retention)
+through [[orders.overrides]] env. In the previous window the routed task's bead.updated reached the
+controller only after RESUME (cache reconcile, 16s after the worker went active), so a default 2m
+lookback misses it whenever the worker takes longer than that to start. The effective config and the
+isolated order list must show exactly that env.
+
 What it does, all in read-only, network-isolated bwrap namespaces:
 1. It generates the one-worker overlay:
    - workspace cap 1;
@@ -47,7 +53,7 @@ What it does, all in read-only, network-isolated bwrap namespaces:
    - every city and gascity agent suspended, except gascity/implementation-worker, which is bound
      to the ga-gegx worktree with sessions 0..1.
 2. It proves the exact effective-config delta with `gc config show`, and that exactly the
-   nudge-on-route order remains, unchanged from its baseline entry.
+   nudge-on-route order remains, equal to its baseline entry plus the r5 exec env.
 3. It takes the overlay's permission revision from the reviewed Core compose diagnostic. The
    provider composition must stay unchanged apart from that revision.
 4. It normalizes (Template load_prototype) and finalizes (Core preflight diagnostic `finalize`)
@@ -67,7 +73,7 @@ import sys
 import tomllib
 import types
 
-ROOT = Path('/var/tmp/ga-gegx-prep-20260923-r2')
+ROOT = Path('/var/tmp/ga-gegx-prep-20260925-r3')
 CITY = Path('/home/loucmane/gascity/city')
 RECEIPT = CITY/'.gc/runtime/provisioning/receipt.json'
 WORK = '/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles'
@@ -89,7 +95,7 @@ RECEIPT_SHA = '0b30c23f4484382fd4918f394599268f4f4005ac71118e8a7f82ca72eb9615ff'
 REVISION = 'd6ca85cd96c7aab4ea0b6a7954d2d74e5e6bb211cde0bb820f3b6f815023bd88'
 ORDER_COUNT = 34
 HEADER = '\n# ga-gegx bounded one-worker window; restore exact preserved baseline.\n'
-OVERLAY_SHA = '228e5be706ba7ca5d40de9a01b48b26267e2c09f7f7507080203a966e8402b4e'
+OVERLAY_SHA = 'e6e24bd75d374a1e69719a9a9d2aa95060569d692d8ae8d63888fd05438c9540'
 LAUNCH = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
               '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6/source-launch.py')
 LAUNCH_SHA = '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea'
@@ -165,6 +171,15 @@ def normalize_main(root):
     sys.stdout.buffer.write(p.canonical_json(r))
 
 
+# ga-gegx r5: the order's exec env in the window. The event that routes the task reaches the controller
+# only after RESUME (cache reconcile), and a later run that finds the worker session active must still
+# see it, so the lookback covers a slow worker start. Retention stays above the lookback so a nudged
+# pair is never pruned and nudged again.
+NUDGE_ENV = {'GC_NUDGE_ON_ROUTE_LOOKBACK': '45m', 'GC_NUDGE_ON_ROUTE_RETENTION': '2h'}
+NUDGE_OVERRIDE = ('\n[[orders.overrides]]\nname = "nudge-on-route"\n'
+                  'env = {GC_NUDGE_ON_ROUTE_LOOKBACK = "45m", GC_NUDGE_ON_ROUTE_RETENTION = "2h"}\n')
+
+
 def expected_config(baseline, selected, target, names):
     """The exact effective config `gc config show` must report under the overlay."""
     expected = copy.deepcopy(baseline)
@@ -174,6 +189,10 @@ def expected_config(baseline, selected, target, names):
             expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1)
     expected['config']['Workspace']['MaxActiveSessions'] = 1
     expected['config']['Orders']['Skip'] = names
+    assert baseline['config']['Orders']['Overrides'] is None
+    expected['config']['Orders']['Overrides'] = [dict(
+        Name='nudge-on-route', Rig='', Enabled=None, Trigger=None, Gate=None, Interval=None, Schedule=None,
+        Check=None, On=None, Pool=None, Timeout=None, CheckTimeout=None, Idempotent=None, Env=NUDGE_ENV)]
     assert SINGLETON_WARNING not in baseline['validation']['warnings']
     expected['validation']['warnings'] = sorted(baseline['validation']['warnings'] + [SINGLETON_WARNING])
     return expected
@@ -202,7 +221,8 @@ def receipt_image(owned, source_path, source_sha, root):
 
 
 def build_overlay(city, baseline, orders):
-    """The reviewed ga-y49e overlay generation, unchanged except for WORK and HEADER."""
+    """The reviewed ga-y49e overlay generation, changed only in WORK and HEADER and (ga-gegx) in keeping
+    nudge-on-route out of the skip list with the NUDGE_OVERRIDE exec env."""
     cfg = baseline['config']
     assert 'orders' not in tomllib.loads(city.decode())
     assert city.count(b'max_active_sessions = 16\n') == 1
@@ -225,7 +245,7 @@ def build_overlay(city, baseline, orders):
         if i == target:
             patch.update(work_dir=WORK, min_active_sessions=0, max_active_sessions=1)
         patches.append(patch)
-    parts = [HEADER, '[orders]\n', 'skip = ' + json.dumps(names) + '\n']
+    parts = [HEADER, '[orders]\n', 'skip = ' + json.dumps(names) + '\n', NUDGE_OVERRIDE]
     for patch in patches:
         parts.append('\n[[patches.agent]]\n')
         for key, value in patch.items():
@@ -253,7 +273,7 @@ def main():
     write('config.baseline.json', baseline)
     write('orders.baseline.json', orders)
     candidate, patches, names, target, selected = build_overlay(city, baseline, orders)
-    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the derived 228e5be7'
+    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the derived e6e24bd7'
     write('city.baseline.toml', city)
     write('city.isolated.toml', candidate)
     write('declared-delta.json', dict(patches=patches, order_skip=names, workspace_cap=1))
@@ -271,10 +291,11 @@ def main():
     assert observed == expected_config(baseline, selected, target, names), 'unexpected effective configuration delta'
     empty = confined([str(GC), '--city', str(CITY), 'order', 'list', '--json'], True)
     write('orders.isolated.json', empty)
-    # ga-gegx: every order is skipped except nudge-on-route, so exactly that order remains, unchanged
-    # from its baseline entry.
+    # ga-gegx: every order is skipped except nudge-on-route, so exactly that order remains, equal
+    # to its baseline entry plus the NUDGE_ENV override (r5).
     kept = [o for o in orders['orders'] if o['name'] == 'nudge-on-route']
-    assert len(kept) == 1 and empty['orders'] == kept and empty['summary']['count'] == 1, 'isolated orders'
+    assert len(kept) == 1 and empty['orders'] == [dict(kept[0], env=NUDGE_ENV)] \
+        and empty['summary']['count'] == 1, 'isolated orders'
     # Receipt image for the overlay revision: the prior input with only the revision replaced.
     candidate_input = json.loads(prior)
     candidate_input['permission_revision'] = after['permission_revision']
@@ -295,7 +316,7 @@ def main():
                   revision_before=before['permission_revision'], revision_after=after['permission_revision'],
                   receipt_before_sha256=sha(before_receipt), receipt_after_sha256=sha(read(ROOT/'receipt.final.json')),
                   receipt_self_sha256=new['receipt_sha256'], changed_receipt_fields=differences,
-                  effective_orders=1, effective_order_names=['nudge-on-route'],
+                  effective_orders=1, effective_order_names=['nudge-on-route'], nudge_env=NUDGE_ENV,
                   only_unsuspended_city_core_agent='gascity/gc.implementation-worker',
                   workspace_capacity=1, prior_input_sha256=sha(prior))
     write('result.json', result)

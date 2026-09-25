@@ -34,6 +34,16 @@ def package_files():
             yield path
 
 
+NUDGE_ENV = {'GC_NUDGE_ON_ROUTE_LOOKBACK': '45m', 'GC_NUDGE_ON_ROUTE_RETENTION': '2h'}
+
+
+def prep_constant(prep, name):
+    import ast
+    [value] = [node.value for node in ast.parse(prep).body
+               if isinstance(node, ast.Assign) and [t.id for t in node.targets] == [name]]
+    return ast.literal_eval(value)
+
+
 class Derivation(unittest.TestCase):
     def base(self):
         m = types.ModuleType('successor_base')
@@ -120,9 +130,21 @@ class Derivation(unittest.TestCase):
         overlay = g.successor_overlay()
         self.assertEqual(pin, hashlib.sha256(overlay).hexdigest())
         text = overlay.decode()
-        self.assertNotIn('"nudge-on-route"', text)
-        self.assertIn('"nudge-mail-sweep"', text)
+        parsed_skip = __import__('tomllib').loads(text)['orders']['skip']
+        self.assertNotIn('nudge-on-route', parsed_skip)
+        self.assertIn('nudge-mail-sweep', parsed_skip)
+        self.assertEqual(len(parsed_skip), 33)
         self.assertIn('work_dir = "/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles"', text)
+        parsed = __import__('tomllib').loads(text)
+        self.assertEqual(parsed['orders']['overrides'], [dict(name='nudge-on-route', env=NUDGE_ENV)])
+        self.assertIn(prep_constant(prep, 'NUDGE_OVERRIDE'), text)
+        # The r4 PREP overlay was built from the live inputs; r5 adds only the override block.
+        r4 = Path('/var/tmp/ga-gegx-prep-20260923-r2/city.isolated.toml')
+        if r4.exists():
+            raw = r4.read_bytes()
+            self.assertEqual(hashlib.sha256(raw).hexdigest(),
+                             '228e5be706ba7ca5d40de9a01b48b26267e2c09f7f7507080203a966e8402b4e')
+            self.assertEqual(g.insert_override(raw.decode()).encode(), overlay)
         [pinned] = re.findall(r'^PREP_SHA=([0-9a-f]{64})$', (HERE/'operator'/'PREP.sh').read_text(), re.M)
         self.assertEqual(pinned, sha(HERE/'prep-r11.py'))
 
@@ -130,9 +152,9 @@ class Derivation(unittest.TestCase):
         prep = (HERE/'prep-r11.py').read_text()
         self.assertNotIn("empty['orders'] == []", prep)
         self.assertIn("    kept = [o for o in orders['orders'] if o['name'] == 'nudge-on-route']\n", prep)
-        self.assertIn("    assert len(kept) == 1 and empty['orders'] == kept and empty['summary']['count'] == 1, "
-                      "'isolated orders'\n", prep)
-        self.assertIn("effective_orders=1, effective_order_names=['nudge-on-route']", prep)
+        self.assertIn("    assert len(kept) == 1 and empty['orders'] == [dict(kept[0], env=NUDGE_ENV)] \\\n"
+                      "        and empty['summary']['count'] == 1, 'isolated orders'\n", prep)
+        self.assertIn("effective_orders=1, effective_order_names=['nudge-on-route'], nudge_env=NUDGE_ENV", prep)
         self.assertNotIn('effective_orders=0', prep)
         baseline = Path('/var/tmp/ga-f37t-prep-20260923-r2/orders.baseline.json')
         if baseline.exists():
@@ -141,6 +163,19 @@ class Derivation(unittest.TestCase):
             self.assertEqual(len(kept), 1)
             self.assertTrue(kept[0]['enabled'])
             self.assertEqual((kept[0]['trigger'], kept[0]['on'], kept[0]['type']), ('event', 'bead.updated', 'exec'))
+
+    def test_prep_gives_nudge_on_route_a_long_lookback(self):
+        prep = (HERE/'prep-r11.py').read_text()
+        self.assertEqual(prep_constant(prep, 'NUDGE_ENV'), NUDGE_ENV)
+        self.assertIn("parts = [HEADER, '[orders]\\n', 'skip = ' + json.dumps(names) + '\\n', NUDGE_OVERRIDE]", prep)
+        self.assertIn("    expected['config']['Orders']['Overrides'] = [dict(\n", prep)
+        self.assertIn("Idempotent=None, Env=NUDGE_ENV)]", prep)
+        self.assertNotIn('unchanged except for WORK and HEADER', prep)
+        self.assertIn("ROOT = Path('/var/tmp/ga-gegx-prep-20260925-r3')", prep)
+        self.assertIn('OUT=/var/tmp/ga-gegx-prep-20260925-r3\n', (HERE/'operator'/'PREP.sh').read_text())
+        self.assertIn("PREP = Path('/var/tmp/ga-gegx-prep-20260925-r3')", (HERE/'window-base-r11.py').read_text())
+        # The lookback is not a controller-reserved exec env key (Core internal/orders/env.go).
+        self.assertTrue(all(key.startswith('GC_NUDGE_ON_ROUTE_') for key in NUDGE_ENV))
 
     def test_observe_binds_the_recover2_result(self):
         observe = (HERE/'observe-integrity-r11.py').read_text()
@@ -206,7 +241,7 @@ class Derivation(unittest.TestCase):
         self.assertIn("ROOT = Path('/var/tmp/ga-gegx-window-20260925-r2')", (HERE/'window-base-r11.py').read_text())
         self.assertIn("INTEGRITY=Path('/var/tmp/ga-gegx-integrity-20260925-r5')", (HERE/'window-r11.py').read_text())
         for path in ('/var/tmp/ga-gegx-window-20260925-r2', '/var/tmp/ga-gegx-integrity-20260925-r5',
-                     '/var/tmp/ga-gegx-prep-20260923-r2', '/var/tmp/ga-gegx-bind-20260923-r1',
+                     '/var/tmp/ga-gegx-prep-20260925-r3', '/var/tmp/ga-gegx-bind-20260923-r1',
                      '/var/tmp/ga-gegx-reconcile-20260925-r1'):
             self.assertIn(path, ''.join(p.read_text() for p in package_files() if p.suffix in ('.py', '.sh')))
 

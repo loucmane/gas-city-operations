@@ -64,13 +64,57 @@ fixes the overlay. The positional prompt is left for a Template/Core follow-up.
   twelve WATCH slots with pane capture, and the operating rules: no `workflow.py` from OBSERVE to TERMINAL,
   env-prefixed gc only, and the WATCH-1 rule before RESUME.
 
+## Nudge delivery (s1 r3)
+
+The s1 r2 reviews (both SOURCE_PASS) asked whether `nudge-on-route` would actually reach the worker. PREP r4
+ran from s1 r2 on 2026-09-25 at 10:22:56Z and passed (root `/var/tmp/ga-gegx-prep-20260923-r2`, overlay
+`228e5be7`, one effective order). That root is superseded by r5 below and is kept as evidence only.
+
+**What the ga-f37t window shows.** This is from the city event log, `city/.gc/events.jsonl`, seq 1344032 to
+1344049, in local time:
+- ROUTE wrote ga-f37t at 11:40:55 while the city was suspended, and no event was emitted then.
+- The city resumed at 11:42:27.
+- Session `ci-yauk5` was created at 11:42:44, went `active` at 11:42:47, and then emitted two `awake` updates.
+- The routed task's `bead.updated` event, carrying `gc.routed_to`, came from the controller's cache
+  reconcile only at 11:43:03, after RESUME and 16 seconds after the worker went active.
+
+**Why the order would find the worker.** It lists members with `gc session list --state active --template
+<routed target>`. The session template is `gascity/gc.implementation-worker`, which is the routed target,
+and `awake` normalizes to `active` (Core `internal/session/manager.go` `normalizeInfoState`). Its event
+trigger is cursor based, so every later `bead.updated` makes it run again (`internal/orders/triggers.go`
+`checkEvent`).
+
+**The remaining risk, and the fix.** The script only looks back `GC_NUDGE_ON_ROUTE_LOOKBACK`, 2 minutes by
+default. The routed event can arrive before the worker is active. If the worker then takes longer than 2
+minutes to start, no later run sees the event, and nothing nudges the worker.
+
+PREP r5 therefore adds one order override to the overlay:
+`[[orders.overrides]] name = "nudge-on-route"` with `env = {GC_NUDGE_ON_ROUTE_LOOKBACK = "45m",
+GC_NUDGE_ON_ROUTE_RETENTION = "2h"}`.
+- The override `env` reaches the exec child last (Core `cmd/gc/order_store.go`, the `[order.env]` loop).
+- Neither key is controller-reserved (`internal/orders/env.go`).
+- Retention stays above the lookback, so a nudged pair is never pruned and nudged again.
+- These Core paths are unchanged between the adopted `728178bf` and the ga-gegx worktree.
+
+PREP r5 requires three things. The effective config must show exactly that override. The isolated order
+list must be the baseline `nudge-on-route` entry plus that `env`. The overlay must equal the r4 overlay
+with only the override block inserted after the skip line (`test_successor.py` checks that against the r4
+evidence). The new PREP root is `/var/tmp/ga-gegx-prep-20260925-r3`.
+
+**Order side effects in the window, for s2.** Each run can create an order-tracking bead, run `gc events` and
+`gc session list`, send `gc session nudge`, and rewrite
+`city/.gc/runtime/packs/core/nudge-on-route-state.json`. Its lookback also sees the RECONCILE update of
+ga-f37t, which still carries `gc.routed_to`, so the worker may receive a second "check for assigned work"
+nudge. ga-f37t is held, so it is not ready work. s2 must admit or confine these writes in the window
+checks.
+
 The worktree `/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles` (branch
 `codex/ga-gegx-typed-route-cycles`) was created at Core `e6366b9e`, tree `f2c120a5`, clean.
 
 ## Phases
 
-1. **s1 (this commit):** its two reviews name only `operator/PREP.sh`. PREP writes the ga-gegx overlay and
-   receipt image to `/var/tmp/ga-gegx-prep-20260923-r2` and must match the derived overlay.
+1. **s1 r3 (this commit):** its two reviews name only `operator/PREP.sh`. PREP r5 writes the ga-gegx overlay
+   and receipt image to `/var/tmp/ga-gegx-prep-20260925-r3` and must match the derived overlay.
 2. **s2 (after PREP):**
    - re-pin the PREP outputs in `window-base-r11.py`: overlay, receipt image, composition revision and
      result;

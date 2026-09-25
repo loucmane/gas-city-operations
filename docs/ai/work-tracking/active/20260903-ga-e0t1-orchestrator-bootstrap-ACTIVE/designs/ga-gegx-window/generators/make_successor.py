@@ -139,8 +139,8 @@ PREP_SUBS = [
      "    assert 'nudge-on-route' in names, 'nudge-on-route order missing'\n"
      "    names = [name for name in names if name != 'nudge-on-route']\n"),
     ("    assert empty['orders'] == [] and empty['summary']['count'] == 0\n",
-     "    # ga-gegx: every order is skipped except nudge-on-route, so exactly that order remains, unchanged\n"
-     "    # from its baseline entry.\n"
+     "    # ga-gegx: every order is skipped except nudge-on-route, so exactly that order remains, equal\n"
+     "    # to its baseline entry plus the NUDGE_ENV override (r5).\n"
      "    kept = [o for o in orders['orders'] if o['name'] == 'nudge-on-route']\n"
      "    assert len(kept) == 1 and empty['orders'] == kept and empty['summary']['count'] == 1, 'isolated orders'\n"),
     ("                  effective_orders=0, only_unsuspended_city_core_agent=",
@@ -150,7 +150,7 @@ PREP_SUBS = [
     ("2. It proves the exact effective-config delta with `gc config show`, and that effectively no orders\n"
      "   remain.\n",
      "2. It proves the exact effective-config delta with `gc config show`, and that exactly the\n"
-     "   nudge-on-route order remains, unchanged from its baseline entry.\n"),
+     "   nudge-on-route order remains, equal to its baseline entry plus the r5 exec env.\n"),
     ("\nWhat it does, all in read-only, network-isolated bwrap namespaces:\n",
      "\nr4 (ga-gegx, after the ga-f37t window's silent start):\n"
      "- nudge-on-route stays out of the order skip list. Core's gc sling does not nudge warm-idle workers\n"
@@ -158,9 +158,45 @@ PREP_SUBS = [
      "- The isolated order list must be exactly that one order, equal to its baseline entry, and the result\n"
      "  records effective_orders=1.\n"
      "\nWhat it does, all in read-only, network-isolated bwrap namespaces:\n"),
+    ("def expected_config(baseline, selected, target, names):\n",
+     "# ga-gegx r5: the order's exec env in the window. The event that routes the task reaches the controller\n"
+     "# only after RESUME (cache reconcile), and a later run that finds the worker session active must still\n"
+     "# see it, so the lookback covers a slow worker start. Retention stays above the lookback so a nudged\n"
+     "# pair is never pruned and nudged again.\n"
+     "NUDGE_ENV = {'GC_NUDGE_ON_ROUTE_LOOKBACK': '45m', 'GC_NUDGE_ON_ROUTE_RETENTION': '2h'}\n"
+     "NUDGE_OVERRIDE = ('\\n[[orders.overrides]]\\nname = \"nudge-on-route\"\\n'\n"
+     "                  'env = {GC_NUDGE_ON_ROUTE_LOOKBACK = \"45m\", GC_NUDGE_ON_ROUTE_RETENTION = \"2h\"}\\n')\n"
+     "\n\n"
+     "def expected_config(baseline, selected, target, names):\n"),
+    ("    expected['config']['Orders']['Skip'] = names\n",
+     "    expected['config']['Orders']['Skip'] = names\n"
+     "    assert baseline['config']['Orders']['Overrides'] is None\n"
+     "    expected['config']['Orders']['Overrides'] = [dict(\n"
+     "        Name='nudge-on-route', Rig='', Enabled=None, Trigger=None, Gate=None, Interval=None, Schedule=None,\n"
+     "        Check=None, On=None, Pool=None, Timeout=None, CheckTimeout=None, Idempotent=None, Env=NUDGE_ENV)]\n"),
+    ('    """The reviewed ga-y49e overlay generation, unchanged except for WORK and HEADER."""\n',
+     '    """The reviewed ga-y49e overlay generation, changed only in WORK and HEADER and (ga-gegx) in keeping\n'
+     '    nudge-on-route out of the skip list with the NUDGE_OVERRIDE exec env."""\n'),
+    ("    parts = [HEADER, '[orders]\\n', 'skip = ' + json.dumps(names) + '\\n']\n",
+     "    parts = [HEADER, '[orders]\\n', 'skip = ' + json.dumps(names) + '\\n', NUDGE_OVERRIDE]\n"),
+    ("empty['orders'] == kept and empty['summary']['count'] == 1, 'isolated orders'\n",
+     "empty['orders'] == [dict(kept[0], env=NUDGE_ENV)] \\\n"
+     "        and empty['summary']['count'] == 1, 'isolated orders'\n"),
+    ("effective_order_names=['nudge-on-route'],\n",
+     "effective_order_names=['nudge-on-route'], nudge_env=NUDGE_ENV,\n"),
+    ("  records effective_orders=1.\n",
+     "  records effective_orders=1.\n"
+     "\nr5 (ga-gegx): the overlay also gives nudge-on-route a 45m event lookback (and 2h dedup retention)\n"
+     "through [[orders.overrides]] env. In the previous window the routed task's bead.updated reached the\n"
+     "controller only after RESUME (cache reconcile, 16s after the worker went active), so a default 2m\n"
+     "lookback misses it whenever the worker takes longer than that to start. The effective config and the\n"
+     "isolated order list must show exactly that env.\n"),
 ]
 OLD_OVERLAY = Path('/var/tmp/ga-f37t-prep-20260923-r2/city.isolated.toml')
 OLD_OVERLAY_SHA = '9774a5692ec5537713b212bc3fef5c88edc34c82cb6fdcc11e949e7eefc8343e'
+NUDGE_OVERRIDE = ('\n[[orders.overrides]]\nname = "nudge-on-route"\n'
+                  'env = {GC_NUDGE_ON_ROUTE_LOOKBACK = "45m", GC_NUDGE_ON_ROUTE_RETENTION = "2h"}\n')
+PREP_ROOT = ('/var/tmp/ga-gegx-prep-20260923-r2', '/var/tmp/ga-gegx-prep-20260925-r3')
 
 
 def sha(raw):
@@ -185,6 +221,15 @@ def sources():
     return files
 
 
+def insert_override(text):
+    """Insert NUDGE_OVERRIDE right after the [orders] skip line that the window header opens."""
+    assert text.count('\n[orders]\nskip = [') == 1
+    start = text.index('\n[orders]\nskip = [')
+    end = text.index('\n', start + len('\n[orders]\n')) + 1
+    assert text[end:].startswith('\n[[patches.agent]]\n')
+    return text[:end] + NUDGE_OVERRIDE + text[end:]
+
+
 def successor_overlay():
     raw = OLD_OVERLAY.read_bytes()
     assert sha(raw) == OLD_OVERLAY_SHA
@@ -194,6 +239,7 @@ def successor_overlay():
                             ('"nudge-on-route", ', '', 1)):
         assert text.count(old) == count, old
         text = text.replace(old, new)
+    text = insert_override(text)
     return text.encode()
 
 
@@ -220,6 +266,7 @@ def rebind(files):
             text = text.replace(old, new)
         for index, phrase in enumerate(KEEP):
             text = text.replace('\x00KEEP%d\x00' % index, phrase)
+        text = text.replace(*PREP_ROOT)
         if name == 'prep-r11.py':
             for old, new in PREP_SUBS:
                 assert text.count(old) == 1, old[:60]
@@ -237,10 +284,11 @@ def rebind(files):
         if name == 'operator/PREP.sh':
             text, found = re.subn(r'# staging log below\. It is the reviewed .*?inherited from them\.\n',
                                   '# staging log below. It is the reviewed ga-f37t prep, rebound to ga-gegx with\n'
-                                  '# nudge-on-route kept out of the order skip list.\n', text, flags=re.S)
+                                  '# nudge-on-route kept out of the order skip list and given a 45m event\n'
+                                  '# lookback through an order override.\n', text, flags=re.S)
             assert found == 1
             assert text.count('# ga-gegx window prep r3:') == 1
-            text = text.replace('# ga-gegx window prep r3:', '# ga-gegx window prep r4:')
+            text = text.replace('# ga-gegx window prep r3:', '# ga-gegx window prep r5:')
         if name == 'observe-integrity-r11.py':
             text, found = re.subn(r"^RECOVER_ROOT='[^']*'\nRECOVER_SHA='[0-9a-f]{64}'\n",
                                   "RECOVER_ROOT='%s'\nRECOVER_SHA='%s'\n" % (RECOVER2_ROOT, RECOVER2_RESULT_SHA),

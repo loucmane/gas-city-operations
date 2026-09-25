@@ -1,8 +1,9 @@
 #!/bin/sh
-# ga-gegx window prep r4: the isolation overlay and its receipt image. Read-only: installs nothing
-# and launches no worker. It writes its fresh evidence root /var/tmp/ga-gegx-prep-20260923-r2 plus the
+# ga-gegx window prep r5: the isolation overlay and its receipt image. Read-only: installs nothing
+# and launches no worker. It writes its fresh evidence root /var/tmp/ga-gegx-prep-20260925-r3 plus the
 # staging log below. It is the reviewed ga-f37t prep, rebound to ga-gegx with
-# nudge-on-route kept out of the order skip list.
+# nudge-on-route kept out of the order skip list and given a 45m event
+# lookback through an order override.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner). The runner starts it as
 #   systemd-run --user --wait --collect --quiet --service-type=oneshot --unit=gc-job-<id> \
@@ -13,8 +14,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-gegx-window
 COMMIT=${1:?usage: PREP.sh <reviewed commit>}
-PREP_SHA=c35ba99fddebcd9ed7fbfe905d4963565e0277de6365d4b421593655011200e6
-OUT=/var/tmp/ga-gegx-prep-20260923-r2
+PREP_SHA=5a3bcf8730af2225ff5b79500939eece031f4a6f83e8ddcc5603c7b31dfaec98
+OUT=/var/tmp/ga-gegx-prep-20260925-r3
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

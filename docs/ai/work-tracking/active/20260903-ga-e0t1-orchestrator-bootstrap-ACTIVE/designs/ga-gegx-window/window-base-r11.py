@@ -18,7 +18,7 @@ import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-gegx-window')
 ROOT = Path('/var/tmp/ga-gegx-window-20260925-r2')
-PREP = Path('/var/tmp/ga-gegx-prep-20260923-r2')
+PREP = Path('/var/tmp/ga-gegx-prep-20260925-r3')
 SUSPENSION = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
 LINEAGE_SHA = '4b0d4c5bb713dc4ac802efc5c45f126d026c83fb5ea03fcb5f40d0c680cacbf0'
 SUPPORT = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6')
