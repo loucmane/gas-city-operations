@@ -68,7 +68,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-gegx-window/window-base-r11.py')
-BASE_SHA = '4eb744287085548bd6aeccb996b91117b961acbe8b7777c74ece9f81dcc7f9e1'
+BASE_SHA = 'c4792576d358ee354c6f1186fb541e58fe1aa11e94dc7db0d6e4fe7697a063a1'
 WINDOW = Path('/var/tmp/ga-gegx-window-20260925-r2')
 INPUT = Path('/home/loucmane/.local/share/gas-city-staging/ga-gegx-window/release')
 TASK = 'ga-gegx'

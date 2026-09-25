@@ -1,6 +1,7 @@
 """The ga-gegx package is exactly the successor derivation of the reviewed ga-f37t s7 package."""
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -35,6 +36,13 @@ def package_files():
 
 
 NUDGE_ENV = {'GC_NUDGE_ON_ROUTE_LOOKBACK': '45m', 'GC_NUDGE_ON_ROUTE_RETENTION': '2h'}
+
+
+def load_file(name, path):
+    spec = __import__('importlib.util').util.spec_from_file_location(name, path)
+    module = __import__('importlib.util').util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def prep_constant(prep, name):
@@ -199,35 +207,102 @@ class Derivation(unittest.TestCase):
         watch = (HERE/'watch-r11.py').read_text()
         self.assertIn("ORDER_STATE = Path('/home/loucmane/gascity/city/.gc/runtime/packs/core/nudge-on-route-state.json')", watch)
         self.assertIn("NUDGE_QUEUE = Path('/home/loucmane/gascity/city/.gc/nudges/state.json')", watch)
-        self.assertLess(watch.index("w.save('pane-unnamed.json', unnamed)"), watch.index('nudge = nudge_evidence(w)'))
-        spec = __import__('importlib.util').util.spec_from_file_location('watch', HERE/'watch-r11.py')
-        watch_module = __import__('importlib.util').util.module_from_spec(spec)
-        spec.loader.exec_module(watch_module)
-        self.assertEqual(watch_module.ORDER_KEY, 'ga-gegx|gascity/gc.implementation-worker')
+        self.assertLess(watch.index("w.save('pane-unnamed.json', unnamed)"), watch.index('nudge = nudge_evidence()'))
+        m = load_file('watch_s2', HERE/'watch-r11.py')
+        self.assertEqual(m.ORDER_KEY, 'ga-gegx|gascity/gc.implementation-worker')
+        self.assertEqual(m.EVIDENCE_LIMIT, 1 << 20)
         with tempfile.TemporaryDirectory() as scratch:
             scratch = Path(scratch)
-            reads = []
-
-            class W:
-                @staticmethod
-                def read(path):
-                    reads.append(path)
-                    return Path(path).read_bytes()
-            watch_module.ORDER_STATE = scratch/'order.json'
-            watch_module.NUDGE_QUEUE = scratch/'queue.json'
-            absent = watch_module.nudge_evidence(W)
-            self.assertEqual((absent['order_state_present'], absent['queue_present'], absent['queued']),
-                             (False, False, None))
-            (scratch/'order.json').write_text(json.dumps({watch_module.ORDER_KEY: '2026-09-25T12:00:00Z',
-                                                          'other|x': '2026-09-25T11:00:00Z'}))
-            (scratch/'queue.json').write_text(json.dumps(dict(
+            m.ORDER_STATE = scratch/'order.json'
+            m.NUDGE_QUEUE = scratch/'queue.json'
+            absent = m.nudge_evidence()
+            self.assertEqual((absent['order_state'], absent['queue'], absent['queued']), ('absent', 'absent', None))
+            m.ORDER_STATE.write_text(json.dumps({m.ORDER_KEY: '2026-09-25T12:00:00Z', 'other|x': 'y'}))
+            m.NUDGE_QUEUE.write_text(json.dumps(dict(
                 pending=[dict(id='n1', agent='gascity/gc.implementation-worker', session_id='ci-x',
                               source='session', message='check for assigned work')],
                 in_flight=[], dead=[dict(id='d1'), dict(id='d2')])))
-            found = watch_module.nudge_evidence(W)
-            self.assertEqual(found['order_pair'], '2026-09-25T12:00:00Z')
+            found = m.nudge_evidence()
+            self.assertEqual((found['order_state'], found['queue'], found['order_pair']),
+                             ('ok', 'ok', '2026-09-25T12:00:00Z'))
             self.assertEqual((found['queued'], found['dead'], found['pending'][0]['id']), (1, 2, 'n1'))
-            self.assertEqual(reads, [scratch/'order.json', scratch/'queue.json'] * 2)
+            # A second link (what a racing rename looks like to the open descriptor) is recorded, not raised.
+            os.link(m.ORDER_STATE, scratch/'order.link')
+            linked = m.nudge_evidence()
+            self.assertTrue(linked['order_state'].startswith('RuntimeError: worker file shape or size'))
+            self.assertIsNone(linked['order_pair'])
+            os.unlink(scratch/'order.link')
+            # Core's prune failure can leave just a newline; a bad or odd queue is recorded too.
+            m.ORDER_STATE.write_text('\n')
+            m.NUDGE_QUEUE.write_text(json.dumps(dict(pending=[1])))
+            odd = m.nudge_evidence()
+            self.assertTrue(odd['order_state'].startswith('JSONDecodeError'))
+            self.assertTrue(odd['queue'].startswith('unexpected shape'))
+            self.assertEqual((odd['queued'], odd['pending']), (None, []))
+            m.NUDGE_QUEUE.write_text('[]')
+            self.assertEqual(m.nudge_evidence()['queue'], 'unexpected shape: list')
+            m.NUDGE_QUEUE.write_bytes(b'{' + b' ' * (1 << 20) + b'}')
+            self.assertTrue(m.nudge_evidence()['queue'].startswith('RuntimeError: worker file shape or size'))
+
+    def test_barrier_retries_a_runtime_probe_partial_status(self):
+        m = load_file('base_s2r2', HERE/'window-base-r11.py')
+        if not Path(m.SUSPENSION).exists():
+            self.skipTest('NOT PROVEN on this host: no suspension state path for statvfs')
+        rigs = ('gascity', 'gas-city-template', 'hpfetcher', 'blog')
+        full = dict(ok=True, city_path=str(m.CITY), running=True, controller=dict(running=True, pid=2331),
+                    rigs=[dict(name=n, suspended=True) for n in rigs], suspended=True, agents=[],
+                    summary=dict(running_agents=0), health=dict(signals=['city_suspended', 'no_agents_running']))
+        partial = dict(full, partial=True, partial_errors=list(m.RUNTIME_PROBE_PARTIAL))
+        expected = dict(city=dict(suspended=True), rigs={n: dict(suspended=True) for n in rigs})
+
+        def run(action, statuses):
+            clock = [0.0]
+            saved = {}
+            now = __import__('time').time_ns()
+            record = dict(pin=dict(sha256='x', metadata=dict(atime_ns=now, mtime_ns=now - 10, ctime_ns=now - 10)),
+                          raw='{}')
+            feed = iter(statuses)
+
+            def phase(name, argv, b, owned, timeout=None):
+                clock[0] += 9
+                return dict(stdout=json.dumps(next(feed)))
+            m.phase = phase
+            m.module = lambda path, pin: types.SimpleNamespace(image=lambda first: expected)
+            m.suspension_record = lambda o: json.loads(json.dumps(record))
+            m.save = lambda name, value: saved.__setitem__(name, value)
+            m.active_epoch = lambda o: None
+            m.time = types.SimpleNamespace(monotonic=lambda: clock[0], time_ns=lambda: now,
+                                           sleep=lambda s: clock.__setitem__(0, clock[0] + s))
+            return m.observed_suspension_endpoint(action, None, None, None), saved
+
+        # The ga-f37t CONTAIN-1 case: one probe-partial observation, then a complete one.
+        _, saved = run('rig-suspend', [partial, full])
+        self.assertIn('suspension-rig-suspend-barrier-partial-0.json', saved)
+        self.assertNotIn('suspension-rig-suspend-partial-accepted.json', saved)
+        # A suspend that only ever sees the probe partial accepts it in the last PROBE_LATE seconds.
+        _, saved = run('city-suspend', [partial] * 20)
+        accepted = saved['suspension-city-suspend-partial-accepted.json']
+        self.assertTrue(saved['suspension-city-suspend-barrier-partial-%d.json' % accepted['index']]['late'])
+        self.assertFalse(saved['suspension-city-suspend-barrier-partial-0.json']['late'])
+        # A resume never accepts it, and any other partial status still refuses at once.
+        with self.assertRaisesRegex(RuntimeError, 'suspension observation timeout'):
+            run('city-resume', [partial] * 20)
+        other = dict(full, partial=True, partial_errors=['store probe incomplete'])
+        with self.assertRaisesRegex(RuntimeError, 'incomplete/wrong-controller'):
+            run('rig-suspend', [other])
+        with self.assertRaisesRegex(RuntimeError, 'incomplete/wrong-controller'):
+            m.suspension_status_matches(partial, expected)
+        self.assertTrue(m.suspension_status_matches(partial, expected, True))
+        evidence = Path('/var/tmp/ga-f37t-window-20260925-r2/rig-suspend-status-0-phase.json')
+        if evidence.exists():
+            observed = json.loads(json.loads(evidence.read_text())['stdout'])
+            self.assertTrue(m.runtime_probe_partial(observed))
+
+    def test_reconcile_wrapper_checks_the_root_it_writes(self):
+        wrapper = (HERE/'operator'/'RECONCILE.sh').read_text()
+        [root] = re.findall(r"^ROOT=Path\('([^']+)'\)$", (HERE/'reconcile-predecessor-r3.py').read_text(), re.M)
+        self.assertEqual(root, '/var/tmp/ga-gegx-reconcile-20260925-r1')
+        self.assertEqual(set(re.findall(r'/var/tmp/ga-gegx-reconcile-[0-9]+-r[0-9]+', wrapper)), {root})
 
     def test_observe_binds_the_recover2_result(self):
         observe = (HERE/'observe-integrity-r11.py').read_text()

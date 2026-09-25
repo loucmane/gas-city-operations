@@ -25,7 +25,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-gegx-reconcile-20260923-r1 ] && [ ! -L /var/tmp/ga-gegx-reconcile-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-gegx-reconcile-20260923-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-gegx-reconcile-20260925-r1 ] && [ ! -L /var/tmp/ga-gegx-reconcile-20260925-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-gegx-reconcile-20260925-r1"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

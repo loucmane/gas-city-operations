@@ -14,10 +14,10 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-gegx-window')
 ROOT=Path('/var/tmp/ga-gegx-route-20260923-r1')
 BIND=Path('/var/tmp/ga-gegx-bind-20260923-r1')
-BIND_SHA='2fc0d0a9ff4570a97611fd58560193d68edd034e0c8c4a3e3f2945b3540c6f6f'
+BIND_SHA='593ce4b25e8ea2e60e8d91d8c100a7d24d5282c276fe709448118e5c6ef95278'
 BRIEF_SHA='863ce0852143bbb3d1f7cc5f24a7751d3cad0cf1b519ff6dd0e5a9bdcf2b023e'
 HELPER=HERE/'window-r11.py'
-SHA='16f25e2635aef95e1bcec7155f6f4aa65c5ed4a3b53062fcc398133b08db81eb'
+SHA='b306609639f43ec7a9da9af8825c9e7efb94d1860f52a2a9f94374340ef80451'
 TARGET='gascity/gc.implementation-worker'
 
 def main():

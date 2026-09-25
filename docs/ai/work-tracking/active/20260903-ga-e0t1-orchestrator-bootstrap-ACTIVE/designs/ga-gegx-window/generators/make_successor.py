@@ -214,33 +214,49 @@ PREP_R5 = Path('/var/tmp/ga-gegx-prep-20260925-r3')
 
 NUDGE_EVIDENCE = '''
 
-def nudge_evidence(w):
+def evidence_file(path, attempts=3):
+    """One read-only evidence file: (decoded JSON or None, 'ok' | 'absent' | the error text).
+
+    bounded_read checks the open descriptor (regular, uid 1000, one link, at most EVIDENCE_LIMIT bytes,
+    unchanged while read) and never touches the access time. Both writers replace their file by rename, so a
+    read that races a rename sees an unlinked or changed inode and is tried again, up to `attempts` times.
+    """
+    error = None
+    for _ in range(attempts):
+        try:
+            return json.loads(bounded_read(path, EVIDENCE_LIMIT)), 'ok'
+        except FileNotFoundError:
+            return None, 'absent'
+        except (OSError, RuntimeError, ValueError) as exc:
+            error = '%s: %s' % (type(exc).__name__, exc)
+    return None, error
+
+
+def nudge_evidence():
     """Read-only nudge-on-route evidence: the order's recorded pair for the task and Core's queued nudges.
 
-    Both files are read once through the base read() (O_NOATIME, regular file, uid 1000, nlink 1, one
-    stable descriptor) and never locked. Both writers replace the file by rename, so a read sees one whole
-    version. A missing file is recorded as absent. Evidence only: nothing here refuses a WATCH.
+    Evidence only. Every read or decode error is recorded, and nothing here refuses a WATCH.
     """
-    value = dict(order_pair=None, order_state_present=False, queue_present=False, queued=None, pending=[],
-                 in_flight=[], dead=None)
-    try:
-        state = json.loads(w.read(ORDER_STATE))
-        value['order_state_present'] = True
-        value['order_pair'] = state.get(ORDER_KEY) if isinstance(state, dict) else None
-    except FileNotFoundError:
-        pass
-    try:
-        queue = json.loads(w.read(NUDGE_QUEUE))
-        value['queue_present'] = True
-        for kind in ('pending', 'in_flight'):
-            value[kind] = [dict(id=i.get('id'), agent=i.get('agent'), session_id=i.get('session_id'),
-                                source=i.get('source'), message=i.get('message'),
-                                deliver_after=i.get('deliver_after'), attempts=i.get('attempts'))
-                           for i in queue.get(kind) or []]
-        value['dead'] = len(queue.get('dead') or [])
-        value['queued'] = len(value['pending']) + len(value['in_flight'])
-    except FileNotFoundError:
-        pass
+    value = dict(order_pair=None, order_state=None, queue=None, queued=None, pending=[], in_flight=[], dead=None)
+    state, value['order_state'] = evidence_file(ORDER_STATE)
+    if isinstance(state, dict):
+        value['order_pair'] = state.get(ORDER_KEY)
+    elif value['order_state'] == 'ok':
+        value['order_state'] = 'unexpected shape: ' + type(state).__name__
+    queue, value['queue'] = evidence_file(NUDGE_QUEUE)
+    if isinstance(queue, dict):
+        try:
+            for kind in ('pending', 'in_flight'):
+                value[kind] = [dict(id=i.get('id'), agent=i.get('agent'), session_id=i.get('session_id'),
+                                    source=i.get('source'), message=i.get('message'),
+                                    deliver_after=i.get('deliver_after'), attempts=i.get('attempts'))
+                               for i in queue.get(kind) or []]
+            value['dead'] = len(queue.get('dead') or [])
+            value['queued'] = len(value['pending']) + len(value['in_flight'])
+        except (AttributeError, TypeError) as exc:
+            value.update(queue='unexpected shape: %s' % exc, pending=[], in_flight=[], queued=None, dead=None)
+    elif value['queue'] == 'ok':
+        value['queue'] = 'unexpected shape: ' + type(queue).__name__
     return value
 '''
 
@@ -251,10 +267,11 @@ WATCH_SUBS = [
      "# pack state file; Core keeps a nudge it could not deliver at once in the flock'd queue file.\n"
      "ORDER_STATE = Path('/home/loucmane/gascity/city/.gc/runtime/packs/core/nudge-on-route-state.json')\n"
      "ORDER_KEY = TASK + '|' + TEMPLATE\n"
-     "NUDGE_QUEUE = Path('/home/loucmane/gascity/city/.gc/nudges/state.json')\n"),
+     "NUDGE_QUEUE = Path('/home/loucmane/gascity/city/.gc/nudges/state.json')\n"
+     "EVIDENCE_LIMIT = 1 << 20\n"),
     ("    w.save('pane-unnamed.json', unnamed)\n",
      "    w.save('pane-unnamed.json', unnamed)\n"
-     "    nudge = nudge_evidence(w)\n"
+     "    nudge = nudge_evidence()\n"
      "    w.save('nudge.json', nudge)\n"),
     ("                  directories_pass_admission_check=directories_unchanged)\n"
      "    w.save('result.json', result)\n",
@@ -266,6 +283,65 @@ WATCH_SUBS = [
      "                          order_nudge_recorded=result['order_nudge_recorded'], queued_nudges=nudge['queued'])))\n"),
     ("\n\ndef main():\n", NUDGE_EVIDENCE + "\n\ndef main():\n"),
 ]
+
+# s2 r2: the lifecycle barrier retries a gc status whose only gap is Core's runtime probe timeout, and a
+# suspend accepts one only at the end of its deadline. The ga-f37t CONTAIN-1 rig-suspend barrier refused on
+# its first such observation (/var/tmp/ga-f37t-window-20260925-r2/rig-suspend-status-0-phase.json: exit 0,
+# "runtime status probe timed out; using partial status", every rig suspended, no running agent), which
+# stranded the lifecycle.
+BARRIER_SUBS = [
+    ("def suspension_status_matches(value, expected):\n"
+     "    require(value.get('ok') is True and value.get('city_path')==str(CITY)\n"
+     "        and value.get('running') is True and not value.get('partial')\n"
+     "        and not value.get('partial_errors')\n",
+     "RUNTIME_PROBE_PARTIAL = ['runtime status probe incomplete; non-running agent rows are unknown']\n"
+     "\n"
+     "def runtime_probe_partial(value):\n"
+     "    # ga-gegx s2 r2: the one partial gc status Core reports when only its runtime (tmux) probe timed out.\n"
+     "    return value.get('partial') is True and value.get('partial_errors') == RUNTIME_PROBE_PARTIAL\n"
+     "\n"
+     "def suspension_status_matches(value, expected, probe_partial=False):\n"
+     "    # probe_partial admits exactly the runtime-probe partial status and nothing else incomplete.\n"
+     "    require(value.get('ok') is True and value.get('city_path')==str(CITY)\n"
+     "        and value.get('running') is True\n"
+     "        and ((probe_partial and runtime_probe_partial(value))\n"
+     "             or (not value.get('partial') and not value.get('partial_errors')))\n"),
+    ("    deadline=time.monotonic()+30;index=0\n",
+     "    # ga-gegx s2 r2: a status whose only gap is the runtime probe is not yet an observation. It is\n"
+     "    # recorded and polled again. A suspend (city-suspend, rig-suspend) accepts it only in the last\n"
+     "    # PROBE_LATE seconds of the deadline, with every other check unchanged. The window's later CLOSE\n"
+     "    # proves the process state from cgroup membership, not from this status. A resume never accepts it.\n"
+     "    deadline=time.monotonic()+BARRIER_SECONDS;index=0\n"),
+    ("        if (suspension_status_matches(json.loads(r['stdout']),expected)\n"
+     "                and suspension_atime_stable(flags,current['pin']['metadata'],time.time_ns())):\n"
+     "            active_epoch(o)\n"
+     "            require(current==suspension_record(o),'suspension endpoint not stable')\n"
+     "            return current\n",
+     "        status=json.loads(r['stdout'])\n"
+     "        probe=runtime_probe_partial(status)\n"
+     "        late=deadline-time.monotonic()<PROBE_LATE\n"
+     "        if probe:\n"
+     "            save('suspension-'+action+'-barrier-partial-'+str(index)+'.json',\n"
+     "                 dict(partial_errors=status.get('partial_errors'),late=late))\n"
+     "        if probe and not (late and action.endswith('-suspend')):\n"
+     "            index+=1\n"
+     "            time.sleep(min(1,max(0,deadline-time.monotonic())))\n"
+     "            continue\n"
+     "        if (suspension_status_matches(status,expected,probe)\n"
+     "                and suspension_atime_stable(flags,current['pin']['metadata'],time.time_ns())):\n"
+     "            active_epoch(o)\n"
+     "            require(current==suspension_record(o),'suspension endpoint not stable')\n"
+     "            if probe:\n"
+     "                save('suspension-'+action+'-partial-accepted.json',dict(index=index,status=status))\n"
+     "            return current\n"),
+    ("def observed_suspension_endpoint(action,b,o,owned):\n",
+     "BARRIER_SECONDS = 90\n"
+     "PROBE_LATE = 25\n"
+     "\n"
+     "def observed_suspension_endpoint(action,b,o,owned):\n"),
+]
+
+RECONCILE_WRAPPER = ('/var/tmp/ga-gegx-reconcile-20260923-r1', '/var/tmp/ga-gegx-reconcile-20260925-r1')
 
 
 def sha(raw):
@@ -337,9 +413,15 @@ def rebind(files):
             text = text.replace('\x00KEEP%d\x00' % index, phrase)
         text = text.replace(*PREP_ROOT)
         if name == 'window-base-r11.py':
+            for old, new in BARRIER_SUBS:
+                assert text.count(old) == 1, old[:60]
+                text = text.replace(old, new)
             for old, new in PREP_PINS:
                 assert text.count(old) == 1, old
                 text = text.replace(old, new)
+        if name == 'operator/RECONCILE.sh':
+            assert text.count(RECONCILE_WRAPPER[0]) == 3
+            text = text.replace(*RECONCILE_WRAPPER)
         if name == 'watch-r11.py':
             for old, new in WATCH_SUBS:
                 assert text.count(old) == 1, old[:60]

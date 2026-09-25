@@ -473,10 +473,18 @@ def suspension_atime_stable(flags, metadata, now_ns):
     return (metadata['atime_ns'] > max(metadata['mtime_ns'],metadata['ctime_ns'])
         and 0 <= now_ns-metadata['atime_ns'] < 3600*10**9)
 
-def suspension_status_matches(value, expected):
+RUNTIME_PROBE_PARTIAL = ['runtime status probe incomplete; non-running agent rows are unknown']
+
+def runtime_probe_partial(value):
+    # ga-gegx s2 r2: the one partial gc status Core reports when only its runtime (tmux) probe timed out.
+    return value.get('partial') is True and value.get('partial_errors') == RUNTIME_PROBE_PARTIAL
+
+def suspension_status_matches(value, expected, probe_partial=False):
+    # probe_partial admits exactly the runtime-probe partial status and nothing else incomplete.
     require(value.get('ok') is True and value.get('city_path')==str(CITY)
-        and value.get('running') is True and not value.get('partial')
-        and not value.get('partial_errors')
+        and value.get('running') is True
+        and ((probe_partial and runtime_probe_partial(value))
+             or (not value.get('partial') and not value.get('partial_errors')))
         and value['controller']['running'] is True and value['controller']['pid']==2331,
         'incomplete/wrong-controller suspension observation')
     rows=value['rigs']; rigs={r['name']:r['suspended'] for r in rows}
@@ -494,6 +502,9 @@ def suspension_status_matches(value, expected):
     return (value['suspended']==expected['city']['suspended']
         and all(v==expected['rigs'][name]['suspended'] for name,v in rigs.items()))
 
+BARRIER_SECONDS = 90
+PROBE_LATE = 25
+
 def observed_suspension_endpoint(action,b,o,owned):
     s=module(HERE/'suspension-lineage.py',LINEAGE_SHA)
     flags=os.statvfs(SUSPENSION).f_flag
@@ -501,7 +512,11 @@ def observed_suspension_endpoint(action,b,o,owned):
     first=suspension_record(o)
     save('suspension-'+action+'-barrier-initial.json',first)
     expected=s.image(first)
-    deadline=time.monotonic()+30;index=0
+    # ga-gegx s2 r2: a status whose only gap is the runtime probe is not yet an observation. It is
+    # recorded and polled again. A suspend (city-suspend, rig-suspend) accepts it only in the last
+    # PROBE_LATE seconds of the deadline, with every other check unchanged. The window's later CLOSE
+    # proves the process state from cgroup membership, not from this status. A resume never accepts it.
+    deadline=time.monotonic()+BARRIER_SECONDS;index=0
     while True:
         remaining=deadline-time.monotonic()
         require(remaining>0,'suspension observation timeout; no lifecycle retry')
@@ -512,10 +527,22 @@ def observed_suspension_endpoint(action,b,o,owned):
         x=json.loads(json.dumps(first));z=json.loads(json.dumps(current))
         x['pin']['metadata'].pop('atime_ns');z['pin']['metadata'].pop('atime_ns')
         require(x==z,'suspension changed during controller observation')
-        if (suspension_status_matches(json.loads(r['stdout']),expected)
+        status=json.loads(r['stdout'])
+        probe=runtime_probe_partial(status)
+        late=deadline-time.monotonic()<PROBE_LATE
+        if probe:
+            save('suspension-'+action+'-barrier-partial-'+str(index)+'.json',
+                 dict(partial_errors=status.get('partial_errors'),late=late))
+        if probe and not (late and action.endswith('-suspend')):
+            index+=1
+            time.sleep(min(1,max(0,deadline-time.monotonic())))
+            continue
+        if (suspension_status_matches(status,expected,probe)
                 and suspension_atime_stable(flags,current['pin']['metadata'],time.time_ns())):
             active_epoch(o)
             require(current==suspension_record(o),'suspension endpoint not stable')
+            if probe:
+                save('suspension-'+action+'-partial-accepted.json',dict(index=index,status=status))
             return current
         index+=1
         time.sleep(min(1,max(0,deadline-time.monotonic())))

@@ -116,7 +116,8 @@ The worktree `/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles` 
 
 1. **s1 r3:** two SOURCE_PASS reviews naming only `operator/PREP.sh`. PREP r5 passed on 2026-09-25 at
    10:38:03Z (job `ga-gegx-s1r3-prep`), root `/var/tmp/ga-gegx-prep-20260925-r3`.
-2. **s2 (this commit):** see "s2" below. Its two reviews name RECONCILE, BIND and the window wrappers.
+2. **s2 r2 (this commit):** see "s2" below. Both reviews held s2 (`d82c7afe`); s2 r2 fixes their
+   must_fix items. Its two reviews name the 34 window wrappers (every wrapper except PREP).
 3. **Window:**
    - RECONCILE and BIND;
    - the cache and start-gate checks;
@@ -144,8 +145,8 @@ Writes made with bd while the city was suspended emitted no event at all:
 - ROUTE of ga-f37t at 11:40:55;
 - the ga-f37t window's RECONCILE of ga-4z38, on 2026-09-25 at 00:22.
 
-The ga-4z38 window shows the same pattern: its task's only event (seq 1344024, 2026-09-24 23:12:24) came
-22 seconds after RESUME.
+The ga-4z38 window shows the same pattern. Its task's only event (seq 1344024, 2026-09-24 23:12:24) came
+42 seconds after `city.resumed` (seq 1344014) and 22 seconds after `session.woke` (seq 1344021).
 
 So in this window the order sees one routed pair, `ga-gegx|gascity/gc.implementation-worker`, reported
 when the controller stamps the worker's attempt. RECONCILE's update of ga-f37t is written while suspended
@@ -155,30 +156,47 @@ calls by the coordinator between PREFLIGHT and postflight-2), the order has no s
 2h retention prunes an entry only on a run that sees some pair, and that run refreshes the ga-gegx entry
 first, so the pair is not nudged again.
 
-**Why a nudge cannot approve anything.** Core's order nudge uses `wait-idle` delivery. It types its text
-and presses Enter once the pane shows the `❯ ` prompt, and a queued nudge is delivered by the poller once
-the session has been quiet long enough. Neither checks for a dialog (Core `cmd/gc/cmd_nudge.go`,
-`internal/runtime/tmux/tmux.go` `WaitForIdle`).
+**What an order nudge can answer.** Core's order nudge uses `wait-idle` delivery. It types its text and
+presses Enter once any of the last 120 pane lines starts with `❯ `. A queued nudge is delivered by the
+poller once the session has been quiet long enough. Neither checks for a dialog (Core `cmd/gc/cmd_nudge.go`;
+`internal/runtime/tmux/tmux.go` `WaitForIdle` and `matchesPromptPrefix`). A Claude selection menu marks
+its highlighted choice with `❯ `, so an order nudge could answer any menu on screen.
 
-The worker profile runs Claude with `--permission-mode dontAsk` (PREP r5 `receipt.final.json`). In that
-mode Claude denies every tool call that is not pre-allowed and never shows a permission dialog, so there
-is no approval for an Enter to answer. The only dialog left is the startup workspace trust prompt:
-- the ga-f37t worker started at an empty prompt;
-- the early WATCH pane captures record whether one appears.
+- **Permission dialogs cannot occur.** The worker profile runs Claude with `--permission-mode dontAsk`
+  (PREP r5 `receipt.final.json`). In that mode Claude denies every tool call that is not pre-allowed and
+  never shows a permission dialog.
+- **The workspace trust prompt is not expected.** `~/.claude.json` records no trust for the ga-gegx
+  worktree or its parents (`/home/loucmane` is `false`). The worktree's Git repository,
+  `/home/loucmane/gascity/city/rigs/gascity` (its common directory `rigs/gascity/.git`), is trusted.
+  The ga-f37t worktree had the same layout and the same absence of its own entry. Its first two WATCH
+  captures (`/var/tmp/ga-f37t-watch-20260925T094247Z` and `...094319Z`, `pane-0-phase.json`) show the
+  Claude banner, an empty `❯` prompt and "don't ask on", with no trust prompt.
+- **Residual.** If a trust prompt did appear, a live order nudge could accept it. That grants workspace
+  trust for a worktree of an already trusted repository. It grants no tool permission, and dontAsk still
+  applies. The early WATCH captures would record it, and the coordinator treats any visible menu as a
+  stop and contains.
 
-**WATCH nudge evidence.** Each WATCH now reads two files once, read-only, through the base `read()` (with
-O_NOATIME and no lock):
+**WATCH nudge evidence.** Each WATCH reads two files once, read-only:
 - the order's pack state file, `city/.gc/runtime/packs/core/nudge-on-route-state.json`;
 - Core's nudge queue, `city/.gc/nudges/state.json`.
 
-It records whether the ga-gegx pair has been nudged (`order_nudge_recorded`) and every pending or
-in-flight queued nudge (`queued_nudges`) in `nudge.json` and the result. This is evidence only and refuses
-nothing.
+Both reads use the package's `bounded_read`. It checks the open descriptor: a regular file, uid 1000,
+one link, at most 1 MiB, unchanged while read. It uses O_NOATIME and takes no lock. A read that races a
+writer's rename is tried up to three times. Any read, decode or shape error is recorded as evidence and
+never raised.
+
+The WATCH records whether the ga-gegx pair has been nudged (`order_nudge_recorded`) and every pending or
+in-flight queued nudge (`queued_nudges`), in `nudge.json` and the result. Tests exercise the absent,
+valid, second-link, one-newline, bad-shape and oversize cases against the real `bounded_read`.
 
 Operating rule: a WATCH after RESUME is expected to show `order_nudge_recorded` true and the worker
-claiming. If it shows the pair recorded but a queued nudge still pending while the pane shows a dialog,
-the coordinator treats it as a stop and contains. Before 2026-09-25 the queue file held 26 dead items and
-nothing pending, and the order state file held one entry from 2026-08-20.
+claiming. Any visible menu or dialog in a pane capture is a stop, and the coordinator contains.
+
+Before the window (2026-09-25), read-only:
+- the queue file held 26 dead items and nothing pending;
+- the order state file held one entry, from 2026-08-20;
+- a city-store query for `order-run:nudge-on-route` tracking beads returned none, so no open tracking
+  bead can hold the order back (Core `order_dispatch.go` open-work gate).
 
 **What the order writes during the window, and why the window checks admit it.**
 - Order-tracking beads and their cursor labels go into the city store. No window check counts ledger
@@ -189,4 +207,43 @@ nothing pending, and the order state file held one entry from 2026-08-20.
 - The order reads the pack cache (`nudge-on-route.sh`, `_bd_trace.sh`). Cache access times inside the
   window are already accounted for by `cache-atime-policy-r1.py`.
 - The order's children (`bash`, `jq`, `gc`) run in the controller cgroup for a few seconds per run and
-  only while the city runs. CONTAIN suspends the city before CLOSE observes processes.
+  only while the city runs. They inherit `GIT_OPTIONAL_LOCKS=0` from the supervisor unit drop-in
+  (`~/.config/systemd/user/gascity-supervisor-home-42adab5d.service.d/90-gas-city-cache-readonly.conf`,
+  through `cmd.Environ()` in Core `cmd/gc/order_dispatch.go`). Their `gc` reads therefore cannot move the
+  pack-cache `.git` times.
+- Any directory listing that these `gc` children make of the city root or city `.beads` after STAGE falls
+  under operator-accepted residual (1) (`stable_read_times`). It is not a new admission.
+- A nudge that is queued creates a shadow nudge bead in the city store (Core `ensureQueuedNudgeBead`). The
+  city runs the legacy nudge dispatcher (`NudgeDispatcher` is empty in PREP r5 `config.isolated.json`), so a
+  queued nudge also starts a detached `gc nudge poll` sidecar. That sidecar lives as long as the session,
+  which is through CONTAIN until CLOSE. Its argv and working directory do not name the worktree, and its
+  files are under `.gc/nudges`, so no WATCH, CLOSE or preservation check counts it.
+- Fallback path: when no active member is listed yet, the script nudges the template name itself. For a
+  managed session that is not running, Core then queues the nudge and requests a wake (`cmd_nudge.go`
+  `shouldQueueManagedNudgeWake`). The only session for the template is the worker's own, which Core is
+  already starting. The queued nudge is delivered by the poller once the session is quiet.
+
+**Lifecycle barrier (s2 r2).** Both s2 reviews and the ga-f37t record show a failure the package had not
+fixed. The ga-f37t CONTAIN-1 rig-suspend barrier refused on its first `gc status`, and the lifecycle
+stranded (`/var/tmp/ga-f37t-window-20260925-r2/rig-suspend-status-0-phase.json`). That status exited 0
+after 8.4 seconds with "runtime status probe timed out; using partial status", and
+`partial_errors` = ["runtime status probe incomplete; non-running agent rows are unknown"]. It also
+showed every rig suspended and no running agent.
+
+`observed_suspension_endpoint` now works as follows:
+- It records such a status (`suspension-<action>-barrier-partial-<n>.json`) and polls again, within a
+  deadline raised from 30 to 90 seconds.
+- A suspend (city-suspend or rig-suspend) accepts that exact partial status only in the last 25 seconds
+  of the deadline. Every other check still applies: controller, rigs, running agents, health signals, the
+  suspension file endpoint and its access-time stability. It then records
+  `suspension-<action>-partial-accepted.json`.
+- A resume never accepts it.
+- Any other partial status still refuses at once.
+
+CLOSE proves process state from cgroup membership, not from this status. A test drives the real barrier
+function with a fake clock through four cases: the ga-f37t sequence, a suspend that only ever sees the
+partial status, a resume and another partial error.
+
+**RECONCILE wrapper root (s2 r2).** `operator/RECONCILE.sh` now checks
+`/var/tmp/ga-gegx-reconcile-20260925-r1`, which is the root `reconcile-predecessor-r3.py` writes. A test
+requires the two to be equal.

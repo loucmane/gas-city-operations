@@ -29,7 +29,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-gegx-window/window-base-r11.py')
-BASE_SHA = '4eb744287085548bd6aeccb996b91117b961acbe8b7777c74ece9f81dcc7f9e1'
+BASE_SHA = 'c4792576d358ee354c6f1186fb541e58fe1aa11e94dc7db0d6e4fe7697a063a1'
 TASK = 'ga-gegx'
 WINDOW = Path('/var/tmp/ga-gegx-window-20260925-r2')
 VAR = Path('/var/tmp')
@@ -40,6 +40,7 @@ EVIDENCE = '.gc/worker-evidence/ga-gegx'
 ORDER_STATE = Path('/home/loucmane/gascity/city/.gc/runtime/packs/core/nudge-on-route-state.json')
 ORDER_KEY = TASK + '|' + TEMPLATE
 NUDGE_QUEUE = Path('/home/loucmane/gascity/city/.gc/nudges/state.json')
+EVIDENCE_LIMIT = 1 << 20
 
 
 def load():
@@ -185,33 +186,49 @@ def entry(w, path):
     return row
 
 
-def nudge_evidence(w):
+def evidence_file(path, attempts=3):
+    """One read-only evidence file: (decoded JSON or None, 'ok' | 'absent' | the error text).
+
+    bounded_read checks the open descriptor (regular, uid 1000, one link, at most EVIDENCE_LIMIT bytes,
+    unchanged while read) and never touches the access time. Both writers replace their file by rename, so a
+    read that races a rename sees an unlinked or changed inode and is tried again, up to `attempts` times.
+    """
+    error = None
+    for _ in range(attempts):
+        try:
+            return json.loads(bounded_read(path, EVIDENCE_LIMIT)), 'ok'
+        except FileNotFoundError:
+            return None, 'absent'
+        except (OSError, RuntimeError, ValueError) as exc:
+            error = '%s: %s' % (type(exc).__name__, exc)
+    return None, error
+
+
+def nudge_evidence():
     """Read-only nudge-on-route evidence: the order's recorded pair for the task and Core's queued nudges.
 
-    Both files are read once through the base read() (O_NOATIME, regular file, uid 1000, nlink 1, one
-    stable descriptor) and never locked. Both writers replace the file by rename, so a read sees one whole
-    version. A missing file is recorded as absent. Evidence only: nothing here refuses a WATCH.
+    Evidence only. Every read or decode error is recorded, and nothing here refuses a WATCH.
     """
-    value = dict(order_pair=None, order_state_present=False, queue_present=False, queued=None, pending=[],
-                 in_flight=[], dead=None)
-    try:
-        state = json.loads(w.read(ORDER_STATE))
-        value['order_state_present'] = True
-        value['order_pair'] = state.get(ORDER_KEY) if isinstance(state, dict) else None
-    except FileNotFoundError:
-        pass
-    try:
-        queue = json.loads(w.read(NUDGE_QUEUE))
-        value['queue_present'] = True
-        for kind in ('pending', 'in_flight'):
-            value[kind] = [dict(id=i.get('id'), agent=i.get('agent'), session_id=i.get('session_id'),
-                                source=i.get('source'), message=i.get('message'),
-                                deliver_after=i.get('deliver_after'), attempts=i.get('attempts'))
-                           for i in queue.get(kind) or []]
-        value['dead'] = len(queue.get('dead') or [])
-        value['queued'] = len(value['pending']) + len(value['in_flight'])
-    except FileNotFoundError:
-        pass
+    value = dict(order_pair=None, order_state=None, queue=None, queued=None, pending=[], in_flight=[], dead=None)
+    state, value['order_state'] = evidence_file(ORDER_STATE)
+    if isinstance(state, dict):
+        value['order_pair'] = state.get(ORDER_KEY)
+    elif value['order_state'] == 'ok':
+        value['order_state'] = 'unexpected shape: ' + type(state).__name__
+    queue, value['queue'] = evidence_file(NUDGE_QUEUE)
+    if isinstance(queue, dict):
+        try:
+            for kind in ('pending', 'in_flight'):
+                value[kind] = [dict(id=i.get('id'), agent=i.get('agent'), session_id=i.get('session_id'),
+                                    source=i.get('source'), message=i.get('message'),
+                                    deliver_after=i.get('deliver_after'), attempts=i.get('attempts'))
+                               for i in queue.get(kind) or []]
+            value['dead'] = len(queue.get('dead') or [])
+            value['queued'] = len(value['pending']) + len(value['in_flight'])
+        except (AttributeError, TypeError) as exc:
+            value.update(queue='unexpected shape: %s' % exc, pending=[], in_flight=[], queued=None, dead=None)
+    elif value['queue'] == 'ok':
+        value['queue'] = 'unexpected shape: ' + type(queue).__name__
     return value
 
 
@@ -266,7 +283,7 @@ def main():
         run('pane-%d' % index, ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', name],
             expected=(0, 1))
     w.save('pane-unnamed.json', unnamed)
-    nudge = nudge_evidence(w)
+    nudge = nudge_evidence()
     w.save('nudge.json', nudge)
     processes = []
     for proc in Path('/proc').iterdir():
