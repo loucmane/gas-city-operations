@@ -1,0 +1,95 @@
+package config
+
+// ga-e0t1.15 offline expectation probe; copied as zz_cache_expect_test.go into a scratch clone only.
+// Prints, for the source tree it is compiled in, every bundled source that resolves to the synthetic
+// pack cache at a canonical pin, its repo cache key, the embedded content hash, and the exact file
+// manifest MaterializeSyntheticRepo writes. It never touches a live cache.
+
+import (
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
+	"io/fs"
+	"os"
+	"path/filepath"
+	"sort"
+	"testing"
+
+	"github.com/gastownhall/gascity/internal/builtinpacks"
+)
+
+func TestGaE0t115CacheExpectation(t *testing.T) {
+	commits := []string{
+		BundledPackImportVersion, PublicGascityPackVersion, PublicGastownPackVersion,
+	}
+	type key struct{ Source, Commit, Key string }
+	seen := map[string]bool{}
+	var keys []key
+	for _, pack := range builtinpacks.All() {
+		var sources []string
+		if s, ok := builtinpacks.Source(pack.Name); ok {
+			sources = append(sources, s)
+		}
+		if s, ok := builtinpacks.CanonicalImportSource(pack.Name); ok {
+			sources = append(sources, s)
+		}
+		for _, s := range sources {
+			for _, v := range commits {
+				c := v[len("sha:"):]
+				if !IsBundledSourceAtCanonicalPin(s, c) {
+					continue
+				}
+				k := RepoCacheKey(s, c)
+				if !seen[s+c] {
+					seen[s+c] = true
+					keys = append(keys, key{s, c, k})
+				}
+			}
+		}
+	}
+	sort.Slice(keys, func(i, j int) bool { return keys[i].Source+keys[i].Commit < keys[j].Source+keys[j].Commit })
+	hash, err := builtinpacks.SyntheticContentHash()
+	if err != nil {
+		t.Fatal(err)
+	}
+	dst := filepath.Join(t.TempDir(), "repo")
+	if err := builtinpacks.MaterializeSyntheticRepo(dst, BundledPackImportVersion[len("sha:"):]); err != nil {
+		t.Fatal(err)
+	}
+	type entry struct {
+		Path, Mode, SHA256 string
+		Size               int64
+	}
+	var files []entry
+	err = filepath.WalkDir(dst, func(p string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, _ := filepath.Rel(dst, p)
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		e := entry{Path: filepath.ToSlash(rel), Mode: fmt.Sprintf("%o", info.Mode())}
+		if d.Type().IsRegular() {
+			data, err := os.ReadFile(p)
+			if err != nil {
+				return err
+			}
+			e.SHA256 = fmt.Sprintf("%x", sha256.Sum256(data))
+			e.Size = int64(len(data))
+		}
+		files = append(files, e)
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	out, _ := json.MarshalIndent(map[string]any{
+		"content_hash": hash, "key_component": builtinpacks.SyntheticCacheKeyComponent(),
+		"keys": keys, "materialized_files": files,
+	}, "", " ")
+	if err := os.WriteFile(os.Getenv("GA_E0T115_OUT"), out, 0o600); err != nil {
+		t.Fatal(err)
+	}
+}
