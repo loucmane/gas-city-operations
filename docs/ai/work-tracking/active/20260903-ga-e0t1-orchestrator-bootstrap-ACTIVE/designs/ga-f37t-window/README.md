@@ -266,6 +266,48 @@ operator chose to account reads instead of waiting.
   - a changed mtime, ctime, size or mode blocks alignment;
   - a content change stays visible, because the digest sits beside the metadata record and is still compared.
 
+## s6 (after STAGE refused at s5 r5; operator chose recovery plus fix)
+
+s5 r5 (`817b29c6`) passed two job reviews. OBSERVE passed at 2026-09-25 08:34:35Z and PREFLIGHT at 08:35:15Z (the
+start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
+- **Cause.** STAGE's `stage-city` phase replaced city.toml with the staged overlay at 08:35:56Z. The controller
+  applied the change by itself, so the window's `gc reload` (08:35:56-08:36:05Z) answered outcome `no_change` at
+  the expected staged revision `758aa29b` (ok, synchronous, not soft), and `window-r11.py` accepted only
+  `applied`. The route files were regenerated at 08:36:04Z, inside that reload phase. The receipt was never
+  applied, no lifecycle ran, ga-f37t was not routed and no worker attempt was spent. The city was left with the
+  staged city.toml (`9774a569`), the accepted receipt (`0b30c23f`) and the controller at the staged revision.
+- **Fix.** The window's reload now accepts `applied` or `no_change` at the expected revision. Its trace wait
+  still requires the controller to report that revision completed. The route preimage and its clock are now
+  captured in `transition` before the city write, not at the start of the reload, so the route event brackets a
+  regeneration by the controller's own apply. `route-chain-r1.py validate_event` accepts the same two outcomes.
+- **Recovery (`recover-stage-r1.py`, `operator/RECOVER.sh`, once).**
+  - It checks the refused root's exact file list and pinned records, the staged city.toml, the accepted
+    receipt, an unchanged suspension state (access time aside) and unchanged route content.
+  - It restores city.toml with the reviewed confined atomic replace (window-base `inner city 0`), reloads
+    (`applied` or `no_change` at the accepted revision `d6ca85cd`), and waits for the trace to report that
+    revision completed.
+  - It records the recovered city.toml pin, and makes ordinary reads of the four start-gate objects so that
+    relatime refreshes whatever it may.
+  - It never writes the receipt, the suspension state, a route or a Bead, and never starts a worker. Its
+    wrapper refuses if a city tmux server is running.
+- **Admission.** `approved_recovery_image()` in window-base replaces only the city.toml pin entry, with the
+  one the recovery recorded. That entry must keep the accepted content digest and shape. The disposition
+  applies only when OBSERVE sets `RECOVERY` to the recovery root and the recovery executor digest it pins. The
+  root must be the job's 0700 directory, its intent must name that executor, and its result must be ok with no
+  receipt write and no worker. The recovery script pins window-base, and OBSERVE pins the recovery script, so
+  the digests have no cycle.
+- **Fresh roots.** The window root moves to `/var/tmp/ga-f37t-window-20260925-r2` (r1 holds the refused
+  STAGE, which the recovery reads) and the integrity root to `/var/tmp/ga-f37t-integrity-20260925-r5` (r4 was
+  consumed by the s5 r5 OBSERVE).
+- **Run order.**
+  1. The cache lstat check, then RECOVER.
+  2. The start-gate forecast. The recovery's reads refresh what relatime allows. The suspension state and the
+     provisioning directory stay gated by their own access times: under 19 hours until 18:50 and 19:23 CEST,
+     then refreshable by a read after 23:50 CEST and 00:23 CEST.
+  3. OBSERVE, PREFLIGHT, STAGE and ROUTE.
+  4. WATCH-1 and the RESUME decision, as in s5 r2.
+- The two operator-accepted residuals and the operating rules from s5 are unchanged.
+
 ## Phases
 
 1. **s1 (`912e4d48`):** its two reviews named only `operator/PREP.sh`, so the job runner admitted only PREP. PREP

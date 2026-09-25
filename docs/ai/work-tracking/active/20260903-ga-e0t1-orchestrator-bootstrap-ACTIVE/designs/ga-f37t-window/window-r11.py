@@ -16,7 +16,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-f37t-window')
-BASE_SHA='852b571dbc6e10d3f99a06bdb374077c57147e923a6be7b77b8fc987e7ad21d0'
+BASE_SHA='ea03593f4e764a6e4667b80d62a65f4af73b8dca82f4c9f411c705cb3d58430e'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):
@@ -35,11 +35,13 @@ def load(path,expected,name):
 
 w=load(HERE/'window-base-r11.py',BASE_SHA,'window_r7_base')
 p=load(HERE/'cache-atime-policy-r1.py',POLICY_SHA,'window_r7_atime')
-w.ROOT=Path('/var/tmp/ga-f37t-window-20260923-r1')
+w.ROOT=Path('/var/tmp/ga-f37t-window-20260925-r2')
 original_save=w.save
 original_snapshot=w.snapshot
 original_preservation=w.preservation
 active_snapshot=None
+# s6: the route preimage, captured before the city write (see transition).
+pending_routes=None
 
 CACHE=Path('/home/loucmane/gascity/home/cache/repos')
 
@@ -122,9 +124,9 @@ def cache_preservation(before,after,city_pin,receipt_pin):
 routes=load(HERE/'restore-r9-routes-r3.py',
     '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2','window_routes')
 routes_policy=load(HERE/'route-chain-r1.py',
-    '55fd9fefb9c512a486084e3c1e0900b3ad63a315f919b3c4213701e51b0a2144','window_route_chain')
-INTEGRITY=Path('/var/tmp/ga-f37t-integrity-20260925-r4')
-OBSERVER_SHA='89c081a39c6f60e68caccb040143cdb26ff55e829e0ef8ec9c6afa7241220f59'
+    'dee67afb4729b0d590d6708732721c6921a90d10081fb74fa047e27d57047d74','window_route_chain')
+INTEGRITY=Path('/var/tmp/ga-f37t-integrity-20260925-r5')
+OBSERVER_SHA='b769edc38e888b744bd384be625d342e79e2f6c51187360df612b65f959e2325'
 INSPECTOR_SHA='b8ebcde38a9ee8078752949226f6736ea14a25413fba73db4d95076261658d13'
 
 def integrity_baseline(first):
@@ -219,15 +221,20 @@ def precheck_reload(name,i):
     w.require(chain==([] if i==1 else ['stage-reload']),'reload chain precondition')
 
 def reload(name,i,b,owned):
+    global pending_routes
     precheck_reload(name,i)
-    before=routes.capture_routes(w,w.load_support()[1])
-    start=dict(start=clock_sample(),end=clock_sample())
+    # s6: the controller may apply the new city.toml by itself before this reload is processed (the
+    # s5 r5 STAGE refusal), so the route preimage and its clock come from before the city write.
+    w.require(pending_routes is not None and pending_routes['name']==name,
+        'route preimage not captured before the city write')
+    before=pending_routes['routes'];start=pending_routes['clock'];pending_routes=None
     p.bounds(w.record('before.json')['cache_access_clock'],start)
     w.save(name+'-intent.json',dict(revision=w.REVISION[i]))
     phase=w.phase(name,w.GC+['reload','--json'],b,owned)
     ack=json.loads(phase['stdout'])
     w.require(ack['ok'] is True and ack['async'] is False and ack['soft'] is False
-        and ack['outcome']=='applied' and ack['revision']==w.REVISION[i],'reload acknowledgement')
+        and ack['outcome'] in ('applied','no_change') and ack['revision']==w.REVISION[i],
+        'reload acknowledgement')
     # A timed-out observation never repeats reload. The 15s observation in the
     # preserved R3 restore was contained but too short; the successful read-only
     # successor established this bounded 90s per-read/120s total observation.
@@ -263,8 +270,12 @@ w.reload=reload
 original_transition=w.transition
 
 def transition(i,b,o,owned,prefix):
+    global pending_routes
     # Check orphan outputs before city replacement as well as before reload.
     precheck_reload(prefix+'-reload',i)
+    # s6: capture the route preimage and its clock before the city write.
+    pending_routes=dict(name=prefix+'-reload',routes=routes.capture_routes(w,o),
+        clock=dict(start=clock_sample(),end=clock_sample()))
     return original_transition(i,b,o,owned,prefix)
 
 w.transition=transition

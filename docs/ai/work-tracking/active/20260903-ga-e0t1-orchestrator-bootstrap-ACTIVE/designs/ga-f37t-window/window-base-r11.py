@@ -17,7 +17,7 @@ import time
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-f37t-window')
-ROOT = Path('/var/tmp/ga-f37t-window-20260923-r1')
+ROOT = Path('/var/tmp/ga-f37t-window-20260925-r2')
 PREP = Path('/var/tmp/ga-f37t-prep-20260923-r2')
 SUSPENSION = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
 LINEAGE_SHA = '4b0d4c5bb713dc4ac802efc5c45f126d026c83fb5ea03fcb5f40d0c680cacbf0'
@@ -292,6 +292,34 @@ def stable_read_times(paths=None, now_ns=None):
 def stable_read_paths():
     return (SUSPENSION, CITY, CITY/'.beads', RECEIPT.parent)
 
+RECOVERY = None
+
+def approved_recovery_image(prior, root, executor):
+    # ga-f37t s6 disposition, operator-approved 2026-09-25, for independent review: the s6 recovery job
+    # restored city.toml to its accepted bytes after the refused s5 r5 STAGE, so only the city.toml pin
+    # entry (new inode and times) differs from the image the earlier dispositions admit. OBSERVE sets
+    # RECOVERY to the recovery root and the recovery executor digest it pins. The root must be the job's
+    # exclusive 0700 directory, its intent must name that executor, and its result must be ok with no receipt
+    # write and no worker. The recorded pin must keep the accepted content digest and shape; only then does
+    # it replace the city.toml entry. Every other pin, the cache, the protected trees and the host stay
+    # compared as before. Never reuse this for fresh drift.
+    root = Path(root)
+    s = root.lstat()
+    require(stat.S_ISDIR(s.st_mode) and s.st_uid == 1000 and stat.S_IMODE(s.st_mode) == 0o700,
+            'recovery root authority')
+    require(json.loads(read(root/'intent.json')) == dict(executor_sha256=executor,
+            refused_root='/var/tmp/ga-f37t-window-20260923-r1', operation='restore-city-and-reload-only'), 'recovery executor')
+    result = json.loads(read(root/'result.json'))
+    require(result.get('ok') is True and result.get('receipt_written') is False
+            and result.get('worker_launched') is False, 'recovery result')
+    value = json.loads(json.dumps(prior))
+    path = str(CITY/'city.toml')
+    after = result['city_pin']
+    require(after['sha256'] == value['pins'][path]['sha256'], 'recovered content differs')
+    require(shape(after) == shape(value['pins'][path]), 'recovered pin shape')
+    value['pins'][path] = after
+    return value
+
 def directories(o):
     fd = os.open(CITY, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_NOATIME)
     try:
@@ -351,7 +379,10 @@ def snapshot(name, b, o):
                  protected={str(p): o.tree_snapshot(p, protected=True) for p in b.PROTECTED})
     require(h == host(o), 'host changed during snapshot')
     if name == 'before.json':
-        if dependency_image(approved_coordinator_cache_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h)))) != dependency_image(value):
+        image = approved_coordinator_cache_image(approved_restore_image(approved_epoch_image(approved_historical_image(prior), h)))
+        if RECOVERY is not None:
+            image = approved_recovery_image(image, *RECOVERY)
+        if dependency_image(image) != dependency_image(value):
             save('before-refused-observation.json',value)
             raise RuntimeError('accepted baseline drift')
     value['providers'] = provider_pins(b,o)

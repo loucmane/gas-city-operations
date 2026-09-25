@@ -11,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-f37t-window
 COMMIT=${1:?usage: BIND.sh <reviewed commit>}
-BIND_SHA=b46bb77f7fd953328721673662567c16850548a6109230f57ef3a0a6106557ca
+BIND_SHA=47f3d947066e2e558f3e6aec93cd14b008b2f2cc51e7de7094afda72864729da
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,7 +27,7 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
 { [ ! -e /var/tmp/ga-f37t-bind-20260923-r1 ] && [ ! -L /var/tmp/ga-f37t-bind-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-f37t-bind-20260923-r1"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/ga-f37t-window-20260923-r1 ] && [ ! -L /var/tmp/ga-f37t-window-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-f37t-window-20260923-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-f37t-window-20260925-r2 ] && [ ! -L /var/tmp/ga-f37t-window-20260925-r2 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-f37t-window-20260925-r2"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

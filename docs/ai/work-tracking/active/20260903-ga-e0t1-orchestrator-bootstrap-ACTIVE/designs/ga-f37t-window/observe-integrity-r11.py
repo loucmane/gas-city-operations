@@ -12,11 +12,13 @@ import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-f37t-window')
-ROOT=Path('/var/tmp/ga-f37t-integrity-20260925-r4')
+ROOT=Path('/var/tmp/ga-f37t-integrity-20260925-r5')
 BUILD=Path('/var/tmp/ga-4z38-platform-inspector-20260924-r1')
-W_SHA='367e96d050c949f07729fe5ee43dd77382c18ef5cb3eaf184dedbf15a742ddec'
+W_SHA='bdbfd243d2683d59c3ed429661a03155979a06a675c2f8751e9fd9cb74c71a97'
 BINARY_SHA='b8ebcde38a9ee8078752949226f6736ea14a25413fba73db4d95076261658d13'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
+RECOVER_ROOT='/var/tmp/ga-f37t-recover-20260925-r1'
+RECOVER_SHA='8eda57ec30e70142c2294c10e435eda940fa32bd4db546c109654f502ca89c81'
 MANIFEST_SHA='2d7eadce62c4e567697813cc9122414f1e94c3bd9d389aef92015adef7f36319'
 
 def load_window():
@@ -49,6 +51,8 @@ def provider_pins(w,o):
 def main():
     r=load_window();w=r.w;w.require(globals().get('_SOURCE_SHA'),'bound entry')
     w.read(Path(__file__),_SOURCE_SHA)
+    # s6: admit the city.toml the recovery job restored (window-base approved_recovery_image).
+    w.RECOVERY=(RECOVER_ROOT,RECOVER_SHA)
     b,o,owned=w.load_support();w.pins()
     w.read(BUILD/'platform-inspect',BINARY_SHA)
     result=json.loads(w.read(BUILD/'build-result.json','39bfcea56f8932623d6b60ffe745de9f7029e76ba01fdd0d7da90c2fc402eaf9'))

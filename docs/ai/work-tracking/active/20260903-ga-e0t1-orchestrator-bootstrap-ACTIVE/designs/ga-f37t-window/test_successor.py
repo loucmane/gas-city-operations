@@ -346,6 +346,99 @@ class Derivation(unittest.TestCase):
         self.assertEqual(text.count(gate), 1)
         self.assertEqual(text.count('stable_read_times()'), 1)
 
+    def recovery_root(self, m, json, **changes):
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        os.chmod(root, 0o700)
+        prior = json.loads(m.read(m.ACCEPTED, m.ACCEPTED_SHA))
+        city = str(m.CITY/'city.toml')
+        pin = json.loads(json.dumps(prior['pins'][city]))
+        pin['metadata']['inode'] += 1
+        intent = dict(executor_sha256='e' * 64, refused_root='/var/tmp/ga-f37t-window-20260923-r1',
+                      operation='restore-city-and-reload-only')
+        result = dict(ok=True, city_pin=pin, receipt_written=False, worker_launched=False)
+        intent.update(changes.pop('intent', {}))
+        result.update(changes.pop('result', {}))
+        (root/'intent.json').write_text(json.dumps(intent))
+        (root/'result.json').write_text(json.dumps(result))
+        return root, prior, city, pin
+
+    def test_recovery_disposition_admits_only_the_recovered_city_pin(self):
+        m, json = self.base()
+        root, prior, city, pin = self.recovery_root(m, json)
+        value = m.approved_recovery_image(prior, root, 'e' * 64)
+        self.assertEqual(value['pins'][city], pin)
+        rest = json.loads(json.dumps(value)); rest['pins'][city] = prior['pins'][city]
+        self.assertEqual(rest, prior)
+        # Another executor, a receipt write, a worker, changed content or a shared root refuses.
+        with self.assertRaisesRegex(RuntimeError, 'recovery executor'):
+            m.approved_recovery_image(prior, root, 'f' * 64)
+        for result, message in ((dict(receipt_written=True), 'recovery result'),
+                                (dict(worker_launched=True), 'recovery result'),
+                                (dict(ok=False), 'recovery result')):
+            other, *_ = self.recovery_root(m, json, result=result)
+            with self.assertRaisesRegex(RuntimeError, message):
+                m.approved_recovery_image(prior, other, 'e' * 64)
+        changed = json.loads(json.dumps(pin)); changed['sha256'] = '0' * 64
+        other, *_ = self.recovery_root(m, json, result=dict(city_pin=changed))
+        with self.assertRaisesRegex(RuntimeError, 'recovered content differs'):
+            m.approved_recovery_image(prior, other, 'e' * 64)
+        os.chmod(root, 0o755)
+        with self.assertRaisesRegex(RuntimeError, 'recovery root authority'):
+            m.approved_recovery_image(prior, root, 'e' * 64)
+        # The admission applies it only when OBSERVE sets RECOVERY.
+        base = (HERE/'window-base-r11.py').read_text()
+        self.assertIn('        if RECOVERY is not None:\n            image = approved_recovery_image(image, *RECOVERY)\n', base)
+        self.assertIsNone(m.RECOVERY)
+
+    def test_observe_binds_the_recovery_job(self):
+        observe = (HERE/'observe-integrity-r11.py').read_text()
+        [pin] = re.findall(r"^RECOVER_SHA='([0-9a-f]{64})'$", observe, re.M)
+        self.assertEqual(pin, sha(HERE/'recover-stage-r1.py'))
+        self.assertIn("RECOVER_ROOT='/var/tmp/ga-f37t-recover-20260925-r1'", observe)
+        self.assertIn('    w.RECOVERY=(RECOVER_ROOT,RECOVER_SHA)\n', observe)
+        recover = (HERE/'recover-stage-r1.py').read_text()
+        [base] = re.findall(r"^BASE_SHA = '([0-9a-f]{64})'$", recover, re.M)
+        [routes] = re.findall(r"^ROUTES_SHA = '([0-9a-f]{64})'$", recover, re.M)
+        self.assertEqual(base, sha(HERE/'window-base-r11.py'))
+        self.assertEqual(routes, sha(HERE/'restore-r9-routes-r3.py'))
+        self.assertIn("REFUSED_ROOT = Path('/var/tmp/ga-f37t-window-20260923-r1')", recover)
+        self.assertIn("ROOT = Path('/var/tmp/ga-f37t-window-20260925-r2')", (HERE/'window-base-r11.py').read_text())
+        # Every other file uses the fresh window root r2 and integrity root r5.
+        for path in package_files():
+            rel = str(path.relative_to(HERE))
+            if rel in OWN or rel in ('recover-stage-r1.py', 'operator/RECOVER.sh', 'window-base-r11.py'):
+                continue
+            text = path.read_text()
+            self.assertNotIn('ga-f37t-window-20260923-r1', text, rel)
+            self.assertNotIn('ga-f37t-integrity-20260925-r4', text, rel)
+
+    def test_recovery_binds_the_refused_root(self):
+        import json
+        refused = Path('/var/tmp/ga-f37t-window-20260923-r1')
+        if not refused.exists():
+            self.skipTest('no refused s5 r5 window root on this host')
+        recover = (HERE/'recover-stage-r1.py').read_text()
+        listed = sorted(os.listdir(refused))
+        self.assertIn('REFUSED_FILES = %r\n' % listed, recover)
+        for name, pin in (('stage-refused.json', 'REFUSED_SHA'), ('before.json', 'BEFORE_SHA'),
+                          ('stage-reload-phase.json', 'RELOAD_SHA'), ('suspension-baseline.json', 'BASELINE_SHA')):
+            self.assertIn("%s = '%s'" % (pin, sha(refused/name)), recover)
+        answer = json.loads(json.loads((refused/'stage-reload-phase.json').read_text())['stdout'])
+        self.assertEqual(answer['outcome'], 'no_change')
+
+    def test_reload_captures_routes_before_the_city_write(self):
+        window = (HERE/'window-r11.py').read_text()
+        transition = window[window.index('def transition(i,b,o,owned,prefix):'):]
+        self.assertLess(transition.index("pending_routes=dict(name=prefix+'-reload',routes=routes.capture_routes(w,o),"),
+                        transition.index('return original_transition(i,b,o,owned,prefix)'))
+        self.assertIn("    before=pending_routes['routes'];start=pending_routes['clock'];pending_routes=None\n", window)
+        self.assertIn("ack['outcome'] in ('applied','no_change') and ack['revision']==w.REVISION[i]", window)
+        self.assertNotIn("ack['outcome']=='applied'", window)
+        chain = (HERE/'route-chain-r1.py').read_text()
+        self.assertIn("ack['outcome'] in ('applied','no_change') and ack['revision']==revision", chain)
+        self.assertNotIn("ack['outcome']=='applied'", chain)
+
     def test_both_preservation_layers_account_read_times(self):
         call = "    accounting['read_time_changes']=w.account_read_times(a,z,accounting['window'])\n"
         for name in ('window-r11.py', 'window-obs-r11.py'):
