@@ -7,7 +7,9 @@ import subprocess
 import sys
 import tempfile
 import time
+import types
 import unittest
+from unittest import mock
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -315,6 +317,21 @@ class Derivation(unittest.TestCase):
         if v.st_atime_ns <= v.st_ctime_ns and v.st_atime_ns > v.st_mtime_ns:
             with self.assertRaisesRegex(RuntimeError, 'not stable for the window'):
                 m.stable_read_times([path], now_ns=v.st_atime_ns + hour)
+        # An access time in the future refuses.
+        os.utime(path, ns=(base + hour, s.st_mtime_ns))
+        w = path.lstat()
+        with self.assertRaisesRegex(RuntimeError, 'not stable for the window'):
+            m.stable_read_times([path], now_ns=w.st_atime_ns - 1)
+        # Newer than mtime but equal to ctime refuses, without depending on the host's clock.
+        fake = types.SimpleNamespace(st_atime_ns=500, st_mtime_ns=100, st_ctime_ns=500)
+        with mock.patch.object(m.os, 'lstat', return_value=fake):
+            with self.assertRaisesRegex(RuntimeError, 'not stable for the window'):
+                m.stable_read_times([path], now_ns=600)
+        # A mount that is not relatime, or is noatime, refuses before any access time is read.
+        for flags in (0, os.ST_RELATIME | os.ST_NOATIME):
+            with mock.patch.object(m.os, 'statvfs', return_value=types.SimpleNamespace(f_flag=flags)):
+                with self.assertRaisesRegex(RuntimeError, 'mount policy is not relatime'):
+                    m.stable_read_times([path], now_ns=w.st_atime_ns + hour)
         # The default path set is exactly the four objects.
         self.assertEqual(m.stable_read_paths(), (m.SUSPENSION, m.CITY, m.CITY/'.beads', m.RECEIPT.parent))
         # An access time not newer than mtime/ctime (refreshable by any read) refuses.

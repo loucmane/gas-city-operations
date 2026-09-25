@@ -204,13 +204,35 @@ operator chose to account reads instead of waiting.
   RESTORE is consumed. It does, however, spend the worker attempt if it happens after RESUME. The operator
   accepts this residual explicitly for this run; the gate's acceptance criterion is not met for these three
   objects after STAGE.
-- **Also not gated:** the five route files and the four rig `.beads` directories. The route chain compares them
-  exactly from PREFLIGHT to the stage reload, and a change there refuses in STAGE, before RESUME. No attempt is
-  spent.
+- **Also not gated: the five route files and the four rig `.beads` directories (s5 r4 correction).** The route
+  chain compares their full capture exactly, file and parent metadata including access times
+  (`restore-r9-routes-r3.py:82-93`, `route-chain-r1.py:62-70`), and does so before `account_read_times`:
+  - From PREFLIGHT to the stage reload, a change refuses in STAGE, before RESUME, so no attempt is spent.
+  - The stage reload regenerates every route file atomically (new inode), which moves each parent `.beads`
+    directory's mtime past its access time. From then until ADMIT, the route cursor (`cursor==last`) compares
+    them exactly. A listing of a rig `.beads` directory, or a read of a route file, that relatime turns into an
+    access-time write after RESUME refuses ADMIT and spends the worker attempt.
+
+  This is the same class as the residual above, it is unchanged from the ga-4z38 window, and it is part of the
+  residual the operator is asked to accept for this run.
+- **If ADMIT refuses on a residual,** RESTORE is not consumed and the city stays in the staged overlay (suspended
+  or in its last lifecycle state). Returning it to the accepted image then needs a separately reviewed recovery
+  successor. No automatic restore runs.
+- **Operating rule: WATCH-1 before RESUME.** WATCH-1 runs after STAGE and ROUTE, before RESUME, and records
+  `routes_unchanged_since_stage` (`watch-r11.py:81-94`), the same exact route check ADMIT applies. If it is not
+  true, a route-capture residual has already happened. Do not run RESUME: contain, close and restore instead,
+  so no attempt is spent. (WATCH's `directories_pass_admission_check` does not apply the read accounting and is
+  advisory only.)
+- **Runner note.** "A gate refusal consumes nothing" refers to the window root. The job runner still runs each
+  (commit, wrapper) pair once, so a PREFLIGHT refusal needs a new reviewed commit, which can reuse the same
+  window root.
+- **Suspension alignment switch.** `account_read_times` stops aligning the suspension pin as soon as a
+  `suspension-*-intent.json` exists. `lifecycle()` writes that file before the transition command runs. This is
+  slightly earlier than "after the first transition", and just as safe.
 - **Runtime children** are no longer walked. R6 compares them by identity only, as before s5.
 - **Residual risks, unchanged from earlier packages:**
-  - the directory access times after the renames and the reload (above);
-  - the generated route files are refreshable, as in the ga-4z38 window, which passed with them;
+  - the directory access times after the renames and the reload, and the five route files and four rig
+    `.beads` directories after the reload (both above; either can spend the attempt after RESUME);
   - OBSERVE and TERMINAL still require zero pack-cache access-time changes;
   - lists inside observations are not walked, which fails closed;
   - WATCH's ADMIT prediction (`watch-r11.py`) does not apply the read accounting, so it may predict a refusal
