@@ -254,7 +254,25 @@ Each consumer is re-pinned in the stage shown.
 | R7 or observe closures | full closure | S2 fresh predecessor |
 | aegis-obsidian-reconcile timer | pauses and restores around S2 and S3; reads live state | S2, S3 |
 | City shim `.gc/scripts/gc-beads-bd.sh` | embeds the bd cache key, which follows the embedded pack content | S2 (supervisor rewrite, admitted exactly) |
-| 53 skill and formula symlinks and 3 skill ownership manifests (`live-key-*.tsv`) | embed the cache key | S2 (repoint admitted per item, unchanged or exact) |
+| 143 skill and formula symlinks and 9 skill ownership manifests across the five roots (`live-key-*.tsv`) | embed the cache key | S2 (repoint admitted per item, unchanged or exact) |
+
+r5 review notes (SOURCE_PASS `c49a0a96`). The S2 package implements these:
+- **Manifest contents.** Each manifest holds 8 entries: the 7 `core.gc-*` entries, which carry the
+  key, and `gascity.mayor`, which points into the fork's git-clone cache `954ed149…` and does not
+  depend on the key. Links and entries match both ways (checked read-only on the city
+  `.claude/skills` sink). No manifest references `c5f076a22…`. The S2 inventory asserts both
+  directions on every sink and scans for `c5f076a22` as well.
+- **Manifest metadata.** A manifest in state (b) is rewritten by an atomic replace, so a new inode,
+  mtime and ctime are admitted, together with its sink directory's mtime and ctime.
+- **Symlinked directories.** The S2 walker refuses if any `.claude`, `.agents`, `.gemini`,
+  `.opencode`, `.mimocode` or `.beads` path component, or any `skills` or `formulas` path
+  component, under a root is a symlinked directory.
+- **Rig roots.** Preflight parses the rig paths from `city.toml` and `.gc/site.toml` and requires them
+  to equal the five inventory roots.
+- **Suspension predicate.** The persisted suspension state must hold an explicit city entry and an
+  entry for every rig. `gas-city-template` has no `suspended_on_start`. `GC_SUSPENDED` is not relied on.
+- **Relatime.** The reviewer read `city.toml`, `.gc/site.toml` and one path under `rigs/gascity`, so
+  the S2 baseline re-checks their atime freshness.
 
 ## Stop conditions
 
