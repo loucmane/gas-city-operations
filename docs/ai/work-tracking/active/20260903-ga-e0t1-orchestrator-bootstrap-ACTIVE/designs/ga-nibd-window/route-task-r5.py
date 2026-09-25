@@ -14,10 +14,10 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-nibd-window')
 ROOT=Path('/var/tmp/ga-nibd-route-20260923-r1')
 BIND=Path('/var/tmp/ga-nibd-bind-20260923-r1')
-BIND_SHA='e6d634acd52635c50a19b9191d0ef67dee8db123de0525965f27c1acf6e36f4c'
+BIND_SHA='c8d9c2598da5cf09e98f56918cca5f70d0dbb016316911c6865cb99b708a9466'
 BRIEF_SHA='092df28b4aca2ae0e0f67a75e41bd7c5caff0b510ef5a9bbfbc7d420a63487fe'
 HELPER=HERE/'window-r11.py'
-SHA='9ce406a43e8ca00d63f110a392edfa3fd4ff70379a135a7c6667b68c970a8f00'
+SHA='df9eae45980d744277b9c2d829c014b12b19e09520f9f0d4ca924966eda889b2'
 TARGET='gascity/gc.implementation-worker'
 
 def main():

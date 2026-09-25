@@ -84,7 +84,11 @@ Preconditions, all read-only and checked before the one pane write:
 - exactly one open session exists for `gascity/gc.implementation-worker`, in state `active`;
 - ga-nibd is `open`, unassigned and routed to that template, that is, not yet claimed;
 - the worker's visible pane shows no permission dialog or numbered menu. This check uses the release job's
-  own `pane_clear()` and dialog rules, with `release-r11.py` loaded by digest.
+  own dialog rules (`dialog_showing`), with `release-r11.py` loaded by digest;
+- the same capture shows Claude's empty input prompt: a line that is only the prompt glyph (`prompt_ready`).
+  So the text lands in a ready prompt, not in a TUI that is still starting. The capture is kept as the
+  `pane-before-kick` phase evidence. A test checks the rule against the ga-gegx WATCH capture of an idle
+  worker, and against a menu row, a typed line and a loading screen.
 
 Action: one `gc session nudge <session id> <MESSAGE> --delivery immediate --json`. Only an outcome of
 `delivered` passes. The message tells the worker to run `/home/loucmane/gascity/bin/gc hook --claim --json` as
@@ -96,11 +100,13 @@ A later slot refuses without a nudge once the task is claimed.
 
 ## Phases
 
-1. **s1 (this commit):** its two reviews name only `operator/PREP.sh`. PREP r6 writes the overlay and receipt
-   image to `/var/tmp/ga-nibd-prep-20260925-r1` and must match the derived overlay.
-2. **s2 (after PREP):**
-   - re-pin the PREP r6 outputs in `window-base-r11.py` (overlay, receipt image, revision, result);
-   - two reviews naming RECONCILE, BIND and every window wrapper, including KICK.
+1. **s1 (`1004f5b6`):** two SOURCE_PASS reviews naming only `operator/PREP.sh`. PREP r6 passed on 2026-09-25
+   at 12:40:01Z (job `ga-nibd-s1-prep`). Its outputs are overlay `c38c6cb4`, receipt image `77cd8486`,
+   revision `42e67fba` and result `dff7cad9`.
+2. **s2 (this commit):**
+   - `window-base-r11.py` pins the PREP r6 outputs; a test checks each pin against the r6 result fields;
+   - KICK also requires a ready empty prompt;
+   - its two reviews name the 37 window wrappers: every wrapper except PREP, including KICK-1..3.
 3. **Window:**
    - RECONCILE and BIND;
    - the read-only cache lstat and start-gate checks, and a fresh `~/.claude.json` snapshot;

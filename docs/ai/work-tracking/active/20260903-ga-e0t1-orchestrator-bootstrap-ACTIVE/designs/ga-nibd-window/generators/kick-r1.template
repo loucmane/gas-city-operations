@@ -11,8 +11,10 @@ Preconditions, all read-only and checked before the one pane write:
 - exactly one open session for the worker template exists, in state active;
 - the task is open, unassigned and routed to that template (not yet claimed);
 - the worker's visible pane shows no permission dialog or numbered menu. This uses the release job's own
-  pane_clear() and dialog rules (release-r11.py, loaded by digest), because the immediate nudge ends with
-  Enter, which would answer one.
+  dialog rules (release-r11.py dialog_showing, loaded by digest), because the immediate nudge ends with
+  Enter, which would answer one;
+- the same capture shows Claude's empty input prompt (a line that is only the prompt glyph), so the text
+  lands in a ready prompt and not in a starting TUI. The capture is kept as phase evidence.
 
 Action: one `gc session nudge <session id> <MESSAGE> --delivery immediate --json`. Only an outcome of
 delivered passes. The message tells the worker to claim with its standalone first command and then to follow
@@ -29,6 +31,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import sys
 import types
@@ -64,6 +67,14 @@ def load():
     return w
 
 
+READY_PROMPT = re.compile('^\\s*\u276f[\\s\u00a0]*$')
+
+
+def prompt_ready(pane):
+    """True when a captured line is Claude's empty input prompt and nothing else."""
+    return any(READY_PROMPT.match(line) for line in pane.splitlines())
+
+
 def unclaimed(task):
     """True for the routed task before any claim."""
     return (task.get('status') == 'open' and not task.get('assignee')
@@ -94,7 +105,10 @@ def main():
     w.require(len(live) == 1 and live[0].get('state') == 'active', 'exactly one active worker session')
     [task] = json.loads(run('task', w.GC + ['--rig', 'gascity', 'bd', 'show', TASK, '--json'])['stdout'])
     w.require(unclaimed(task), 'the task is already claimed or not routed; no kick')
-    r.pane_clear(w, run, live[0], 'pane-before-kick')
+    pane = run('pane-before-kick', ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t',
+                                    live[0]['session_name']])['stdout']
+    w.require(not r.dialog_showing(pane), 'the worker pane shows a permission dialog or menu')
+    w.require(prompt_ready(pane), 'the worker pane shows no ready empty prompt')
     nudge = r.document(run('nudge', w.GC + ['session', 'nudge', live[0]['id'], MESSAGE,
                                             '--delivery', 'immediate', '--json'])['stdout'])
     w.require(nudge.get('ok') is True and nudge.get('outcome') == 'delivered', 'kick not delivered')

@@ -14,7 +14,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-nibd-window')
 ROOT=Path('/var/tmp/ga-nibd-bind-20260923-r1')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='012dc1e396ea40eb041bd3ee5e28587ec8aceb16f9febb3b774ae2d069a4bd24'
+HELPER_SHA='e3340b3b13c27e31a53d014b6f2a3fb79a6d5d2e367d04bf6dbebddeb4a8712a'
 BRIEF_SHA='092df28b4aca2ae0e0f67a75e41bd7c5caff0b510ef5a9bbfbc7d420a63487fe'
 BEAD='ga-nibd'
 TARGET='gascity/gc.implementation-worker'

@@ -14,7 +14,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-nibd-window')
 ROOT=Path('/var/tmp/ga-nibd-integrity-20260925-r5')
 BUILD=Path('/var/tmp/ga-4z38-platform-inspector-20260924-r1')
-W_SHA='2cc725f6bd932c4d2cc3a58c8c768f81532073c3a815dd1e5712ab15594158d7'
+W_SHA='3f757124f914a9315b4074550fae257edcdd1997d9519772742c927d3c6f7dae'
 BINARY_SHA='b8ebcde38a9ee8078752949226f6736ea14a25413fba73db4d95076261658d13'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 RECOVER_ROOT='/var/tmp/ga-gegx-recover-20260925-r3'

@@ -131,6 +131,18 @@ RELOAD_NEW = (
 PREP_OVERLAY = Path('/var/tmp/ga-gegx-prep-20260925-r3/city.isolated.toml')
 PREP_OVERLAY_SHA = 'e6e24bd75d374a1e69719a9a9d2aa95060569d692d8ae8d63888fd05438c9540'
 KICK_SLOTS = 3
+# s2: window-base pins the ga-nibd PREP r6 outputs (job ga-nibd-s1-prep, 2026-09-25 12:40:01Z) in place of
+# the ga-gegx PREP r5 outputs it inherited.
+PREP_PINS = [
+    ('e6e24bd75d374a1e69719a9a9d2aa95060569d692d8ae8d63888fd05438c9540',
+     'c38c6cb43b6c1124529d66e1a10e1d69fc8cb3b21d4f1f12255de16dd991f5e9'),
+    ('9c5765b8588e1aec3a5fa3ffe31d170d4cfdc23052f7ac90a780da819cd587f6',
+     '77cd84868bf5bf4dc5490a579b5c1cfb5d3d1492728ad96f0c9957dffed2bbd5'),
+    ('56f39eb270cbe057d5f9fc313eca21c24cc469bcc18676bf38dd7c66a95b6363',
+     '42e67fba14e666e44de66d3bf12a49dd66f1ffeef5977cbe7aea358a74ce8a44'),
+    ('22e16a70309343f7abc6ebe976257a69c629d859306a291cbbe8c5f9eaebde58',
+     'dff7cad90face39def59c500f569893f1f4ec8ea6a6dc318a783291908f9bddc'),
+]
 
 
 def sha(raw):
@@ -225,6 +237,9 @@ def rebind(files):
         text = rename(text).replace('\x00G\x00', 'ga-gegx')
         if name == 'window-r11.py':
             text = sub(text, RELOAD_OLD, RELOAD_NEW)
+        if name == 'window-base-r11.py':
+            for old, new in PREP_PINS:
+                text = sub(text, "'%s'" % old, "'%s'" % new)
         if name == 'operator/RESTORE.sh':
             text = sub(text, 'step budget "$C/budget-r11.py" "$BUDGET_SHA" 25\n',
                        'step budget "$C/budget-r11.py" "$BUDGET_SHA" 45\n')

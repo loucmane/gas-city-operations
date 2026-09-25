@@ -11,8 +11,10 @@ Preconditions, all read-only and checked before the one pane write:
 - exactly one open session for the worker template exists, in state active;
 - the task is open, unassigned and routed to that template (not yet claimed);
 - the worker's visible pane shows no permission dialog or numbered menu. This uses the release job's own
-  pane_clear() and dialog rules (release-r11.py, loaded by digest), because the immediate nudge ends with
-  Enter, which would answer one.
+  dialog rules (release-r11.py dialog_showing, loaded by digest), because the immediate nudge ends with
+  Enter, which would answer one;
+- the same capture shows Claude's empty input prompt (a line that is only the prompt glyph), so the text
+  lands in a ready prompt and not in a starting TUI. The capture is kept as phase evidence.
 
 Action: one `gc session nudge <session id> <MESSAGE> --delivery immediate --json`. Only an outcome of
 delivered passes. The message tells the worker to claim with its standalone first command and then to follow
@@ -29,15 +31,16 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import stat
 import sys
 import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-nibd-window/window-base-r11.py')
-BASE_SHA = '012dc1e396ea40eb041bd3ee5e28587ec8aceb16f9febb3b774ae2d069a4bd24'
+BASE_SHA = 'e3340b3b13c27e31a53d014b6f2a3fb79a6d5d2e367d04bf6dbebddeb4a8712a'
 RELEASE = BASE.parent/'release-r11.py'
-RELEASE_SHA = '73654132f4f4a052be5e8ad4abca204dae80d310b3beb4aaa16d2504e6258595'
+RELEASE_SHA = '77bbaf2b342884625f9eaf1c93236d113ded2882fe6be83210046546d490f1bd'
 WINDOW = Path('/var/tmp/ga-nibd-window-20260925-r2')
 TASK = 'ga-nibd'
 TEMPLATE = 'gascity/gc.implementation-worker'
@@ -62,6 +65,14 @@ def load():
     w.__file__ = str(BASE)
     exec(compile(raw, str(BASE), 'exec', dont_inherit=True), w.__dict__)
     return w
+
+
+READY_PROMPT = re.compile('^\\s*\u276f[\\s\u00a0]*$')
+
+
+def prompt_ready(pane):
+    """True when a captured line is Claude's empty input prompt and nothing else."""
+    return any(READY_PROMPT.match(line) for line in pane.splitlines())
 
 
 def unclaimed(task):
@@ -94,7 +105,10 @@ def main():
     w.require(len(live) == 1 and live[0].get('state') == 'active', 'exactly one active worker session')
     [task] = json.loads(run('task', w.GC + ['--rig', 'gascity', 'bd', 'show', TASK, '--json'])['stdout'])
     w.require(unclaimed(task), 'the task is already claimed or not routed; no kick')
-    r.pane_clear(w, run, live[0], 'pane-before-kick')
+    pane = run('pane-before-kick', ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t',
+                                    live[0]['session_name']])['stdout']
+    w.require(not r.dialog_showing(pane), 'the worker pane shows a permission dialog or menu')
+    w.require(prompt_ready(pane), 'the worker pane shows no ready empty prompt')
     nudge = r.document(run('nudge', w.GC + ['session', 'nudge', live[0]['id'], MESSAGE,
                                             '--delivery', 'immediate', '--json'])['stdout'])
     w.require(nudge.get('ok') is True and nudge.get('outcome') == 'delivered', 'kick not delivered')

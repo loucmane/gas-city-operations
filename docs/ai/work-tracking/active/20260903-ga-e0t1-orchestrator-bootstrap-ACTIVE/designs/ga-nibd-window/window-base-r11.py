@@ -32,11 +32,11 @@ PROVISIONER = Path('/home/loucmane/gas-city-template/bin/gct-managed-worker-prov
 WITNESS = Path('/var/tmp/gct-m1wh-p6-adoption-20260923-r2/typed-support.json')
 WITNESS_SHA = '5a630443b7b47c0054b96f593b18d3012ac671d4124c25eae3afa54bcfe8cfeb'
 CITY_SHA = ('4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591',
-            'e6e24bd75d374a1e69719a9a9d2aa95060569d692d8ae8d63888fd05438c9540')
+            'c38c6cb43b6c1124529d66e1a10e1d69fc8cb3b21d4f1f12255de16dd991f5e9')
 RECEIPT_SHA = ('0b30c23f4484382fd4918f394599268f4f4005ac71118e8a7f82ca72eb9615ff',
-               '9c5765b8588e1aec3a5fa3ffe31d170d4cfdc23052f7ac90a780da819cd587f6')
+               '77cd84868bf5bf4dc5490a579b5c1cfb5d3d1492728ad96f0c9957dffed2bbd5')
 REVISION = ('d6ca85cd96c7aab4ea0b6a7954d2d74e5e6bb211cde0bb820f3b6f815023bd88',
-            '56f39eb270cbe057d5f9fc313eca21c24cc469bcc18676bf38dd7c66a95b6363')
+            '42e67fba14e666e44de66d3bf12a49dd66f1ffeef5977cbe7aea358a74ce8a44')
 INPUT = (Path('/var/tmp/gct-m1wh-p6-input-20260923-r2/receipt.input.draft.json'), PREP/'receipt.input.json')
 INPUT_SHA = ('24c1ca751303d5cab12a1605599d13cb5e5a152c977088fbb6869c7a052095ec',
              None)  # The isolated input is compared to the exact native-finalized wire below.
@@ -108,7 +108,7 @@ def load_support():
 
 def pins():
     # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.
-    read(PREP/'result.json', '22e16a70309343f7abc6ebe976257a69c629d859306a291cbbe8c5f9eaebde58')
+    read(PREP/'result.json', 'dff7cad90face39def59c500f569893f1f4ec8ea6a6dc318a783291908f9bddc')
     read(LAUNCH, '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea')
     read(PROVISIONER, '64425a728fc06a082865f2d53afcc6e4793974f5aadab49492d95f5e0a9f4a35')
     read(WITNESS, WITNESS_SHA)
