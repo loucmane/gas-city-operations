@@ -188,13 +188,16 @@ class Derivation(unittest.TestCase):
         slots = sorted((HERE/'operator').glob('KICK-*.sh'))
         self.assertEqual([p.stem for p in slots], ['KICK-1', 'KICK-2', 'KICK-3'])
         self.assertEqual(len({re.sub(r'(KICK-|kick-|Slot )\d', r'\1N', p.read_text()) for p in slots}), 1)
-        self.assertIn('step budget "$C/budget-r11.py" "$BUDGET_SHA" 60\n', slots[0].read_text())
+        self.assertIn('step budget "$C/budget-r11.py" "$BUDGET_SHA" 100\n', slots[0].read_text())
         # A ready prompt, as the ga-gegx WATCH captured it, and panes that are not ready.
         ready = '\u2500' * 20 + '\n\u276f\u00a0\n' + '\u2500' * 20 + "\n  \u23f5\u23f5 don't ask on\n"
         self.assertTrue(m.prompt_ready(ready))
         self.assertFalse(m.prompt_ready('\u276f 1. Yes, I trust this folder\n'))
         self.assertFalse(m.prompt_ready('\u276f check for assigned work\n'))
         self.assertFalse(m.prompt_ready('Loading...\n'))
+        self.assertEqual(m.BUSY, 'esc to interrupt')
+        self.assertLess(text.index("w.require(BUSY not in pane"), text.index("'--delivery', 'immediate'"))
+        self.assertIn("run('pane-after-kick'", text)
         capture = Path('/var/tmp/ga-gegx-watch-20260925T120509Z/pane-0-phase.json')
         if capture.exists():
             self.assertTrue(m.prompt_ready(json.loads(capture.read_text())['stdout']))
@@ -232,6 +235,15 @@ class Derivation(unittest.TestCase):
         self.assertIn("'%s')\nREVISION" % result['receipt_after_sha256'], base)
         self.assertEqual(result['receipt_after_sha256'], sha(root/'receipt.final.json'))
         self.assertIn("'%s')\nINPUT" % result['revision_after'], base)
+
+    def test_each_budget_gate_leaves_the_next_step_its_own(self):
+        def gate(name):
+            [minutes] = re.findall(r'^step budget "\$C/budget-r11.py" "\$BUDGET_SHA" (\d+)$',
+                                   (HERE/'operator'/name).read_text(), re.M)
+            return int(minutes)
+        self.assertGreaterEqual(gate('ADMIT.sh'), gate('RESTORE.sh') + 15)
+        self.assertGreater(gate('RESTORE.sh'), gate('TERMINAL.sh'))
+        self.assertGreaterEqual(gate('KICK-1.sh'), gate('SOURCE-RELEASE-1.sh'))
 
     def test_fresh_roots_and_dropped_files(self):
         for name in ('recover-restore-r1.py', 'operator/RECOVER-3.sh'):

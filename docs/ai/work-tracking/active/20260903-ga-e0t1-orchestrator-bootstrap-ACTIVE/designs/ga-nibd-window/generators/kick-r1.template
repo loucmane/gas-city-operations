@@ -22,7 +22,9 @@ the task notes. It starts with no `!`, `/` or `#` prefix and contains no digit t
 option. The job writes no Bead, route, lifecycle or file outside its fresh evidence root.
 
 A later slot repeats the same checks. It refuses without a nudge once the task is claimed (in_progress or
-assigned), so a kick never lands on a working worker.
+assigned) or while the pane shows a running turn. The checks and the nudge are separate reads seconds apart,
+so this is best effort: a claim made in that gap gets one extra, harmless claim reminder. A second capture
+after the nudge is kept as evidence.
 
 Usage (through the source launcher): kick-r1.py
 """
@@ -67,6 +69,8 @@ def load():
     return w
 
 
+# Claude Code shows this while a turn runs; Core's WaitForIdle uses the same marker (tmux.go busy indicator).
+BUSY = 'esc to interrupt'
 READY_PROMPT = re.compile('^\\s*\u276f[\\s\u00a0]*$')
 
 
@@ -109,9 +113,12 @@ def main():
                                     live[0]['session_name']])['stdout']
     w.require(not r.dialog_showing(pane), 'the worker pane shows a permission dialog or menu')
     w.require(prompt_ready(pane), 'the worker pane shows no ready empty prompt')
+    w.require(BUSY not in pane, 'the worker is in a turn')
     nudge = r.document(run('nudge', w.GC + ['session', 'nudge', live[0]['id'], MESSAGE,
                                             '--delivery', 'immediate', '--json'])['stdout'])
     w.require(nudge.get('ok') is True and nudge.get('outcome') == 'delivered', 'kick not delivered')
+    # Evidence only: the pane after the nudge (delivered means the keys reached tmux, not that Claude took them).
+    run('pane-after-kick', ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', live[0]['session_name']])
     w.ROOT = WINDOW
     w.active_epoch(o)
     w.ROOT = root

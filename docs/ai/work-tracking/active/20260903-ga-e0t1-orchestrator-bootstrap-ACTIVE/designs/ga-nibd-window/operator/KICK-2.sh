@@ -11,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-nibd-window
 COMMIT=${1:?usage: KICK-2.sh <reviewed commit>}
-KICK_SHA=0f462c5cdd0b08aea5e83cc07a0c62482d2d4c87d676deb21c4b1e47ab2511d8
+KICK_SHA=ea2a26e37935696135b4986f3296b81d36f0f04710c79e435268262bc45f8ebc
 BUDGET_SHA=e2ce8513728ea6850e7ce19817e656d3dc8aca84eeecb7aeca4978c06fb9bf1d
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
@@ -37,7 +37,7 @@ step() {
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-step budget "$C/budget-r11.py" "$BUDGET_SHA" 60
+step budget "$C/budget-r11.py" "$BUDGET_SHA" 100
 step kick "$C/kick-r1.py" "$KICK_SHA"
 echo "== KICK-2 PASS"
 echo "== end $(date -u +%H:%M:%SZ)"

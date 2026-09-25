@@ -214,7 +214,7 @@ def kick_wrapper(slot, wrapper):
                      ('Slot 1 of 3', 'Slot %d of %d' % (slot, KICK_SLOTS)),
                      ('RELEASE_SHA', 'KICK_SHA'),
                      ('step budget "$C/budget-r11.py" "$BUDGET_SHA" 100\n',
-                      'step budget "$C/budget-r11.py" "$BUDGET_SHA" 60\n'),
+                      'step budget "$C/budget-r11.py" "$BUDGET_SHA" 100\n'),
                      ('step source-release "$C/release-r11.py" "$KICK_SHA" source\n',
                       'step kick "$C/kick-r1.py" "$KICK_SHA"\n')):
         assert old in text, old[:60]
@@ -243,6 +243,10 @@ def rebind(files):
         if name == 'operator/RESTORE.sh':
             text = sub(text, 'step budget "$C/budget-r11.py" "$BUDGET_SHA" 25\n',
                        'step budget "$C/budget-r11.py" "$BUDGET_SHA" 45\n')
+        if name == 'operator/ADMIT.sh':
+            # ADMIT must still leave RESTORE its own budget (45) plus the earlier 15-minute margin.
+            text = sub(text, 'step budget "$C/budget-r11.py" "$BUDGET_SHA" 40\n',
+                       'step budget "$C/budget-r11.py" "$BUDGET_SHA" 60\n')
         if name == 'operator/RECONCILE.sh':
             text = sub(text, 'consumed fourth-successor task', 'consumed fifth-successor task')
         if name == 'worker-brief.md':

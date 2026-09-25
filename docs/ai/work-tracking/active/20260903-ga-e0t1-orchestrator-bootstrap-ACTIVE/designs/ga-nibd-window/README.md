@@ -68,13 +68,15 @@ proves that the package equals its output.
   - acceptance still needs the accepted revision, `completed`, and zero active templates;
   - RESTORE (direction 0) waits up to 20 minutes, reading every 15 seconds. STAGE keeps its 120 seconds.
 
-  RESTORE's budget gate rises from 25 to 45 minutes. A test evaluates the new predicate on the ga-gegx
+  RESTORE's budget gate rises from 25 to 45 minutes, and ADMIT's from 40 to 60, so ADMIT still leaves RESTORE its
+  budget plus the earlier 15-minute margin (a test enforces the order). The same predicate also applies to
+  STAGE's reload, where no worker has run yet. A test evaluates the new predicate on the ga-gegx
   RESTORE's own refused read.
 - **ROUTE** binds the new bind-task digest, because BIND runs again for ga-nibd.
 
 ## KICK (new)
 
-`kick-r1.py`, run by `operator/KICK-1.sh`, `KICK-2.sh` or `KICK-3.sh` (budget gate 60 minutes), is a reviewed
+`kick-r1.py`, run by `operator/KICK-1.sh`, `KICK-2.sh` or `KICK-3.sh` (budget gate 100 minutes, the same as the source release), is a reviewed
 job that tells the live worker to claim its routed task. It relies on neither `gc sling` nor Core's broken
 order.
 

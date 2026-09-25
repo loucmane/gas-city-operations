@@ -40,7 +40,7 @@ step() {
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-step budget "$C/budget-r11.py" "$BUDGET_SHA" 40
+step budget "$C/budget-r11.py" "$BUDGET_SHA" 60
 step admit "$C/restore-admission-r3.py" "$ADMIT_SHA"
 echo "== ADMIT PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
