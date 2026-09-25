@@ -413,6 +413,12 @@ class Derivation(unittest.TestCase):
         self.assertEqual(base, sha(HERE/'window-base-r11.py'))
         self.assertEqual(routes, sha(HERE/'restore-r9-routes-r3.py'))
         self.assertIn("REFUSED_ROOT = Path('/var/tmp/ga-f37t-window-20260923-r1')", recover)
+        # The final ordinary reads cover the start-gate objects, the five route files and their .beads
+        # directories, after the reload and before the result is written.
+        self.assertIn("read_paths = list(w.stable_read_paths())\n", recover)
+        self.assertIn("read_paths += [Path(root) / '.beads', Path(root) / '.beads' / 'routes.jsonl']\n", recover)
+        self.assertLess(recover.index("read_paths = list(w.stable_read_paths())"), recover.index("w.save('result.json'"))
+        self.assertLess(recover.index("'recover-reload'"), recover.index("read_paths = list(w.stable_read_paths())"))
         self.assertIn("ROOT = Path('/var/tmp/ga-f37t-window-20260925-r2')", (HERE/'window-base-r11.py').read_text())
         # Every other file uses the fresh window root r2 and integrity root r5.
         for path in package_files():

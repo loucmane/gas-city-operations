@@ -9,7 +9,7 @@ city.toml pin, which the next window's OBSERVE admits (approved_recovery_image).
 of the four objects the next PREFLIGHT start gate checks, so relatime refreshes any access time it may refresh.
 It never writes the receipt, the suspension state or a Bead, and never starts a worker. It writes no route
 itself; the controller regenerates the route files after the city write, and the script checks their content
-is unchanged.
+and route authority, then reads them ordinarily so their access times settle.
 """
 import hashlib
 import json
@@ -134,19 +134,31 @@ def main():
         w.require(row['content'] == routes_before[root]['content'], 'route content changed during recovery')
     city_pin = o.read_file(str(w.CITY / 'city.toml'))[0]
     w.complete_containment()
-    # 5. Ordinary reads of the start-gate objects, so relatime may refresh their access times.
-    gate_before = {str(p): o.metadata(os.lstat(p)) for p in w.stable_read_paths()}
-    for path in w.stable_read_paths():
-        if Path(path).is_dir():
-            os.listdir(path)
-        else:
-            with open(path, 'rb') as f:
-                f.read(1)
-    gate_after = {str(p): o.metadata(os.lstat(p)) for p in w.stable_read_paths()}
+    # 5. Ordinary reads of the start-gate objects and of the regenerated route files and their .beads
+    # directories, so relatime refreshes whatever it may: a regenerated route file starts with its access
+    # time at its modification time, and its first ordinary read after OBSERVE would otherwise change the
+    # route mirror PREFLIGHT compares exactly.
+    read_paths = list(w.stable_read_paths())
+    for _, root in routes.RIGS:
+        read_paths += [Path(root) / '.beads', Path(root) / '.beads' / 'routes.jsonl']
+    gate_before = {str(p): o.metadata(os.lstat(p)) for p in read_paths}
+    # A read error is recorded, not raised: the city is already recovered, and the next PREFLIGHT start gate
+    # and route checks decide on the resulting access times anyway.
+    read_errors = {}
+    for path in read_paths:
+        try:
+            if Path(path).is_dir():
+                os.listdir(path)
+            else:
+                with open(path, 'rb') as f:
+                    f.read(1)
+        except OSError as exc:
+            read_errors[str(path)] = str(exc)
+    gate_after = {str(p): o.metadata(os.lstat(p)) for p in read_paths}
     w.save('result.json', dict(ok=True, city_pin=city_pin, receipt_sha256=w.RECEIPT_SHA[0],
                                revision=w.REVISION[0], reload=answer, cycle=newest,
                                routes_before=routes_before, routes_after=routes_after,
-                               gate_before=gate_before, gate_after=gate_after,
+                               gate_before=gate_before, gate_after=gate_after, read_errors=read_errors,
                                receipt_written=False, worker_launched=False))
     print(json.dumps(dict(ok=True, recovered=True, worker_launched=False)))
 
