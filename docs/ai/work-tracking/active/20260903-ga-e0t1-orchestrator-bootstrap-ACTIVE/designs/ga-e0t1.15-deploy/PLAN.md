@@ -241,6 +241,32 @@ S4 acceptance evidence. S4 is the first stage that resumes the city, inside its 
 - **Order.** FRESHEN (the cache atime refresh) comes before `accept`, because every cache atime must
   be under 24 h old for the whole window. `accept` must also precede `prepare` within that horizon.
 
+#### S2 live run order (final, after the FRESHEN and S2 r3 double pass at `f6a78caa`)
+
+Run from `systemd-run --user --wait --collect --pipe -p UMask=0022`. Re-run the lstat forecast first;
+a valid FRESHEN time has no cache entry aged 20.5-24 h.
+
+1. Record the reconcile timer's semantic state, pause it (the supported user-systemd stop), and let
+   any running oneshot drain. The timer fires every 60 s, and a oneshot overlapping `accept` would
+   consume the one-shot accept root.
+2. `freshen_cache.py`. It must pass and report `prepare_deadline_utc`.
+3. `s2_transition.py accept`, then an independent review of its output: `delta-vs-r7.json` bound to
+   the ga-nibd TERMINAL, the M5 pair and the receipts. The review also checks what `build_window`
+   will require (every cache atime settled, within the horizon).
+4. Write `accepted.json`, regenerate with make_s2, run test_s2, commit, and review the regenerated
+   file.
+5. `prepare` before `prepare_deadline_utc`, then `bind-envelope`, the independent full-envelope
+   review, `recheck`, `submit`, `postflight1`, and `postflight2` (at least 5 s apart). The fixed
+   900 s window runs from prepare.
+6. Independent live readback review, then restore the timer to its recorded state.
+
+From accept to postflight 2, nobody reads the protected trees `.gc/platform/assets` and `/backups`
+or the cache without `O_NOATIME`. That includes reviewers and the envelope reviewer. Any refusal
+before submit preserves the root and stops; a new attempt needs a new revision. The FRESHEN
+review's remaining should_fix items (a test that isolates the missing-required rule, tests of the
+accept preconditions, `O_NONBLOCK` in freshen, and a root-name coupling test) are folded into the
+step 4 regeneration.
+
 ### S3: metadata and receipt refresh (live)
 
 A successor of M5 and P6, in this order within one reviewed window:
