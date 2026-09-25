@@ -1,0 +1,25 @@
+{
+  "schema": "ga-ecwh.typed-interoperability-evidence.v1",
+  "classification": "PASS-exact-source-wire-compatibility-only",
+  "core_commit": "796d9a7a67c42294fdc467c107bb59b76e482301",
+  "core_tree": "f2c120a5ac9ea25ebc395c1b3cfa4eb30dcafd13",
+  "template_commit": "ff683ed6506bdbc38f21f66a1a7f3ce31bdcaa7c",
+  "test": "tests/test_managed_worker_canary_provisioning.py::test_python_receipt_round_trips_exact_merged_core_and_core_selected_profile",
+  "sources": {
+    "/home/loucmane/gas-city-template/tests/test_managed_worker_canary_provisioning.py": "c7988ea1574464b370ddeb8455a8cccaecb37657fa01e146b0377709c8a85d23",
+    "/home/loucmane/gas-city-template/tests/interop/core_managedworker_interop_test.go": "92b663ce47b65463455ec3572e07c69fd40877aa56c736fcd2fab2047531b2c5",
+    "/home/loucmane/gas-city-template/tests/conftest.py": "b803ed96836ec1499a36cdf3b62392c08b23adb5ab32e4448d65145c22842b0d"
+  },
+  "junit": {"path": "/var/tmp/ga-ecwh-current-core-interop-20260920-r2.xml", "sha256": "e7e51c3c24be2e49d11e3f156a5036c9e3e1f31b7a9bf33dd6f194ef540efc39", "passed": 1, "failed": 0},
+  "compile": {"path": "/var/tmp/ga-ecwh-current-core-interop-20260920-r2/test_python_receipt_round_trip0/core-interop-phases/compile.json", "sha256": "90439071cc821c028b063c711c6b25a2e8191487aed3feaf1b9727110e8e76fd", "exit_code": 0, "seconds": 13.946915, "owned_process_group_gone": true},
+  "execution": {"path": "/var/tmp/ga-ecwh-current-core-interop-20260920-r2/test_python_receipt_round_trip0/core-interop-phases/execute.json", "sha256": "495a65a9b2652b0598fa84016467a8b469b93b20e9a1553e1f6dd9539aeffd19", "exit_code": 0, "seconds": 0.006136, "owned_process_group_gone": true},
+  "preserved_attempt": {"path": "/var/tmp/ga-ecwh-current-core-interop-20260920-r1", "junit_sha256": "11c91da1eaa3e1e0b8bf273f0ad8acbc2f509a923190ca917655959999bfa09f", "classification": "compiler exited before compilation: nonexistent GOTMPDIR /var/tmp/gotmp", "correction": "GOTMPDIR=/var/tmp; fresh r2 fixture, unchanged test/source", "owned_process_group_gone": true},
+  "boundaries": {
+    "core_source": "git archive of exact commit, not dirty worktree contents",
+    "cache": "fresh isolated fixture cache on disk under /var/tmp; retained",
+    "network": "GOPROXY=off GOSUMDB=off GOTOOLCHAIN=local GOFLAGS=-mod=readonly",
+    "provider": "fixture Claude only; no real authentication or inference",
+    "receipt": "synthetic candidate and signing profiles; actual Core decoder and digest implementation",
+    "limitations": "Does not prove live profile agreement, native preflight, signing, useful worker execution or handover. Independent evidence review pending."
+  }
+}

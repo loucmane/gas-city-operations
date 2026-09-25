@@ -1,0 +1,133 @@
+"""Kick the one live ga-nibd worker once to claim its routed task, as a reviewed job; repeatable per slot.
+
+Why: gc sling does not nudge warm-idle workers, and Core's nudge-on-route order never matches in this build
+(gc events wraps bead.updated as .payload.bead while the pack script filters the flat .payload.metadata).
+Three windows ended with the worker idle at an empty prompt and reaped unclaimed (ga-4z38, ga-f37t, ga-gegx).
+The window therefore delivers the claim instruction itself.
+
+Preconditions, all read-only and checked before the one pane write:
+- the window is live: city-resume happened and no city-suspend intent exists;
+- `gc status` shows the city resumed;
+- exactly one open session for the worker template exists, in state active;
+- the task is open, unassigned and routed to that template (not yet claimed);
+- the worker's visible pane shows no permission dialog or numbered menu. This uses the release job's own
+  dialog rules (release-r11.py dialog_showing, loaded by digest), because the immediate nudge ends with
+  Enter, which would answer one;
+- the same capture shows Claude's empty input prompt (a line that is only the prompt glyph), so the text
+  lands in a ready prompt and not in a starting TUI. The capture is kept as phase evidence.
+
+Action: one `gc session nudge <session id> <MESSAGE> --delivery immediate --json`. Only an outcome of
+delivered passes. The message tells the worker to claim with its standalone first command and then to follow
+the task notes. It starts with no `!`, `/` or `#` prefix and contains no digit that could select a numbered
+option. The job writes no Bead, route, lifecycle or file outside its fresh evidence root.
+
+A later slot repeats the same checks. It refuses without a nudge once the task is claimed (in_progress or
+assigned) or while the pane shows a running turn. The checks and the nudge are separate reads seconds apart,
+so this is best effort: a claim made in that gap gets one extra, harmless claim reminder. A second capture
+after the nudge is kept as evidence.
+
+Usage (through the source launcher): kick-r1.py
+"""
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import re
+import stat
+import sys
+import types
+
+BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
+            '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-nibd-window/window-base-r11.py')
+BASE_SHA = 'e3340b3b13c27e31a53d014b6f2a3fb79a6d5d2e367d04bf6dbebddeb4a8712a'
+RELEASE = BASE.parent/'release-r11.py'
+RELEASE_SHA = '77bbaf2b342884625f9eaf1c93236d113ded2882fe6be83210046546d490f1bd'
+WINDOW = Path('/var/tmp/ga-nibd-window-20260925-r2')
+TASK = 'ga-nibd'
+TEMPLATE = 'gascity/gc.implementation-worker'
+VAR = Path('/var/tmp')
+MESSAGE = ('Coordinator kick for ga-nibd: your routed task is ready and unclaimed. Claim it now: run '
+           '/home/loucmane/gascity/bin/gc hook --claim --json as a standalone command, then read '
+           '/home/loucmane/gascity/bin/bd show ga-nibd --json and follow the task notes exactly.')
+
+
+def load():
+    fd = os.open(BASE, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        s = os.fstat(fd)
+        assert stat.S_ISREG(s.st_mode) and s.st_uid == 1000 and s.st_nlink == 1
+        raw = b''
+        while chunk := os.read(fd, 65536):
+            raw += chunk
+        assert os.fstat(fd) == s and hashlib.sha256(raw).hexdigest() == BASE_SHA, 'base source drift'
+    finally:
+        os.close(fd)
+    w = types.ModuleType('kick_base')
+    w.__file__ = str(BASE)
+    exec(compile(raw, str(BASE), 'exec', dont_inherit=True), w.__dict__)
+    return w
+
+
+# Claude Code shows this while a turn runs; Core's WaitForIdle uses the same marker (tmux.go busy indicator).
+BUSY = 'esc to interrupt'
+READY_PROMPT = re.compile('^\\s*\u276f[\\s\u00a0]*$')
+
+
+def prompt_ready(pane):
+    """True when a captured line is Claude's empty input prompt and nothing else."""
+    return any(READY_PROMPT.match(line) for line in pane.splitlines())
+
+
+def unclaimed(task):
+    """True for the routed task before any claim."""
+    return (task.get('status') == 'open' and not task.get('assignee')
+            and (task.get('metadata') or {}).get('gc.routed_to') == TEMPLATE)
+
+
+def main():
+    w = load()
+    w.require(globals().get('_SOURCE_SHA') and os.getuid() == os.geteuid() == 1000, 'bound source launcher required')
+    w.read(Path(__file__), _SOURCE_SHA)
+    r = w.module(RELEASE, RELEASE_SHA)
+    b, o, owned = w.load_support()
+    w.require((WINDOW/'suspension-city-resume-event.json').exists()
+              and not (WINDOW/'suspension-city-suspend-intent.json').exists(), 'window is not live')
+    w.ROOT = WINDOW
+    w.active_epoch(o)
+    root = VAR/('ga-nibd-kick-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    root.mkdir(mode=0o700)
+    w.ROOT = root
+    w.save('intent.json', dict(executor_sha256=_SOURCE_SHA, message=MESSAGE))
+
+    def run(name, args, expected=(0,)):
+        return w.phase(name, args, b, owned, expected=expected, timeout=90)
+    status = r.document(run('status', w.GC + ['status', '--json'])['stdout'])
+    w.require(status.get('ok') is True and status.get('suspended') is False, 'city is not resumed')
+    sessions = r.document(run('sessions', w.GC + ['session', 'list', '--json'])['stdout'])['sessions'] or []
+    live = [s for s in sessions if s.get('template') == TEMPLATE and not s.get('closed')]
+    w.require(len(live) == 1 and live[0].get('state') == 'active', 'exactly one active worker session')
+    [task] = json.loads(run('task', w.GC + ['--rig', 'gascity', 'bd', 'show', TASK, '--json'])['stdout'])
+    w.require(unclaimed(task), 'the task is already claimed or not routed; no kick')
+    pane = run('pane-before-kick', ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t',
+                                    live[0]['session_name']])['stdout']
+    w.require(not r.dialog_showing(pane), 'the worker pane shows a permission dialog or menu')
+    w.require(prompt_ready(pane), 'the worker pane shows no ready empty prompt')
+    w.require(BUSY not in pane, 'the worker is in a turn')
+    nudge = r.document(run('nudge', w.GC + ['session', 'nudge', live[0]['id'], MESSAGE,
+                                            '--delivery', 'immediate', '--json'])['stdout'])
+    w.require(nudge.get('ok') is True and nudge.get('outcome') == 'delivered', 'kick not delivered')
+    # Evidence only: the pane after the nudge (delivered means the keys reached tmux, not that Claude took them).
+    run('pane-after-kick', ['/usr/bin/tmux', '-u', '-L', 'city', 'capture-pane', '-p', '-t', live[0]['session_name']])
+    w.ROOT = WINDOW
+    w.active_epoch(o)
+    w.ROOT = root
+    w.complete_containment()
+    result = dict(ok=True, session=live[0]['id'], nudge=nudge.get('outcome'), task_status=task['status'],
+                  worker_launched=False, bead_written=False)
+    w.save('result.json', result)
+    print(json.dumps(result))
+
+
+if __name__ == '__main__':
+    main()

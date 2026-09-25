@@ -1,0 +1,45 @@
+#!/bin/sh
+# ga-4z38 window freshen: refresh relatime access times of every exact-compared object, before
+# OBSERVE. Reads only; repeatable, one fresh root per run; refuses while any object is
+# still too old to refresh (see its old.json).
+# Slot 1 of 3: the job runner starts each wrapper path once per commit.
+#
+# Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
+# Log: ~/.local/share/gas-city-staging/ga-4z38-window/freshen-1-<timestamp>.txt. Exits with the first failing
+# step's result, or 0.
+S=/home/loucmane/.local/share/gas-city-staging/ga-4z38-window
+W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
+D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
+C=$D/ga-4z38-window
+COMMIT=${1:?usage: FRESHEN-1.sh <reviewed commit>}
+FRESHEN_SHA=80e955bdf4e7b0239b760ca1fd8620da07cba5be4402132cf86fcd490eae1908
+PATH=/usr/local/bin:/usr/bin:/bin
+export PATH
+mkdir -p "$S" || exit 1
+[ ! -L "$S" ] || exit 1
+LOG="$S/freshen-1-$(date -u +%Y%m%dT%H%M%SZ).txt"
+exec >"$LOG" 2>&1 </dev/null
+echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
+for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
+[ "$(umask)" = 0022 ] || { echo "== STOP: umask is not 0022"; echo "== end"; exit 1; }
+head=$(git -c core.fsmonitor=false -C "$W" rev-parse HEAD) || head=unreadable
+status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-optional-locks status --porcelain --untracked-files=all) || status=unreadable
+if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
+  echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
+fi
+{ [ ! -e /var/tmp/ga-4z38-integrity-20260924-r2 ] && [ ! -L /var/tmp/ga-4z38-integrity-20260924-r2 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-integrity-20260924-r2"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-4z38-window-20260923-r1 ] && [ ! -L /var/tmp/ga-4z38-window-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-4z38-window-20260923-r1"; echo "== end"; exit 1; }
+step() {
+  label=$1; shift
+  echo "== $label $(date -u +%H:%M:%SZ)"
+  /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
+  rc=$?
+  if [ "$rc" != 0 ]; then
+    echo "== FRESHEN-1 REFUSED at $label rc=$rc: read this log and the named roots before any further step"
+    echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
+  fi
+}
+step freshen "$C/freshen-r11.py" "$FRESHEN_SHA"
+echo "== FRESHEN-1 PASS"
+echo "== end $(date -u +%H:%M:%SZ)"
+exit 0

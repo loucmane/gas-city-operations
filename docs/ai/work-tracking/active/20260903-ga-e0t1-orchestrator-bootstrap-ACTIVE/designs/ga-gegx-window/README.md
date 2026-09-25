@@ -1,0 +1,442 @@
+# ga-gegx worker window (goal step 3, fifth successor)
+
+ga-gegx is the fifth successor for the ga-5ot6 routing work. It was created on 2026-09-25 after the ga-f37t
+window.
+
+## What happened to ga-f37t
+
+The ga-f37t window (package `designs/ga-f37t-window`, s6 r5 `01d74775`, two SOURCE_PASS) ran on 2026-09-25
+through RECOVER, OBSERVE, PREFLIGHT, STAGE, ROUTE and WATCH-1, and RESUME passed at 09:42:36Z. The worker
+session `ci-yauk5` started in the right worktree, with the signing wrapper and Opus 5.5.
+
+**Silent start.** WATCH-2 to WATCH-7 captured the session idle at an empty Claude prompt, with ga-f37t never
+claimed. Core closed the session as `stale-session`, and the attempt is consumed.
+
+**Wind-down.**
+- CONTAIN-1 suspended the city, but refused on a partial `gc status` observation, which stranded the
+  lifecycle.
+- HOLD-1 confirmed the city and the gascity rig suspended.
+- CLOSE-1 left no session, tmux server or worktree process.
+- The window stopped before ADMIT.
+
+**Recovery.** The reviewed ga-f37t RECOVER-2 (s7 `e382bc15`) returned the city to its accepted image at
+10:02:18Z: city.toml `4f7e170f`, receipt `0b30c23f`, controller at `d6ca85cd`, still fully suspended. Its
+record is `/var/tmp/ga-f37t-recover-20260925-r2/result.json`.
+
+**Root cause, confirmed in the Core source.** `internal/bootstrap/packs/core/orders/nudge-on-route.toml`
+states that `gc sling` does not nudge warm-idle workers, and that without this order a routed bead sits
+unclaimed. Every window since P6 built its isolation overlay with an `[orders] skip` list holding all Core
+orders, `nudge-on-route` included, so the routed task never reached the worker session. The ga-4z38 silent
+start has the same cause.
+
+A secondary finding: the worker's `claude` process received the role prompt as its positional first prompt,
+but the pane showed no conversation. The nudge queue is Core's delivery path for routed work, so this package
+fixes the overlay. The positional prompt is left for a Template/Core follow-up.
+
+## Derivation (s1)
+
+`generators/make_successor.py` derives every file from the reviewed ga-f37t s7 blobs, and
+`test_successor.py` proves the package equals its output.
+- **Dropped:** the ga-f37t README, tests and generator; the two recovery jobs and their wrappers (they belong
+  to the ga-f37t windows); FRESHEN (unused since ga-f37t s5).
+- **PREP.** `build_overlay` removes `nudge-on-route` from the order skip list, after the inventory-size check.
+  Every other Core order stays skipped. In s1 r2 the overlay (`228e5be7`) differed from the ga-f37t PREP
+  overlay in exactly three lines: the header, the skip list and the work dir. s1 r3 adds the order override
+  block described under "Nudge delivery (s1 r3)", and `OVERLAY_SHA` is now `e6e24bd7`.
+- **RECONCILE.**
+  - It holds ga-f37t: attempt session `ci-yauk5`, state `stale-session`, and the ga-f37t worktree.
+  - ga-4z38 (already blocked) is the unrelated predecessor that must stay exact.
+  - ga-gegx must be pristine.
+- **Admission.** `approved_recovery_image()` in `window-base-r11.py` replaces only the city.toml, receipt and
+  suspension-state pin entries with the ones the ga-f37t RECOVER-2 result recorded. OBSERVE pins that result
+  by digest (`RECOVER_SHA`) and sets `RECOVERY`.
+  - city.toml and the receipt must keep the accepted content digest.
+  - The suspension state must decode to the accepted suspension image apart from `updated_at`. The accepted
+    image is the ga-f37t window's pinned `suspension-baseline.json`, whose pin equals the admitted suspension
+    pin.
+  - The result must be ok, with the receipt written, no worker and no read errors.
+  - Every other pin, the cache, the protected trees and the host stay compared by the earlier dispositions.
+- **Identity:** paths, `/var/tmp` roots (`ga-f37t-*` becomes `ga-gegx-*`), worktree, branch, staging path,
+  evidence path, probe test name and Bead id. The ga-f37t history comments and the two ga-f37t evidence
+  paths are kept.
+- **ROUTE** binds the new bind-task digest, because BIND runs again for ga-gegx.
+- **Kept from ga-f37t:** the read-time accounting and PREFLIGHT start gate (s5), the reload fix (s6), the
+  twelve WATCH slots with pane capture, and the operating rules: no `workflow.py` from OBSERVE to TERMINAL,
+  env-prefixed gc only, and the WATCH-1 rule before RESUME.
+
+## Nudge delivery (s1 r3)
+
+The s1 r2 reviews (both SOURCE_PASS) asked whether `nudge-on-route` would actually reach the worker. PREP r4
+ran from s1 r2 on 2026-09-25 at 10:22:56Z and passed (root `/var/tmp/ga-gegx-prep-20260923-r2`, overlay
+`228e5be7`, one effective order). That root is superseded by r5 below and is kept as evidence only.
+
+**What the ga-f37t window shows.** This is from the city event log, `city/.gc/events.jsonl`, seq 1344032 to
+1344049, in local time:
+- ROUTE wrote ga-f37t at 11:40:55 while the city was suspended, and no event was emitted then.
+- The city resumed at 11:42:27.
+- Session `ci-yauk5` was created at 11:42:44, went `active` at 11:42:47, and then emitted two `awake` updates.
+- The routed task's `bead.updated` event, carrying `gc.routed_to`, came from the controller's cache
+  reconcile only at 11:43:03, after RESUME and 16 seconds after the worker went active.
+
+**Why the order would find the worker.** It lists members with `gc session list --state active --template
+<routed target>`. The session template is `gascity/gc.implementation-worker`, which is the routed target,
+and `awake` normalizes to `active` (Core `internal/session/manager.go` `normalizeInfoState`). Its event
+trigger is cursor based, so every later `bead.updated` makes it run again (`internal/orders/triggers.go`
+`checkEvent`).
+
+**The remaining risk, and the fix.** The script only looks back `GC_NUDGE_ON_ROUTE_LOOKBACK`, 2 minutes by
+default. The routed event can arrive before the worker is active. If the worker then takes longer than 2
+minutes to start, no later run sees the event, and nothing nudges the worker.
+
+PREP r5 therefore adds one order override to the overlay:
+`[[orders.overrides]] name = "nudge-on-route"` with `env = {GC_NUDGE_ON_ROUTE_LOOKBACK = "45m",
+GC_NUDGE_ON_ROUTE_RETENTION = "2h"}`.
+- The override `env` reaches the exec child (Core `cmd/gc/order_store.go`, the `[order.env]` loop, after
+  every controller key; only dispatch-time vars, which an event order has none of, come later).
+- Neither key is controller-reserved (`internal/orders/env.go`).
+- Retention stays above the lookback, so a nudged pair is never pruned and nudged again.
+- These Core paths are unchanged between the adopted `728178bf` and the ga-gegx worktree.
+
+PREP r5 requires three things. The effective config must show exactly that override. The isolated order
+list must be the baseline `nudge-on-route` entry plus that `env`. The overlay must equal the r4 overlay
+with only the override block inserted after the skip line (`test_successor.py` checks that against the r4
+evidence). The new PREP root is `/var/tmp/ga-gegx-prep-20260925-r3`.
+
+**Order side effects in the window, for s2.** Each run can create an order-tracking bead, run `gc events` and
+`gc session list`, send `gc session nudge`, and rewrite
+`city/.gc/runtime/packs/core/nudge-on-route-state.json`. Its lookback also sees the RECONCILE update of
+ga-f37t, which still carries `gc.routed_to`, so the worker may receive a second "check for assigned work"
+nudge. ga-f37t is held, so it is not ready work. s2 must admit or confine these writes in the window
+checks.
+
+The worktree `/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles` (branch
+`codex/ga-gegx-typed-route-cycles`) was created at Core `e6366b9e`, tree `f2c120a5`, clean.
+
+## Phases
+
+1. **s1 r3:** two SOURCE_PASS reviews naming only `operator/PREP.sh`. PREP r5 passed on 2026-09-25 at
+   10:38:03Z (job `ga-gegx-s1r3-prep`), root `/var/tmp/ga-gegx-prep-20260925-r3`.
+2. **s2:** see "s2" below. The reviews held s2 (`d82c7afe`), s2 r2 (`03e21045`) and s2 r3 (`0bf8bd69`).
+   - s2 r2 fixed the barrier, the nudge evidence reads and the RECONCILE root.
+   - s2 r3 corrected the CLOSE description. It changed the pinned barrier comment (via
+     `generators/make_successor.py`), the RECONCILE.sh header, the README and the tests.
+   - s2 r4 (`bb8f09f9`) changed only this README, stating Core's own startup-dialog acceptance and the
+     `~/.claude.json` comparison. The runner-fit review passed it; the correctness review held it,
+     because the comparison covered only trust and MCP.
+   - s2 r5 (`19d07962`) changed only this README. The runner-fit review passed it; the correctness review
+     held it for the missing rate-limit handler and an inaccurate claim about the import dialog.
+   - s2 r6 (`3bdb3320`) changed only this README. The runner-fit review passed it. The correctness review
+     held it, because Core's trust handler also refuses menus it does not recognise.
+   - s2 r7 (`650d357d`) changed only this README; it stopped relying on when Core answers a dialog. The
+     runner-fit review passed it. The correctness review held it because the MCP reason assumed a
+     settings file the signing wrapper drops, and because a nudge sends Enter up to three times.
+   - s2 r8 (`9fde0af7`) changed only this README. The runner-fit review passed it. The correctness review
+     held it: its summary said no menu grants a tool permission, which is false for the bypass row.
+   - s2 r9 (this commit) changes only this README. It corrects that sentence and adds the should_fix
+     items: the limit menus' possible billing effect, both `--add-dir` values, the user-scope
+     `mcpServers`, in-session mode menus, and the prompt-matching detail.
+   Its two reviews name the 34 window wrappers (every wrapper except PREP).
+3. **Window:**
+   - RECONCILE and BIND;
+   - the cache and start-gate checks;
+   - OBSERVE, PREFLIGHT, STAGE and ROUTE;
+   - WATCH-1 and the RESUME decision;
+   - the early WATCH captures, then release, contain, close, ADMIT, RESTORE and TERMINAL.
+
+## s2
+
+**PREP r5 pins.** `window-base-r11.py` now pins the PREP r5 outputs in place of the ga-f37t ones it
+inherited:
+- city overlay `e6e24bd7` (`CITY_SHA[1]`, equal to `city_after_sha256`);
+- receipt image `9c5765b8` (`RECEIPT_SHA[1]`, equal to `receipt_after_sha256`);
+- composition revision `56f39eb2` (`REVISION[1]`, equal to `revision_after`);
+- `result.json` `22e16a70`.
+
+The ga-f37t pins map to the same fields of the ga-f37t PREP result, so the mapping is unchanged. A test
+checks each pin against the r5 evidence.
+
+**The routed event, corrected.** The s1 r3 account above is right about timing, but the event's source
+needs a correction. ga-f37t's last write was the controller's native attempt stamp (`updated_at`
+09:42:46Z, just before the worker went active). That is the change cache reconcile reported at 11:43:03.
+
+Writes made with bd while the city was suspended emitted no event at all:
+- ROUTE of ga-f37t at 11:40:55;
+- the ga-f37t window's RECONCILE of ga-4z38, on 2026-09-25 at 00:22.
+
+The ga-4z38 window shows the same pattern. Its task's only event (seq 1344024, 2026-09-24 23:12:24) came
+42 seconds after `city.resumed` (seq 1344014) and 22 seconds after `session.woke` (seq 1344021).
+
+So in this window the order sees one routed pair, `ga-gegx|gascity/gc.implementation-worker`, reported
+when the controller stamps the worker's attempt. RECONCILE's update of ga-f37t is written while suspended
+and so is not expected to produce a second pair. The worker's later ga-gegx updates reach the order as
+the same pair, which only refreshes its dedup entry. With the quiescent-window rule (no Bead writes or gc
+calls by the coordinator between PREFLIGHT and TERMINAL, the window's last integrity observation), the order has no second pair to nudge. Its
+2h retention prunes an entry only on a run that sees some pair, and that run refreshes the ga-gegx entry
+first, so the pair is not nudged again.
+
+**What an order nudge can answer.** Core's order nudge uses `wait-idle` delivery. Once any of the last 120
+pane lines starts with `❯ `, it types its text literally. The text is a multi-line reminder block, and a
+queued multi-item nudge contains a digit ("You have N deferred reminders", `cmd/gc/cmd_nudge.go`). It then
+sends Enter up to three times while the pane does not look busy (`submitEnterAndConfirm`,
+`submitEnterMaxSends = 3`, in `internal/runtime/tmux/tmux.go`). A queued nudge is delivered by the poller
+once the session has been quiet long enough. Neither path checks for a dialog (`WaitForIdle` and
+`matchesPromptPrefix`). A Claude selection menu marks its highlighted choice with `❯ `. The tmux
+`matchesPromptPrefix` has no exclusion for numbered menu rows, unlike `containsPromptIndicator` in
+`internal/runtime/dialog.go`. That is why a highlighted menu row counts as an idle prompt.
+
+**Conservative assumption.** One order nudge can choose *any* option of any Claude menu on screen when it
+arrives, not only the highlighted one: a typed digit can select a numbered option. It can also answer
+several menus in sequence. That includes menus Core's own launch handling left alone. Core answers
+startup dialogs only when they match its recognisers and gates, and leaves any others for a human
+(`internal/runtime/dialog.go` `AcceptStartupDialogsWithTimeout`; for example `workspace_trust.go` and
+`import_trust.go`). This README therefore does not rely on Core having answered any dialog first. The
+bound below depends only on which menus can appear and what accepting each one changes.
+
+**Permission dialogs cannot occur.** The worker profile runs Claude with `--permission-mode dontAsk` (PREP
+r5 `receipt.final.json`; `full-auto` maps to dontAsk in `internal/worker/builtin/profiles.go`). The signing
+wrapper also enforces it: `gct_claude_signing_worker.py` accepts only that permission mode.
+
+This behaviour of dontAsk is stated from Claude Code's documented mode, not from Claude source: Claude
+denies every tool call that is not pre-allowed and never shows a permission dialog. The earlier windows'
+negative-permission probes relied on the same behaviour.
+
+**What actually reaches Claude.** The receipt's provider is `/home/loucmane/gas-city-template/bin/gct-claude-signing-worker`.
+Its library, `lib/gct_claude_signing_worker.py`:
+- accepts only a closed flag set: `--resume`, `--model`, `--effort`, `--permission-mode`, `--settings`,
+  `--add-dir`, and one positional prompt. `--permission-mode dontAsk` is required exactly once, and no
+  bypass or `dangerously` flag can pass;
+- requires two `--add-dir` values: `/home/loucmane/gascity-core-worktrees` and
+  `/home/loucmane/gascity/city/rigs/gascity/.git`;
+- drops the shared `city/.gc/settings.json` argument;
+- puts `--setting-sources ""` in front of the one control policy it passes,
+  `templates/claude/core-signing-control-policy.json`, which has no MCP key.
+
+The subscription helper removes `ANTHROPIC_API_KEY` from the environment and refuses other `ANTHROPIC_*` and
+`CLAUDE_CODE_USE_*` overrides (`lib/gct_claude_subscription.py`).
+
+Two things are not setting sources and need no menu, but belong in this picture:
+- `~/.claude.json` has user-scope top-level `mcpServers`;
+- the `/home/loucmane` project entry has a non-empty `mcpServers` (the snapshot records only its digest).
+
+The control policy has no `mcp__` allow entry, so under dontAsk no MCP tool is pre-allowed.
+
+**The Claude startup menus, whether each is expected, and the effect of accepting it.** These are the
+Claude menus Core's startup handling knows. Core's handlers 2 and 6 in `dialog.go` are Codex-only.
+
+| Menu | Expected here? | Effect of its most permissive option |
+|---|---|---|
+| Resume selector | Not at the first start. The wrapper allows `--resume`, so a Core restart mid-window could show it. | Resumes a prior conversation; no grant; not persisted. |
+| Workspace trust | No: trust is believed to come from the repository key, which is already trusted (below). | Workspace trust for this worktree, whose repository key is already trusted under the inference below. |
+| External CLAUDE.md imports | No: the worktree `CLAUDE.md` imports only the in-tree `@AGENTS.md`, `AGENTS.md` has no `@` import, and there is no `CLAUDE.md` in the worktree's parents or `~/.claude`. | CLAUDE.md may read the listed imports, up to files outside the worktree. |
+| Project MCP servers | Possible. The worktree has a project `.mcp.json` (one http server, `excalidraw`), and no setting that reaches Claude pre-approves it (see above). Workers ran with the same `.mcp.json` in ga-5ot6, ga-4z38 and ga-f37t, where Core's handler would have chosen the persisting option. Yet the `rigs/gascity` entry still has no `enableAllProjectMcpServers` and empty MCP lists. That suggests the menu does not appear under `--setting-sources ""`. This is an inference. | Enables all current and future project MCP servers for that project key; the snapshot comparison detects it under the keys it reads. |
+| Bypass-permissions warning | No: the wrapper's closed flag set admits only `--permission-mode dontAsk`, and no `dangerously` flag can pass. | Accepts bypass mode for that launch; the answer may persist (see the inference below). |
+| Custom API key | No: the wrapper removes `ANTHROPIC_API_KEY`, `UpstreamEnv.APIKey` is empty, and the worker runs on the subscription. | Records that key as approved. |
+| Rate limit or spend limit | Only if the subscription hits its limit. | Core's own answer is "Stop", which ends the session. Other options may keep the session waiting. Claude's limit menus can also offer extra usage, a spend-limit change or an upgrade (Core knows a spend-limit modal with "Adjust monthly spend limit", `dialog.go`). If chosen, that could change billing on the account, server side. Not a tool permission, and not in `~/.claude.json`. This is an inference about Claude's menus. |
+
+Apart from the bypass warning, none of these grants a tool permission, and dontAsk still denies every tool
+call that is not pre-allowed. The bypass warning appears only in a bypass launch, which the wrapper
+refuses. Accepting it would disable permission checks for that launch.
+The ga-f37t captures (an empty `❯` prompt and no menu) show only that no menu was left on screen when they
+were taken.
+
+**Which `~/.claude.json` keys and fields.** `~/.claude.json` has no entry for the ga-gegx worktree, the
+ga-f37t worktree or `/home/loucmane/gascity-core-worktrees` (one of the two `--add-dir` values; the other,
+`rigs/gascity/.git`, is not read, see the blind spots). The worktree's
+repository key, `/home/loucmane/gascity/city/rigs/gascity` (Git common directory `rigs/gascity/.git`), has
+`hasTrustDialogAccepted: true`, and `/home/loucmane` has `false`. No Core worktree where a worker ran
+(ga-5ot6, ga-4z38, ga-f37t) has a project entry of its own.
+
+The following are inferences from recorded state, not from Claude source:
+- Claude keys project state for these linked worktrees by the repository root.
+- The top-level fields `bypassPermissionsModeAccepted` and `customApiKeyResponses` hold the bypass and API
+  key answers. Some Claude versions keep the bypass answer in settings instead.
+
+**Coordinator procedure.** The snapshot is taken by `claude_json_snapshot.py`, which lives in the
+coordinator's scratchpad (sha256 `be8e8517...`). It opens `~/.claude.json` once with O_NOFOLLOW and
+O_NOATIME, with no directory access. On the open descriptor it requires a regular file owned by uid 1000
+of at most 16 MiB, unchanged while read.
+
+It records these fields:
+- Project fields, for five keys (`rigs/gascity`, both worktree paths, `/home/loucmane/gascity-core-worktrees`
+  and `/home/loucmane`): `hasTrustDialogAccepted`, `hasClaudeMdExternalIncludesApproved`,
+  `hasClaudeMdExternalIncludesWarningShown`, `enabledMcpjsonServers`, `disabledMcpjsonServers`,
+  `enableAllProjectMcpServers`, and digests of `allowedTools` and `mcpServers`.
+- Top-level fields: `bypassPermissionsModeAccepted`, and the approved and rejected counts plus a digest of
+  `customApiKeyResponses`. Any other shape of that field is reduced to a digest.
+
+No credential or key suffix is recorded.
+
+The pre-window snapshot was taken on 2026-09-25 and saved as `claude-json-snapshot-pre-window-r7.json`
+(sha256 `3de78760...`). Earlier snapshot files were deleted.
+- `rigs/gascity`: trust `true`, both external-import flags `false`, empty MCP lists, and `allowedTools`
+  equal to the digest of an empty list;
+- `/home/loucmane`: trust `false`, both external-import flags `false`, empty MCP lists and `allowedTools`,
+  and a non-empty `mcpServers` (digest only);
+- the worktree paths and `/home/loucmane/gascity-core-worktrees`: no entry;
+- `bypassPermissionsModeAccepted`: absent;
+- `customApiKeyResponses`: none approved, one rejected.
+
+After TERMINAL, the coordinator runs the same script once and compares the two outputs exactly. It records
+the comparison on ga-e0t1. Other session metadata that Claude writes into project entries is not an
+approval and is not compared. A changed field is recorded as a menu having been accepted during the window,
+and is kept, not reverted. A change made between the snapshot and PREFLIGHT would also be counted. That is
+a false positive, on the safe side.
+
+The comparison cannot detect five things:
+- a resume-selector or rate-limit answer, since neither is persisted. A rate-limit stop shows up instead as
+  the session ending. An extra-usage or spend-limit choice would change the account server side and is
+  not visible here;
+- a trust answer written under the `rigs/gascity` key, because it would write `true` over `true`;
+- an answer written under a project key the script does not read;
+- an answer Claude keeps outside `~/.claude.json`;
+- any menu the order's nudge might answer that is not listed above. This includes in-session menus that
+  change mode or ask the user, such as the ExitPlanMode approval, which could switch to acceptEdits, and
+  AskUserQuestion. Both are permission requests, so dontAsk is expected to deny them. That rests on the
+  same documented-behaviour inference as the dontAsk paragraph above. The worker brief starts no other
+  interactive command.
+
+**WATCH nudge evidence.** Each WATCH reads two files once, read-only:
+- the order's pack state file, `city/.gc/runtime/packs/core/nudge-on-route-state.json`;
+- Core's nudge queue, `city/.gc/nudges/state.json`.
+
+Both reads use the package's `bounded_read`. It checks the open descriptor: a regular file, uid 1000,
+one link, at most 1 MiB, unchanged while read. It uses O_NOATIME and takes no lock. A read that races a
+writer's rename is tried up to three times. Any read, decode or shape error is recorded as evidence and
+never raised.
+
+The WATCH records whether the ga-gegx pair has been nudged (`order_nudge_recorded`) and every pending or
+in-flight queued nudge (`queued_nudges`), in `nudge.json` and the result. Tests exercise the absent,
+valid, second-link, one-newline, bad-shape and oversize cases against the real `bounded_read`.
+
+Operating rule: a WATCH after RESUME is expected to show `order_nudge_recorded` true and the worker
+claiming. Any visible menu or dialog in a pane capture is a stop, and the coordinator contains. This rule
+cannot catch a menu that was already answered. The `~/.claude.json` comparison after TERMINAL covers what
+it can, within the limits listed above.
+
+Before the window (2026-09-25), read-only:
+- the queue file held 26 dead items and nothing pending;
+- the order state file held one entry, from 2026-08-20;
+- a city-store query for `order-run:nudge-on-route` tracking beads returned none, so no open tracking
+  bead can hold the order back (Core `order_dispatch.go` open-work gate).
+
+**What the order writes during the window, and why the window checks admit it.**
+- Order-tracking beads and their cursor labels go into the city store. No window check counts ledger
+  beads. The audits run before the city resumes, and orders do not dispatch while the city is suspended.
+- The order's state file is rewritten by `mktemp` and rename under `.gc/runtime/packs/core`. That is below
+  `.gc/runtime`, and `directory_preservation` compares `.gc` direct children by name and identity only.
+  The state file is not a pinned file.
+- The order reads the pack cache (`nudge-on-route.sh`, `_bd_trace.sh`). Cache access times inside the
+  window are already accounted for by `cache-atime-policy-r1.py`.
+- The order's children (`bash`, `jq`, `gc`) run in the controller cgroup for a few seconds per run and
+  only while the city runs. They inherit `GIT_OPTIONAL_LOCKS=0` from the supervisor unit drop-in
+  (`~/.config/systemd/user/gascity-supervisor-home-42adab5d.service.d/90-gas-city-cache-readonly.conf`,
+  through `cmd.Environ()` in Core `cmd/gc/order_dispatch.go`). Their `gc` reads therefore cannot move the
+  pack-cache `.git` times.
+- Any directory listing that these `gc` children make of the city root or city `.beads` after STAGE falls
+  under operator-accepted residual (1) (`stable_read_times`). It is not a new admission.
+- A nudge that is queued creates a shadow nudge bead in the city store (Core `ensureQueuedNudgeBead`). The
+  city runs the legacy nudge dispatcher (`NudgeDispatcher` is empty in PREP r5 `config.isolated.json`), so a
+  queued nudge also starts a detached `gc nudge poll` sidecar. That sidecar lives as long as the session.
+  While pending or in-flight items remain, it also survives the session's disappearance for up to five
+  minutes (`defaultNudgePollStartGrace`), so it can outlive CLOSE. Its argv and working directory do not
+  name the worktree, and its files are under `.gc/nudges`, so no WATCH, CLOSE or preservation check counts
+  it, and none proves it gone. WATCH records the queue. The coordinator also reads the queue file once
+  more before ADMIT, with an O_NOATIME open of that one path and no directory fallback. A missing file is
+  recorded as absent. This is one known path: no gc call and no directory walk. The coordinator
+  keeps the result in its local run log only, and records it on ga-e0t1 after TERMINAL, because Bead
+  writes wait until the window is over.
+- Fallback path: when no active member is listed yet, the script nudges the template name itself. For a
+  managed session that is not running, Core then queues the nudge and requests a wake (`cmd_nudge.go`
+  `shouldQueueManagedNudgeWake`). The only session for the template is the worker's own, which Core is
+  already starting. The queued nudge is delivered by the poller once the session is quiet.
+
+**Lifecycle barrier (s2 r2).** Both s2 reviews and the ga-f37t record show a failure the package had not
+fixed. The ga-f37t CONTAIN-1 rig-suspend barrier refused on its first `gc status`, and the lifecycle
+stranded (`/var/tmp/ga-f37t-window-20260925-r2/rig-suspend-status-0-phase.json`). That status exited 0
+after 8.4 seconds with "runtime status probe timed out; using partial status", and
+`partial_errors` = ["runtime status probe incomplete; non-running agent rows are unknown"]. It also
+showed every rig suspended and no running agent.
+
+`observed_suspension_endpoint` now works as follows:
+- It records such a status (`suspension-<action>-barrier-partial-<n>.json`) and polls again, within a
+  deadline raised from 30 to 90 seconds.
+- A suspend (city-suspend or rig-suspend) accepts that exact partial status only in the last 25 seconds
+  of the deadline. Every other check still applies: controller, rigs, running agents, health signals, the
+  suspension file endpoint and its access-time stability. It then records
+  `suspension-<action>-partial-accepted.json`.
+- A resume never accepts it.
+- Any other partial status still refuses at once.
+
+CLOSE proves process state without this status (`close-r11.py`). It requires three things:
+- no open session for the worker template in `gc session list`;
+- no session on the city tmux server;
+- no uid 1000 process whose argv or cwd names the worktree.
+
+The pinned barrier comment in `window-base-r11.py` gives a shorter form of the same checks.
+A test drives the real barrier
+function with a fake clock through four cases: the ga-f37t sequence, a suspend that only ever sees the
+partial status, a resume and another partial error.
+
+Refusal texts, for HOLD triage: a barrier that never reaches its endpoint refuses with "suspension
+observation timeout; no lifecycle retry". A `gc status` slower than its phase timeout (15 seconds, or the
+time remaining if less) refuses as a failed phase instead. Both leave `suspension-<action>-failure.json`, and
+a resume that only ever sees the probe partial refuses after 90 seconds, no longer after 30. Any other
+`partial_errors` from `gc status`, for example the API path's work, mail or store-health errors (Core
+`internal/api/handler_status.go`), still refuses at once and strands the lifecycle by design. That case
+goes to HOLD.
+
+**Start gate after BIND.** RECONCILE and BIND write Beads after the coordinator's read-only lstat of
+the four gated objects, and OBSERVE lists directories with O_NOATIME, so nothing refreshes them. If
+the PREFLIGHT start gate refuses, it refuses before the window root exists, but the only
+(commit, PREFLIGHT.sh) pair is spent: that is a stop, and the window needs a new successor round.
+
+**RECONCILE wrapper root (s2 r2).** `operator/RECONCILE.sh` now checks
+`/var/tmp/ga-gegx-reconcile-20260925-r1`, which is the root `reconcile-predecessor-r3.py` writes. A test
+requires the two to be equal.
+
+## s3: the ga-gegx window and its recovery
+
+**The window (s2 r9 `cb949793`, 2026-09-25, CEST).**
+- OBSERVE (full native integrity), PREFLIGHT, STAGE, ROUTE and WATCH-1 (routes unchanged) all passed.
+  RESUME passed at 14:04:33.
+- The worker `ci-ki0gd` went active at 14:04:49 in the right worktree, with dontAsk and no dialog. It sat at
+  an empty prompt.
+- `nudge-on-route` fired five times, and the routed `bead.updated` for ga-gegx arrived at 14:05:13. The
+  order's state file was never rewritten.
+- Core reaped `ci-ki0gd` as `stale-session` by 14:11. The attempt is consumed.
+- CONTAIN-1 passed (the s2 r2 barrier fix held).
+- HOLD-1 refused by design, because the lifecycle was not stranded.
+- CLOSE-1 and ADMIT passed.
+
+**Why nudge-on-route never nudged.** This was reproduced read-only after the stop. `gc events` answers through
+the supervisor API, which wraps each `bead.updated` payload as `.payload.bead.{id,metadata}`. The live pack
+script filters the flat `.payload.metadata` (Core `c43feb6b0`, "match flat bead.updated payload"), which is
+the on-disk `events.jsonl` shape. So jq matches nothing, and the script exits 0 without a word. With the
+nested path, the same output yields exactly `ga-gegx -> gascity/gc.implementation-worker`. The same bug
+explains the ga-f37t silent start.
+
+**Why RESTORE refused.** RESTORE wrote the accepted `city.toml` (`4f7e170f`), and the reload answered
+`no_change` at the accepted revision `d6ca85cd`. The trace check then refused on its first read. The newest
+cycle was already at `d6ca85cd`, but it counted one active template.
+
+Core had auto-armed detailed tracing for the worker template when the session started (`gc trace status`:
+source `auto`, trigger `start`, extended at 12:10:32Z, expiring at 12:20:32Z). Every cycle counts an armed
+template as touched. Cycles returned to zero at 12:20:44Z. `reload()` requires zero on every read instead of
+waiting for it. RESTORE is consumed, and the receipt is still the staged `9c5765b8`.
+
+**RECOVER-3** (`recover-restore-r1.py`, `operator/RECOVER-3.sh`) is hand-written, like the ga-f37t RECOVER-2
+it follows.
+- **Checks, all pinned by digest.** The stopped window root's listing and its stage, before, suspension
+  baseline, RESTORE city, reload, trace, consumed, admission and CONTAIN records; the CLOSE result; the
+  completed lifecycle (`verified_lifecycle(terminal=True)`), with the live suspension state at its
+  endpoint; the accepted `city.toml`; the staged receipt; and route content equal to the pre-stage
+  content. A read-only dry run of these checks against the live state passed.
+- **Action.** It writes no `city.toml` and runs no reload. It waits, for up to 20 minutes, for a cycle at
+  the accepted revision with no active template (`settled_cycle`). A cycle that counts only the
+  auto-armed worker template, with no decisions or mutations, is waited out. Any other controller,
+  revision, incomplete or stale cycle, or template refuses. It then runs the confined receipt check,
+  apply and verify, direction 0, back to `0b30c23f`.
+- **Result.** It records the recovered `city.toml`, receipt and suspension pins for the next successor's
+  admission, then makes the same ordinary start-gate and route reads as RECOVER-2.
+
+Its root is `/var/tmp/ga-gegx-recover-20260925-r3`. Its reviews name only `operator/RECOVER-3.sh`.
