@@ -38,7 +38,9 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
 10. s5 (operator chose it over waiting for a FRESHEN opening) adds account_read_times to window-base,
    calls it in both preservation layers (READ_TIMES_CALL), and removes PREFLIGHT's FRESHEN gate
    (PREFLIGHT_FRESHEN). s5 r2 adds the PREFLIGHT start gate stable_read_times (PREFLIGHT_GATE) for the
-   access-time checks outside the accounting, and leaves runtime children unwalked.
+   access-time checks outside the accounting, and leaves runtime children unwalked. s5 r3 runs the gate
+   before the window root is created, with a 19-hour limit and a relatime mount check, and documents the
+   post-STAGE directory residual.
 """
 import hashlib
 import re
@@ -209,22 +211,32 @@ def account_read_times(a, z, window):
     return changes
 
 def stable_read_times(paths=None, now_ns=None):
-    # ga-f37t s5 start gate, for independent review: three checks still compare access times exactly
-    # outside account_read_times. The suspension lineage compares the PREFLIGHT baseline record until the
-    # first transition. The route projection compares the city .beads directory mirror. And
-    # directory_preservation compares the city root and provisioning directory after their renames.
-    # FRESHEN used to keep those stable. Now PREFLIGHT requires each to have an access time newer than its
-    # modification and change times and under 20 hours old, so Linux relatime cannot rewrite it within
-    # the four-hour window bound. The gate reads metadata only.
+    # ga-f37t s5 start gate, for independent review: some checks compare access times exactly outside
+    # account_read_times. The suspension lineage compares the PREFLIGHT baseline record until the first
+    # transition. The route projection compares the city .beads mirror. And directory_preservation
+    # compares the city root and provisioning directory. PREFLIGHT, before it creates the window root,
+    # requires each to sit on a relatime mount and to have an access time newer than its modification and
+    # change times and under 19 hours old (FRESHEN's margin). Relatime then cannot rewrite the suspension
+    # state before its first transition, or the
+    # three directories before STAGE renames city.toml and the receipt and reloads the routes, within the
+    # four-hour window bound. After those renames and the reload, the directories' access times are
+    # compared exactly as in earlier windows. That is an unchanged, fail-closed residual risk that ADMIT
+    # checks before RESTORE is consumed. The gate reads metadata only.
     now_ns = time.time_ns() if now_ns is None else now_ns
-    for path in (SUSPENSION, CITY, CITY/'.beads', RECEIPT.parent) if paths is None else paths:
+    for path in stable_read_paths() if paths is None else paths:
+        flags = os.statvfs(path).f_flag
+        require(flags & os.ST_RELATIME and not flags & os.ST_NOATIME,
+                'access-time mount policy is not relatime: ' + str(path))
         s = os.lstat(path)
         require(s.st_atime_ns > max(s.st_mtime_ns, s.st_ctime_ns)
-                and 0 <= now_ns - s.st_atime_ns < 20 * 3600 * 10**9,
+                and 0 <= now_ns - s.st_atime_ns < 19 * 3600 * 10**9,
                 'access time not stable for the window: ' + str(path))
+
+def stable_read_paths():
+    return (SUSPENSION, CITY, CITY/'.beads', RECEIPT.parent)
 '''
-PREFLIGHT_GATE = ("        require(result['stdout']=='','worker not clean')\n",
-                  "        require(result['stdout']=='','worker not clean')\n        stable_read_times()\n")
+PREFLIGHT_GATE = ("    if action=='preflight':\n        ROOT.mkdir(mode=0o700)\n",
+                  "    if action=='preflight':\n        stable_read_times()\n        ROOT.mkdir(mode=0o700)\n")
 READ_TIMES_CALL = ("    accounting['mounts']=mounts\n",
                    "    accounting['mounts']=mounts\n"
                    "    # s5: reads may advance access times outside the cache too (window-base account_read_times).\n"

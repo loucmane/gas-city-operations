@@ -174,22 +174,42 @@ operator chose to account reads instead of waiting.
 
 ## s5 r2 (both reviews of 25abb9bd held on the same gap)
 
-- **Exact access-time checks outside the accounting.** Three checks still compare access times exactly, and
-  FRESHEN used to keep them stable:
+- **Exact access-time checks outside the accounting.** These still compare access times exactly, and
+  snapshot alignment does not reach them:
   - the suspension lineage compares the PREFLIGHT baseline record (`suspension-lineage.py:101,106`) until the
     first transition, and RESTORE, its admission and TERMINAL re-verify that chain;
   - the route projection compares the city `.beads` directory mirror and each event's preimage
     (`route-chain-r1.py:58-64`);
-  - `directory_preservation` compares the city root and the provisioning directory after their renames.
-  Snapshot alignment does not reach these.
-- **Start gate.** `stable_read_times()` now runs inside PREFLIGHT before `before.json`. It requires the
-  suspension state, the city root, city `.beads` and the provisioning directory each to have an access time
-  newer than their mtime and ctime and under 20 hours old. Relatime then cannot rewrite them before T0 plus the
-  four-hour bound. At 2026-09-25 09:45 CEST all four passed, and they keep passing until **19:50 CEST**
-  (suspension state) and 20:23 CEST (the three directories). PREFLIGHT must run before 19:50 CEST, or it
-  refuses fail-closed before anything is staged.
+  - `directory_preservation` compares the city root and the provisioning directory.
+- **Start gate (s5 r3: before the window root).** `stable_read_times()` runs first in the PREFLIGHT action,
+  before the window root is created, so a gate refusal consumes nothing. It requires the suspension state, the
+  city root, city `.beads` and the provisioning directory each to sit on a relatime mount and to have an access
+  time newer than their mtime and ctime and under 19 hours old (FRESHEN's margin).
+  - Relatime then cannot rewrite the suspension state before its first transition, or the three directories
+    before STAGE renames city.toml and the receipt and reloads the routes, within the four-hour bound.
+  - At 2026-09-25 09:46 CEST all four passed and all four were on relatime mounts. They keep passing until
+    **18:50 CEST** (suspension state) and 19:23 CEST (the three directories), so PREFLIGHT must run before
+    18:50 CEST.
+  - RESUME's lineage check is not clock-bounded itself. It must run well inside the bound; the suspension state
+    stays stable until 23:50 CEST.
+- **Not covered by the gate (s5 r3 correction).** The package's own record (`freshen-r11.py:24-28`) says FRESHEN
+  never held these either. After STAGE's renames and the reload, the directories' modification times move past
+  their access times, so relatime may rewrite those access times on a later ordinary directory listing:
+  - `directory_preservation` then compares the city root and provisioning directory access times exactly;
+  - `account_read_times` refuses the city `.beads` advance, because it checks relatime against the earlier
+    mtime and ctime;
+  - the route chain compares the parent access time exactly.
+
+  This behaviour is unchanged from the ga-4z38 window, which passed. It fails closed, and ADMIT checks it before
+  RESTORE is consumed. It does, however, spend the worker attempt if it happens after RESUME. The operator
+  accepts this residual explicitly for this run; the gate's acceptance criterion is not met for these three
+  objects after STAGE.
+- **Also not gated:** the five route files and the four rig `.beads` directories. The route chain compares them
+  exactly from PREFLIGHT to the stage reload, and a change there refuses in STAGE, before RESUME. No attempt is
+  spent.
 - **Runtime children** are no longer walked. R6 compares them by identity only, as before s5.
 - **Residual risks, unchanged from earlier packages:**
+  - the directory access times after the renames and the reload (above);
   - the generated route files are refreshable, as in the ga-4z38 window, which passed with them;
   - OBSERVE and TERMINAL still require zero pack-cache access-time changes;
   - lists inside observations are not walked, which fails closed;

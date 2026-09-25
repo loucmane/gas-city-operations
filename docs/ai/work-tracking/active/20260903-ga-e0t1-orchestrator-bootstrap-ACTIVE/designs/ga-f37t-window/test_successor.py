@@ -299,19 +299,33 @@ class Derivation(unittest.TestCase):
         s = path.lstat()
         hour = 3600 * 10**9
         base = max(s.st_mtime_ns, s.st_ctime_ns)
-        # Access time newer than mtime/ctime and under 20 hours old passes.
+        if not os.statvfs(path).f_flag & os.ST_RELATIME:
+            self.skipTest('scratch directory is not on a relatime mount')
+        # Access time newer than mtime/ctime and under 19 hours old passes.
         os.utime(path, ns=(base + hour, s.st_mtime_ns))
         t = path.lstat()
-        m.stable_read_times([path], now_ns=t.st_atime_ns + 19 * hour)
+        m.stable_read_times([path], now_ns=t.st_atime_ns + 19 * hour - 1)
         with self.assertRaisesRegex(RuntimeError, 'not stable for the window'):
-            m.stable_read_times([path], now_ns=t.st_atime_ns + 20 * hour)
+            m.stable_read_times([path], now_ns=t.st_atime_ns + 19 * hour)
+        # Newer than mtime but not newer than ctime (utime sets ctime to now) refuses.
+        os.utime(path, ns=(0, 0))
+        u = path.lstat()
+        os.utime(path, ns=(u.st_ctime_ns - 1, 0))
+        v = path.lstat()
+        if v.st_atime_ns <= v.st_ctime_ns and v.st_atime_ns > v.st_mtime_ns:
+            with self.assertRaisesRegex(RuntimeError, 'not stable for the window'):
+                m.stable_read_times([path], now_ns=v.st_atime_ns + hour)
+        # The default path set is exactly the four objects.
+        self.assertEqual(m.stable_read_paths(), (m.SUSPENSION, m.CITY, m.CITY/'.beads', m.RECEIPT.parent))
         # An access time not newer than mtime/ctime (refreshable by any read) refuses.
         os.utime(path, ns=(0, s.st_mtime_ns))
         with self.assertRaisesRegex(RuntimeError, 'not stable for the window'):
             m.stable_read_times([path], now_ns=time.time_ns())
         text = (HERE/'window-base-r11.py').read_text()
-        gate = "        require(result['stdout']=='','worker not clean')\n        stable_read_times()\n        snapshot('before.json',b,o)\n"
+        # The gate runs before the window root is created, so a refusal consumes nothing.
+        gate = "    if action=='preflight':\n        stable_read_times()\n        ROOT.mkdir(mode=0o700)\n"
         self.assertEqual(text.count(gate), 1)
+        self.assertEqual(text.count('stable_read_times()'), 1)
 
     def test_both_preservation_layers_account_read_times(self):
         call = "    accounting['read_time_changes']=w.account_read_times(a,z,accounting['window'])\n"

@@ -264,19 +264,29 @@ def account_read_times(a, z, window):
     return changes
 
 def stable_read_times(paths=None, now_ns=None):
-    # ga-f37t s5 start gate, for independent review: three checks still compare access times exactly
-    # outside account_read_times. The suspension lineage compares the PREFLIGHT baseline record until the
-    # first transition. The route projection compares the city .beads directory mirror. And
-    # directory_preservation compares the city root and provisioning directory after their renames.
-    # FRESHEN used to keep those stable. Now PREFLIGHT requires each to have an access time newer than its
-    # modification and change times and under 20 hours old, so Linux relatime cannot rewrite it within
-    # the four-hour window bound. The gate reads metadata only.
+    # ga-f37t s5 start gate, for independent review: some checks compare access times exactly outside
+    # account_read_times. The suspension lineage compares the PREFLIGHT baseline record until the first
+    # transition. The route projection compares the city .beads mirror. And directory_preservation
+    # compares the city root and provisioning directory. PREFLIGHT, before it creates the window root,
+    # requires each to sit on a relatime mount and to have an access time newer than its modification and
+    # change times and under 19 hours old (FRESHEN's margin). Relatime then cannot rewrite the suspension
+    # state before its first transition, or the
+    # three directories before STAGE renames city.toml and the receipt and reloads the routes, within the
+    # four-hour window bound. After those renames and the reload, the directories' access times are
+    # compared exactly as in earlier windows. That is an unchanged, fail-closed residual risk that ADMIT
+    # checks before RESTORE is consumed. The gate reads metadata only.
     now_ns = time.time_ns() if now_ns is None else now_ns
-    for path in (SUSPENSION, CITY, CITY/'.beads', RECEIPT.parent) if paths is None else paths:
+    for path in stable_read_paths() if paths is None else paths:
+        flags = os.statvfs(path).f_flag
+        require(flags & os.ST_RELATIME and not flags & os.ST_NOATIME,
+                'access-time mount policy is not relatime: ' + str(path))
         s = os.lstat(path)
         require(s.st_atime_ns > max(s.st_mtime_ns, s.st_ctime_ns)
-                and 0 <= now_ns - s.st_atime_ns < 20 * 3600 * 10**9,
+                and 0 <= now_ns - s.st_atime_ns < 19 * 3600 * 10**9,
                 'access time not stable for the window: ' + str(path))
+
+def stable_read_paths():
+    return (SUSPENSION, CITY, CITY/'.beads', RECEIPT.parent)
 
 def directories(o):
     fd = os.open(CITY, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_NOATIME)
@@ -691,6 +701,7 @@ def main():
     require(len(sys.argv)==2 and sys.argv[1] in ('preflight','stage','restore'), 'unknown action')
     action=sys.argv[1]
     if action=='preflight':
+        stable_read_times()
         ROOT.mkdir(mode=0o700)
         save('preflight-intent.json',dict(executor_sha256=_SOURCE_SHA))
         host(o)
@@ -703,7 +714,6 @@ def main():
         require(result['stdout'].strip()==BASE,'worker base drift')
         result=phase('git-status',['/usr/bin/git','-C',str(WORK),'status','--porcelain=v1','--untracked-files=all'],b,owned)
         require(result['stdout']=='','worker not clean')
-        stable_read_times()
         snapshot('before.json',b,o)
         baseline=suspension_record(o)
         module(HERE/'suspension-lineage.py',LINEAGE_SHA).image(baseline)
