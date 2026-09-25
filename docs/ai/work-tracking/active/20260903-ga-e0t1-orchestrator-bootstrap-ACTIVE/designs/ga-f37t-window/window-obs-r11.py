@@ -9,7 +9,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-f37t-window')
-BASE_SHA='46a72b51324b06f872f618c80d5b3477ae1371ea1989c46f705498df65ed3056'
+BASE_SHA='98f80483df608b2b2d8cbaa2678c64f1f13a3490adc24bafa52c0a9b4ac7e3a7'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):
@@ -96,6 +96,8 @@ def preservation(before,after,city_pin,receipt_pin):
         row=max(covering,key=lambda x:len(x['path']))
         w.require(not (set(row['options']) & {'noatime','ro'}),'atime changed on read-only/noatime cache mount')
     accounting['mounts']=mounts
+    # s5: reads may advance access times outside the cache too (window-base account_read_times).
+    accounting['read_time_changes']=w.account_read_times(a,z,accounting['window'])
     # Only the comparison copies are aligned, after exhaustive cache validation.
     # Original observations and every timestamp remain preserved, never rewritten.
     z['cache']=a['cache']

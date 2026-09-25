@@ -1,6 +1,7 @@
 """The ga-f37t package is exactly the successor derivation of the reviewed ga-4z38 r14 package."""
 import hashlib
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -172,9 +173,85 @@ class Derivation(unittest.TestCase):
         rest['cache']['inventory'][m.CACHE_DIRECTORY] = historical['cache']['inventory'][m.CACHE_DIRECTORY]
         self.assertEqual(rest, historical)
 
-    def test_preflight_pins_this_freshen(self):
-        [pin] = re.findall(r'^FRESHEN_SHA=([0-9a-f]{64})$', (HERE/'operator'/'PREFLIGHT.sh').read_text(), re.M)
-        self.assertEqual(pin, sha(HERE/'freshen-r11.py'))
+    def test_preflight_requires_no_freshen(self):
+        text = (HERE/'operator'/'PREFLIGHT.sh').read_text()
+        self.assertNotIn('FRESHEN_SHA', text)
+        self.assertNotIn('ga-f37t-freshen-', text)
+        self.assertIn('account_read_times', text)
+
+    def read_times(self, lifecycle=False):
+        m, json = self.base()
+        root = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, root)
+        if lifecycle:
+            (root/'suspension-rig-resume-intent.json').write_text('{}')
+        m.ROOT = root
+        return m, json
+
+    def record(self, atime, mtime=100 * 10**9, ctime=100 * 10**9, inode=7):
+        return dict(atime_ns=atime, mtime_ns=mtime, ctime_ns=ctime, inode=inode, mode=0o644)
+
+    def test_read_times_admit_only_relatime_forward_changes_in_window(self):
+        m, json = self.read_times()
+        day = 24 * 3600 * 10**9
+        window = dict(earliest_ns=10 * day, latest_ns=11 * day)
+        # Old access time not newer than mtime/ctime: any forward change in the window is a read.
+        a = dict(pins={'/x': dict(sha256='s', metadata=self.record(50 * 10**9))})
+        z = json.loads(json.dumps(a)); z['pins']['/x']['metadata']['atime_ns'] = 10 * day + 5
+        changes = m.account_read_times(a, z, window)
+        self.assertEqual(z, a)
+        self.assertEqual(changes, [dict(path=['pins', '/x', 'metadata'], before_ns=50 * 10**9, after_ns=10 * day + 5)])
+        # Fresh old access time (newer than mtime/ctime) under 24 hours old: relatime cannot write it.
+        a = dict(pins={'/x': dict(sha256='s', metadata=self.record(10 * day - 3600 * 10**9))})
+        z = json.loads(json.dumps(a)); z['pins']['/x']['metadata']['atime_ns'] = 10 * day + 5
+        with self.assertRaisesRegex(RuntimeError, 'relatime cannot write'):
+            m.account_read_times(a, z, window)
+        # At least 24 hours later: relatime writes it.
+        a = dict(protected={'/p': dict(inventory={'f': self.record(9 * day)})})
+        z = json.loads(json.dumps(a)); z['protected']['/p']['inventory']['f']['atime_ns'] = 10 * day
+        self.assertEqual(len(m.account_read_times(a, z, window)), 1)
+        self.assertEqual(z, a)
+        # Backwards, or outside the window, refuses.
+        for new in (40 * 10**9, 12 * day):
+            a = dict(pins={'/x': dict(sha256='s', metadata=self.record(50 * 10**9))})
+            z = json.loads(json.dumps(a)); z['pins']['/x']['metadata']['atime_ns'] = new
+            with self.assertRaisesRegex(RuntimeError, 'outside the observed window'):
+                m.account_read_times(a, z, window)
+
+    def test_read_times_never_align_other_changes(self):
+        m, json = self.read_times()
+        day = 24 * 3600 * 10**9
+        window = dict(earliest_ns=10 * day, latest_ns=11 * day)
+        a = dict(pins={'/x': dict(sha256='s', metadata=self.record(50 * 10**9))},
+                 cache=dict(inventory={'.': self.record(1)}), cache_access_clock={'atime_ns': 1})
+        z = json.loads(json.dumps(a))
+        z['pins']['/x']['metadata'].update(atime_ns=10 * day + 5, inode=8)
+        z['cache']['inventory']['.']['atime_ns'] = 10 * day + 5
+        z['cache_access_clock']['atime_ns'] = 2
+        before = json.loads(json.dumps(z))
+        self.assertEqual(m.account_read_times(a, z, window), [])
+        # An inode change keeps its new access time, and the cache and clock keys are never touched.
+        self.assertEqual(z, before)
+        self.assertNotEqual(m.dependency_image(z), m.dependency_image(a))
+
+    def test_read_times_leave_the_suspension_state_to_the_lineage(self):
+        day = 24 * 3600 * 10**9
+        window = dict(earliest_ns=10 * day, latest_ns=11 * day)
+        for lifecycle in (False, True):
+            m, json = self.read_times(lifecycle)
+            path = str(m.SUSPENSION)
+            a = dict(pins={path: dict(sha256='s', metadata=self.record(50 * 10**9))})
+            z = json.loads(json.dumps(a)); z['pins'][path]['metadata']['atime_ns'] = 10 * day + 5
+            changes = m.account_read_times(a, z, window)
+            self.assertEqual(len(changes), 0 if lifecycle else 1)
+            self.assertEqual(z == a, not lifecycle)
+
+    def test_both_preservation_layers_account_read_times(self):
+        call = "    accounting['read_time_changes']=w.account_read_times(a,z,accounting['window'])\n"
+        for name in ('window-r11.py', 'window-obs-r11.py'):
+            text = (HERE/name).read_text()
+            self.assertEqual(text.count(call), 1, name)
+            self.assertLess(text.index(call), text.index("original_preservation(a,z,city_pin,receipt_pin)"), name)
 
     def test_restore_disposition_refuses_changed_content(self):
         if not Path('/var/tmp/ga-4z38-terminal-20260923-r1/observed-after.json').exists():

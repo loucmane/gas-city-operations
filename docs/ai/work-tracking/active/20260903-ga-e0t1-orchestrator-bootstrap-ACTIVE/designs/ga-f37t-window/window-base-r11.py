@@ -139,8 +139,8 @@ def provider_pins(b, o):
         api_link=dict(target=os.readlink(r.NATIVE_LINK),metadata=o.metadata(r.NATIVE_LINK.lstat())))
 
 def dependency_image(value):
-    # Historical reuse alone excludes read timestamps. Immediate preservation
-    # still compares every metadata field, including atime.
+    # Historical reuse alone excludes read timestamps. Immediate preservation compares every
+    # metadata field; access times only as account_read_times admits (s5).
     if isinstance(value, dict):
         return {k:dependency_image(v) for k,v in value.items() if k != 'atime_ns'}
     if isinstance(value, list):
@@ -221,6 +221,44 @@ def approved_coordinator_cache_image(prior):
         require(entry[key] == 1790178703592685769, 'coordinator cache exception preimage')
         entry[key] = 1790289546179167691
     return value
+
+def account_read_times(a, z, window):
+    # ga-f37t s5 disposition, operator-approved 2026-09-25 in place of FRESHEN, for independent review:
+    # a read may advance an access time and nothing else. For every metadata record outside the cache
+    # (cache-atime-policy-r1 accounts that) whose other fields are all equal, a changed atime_ns must
+    # move forward, lie inside this comparison's observed clock window, and be a change Linux relatime
+    # can write: the old access time was not newer than the modification or change time, or the new one
+    # is at least 24 hours later. Only the comparison copy is aligned; both observations keep every
+    # timestamp and the changes are returned as evidence. Once a lifecycle transition exists, the
+    # suspension state stays governed by the suspension lineage and is not aligned here. Every other
+    # field is still compared exactly.
+    lifecycle = bool(list(ROOT.glob('suspension-*-intent.json')))
+    changes = []
+    def walk(x, y, path):
+        if not (isinstance(x, dict) and isinstance(y, dict)):
+            return
+        if 'atime_ns' in x and 'atime_ns' in y:
+            old, new = x['atime_ns'], y['atime_ns']
+            require(type(old) is int and type(new) is int, 'access timestamp type')
+            rest = {k: v for k, v in x.items() if k != 'atime_ns'}
+            if old != new and rest == {k: v for k, v in y.items() if k != 'atime_ns'}:
+                where = '/'.join(path)
+                require(new > old and window['earliest_ns'] <= new <= window['latest_ns'],
+                        'access time outside the observed window: ' + where)
+                require(old <= max(x['mtime_ns'], x['ctime_ns'])
+                        or new // 10**9 - old // 10**9 >= 24 * 3600,
+                        'access time change relatime cannot write: ' + where)
+                y['atime_ns'] = old
+                changes.append(dict(path=list(path), before_ns=old, after_ns=new))
+            return
+        for key in x:
+            if key not in y or (not path and key in ('cache', 'cache_access_clock', 'cache_access_mounts')):
+                continue
+            if lifecycle and path == ('pins',) and key == str(SUSPENSION):
+                continue
+            walk(x[key], y[key], path + (key,))
+    walk(a, z, ())
+    return changes
 
 def directories(o):
     fd = os.open(CITY, os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_NOATIME)

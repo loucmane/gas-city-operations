@@ -10,8 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-f37t-window
 COMMIT=${1:?usage: PREFLIGHT.sh <reviewed commit>}
-WINDOW_SHA=2d84b321fb08800aeed4ed60538c0d16ed39c992ddd018170daece1e46042dda
-FRESHEN_SHA=1c63054c30812ce7e9fccb2e41eb46e0dc20f3680f314f765c38b7f0129db26a
+WINDOW_SHA=79110b981e65ebba8265b69335005c5b9423bd0edc1c88f262d0846c3d056a76
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,9 +26,8 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
 { [ ! -e /var/tmp/ga-f37t-window-20260923-r1 ] && [ ! -L /var/tmp/ga-f37t-window-20260923-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-f37t-window-20260923-r1"; echo "== end"; exit 1; }
-# An object already fresh at FRESHEN may be up to 19 hours old; it must stay under 24
-# hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.
-find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-f37t-freshen-*/result.json" -mmin -45 -exec grep -l '"ok": true' {} + | xargs -r grep -l "$FRESHEN_SHA" | grep -q . || { echo "== STOP: no FRESHEN pass in the last 45 minutes"; echo "== end"; exit 1; }
+# s5: the window accounts read-only access-time changes (window-base account_read_times), so no
+# FRESHEN pass is required before PREFLIGHT.
 tmux_out=$(/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>&1); tmux_rc=$?
 tmux_sock=/tmp/tmux-$(id -u)/city
 if [ "$tmux_rc" = 0 ]; then

@@ -141,6 +141,36 @@ s3 r4 (`9bf8e544`) passed two job reviews. FRESHEN-1 passed at 2026-09-24 22:50:
   step; without the historical step the cache step refuses its preimage. Another preimage in either field refuses,
   both fields end at the recorded value, and nothing else changes. PREFLIGHT's `FRESHEN_SHA` is tested directly.
 
+## s5 (operator chose read-time accounting over waiting for a FRESHEN opening)
+
+The FRESHEN rule could not pass until 2026-09-26 00:23 CEST. Exact access-time comparisons made the window
+depend on every compared object being refreshed beforehand, and the recorded access times left no gap. The
+operator chose to account reads instead of waiting.
+- **Disposition.** `account_read_times()` in `window-base-r11.py` runs in both preservation layers
+  (`window-r11.py` and `window-obs-r11.py`), right after the reviewed cache access-time policy and before the
+  exact comparison. It applies the same rule outside the cache. For a metadata record whose other fields are
+  all equal, a changed `atime_ns` must:
+  - move forward;
+  - lie inside the comparison's observed clock window;
+  - be a change Linux relatime can write (the old access time was not newer than mtime and ctime, or the new
+    one is at least 24 hours later).
+
+  Only the comparison copy is aligned. Both observations keep every timestamp, and the changes are recorded as
+  `read_time_changes` in the accounting evidence. After the first lifecycle transition, the suspension state is
+  left to the suspension lineage. Content, mtime, ctime, inode, size, mode, ownership and every other field
+  are still compared exactly, and the P6 admission is unchanged (it already excluded access times).
+- **PREFLIGHT** no longer requires a FRESHEN pass. FRESHEN-1..3 remain in the package but are not part of this
+  run. The four-hour window bound from the cache policy (budget and bounds checks) is unchanged.
+- **Tests** cover:
+  - admitted forward reads, and refusal of relatime-impossible, backward or out-of-window changes;
+  - no alignment when any other field changed;
+  - cache and clock keys never touched;
+  - the suspension rule before and after a lifecycle transition;
+  - both call sites;
+  - the removal of the FRESHEN gate.
+- **Operating rule** from s4 r2 still applies: no `workflow.py` call and no bd or gc call without
+  `GIT_OPTIONAL_LOCKS=0` until TERMINAL, and the read-only cache lstat check before OBSERVE.
+
 ## Phases
 
 1. **s1 (`912e4d48`):** its two reviews named only `operator/PREP.sh`, so the job runner admitted only PREP. PREP

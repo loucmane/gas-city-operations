@@ -1,4 +1,4 @@
-"""Successor derivation (s1 to s4 r2): derive the ga-f37t window package from the reviewed ga-4z38 r14 package.
+"""Successor derivation (s1 to s5): derive the ga-f37t window package from the reviewed ga-4z38 r14 package.
 
   python3 -B make_successor.py <output package dir>
 
@@ -35,6 +35,9 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
    approved_coordinator_cache_image, chained last, for the pack cache .git time change a coordinator
    workflow.py call caused at 22:39:06Z, and moves the integrity root to -20260925-r4 (r2 and r3 were
    consumed by refused OBSERVE runs).
+10. s5 (operator chose it over waiting for a FRESHEN opening) adds account_read_times to window-base,
+   calls it in both preservation layers (READ_TIMES_CALL), and removes PREFLIGHT's FRESHEN gate
+   (PREFLIGHT_FRESHEN).
 """
 import hashlib
 import re
@@ -160,6 +163,67 @@ S3_SUBS = {
          '    # with the reviewed dispositions approved_historical_image, approved_epoch_image,\n'
          '    # approved_restore_image and approved_coordinator_cache_image, and the accepted provider pins.')],
 }
+# s5 (operator chose it over waiting for a FRESHEN opening): reads may advance access times, and the
+# window accounts them instead of requiring every compared object to be refreshed beforehand.
+READ_TIMES = '''
+def account_read_times(a, z, window):
+    # ga-f37t s5 disposition, operator-approved 2026-09-25 in place of FRESHEN, for independent review:
+    # a read may advance an access time and nothing else. For every metadata record outside the cache
+    # (cache-atime-policy-r1 accounts that) whose other fields are all equal, a changed atime_ns must
+    # move forward, lie inside this comparison's observed clock window, and be a change Linux relatime
+    # can write: the old access time was not newer than the modification or change time, or the new one
+    # is at least 24 hours later. Only the comparison copy is aligned; both observations keep every
+    # timestamp and the changes are returned as evidence. Once a lifecycle transition exists, the
+    # suspension state stays governed by the suspension lineage and is not aligned here. Every other
+    # field is still compared exactly.
+    lifecycle = bool(list(ROOT.glob('suspension-*-intent.json')))
+    changes = []
+    def walk(x, y, path):
+        if not (isinstance(x, dict) and isinstance(y, dict)):
+            return
+        if 'atime_ns' in x and 'atime_ns' in y:
+            old, new = x['atime_ns'], y['atime_ns']
+            require(type(old) is int and type(new) is int, 'access timestamp type')
+            rest = {k: v for k, v in x.items() if k != 'atime_ns'}
+            if old != new and rest == {k: v for k, v in y.items() if k != 'atime_ns'}:
+                where = '/'.join(path)
+                require(new > old and window['earliest_ns'] <= new <= window['latest_ns'],
+                        'access time outside the observed window: ' + where)
+                require(old <= max(x['mtime_ns'], x['ctime_ns'])
+                        or new // 10**9 - old // 10**9 >= 24 * 3600,
+                        'access time change relatime cannot write: ' + where)
+                y['atime_ns'] = old
+                changes.append(dict(path=list(path), before_ns=old, after_ns=new))
+            return
+        for key in x:
+            if key not in y or (not path and key in ('cache', 'cache_access_clock', 'cache_access_mounts')):
+                continue
+            if lifecycle and path == ('pins',) and key == str(SUSPENSION):
+                continue
+            walk(x[key], y[key], path + (key,))
+    walk(a, z, ())
+    return changes
+'''
+READ_TIMES_CALL = ("    accounting['mounts']=mounts\n",
+                   "    accounting['mounts']=mounts\n"
+                   "    # s5: reads may advance access times outside the cache too (window-base account_read_times).\n"
+                   "    accounting['read_time_changes']=w.account_read_times(a,z,accounting['window'])\n")
+S3_SUBS['window-base-r11.py'] += [
+    ('\ndef directories(o):', READ_TIMES + '\ndef directories(o):'),
+    ('    # Historical reuse alone excludes read timestamps. Immediate preservation\n'
+     '    # still compares every metadata field, including atime.\n',
+     '    # Historical reuse alone excludes read timestamps. Immediate preservation compares every\n'
+     '    # metadata field; access times only as account_read_times admits (s5).\n')]
+S3_SUBS['window-r11.py'] = [READ_TIMES_CALL]
+S3_SUBS['window-obs-r11.py'] = [READ_TIMES_CALL]
+PREFLIGHT_FRESHEN = (
+    '# An object already fresh at FRESHEN may be up to 19 hours old; it must stay under 24\n'
+    '# hours until T0 plus four hours, so PREFLIGHT must follow a FRESHEN pass within 45 min.\n'
+    'find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-f37t-freshen-*/result.json" -mmin -45 '
+    '-exec grep -l \'"ok": true\' {} + | xargs -r grep -l "$FRESHEN_SHA" | grep -q . || '
+    '{ echo "== STOP: no FRESHEN pass in the last 45 minutes"; echo "== end"; exit 1; }\n',
+    '# s5: the window accounts read-only access-time changes (window-base account_read_times), so no\n'
+    '# FRESHEN pass is required before PREFLIGHT.\n')
 # The refused s2 r2 and s3 r4 OBSERVE runs consumed integrity roots r2 and r3; s4 uses a fresh r4.
 S3_ROOT = ('/var/tmp/ga-f37t-integrity-20260924-r2', '/var/tmp/ga-f37t-integrity-20260925-r4')
 # Applied after the rename: the ga-f37t PREP outputs (job ga-f37t-prep, 22:05:00Z).
@@ -290,6 +354,11 @@ def rebind(files):
             assert text.count(old) == 1, (name, old[:40])
             text = text.replace(old, new)
         text = text.replace(S3_ROOT[0], S3_ROOT[1])
+        if name == 'operator/PREFLIGHT.sh':
+            text, found = re.subn(r'^FRESHEN_SHA=[0-9a-f]{64}\n', '', text, flags=re.M)
+            assert found == 1
+            assert text.count(PREFLIGHT_FRESHEN[0]) == 1
+            text = text.replace(*PREFLIGHT_FRESHEN)
         if name == 'prep-r11.py':
             overlay = sha(successor_overlay())
             for old, new in (("OVERLAY_SHA = '%s'" % OLD_OVERLAY_SHA, "OVERLAY_SHA = '%s'" % overlay),
