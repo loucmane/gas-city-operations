@@ -34,14 +34,20 @@ r3 (after review HOLD of r2 f0234f73, which never ran; root -r2 was never create
   directory as an argument (the job passes ROOT), so proof/prep-proof.py runs the exact child path
   offline on a scratch directory.
 
+r4 (ga-gegx, after the ga-f37t window's silent start):
+- nudge-on-route stays out of the order skip list. Core's gc sling does not nudge warm-idle workers
+  (Core orders/nudge-on-route.toml), so without it the routed task never reaches the worker session.
+- The isolated order list must be exactly that one order, equal to its baseline entry, and the result
+  records effective_orders=1.
+
 What it does, all in read-only, network-isolated bwrap namespaces:
 1. It generates the one-worker overlay:
    - workspace cap 1;
-   - every order skipped;
+   - every order skipped except nudge-on-route (ga-gegx r4);
    - every city and gascity agent suspended, except gascity/implementation-worker, which is bound
      to the ga-gegx worktree with sessions 0..1.
-2. It proves the exact effective-config delta with `gc config show`, and that effectively no orders
-   remain.
+2. It proves the exact effective-config delta with `gc config show`, and that exactly the
+   nudge-on-route order remains, unchanged from its baseline entry.
 3. It takes the overlay's permission revision from the reviewed Core compose diagnostic. The
    provider composition must stay unchanged apart from that revision.
 4. It normalizes (Template load_prototype) and finalizes (Core preflight diagnostic `finalize`)
@@ -265,7 +271,10 @@ def main():
     assert observed == expected_config(baseline, selected, target, names), 'unexpected effective configuration delta'
     empty = confined([str(GC), '--city', str(CITY), 'order', 'list', '--json'], True)
     write('orders.isolated.json', empty)
-    assert empty['orders'] == [] and empty['summary']['count'] == 0
+    # ga-gegx: every order is skipped except nudge-on-route, so exactly that order remains, unchanged
+    # from its baseline entry.
+    kept = [o for o in orders['orders'] if o['name'] == 'nudge-on-route']
+    assert len(kept) == 1 and empty['orders'] == kept and empty['summary']['count'] == 1, 'isolated orders'
     # Receipt image for the overlay revision: the prior input with only the revision replaced.
     candidate_input = json.loads(prior)
     candidate_input['permission_revision'] = after['permission_revision']
@@ -286,7 +295,8 @@ def main():
                   revision_before=before['permission_revision'], revision_after=after['permission_revision'],
                   receipt_before_sha256=sha(before_receipt), receipt_after_sha256=sha(read(ROOT/'receipt.final.json')),
                   receipt_self_sha256=new['receipt_sha256'], changed_receipt_fields=differences,
-                  effective_orders=0, only_unsuspended_city_core_agent='gascity/gc.implementation-worker',
+                  effective_orders=1, effective_order_names=['nudge-on-route'],
+                  only_unsuspended_city_core_agent='gascity/gc.implementation-worker',
                   workspace_capacity=1, prior_input_sha256=sha(prior))
     write('result.json', result)
     print(json.dumps(result, indent=1, sort_keys=True))

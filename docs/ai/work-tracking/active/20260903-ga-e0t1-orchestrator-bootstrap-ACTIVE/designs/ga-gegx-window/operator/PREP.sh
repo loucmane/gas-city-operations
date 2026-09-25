@@ -1,5 +1,5 @@
 #!/bin/sh
-# ga-gegx window prep r3: the isolation overlay and its receipt image. Read-only: installs nothing
+# ga-gegx window prep r4: the isolation overlay and its receipt image. Read-only: installs nothing
 # and launches no worker. It writes its fresh evidence root /var/tmp/ga-gegx-prep-20260923-r2 plus the
 # staging log below. It is the reviewed ga-f37t prep, rebound to ga-gegx with
 # nudge-on-route kept out of the order skip list.
@@ -13,7 +13,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-gegx-window
 COMMIT=${1:?usage: PREP.sh <reviewed commit>}
-PREP_SHA=4292f29f2553210931f6dbd126155620cc4b0d0fa9b883841e569e2aa9d2e7eb
+PREP_SHA=c35ba99fddebcd9ed7fbfe905d4963565e0277de6365d4b421593655011200e6
 OUT=/var/tmp/ga-gegx-prep-20260923-r2
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

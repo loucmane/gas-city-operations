@@ -46,7 +46,8 @@ KEEP = [RECOVER2_ROOT, STOPPED_BASELINE,
         '# ga-f37t s3 disposition, for independent review:',
         '# ga-f37t s4 disposition, operator-approved 2026-09-25, for independent review:',
         '# ga-f37t s5 disposition, operator-approved 2026-09-25 in place of FRESHEN, for independent review:',
-        '# ga-f37t s5 start gate, for independent review.']
+        '# ga-f37t s5 start gate, for independent review.',
+        'the ga-f37t window stopped at HOLD and CLOSE', 'reviewed ga-f37t RECOVER-2 job']
 
 # The ga-f37t s6 recovery disposition is replaced by the RECOVER-2 disposition.
 OLD_RECOVERY_START = '\nRECOVERY = None\n'
@@ -137,6 +138,26 @@ PREP_SUBS = [
      "    # without it the routed task never reaches the worker session (the ga-4z38 and ga-f37t silent starts).\n"
      "    assert 'nudge-on-route' in names, 'nudge-on-route order missing'\n"
      "    names = [name for name in names if name != 'nudge-on-route']\n"),
+    ("    assert empty['orders'] == [] and empty['summary']['count'] == 0\n",
+     "    # ga-gegx: every order is skipped except nudge-on-route, so exactly that order remains, unchanged\n"
+     "    # from its baseline entry.\n"
+     "    kept = [o for o in orders['orders'] if o['name'] == 'nudge-on-route']\n"
+     "    assert len(kept) == 1 and empty['orders'] == kept and empty['summary']['count'] == 1, 'isolated orders'\n"),
+    ("                  effective_orders=0, only_unsuspended_city_core_agent=",
+     "                  effective_orders=1, effective_order_names=['nudge-on-route'],\n"
+     "                  only_unsuspended_city_core_agent="),
+    ("   - every order skipped;\n", "   - every order skipped except nudge-on-route (ga-gegx r4);\n"),
+    ("2. It proves the exact effective-config delta with `gc config show`, and that effectively no orders\n"
+     "   remain.\n",
+     "2. It proves the exact effective-config delta with `gc config show`, and that exactly the\n"
+     "   nudge-on-route order remains, unchanged from its baseline entry.\n"),
+    ("\nWhat it does, all in read-only, network-isolated bwrap namespaces:\n",
+     "\nr4 (ga-gegx, after the ga-f37t window's silent start):\n"
+     "- nudge-on-route stays out of the order skip list. Core's gc sling does not nudge warm-idle workers\n"
+     "  (Core orders/nudge-on-route.toml), so without it the routed task never reaches the worker session.\n"
+     "- The isolated order list must be exactly that one order, equal to its baseline entry, and the result\n"
+     "  records effective_orders=1.\n"
+     "\nWhat it does, all in read-only, network-isolated bwrap namespaces:\n"),
 ]
 OLD_OVERLAY = Path('/var/tmp/ga-f37t-prep-20260923-r2/city.isolated.toml')
 OLD_OVERLAY_SHA = '9774a5692ec5537713b212bc3fef5c88edc34c82cb6fdcc11e949e7eefc8343e'
@@ -218,6 +239,8 @@ def rebind(files):
                                   '# staging log below. It is the reviewed ga-f37t prep, rebound to ga-gegx with\n'
                                   '# nudge-on-route kept out of the order skip list.\n', text, flags=re.S)
             assert found == 1
+            assert text.count('# ga-gegx window prep r3:') == 1
+            text = text.replace('# ga-gegx window prep r3:', '# ga-gegx window prep r4:')
         if name == 'observe-integrity-r11.py':
             text, found = re.subn(r"^RECOVER_ROOT='[^']*'\nRECOVER_SHA='[0-9a-f]{64}'\n",
                                   "RECOVER_ROOT='%s'\nRECOVER_SHA='%s'\n" % (RECOVER2_ROOT, RECOVER2_RESULT_SHA),

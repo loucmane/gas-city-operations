@@ -295,8 +295,8 @@ def stable_read_paths():
 RECOVERY = None
 
 def approved_recovery_image(prior, root, result_sha):
-    # ga-gegx disposition, for independent review: the ga-gegx window stopped at HOLD and CLOSE, and the
-    # reviewed ga-gegx RECOVER-2 job returned city.toml and the receipt to their accepted content (new inodes
+    # ga-gegx disposition, for independent review: the ga-f37t window stopped at HOLD and CLOSE, and the
+    # reviewed ga-f37t RECOVER-2 job returned city.toml and the receipt to their accepted content (new inodes
     # and times); the window's city-suspend and rig-suspend left the suspension state fully suspended with a
     # new updated_at. OBSERVE sets RECOVERY to that job's root and its pinned result digest. Only the
     # city.toml, receipt and suspension-state pin entries are replaced, with the ones the result recorded:

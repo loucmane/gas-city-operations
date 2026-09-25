@@ -21,7 +21,7 @@ ALLOWED = ['/var/tmp/ga-f37t-recover-20260925-r2',
            '# ga-f37t s5 start gate, for independent review.',
            'reviewed ga-f37t RECOVER-2 job', 'the ga-f37t window stopped at HOLD and CLOSE',
            'the ga-4z38 and ga-f37t silent starts', 'It is the reviewed ga-f37t prep',
-           'ga-y49e, ga-4z38 and ga-f37t attempts']
+           'ga-y49e, ga-4z38 and ga-f37t attempts', "after the ga-f37t window's silent start"]
 
 
 def sha(path):
@@ -125,6 +125,22 @@ class Derivation(unittest.TestCase):
         self.assertIn('work_dir = "/home/loucmane/gascity-core-worktrees/ga-gegx-typed-route-cycles"', text)
         [pinned] = re.findall(r'^PREP_SHA=([0-9a-f]{64})$', (HERE/'operator'/'PREP.sh').read_text(), re.M)
         self.assertEqual(pinned, sha(HERE/'prep-r11.py'))
+
+    def test_prep_requires_exactly_nudge_on_route_to_remain(self):
+        prep = (HERE/'prep-r11.py').read_text()
+        self.assertNotIn("empty['orders'] == []", prep)
+        self.assertIn("    kept = [o for o in orders['orders'] if o['name'] == 'nudge-on-route']\n", prep)
+        self.assertIn("    assert len(kept) == 1 and empty['orders'] == kept and empty['summary']['count'] == 1, "
+                      "'isolated orders'\n", prep)
+        self.assertIn("effective_orders=1, effective_order_names=['nudge-on-route']", prep)
+        self.assertNotIn('effective_orders=0', prep)
+        baseline = Path('/var/tmp/ga-f37t-prep-20260923-r2/orders.baseline.json')
+        if baseline.exists():
+            orders = json.loads(baseline.read_text())['orders']
+            kept = [o for o in orders if o['name'] == 'nudge-on-route']
+            self.assertEqual(len(kept), 1)
+            self.assertTrue(kept[0]['enabled'])
+            self.assertEqual((kept[0]['trigger'], kept[0]['on'], kept[0]['type']), ('event', 'bead.updated', 'exec'))
 
     def test_observe_binds_the_recover2_result(self):
         observe = (HERE/'observe-integrity-r11.py').read_text()
