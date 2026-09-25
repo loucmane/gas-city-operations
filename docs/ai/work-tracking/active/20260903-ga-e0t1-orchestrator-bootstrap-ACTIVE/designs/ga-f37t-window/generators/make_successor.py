@@ -40,7 +40,8 @@ ga-4z38 r14 (69cdc6b6, two SOURCE_PASS) reached TERMINAL on 2026-09-24, but its 
    (PREFLIGHT_FRESHEN). s5 r2 adds the PREFLIGHT start gate stable_read_times (PREFLIGHT_GATE) for the
    access-time checks outside the accounting, and leaves runtime children unwalked. s5 r3 runs the gate
    before the window root is created, with a 19-hour limit and a relatime mount check, and documents the
-   post-STAGE directory residual.
+   post-STAGE directory residual. s5 r4 and s5 r5 change only comments, the README and tests (the gate
+   comment names exactly the four gated objects; the route-capture residual and the WATCH-1 stop rule).
 """
 import hashlib
 import re
@@ -211,19 +212,21 @@ def account_read_times(a, z, window):
     return changes
 
 def stable_read_times(paths=None, now_ns=None):
-    # ga-f37t s5 start gate, for independent review: some checks compare access times exactly outside
-    # account_read_times. The suspension lineage compares the PREFLIGHT baseline record until the first
-    # transition. The route projection compares the city .beads mirror and the full route capture (all
-    # five route files and their .beads directories). And directory_preservation compares the city root
-    # and provisioning directory. PREFLIGHT, before it creates the window root,
+    # ga-f37t s5 start gate, for independent review. It gates exactly four objects (stable_read_paths): the
+    # suspension state, the city root, city .beads and the provisioning directory. They are compared
+    # exactly outside account_read_times: the suspension lineage compares the PREFLIGHT baseline record
+    # until the first transition, the route projection compares the city .beads mirror, and
+    # directory_preservation compares the city root and provisioning directory. The five route files and
+    # the four rig .beads directories are NOT gated. A change to them before the stage reload refuses in
+    # STAGE, before RESUME; after the reload they are operator-accepted residual (2). PREFLIGHT, before it creates the window root,
     # requires each to sit on a relatime mount and to have an access time newer than its modification and
     # change times and under 19 hours old (FRESHEN's margin). Relatime then cannot rewrite the suspension
     # state before its first transition, or the
     # three directories before STAGE renames city.toml and the receipt and reloads the routes, within the
-    # four-hour window bound. After those renames and the reload, these directories and the route capture
-    # are compared exactly as in earlier windows. That is an unchanged, fail-closed, operator-accepted
-    # residual that ADMIT checks before RESTORE is consumed. A change after RESUME spends the worker
-    # attempt. The gate reads metadata only.
+    # four-hour window bound. After those renames and the reload, the three directories are compared
+    # exactly as in earlier windows (operator-accepted residual (1)). ADMIT checks both residuals before
+    # RESTORE is consumed, and RESTORE repeats the checks. A change after RESUME spends the worker attempt.
+    # The gate reads metadata only.
     now_ns = time.time_ns() if now_ns is None else now_ns
     for path in stable_read_paths() if paths is None else paths:
         flags = os.statvfs(path).f_flag

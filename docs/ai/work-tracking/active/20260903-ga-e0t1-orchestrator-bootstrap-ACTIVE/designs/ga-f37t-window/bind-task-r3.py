@@ -14,7 +14,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-f37t-window')
 ROOT=Path('/var/tmp/ga-f37t-bind-20260923-r1')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='921028676d33284534c1aff7f92faf913661061ba317aa96604835aafd89d6d8'
+HELPER_SHA='852b571dbc6e10d3f99a06bdb374077c57147e923a6be7b77b8fc987e7ad21d0'
 BRIEF_SHA='5fcfbcb52dc679d307773bfb8cf4fc618a8d6fb2283d9832bd69c4d4b660e2c9'
 BEAD='ga-f37t'
 TARGET='gascity/gc.implementation-worker'

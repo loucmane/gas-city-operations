@@ -329,9 +329,11 @@ class Derivation(unittest.TestCase):
                 m.stable_read_times([path], now_ns=600)
         # A mount that is not relatime, or is noatime, refuses before any access time is read.
         for flags in (0, os.ST_RELATIME | os.ST_NOATIME):
-            with mock.patch.object(m.os, 'statvfs', return_value=types.SimpleNamespace(f_flag=flags)):
+            with mock.patch.object(m.os, 'statvfs', return_value=types.SimpleNamespace(f_flag=flags)), \
+                    mock.patch.object(m.os, 'lstat') as lstat:
                 with self.assertRaisesRegex(RuntimeError, 'mount policy is not relatime'):
                     m.stable_read_times([path], now_ns=w.st_atime_ns + hour)
+                lstat.assert_not_called()
         # The default path set is exactly the four objects.
         self.assertEqual(m.stable_read_paths(), (m.SUSPENSION, m.CITY, m.CITY/'.beads', m.RECEIPT.parent))
         # An access time not newer than mtime/ctime (refreshable by any read) refuses.
