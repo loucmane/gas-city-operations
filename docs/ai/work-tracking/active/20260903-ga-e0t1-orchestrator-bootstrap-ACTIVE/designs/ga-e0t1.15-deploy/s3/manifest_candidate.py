@@ -15,6 +15,9 @@ synthetic core-pack directory) and the Core rig object tree. And one distributio
 libexpat1 2.6.1-2ubuntu0.5 -> 0.6, installed by unattended-upgrade on 2026-09-25 at 06:25:40
 (dpkg --verify clean, md5 22f36128 equals the package record), the same class as M5's libexpat re-pin.
 
+The managed file city-config takes its own sha256 as previous_sha256, with a fresh pinned backup of those
+bytes, as Core's successor rule requires (see CITY_CONFIG_* below).
+
 The PR 69 authority's coverage is REPLACED by the PR 71 authority's, not kept beside it: M5 left 3001
 spare frame bytes and a second 34-pin authority needs about 5.5 KB. The PR 69 worktree stays on disk,
 clean and unreferenced. This is the one narrowing; PLAN-S3.md records it for review.
@@ -125,8 +128,21 @@ AUTH_LINKS = (
     ('plans/current', '2026-09-22-gct-er3h-opus-5-5-worker-profiles.md'),
     ('sessions/current', '2026/09/2026-09-22-003-gct-er3h-opus-5-5-worker-profiles.md'),
 )
-# M5 counts 685 inputs, 49 trees, 23 links. M6 adds the build source and swaps two equal-shape authorities.
-INPUT_COUNT = 685 + 1
+# Managed file city-config. M5 moved its sha256 to 4f7e170f and kept previous_sha256 6594ee77 with backup
+# r5/i/00 (M5 LAYOUT.md 187-193). Core's validateSuccessor (installer.go 405-413) requires every candidate
+# managed file's previous_sha256 to equal the previous manifest's sha256, and metadata-only adoption requires
+# an existing backup holding those bytes (metadata_adopt.go 73-77). M6 therefore sets previous_sha256 to
+# 4f7e170f with a fresh pinned backup of exactly those bytes, written by the `inventory` prerequisite from
+# the live file (review A of dc5c46b5, must_fix 1). The five other managed files already have
+# previous_sha256 == sha256 and stay unchanged.
+CITY_CONFIG_SOURCE = O + '/reports/m5-inputs/city.toml'
+CITY_CONFIG_SHA = '4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591'
+CITY_CONFIG_OLD_PREVIOUS = '6594ee77b3efc30cd2f4cfa412541a5a1076fb324118fb8aec3df1d29b81528b'
+CITY_CONFIG_OLD_BACKUP = O + '/reports/r5/i/00'
+CITY_CONFIG_BACKUP = O + '/reports/m6-inputs/city.toml.before'
+# M5 counts 685 inputs, 49 trees, 23 links. M6 adds the build source and the city-config backup, and swaps
+# two equal-shape authorities.
+INPUT_COUNT = 685 + 2
 TREE_COUNT = 49
 LINK_COUNT = 23
 
@@ -216,6 +232,17 @@ def assemble(old, closure, host, parents, transaction, attempt):
     for path, digest in RETAINED_TEMPLATE_PINS.items():
         pin = _one(md['inputs'], 'path', path, 'retained Template input: ' + path)
         require(pin['sha256'] == digest and pins[path]['sha256'] == digest, 'retained Template bytes: ' + path)
+    config = _one(out['managed_files'], 'name', 'city-config', 'city config managed file')
+    require(config == dict(name='city-config', source=CITY_CONFIG_SOURCE, destination='/home/loucmane/gascity/city/city.toml',
+                           sha256=CITY_CONFIG_SHA, mode=0o644, previous_sha256=CITY_CONFIG_OLD_PREVIOUS,
+                           backup_path=CITY_CONFIG_OLD_BACKUP), 'exact predecessor city config')
+    require(all(f['previous_sha256'] == f['sha256'] for f in out['managed_files'] if f['name'] != 'city-config'),
+            'other managed files already carry their own baseline')
+    require(pins[CITY_CONFIG_BACKUP]['sha256'] == CITY_CONFIG_SHA and pins[CITY_CONFIG_BACKUP]['mode'] == 0o644
+            and pins['/home/loucmane/gascity/city/city.toml']['sha256'] == CITY_CONFIG_SHA, 'city config backup bytes')
+    require(not any(p['path'] == CITY_CONFIG_BACKUP for p in md['inputs']), 'city config backup duplicate')
+    config.update(previous_sha256=CITY_CONFIG_SHA, backup_path=CITY_CONFIG_BACKUP)
+    md['inputs'].append(dict(name='', path=CITY_CONFIG_BACKUP, sha256=CITY_CONFIG_SHA, mode=0o644))
     native = _one(out['integrity']['providers'], 'name', 'claude-native', 'native provider')
     require(native['sha256'] == NATIVE_CLI and native['version'] == NATIVE_VERSION, 'unchanged native provider')
     worker = _one(out['integrity']['providers'], 'name', 'claude', 'signing provider')
@@ -283,6 +310,15 @@ def assemble(old, closure, host, parents, transaction, attempt):
     require(len({p['path'] for p in md['inputs']}) == INPUT_COUNT
             and len({p['path'] for p in md['trees']}) == TREE_COUNT
             and len({p['path'] for p in md['links']}) == LINK_COUNT, 'duplicate pin path')
+    # Every pin the successor names, carried or changed, must equal the frozen baseline (review A should_fix 4),
+    # so a stale carried digest refuses here rather than inside a consumed native window.
+    for p in md['inputs']:
+        require(pins[p['path']]['sha256'] == p['sha256'] and pins[p['path']]['mode'] == p['mode'],
+                'input differs from the baseline: ' + p['path'])
+    for p in md['trees']:
+        require(trees[p['path']]['sha256'] == p['sha256'], 'tree differs from the baseline: ' + p['path'])
+    for p in md['links']:
+        require(links.get(p['path']) == p['target'], 'link differs from the baseline: ' + p['path'])
     out = b.finalized(out); frame = b.frame_bound(out)
     return out, dict(preparation_only=True, live_acceptance=False, removed_m5_authority=removed,
                      frame=frame, input_count=INPUT_COUNT, tree_count=TREE_COUNT, link_count=LINK_COUNT,

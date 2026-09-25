@@ -8,7 +8,8 @@ neutral (the operator's S2 decision of 2026-09-25), so there is nothing to settl
 
 It proves, and records as baseline.json in the shape metadata_closure.py consumes:
 - the S2-accepted closure still holds: all 741 S2 pins are unchanged except the signing-worker parser at
-  its exact successor, all 29 S2 trees are unchanged except the Template common Git directory, and the
+  its exact successor (libexpat was already at its successor in S2 and must stay there), all 29 S2 trees
+  are unchanged except the Template common Git directory, and the
   host epoch, suspension record and links are the S2 ones;
 - the Template common Git directory changed only inside the reviewed M5 bound (objects, refs, logs,
   worktree admin and the other Git bookkeeping; never replace refs, alternates, grafts, shallow, a
@@ -27,7 +28,7 @@ import sys
 import types
 
 HERE = Path(__file__).parent
-PREREQS_SHA = '2722cdb270ad556ca3a5bca1751ab13d0fa1b93a6108a186f8958996621c7303'  # s3/prereqs_m6.py
+PREREQS_SHA = 'bbb22c39232023408fabc0967bf0fd5b1abc6ff3a452fc898898233b73eaf4d7'  # s3/prereqs_m6.py
 GIT_EXACT = {'.', 'HEAD', 'index', 'FETCH_HEAD', 'ORIG_HEAD', 'COMMIT_EDITMSG', 'config', 'packed-refs',
              'objects', 'refs', 'logs', 'worktrees', 'lfs', 'lfs/cache', 'gas-city-workflow', 'rr-cache'}
 GIT_PREFIXES = ('objects/', 'refs/', 'logs/', 'worktrees/', 'lfs/cache/locks/', 'gas-city-workflow/', 'rr-cache/')
@@ -86,6 +87,31 @@ def config_drift(listing):
                 bad_branch_keys=[line for line in branch if not line.split('=', 1)[0].endswith(('.remote', '.merge'))])
 
 
+def carried_changes(s2_pins, live_pins, changed_inputs):
+    """Pure: which S2-accepted pins changed, and which of those changes are not reviewed.
+
+    A reviewed changed input found at its predecessor in S2 must now be at its successor; one S2 already
+    recorded at its successor (libexpat, updated before S2) must be unchanged; any other S2 digest for it is
+    refused. Every other S2 pin must be unchanged (review B of dc5c46b5, must_fix 1).
+    """
+    reviewed = {path: (before, after) for path, before, after in changed_inputs}
+    changes, problems = [], []
+    for path, before in s2_pins.items():
+        now = live_pins[path]
+        if path in reviewed:
+            old, new = reviewed[path]
+            if before['sha256'] == old:
+                if now != dict(before, sha256=new):
+                    problems.append(path)
+            elif before['sha256'] != new or now != before:
+                problems.append(path)
+        elif now != before:
+            problems.append(path)
+        if now != before:
+            changes.append(dict(path=path, before=before, after=now))
+    return changes, problems
+
+
 def target(m, manifest):
     """The exact M6 pins, tree paths and links the successor manifest names, derived from the M5 manifest."""
     md = manifest['metadata']
@@ -98,9 +124,11 @@ def target(m, manifest):
              for f in [manifest['core']] + manifest['managed_files']]
     expected = {row['path']: dict(sha256=changed.get(row['path'], row['sha256']), mode=row['mode']) for row in rows}
     expected[m.ARTIFACT] = dict(sha256=m.NEW, mode=0o755)
+    expected[m.CITY_CONFIG_BACKUP] = dict(sha256=m.CITY_CONFIG_SHA, mode=0o644)
     for relative, value, mode in m.auth_inputs():
         expected[m.AUTHORITY + '/' + relative] = dict(sha256=value, mode=mode)
-    trees = [p['path'] for p in md['trees'] if not under(p['path'])] + [m.AUTHORITY + '/' + r for r in m.AUTH_TREES]
+    trees = {p['path']: p['mode'] for p in md['trees'] if not under(p['path'])}
+    trees.update({m.AUTHORITY + '/' + r: 0o755 for r in m.AUTH_TREES})
     links = {p['path']: p['target'] for p in md['links'] if not under(p['path'])}
     links.update({m.AUTHORITY + '/' + r: t for r, t in m.AUTH_LINKS})
     return expected, trees, links
@@ -134,29 +162,26 @@ def main():
         if not (os.path.islink(path) and os.readlink(path) == link_target):
             drifts.append(dict(kind='link', path=path))
     # Pins: the M6 targets, plus every S2-accepted pin carried forward.
-    pins, changes = {}, []
+    require(len(c.s2['pins']) == 741 and len(c.s2['trees']) == 29, 'S2-accepted closure cardinality')
+    pins = {}
     for path in sorted(set(expected) | set(c.s2['pins'])):
         pins[path] = s.pin(path, links)
     for path, want in expected.items():
         if pins[path]['sha256'] != want['sha256'] or pins[path]['mode'] != want['mode']:
             drifts.append(dict(kind='file', path=path, expected=want, actual=pins[path]))
-    successors = {path: after for path, _, after in m.CHANGED_INPUTS if path in c.s2['pins']}
-    for path, before in c.s2['pins'].items():
-        if pins[path] != before:
-            changes.append(dict(path=path, before=before, after=pins[path]))
-    unexpected = [x['path'] for x in changes if x['path'] not in successors or x['after']['sha256'] != successors[x['path']]]
-    if unexpected or sorted(x['path'] for x in changes) != sorted(successors):
+    changes, unexpected = carried_changes(c.s2['pins'], pins, m.CHANGED_INPUTS)
+    if unexpected:
         drifts.append(dict(kind='carried-forward-pins', unexpected=unexpected, changed=[x['path'] for x in changes]))
-    # Trees: the S2 trees exactly, the Template Git directory within its bound, and the authority roots.
+    # Trees: the S2 trees exactly, the Template Git directory within its bound, and every root mode.
     cache_path = str(Path(md['gc_home'])/'cache/repos')
     trees, cache = {}, None
-    for path in tree_paths:
+    for path, mode in tree_paths.items():
         actual = o.tree_snapshot(path, cache=path == cache_path)
         trees[path] = {k: actual[k] for k in ('sha256', 'entries', 'file_bytes')}
         if path == cache_path:
             cache = actual
-        if actual['inventory']['.']['mode'] != 0o755 and path.startswith(m.AUTHORITY + '/'):
-            drifts.append(dict(kind='authority-tree-root', path=path))
+        if actual['inventory']['.']['mode'] != mode:
+            drifts.append(dict(kind='tree-root-mode', path=path))
         if path == m.TEMPLATE_GIT:
             before = json.loads((c.inputs/'template-git-before.json').read_bytes())
             bound = classify(before['inventory'], actual['inventory'])

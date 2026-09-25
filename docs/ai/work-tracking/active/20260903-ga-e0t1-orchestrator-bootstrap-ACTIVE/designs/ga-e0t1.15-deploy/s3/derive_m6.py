@@ -24,6 +24,7 @@ M5_AUTH = '/home/loucmane/gas-city-template-worktrees/gct-m1wh-pr69-authority'
 AUTH = '/home/loucmane/gas-city-template-worktrees/ga-e0t1-15-pr71-authority'
 CLI = '1e08503dbdf3c2cb0d706d32f3408277388d1c76ef108673e8fe42c1b322925b'
 M5_PARSER = '4e28d5b826a7471dec27e66ee3536233bbaa2ebc6ece162b4d3ca8cccd0970bd'
+M5_POINTER = 'deabdafaba7ec87b78d650608707d26b80bfc5f44549a54e5488cdd52ac574be'  # M5 manifest_candidate.py AUTH_INPUTS .git
 M5_VERSION = ('gct-claude-signing-worker 1 dependencies_sha256='
               'f36deb20efa5cc11781f1d9703b8e5e0d7897c6357260dff1045bcd86489ff34')
 RETAINED = ('bin/gct-claude-signing-worker', 'lib/gct_claude_subscription.py',
@@ -102,13 +103,18 @@ def derive(repo):
     m5 = coverage(repo, M5_COMMIT, M5_AUTH)
     require((len(m5['inputs']), len(m5['trees']), len(m5['links']), m5['tracked']) == (12, 20, 2, 277),
             'M5 coverage method check')
+    require([i['sha256'] for i in m5['inputs'] if i['path'] == '.git'] == [M5_POINTER],
+            'M5 worktree pointer method check')
     changed = git(repo, 'diff', '--name-only', M5_COMMIT, COMMIT).split()
     parser = sha(blob(repo, COMMIT, CHANGED))
     retained = {p: sha(blob(repo, COMMIT, p)) for p in RETAINED}
     require(all(sha(blob(repo, M5_COMMIT, p)) == d for p, d in retained.items()), 'retained pins moved')
+    target = coverage(repo, COMMIT, AUTH)
+    require((len(target['inputs']), len(target['trees']), len(target['links']), target['tracked']) == (12, 20, 2, 294),
+            'target coverage shape')
     return dict(commit=COMMIT, tree=git(repo, 'rev-parse', COMMIT + '^{tree}').strip(), authority=AUTH,
                 changed_paths=changed, parser_new=parser, retained_template_pins=retained,
-                worker_version_new=deps_version(repo, COMMIT, parser, CLI), coverage=coverage(repo, COMMIT, AUTH))
+                worker_version_new=deps_version(repo, COMMIT, parser, CLI), coverage=target)
 
 
 if __name__ == '__main__':

@@ -58,6 +58,8 @@ def synthetic(m, old, s2):
         pins[path] = dict(pins[path], sha256=after)
     for relative, digest, mode in m.auth_inputs():
         pins[m.AUTHORITY + '/' + relative] = dict(sha256=digest, mode=mode, size=0)
+    pins['/home/loucmane/gascity/city/city.toml'] = dict(sha256=m.CITY_CONFIG_SHA, mode=0o644, size=0)
+    pins[m.CITY_CONFIG_BACKUP] = dict(sha256=m.CITY_CONFIG_SHA, mode=0o644, size=0)
     trees = {p['path']: dict(sha256=p['sha256']) for p in md['trees']}
     trees.update({path: dict(value) for path, value in s2['trees'].items()})
     trees[m.TEMPLATE_GIT] = dict(sha256='f' * 64)
@@ -82,14 +84,37 @@ def build(m, old, closure):
 def test_predecessor_bytes(m):
     assert sha(INSTALLED) == m.OLD_MANIFEST_SHA
     assert sha(m.OLD_ROOT + '/q/manifest.json') == m.OLD_MANIFEST_SHA
+    assert sha(INSTALLED.parent/'install-receipt.json') == m.OLD_RECEIPT_SHA
     assert sha(S2) == load('prereqs_m6.py', 'p').S2_OBSERVATION_SHA
+    assert sha(m.CITY_CONFIG_SOURCE) == m.CITY_CONFIG_SHA and sha(m.CITY_CONFIG_OLD_BACKUP) == m.CITY_CONFIG_OLD_PREVIOUS
+
+
+def test_native_successor_rules(m, old, s2):
+    """Core installer.go validateSuccessor, restated for the fields M6 touches."""
+    out, _ = build(m, old, synthetic(m, old, s2))
+    assert out['release_id'] != old['release_id'] and out['previous_sha256'] == old['core']['sha256']
+    assert (out['city_path'], out['core']['destination'], out['core']['mode'], out['receipt_path']) == (
+        old['city_path'], old['core']['destination'], old['core']['mode'], old['receipt_path'])
+    assert out['activation']['previous_commit'] == old['activation']['expected_commit']
+    assert out['activation']['previous_version'] == old['activation']['expected_version']
+    candidate = {f['name']: f for f in out['managed_files']}
+    for previous in old['managed_files']:
+        now = candidate[previous['name']]
+        assert (now['destination'], now['mode'], now['previous_sha256']) == (
+            previous['destination'], previous['mode'], previous['sha256']), previous['name']
+    paths = [out['core']['source'], out['core']['destination'], out['backup_path']]
+    paths += [f[k] for f in out['managed_files'] for k in ('source', 'destination', 'backup_path')]
+    assert len(paths) == len(set(paths))
+    config = candidate['city-config']
+    assert config['backup_path'] == m.CITY_CONFIG_BACKUP and config['previous_sha256'] == m.CITY_CONFIG_SHA
+    assert dict(name='', path=m.CITY_CONFIG_BACKUP, sha256=m.CITY_CONFIG_SHA, mode=0o644) in out['metadata']['inputs']
 
 
 def test_build_counts_frame_and_identity(m, old, s2):
     out, report = build(m, old, synthetic(m, old, s2))
     md = out['metadata']
-    assert (len(md['inputs']), len(md['trees']), len(md['links'])) == (686, 49, 23)
-    assert report['frame']['remaining_bytes'] > 0 and report['frame']['upper_bound_bytes'] <= 131072
+    assert (len(md['inputs']), len(md['trees']), len(md['links'])) == (687, 49, 23)
+    assert report['frame']['remaining_bytes'] > 2048 and report['frame']['upper_bound_bytes'] <= 131072
     assert out['release_id'] == m.RELEASE_ID
     assert out['core'] == dict(old['core'], source=m.ARTIFACT, sha256=m.NEW)
     assert out['activation'] == dict(expected_commit=m.COMMIT, expected_version='dev',
@@ -113,7 +138,7 @@ def test_only_reviewed_fields_change(m, old, s2):
     under = lambda path: path.startswith(m.M5_AUTHORITY + '/') or path.startswith(m.AUTHORITY + '/')
     before = {p['path']: p for p in old['metadata']['inputs'] if not under(p['path'])}
     after = {p['path']: p for p in out['metadata']['inputs'] if not under(p['path'])}
-    assert set(after) - set(before) == {m.ARTIFACT}
+    assert set(after) - set(before) == {m.ARTIFACT, m.CITY_CONFIG_BACKUP}
     changed = {k for k in before if before[k] != after[k]}
     assert changed == {m.GC} | {p for p, _, _ in m.CHANGED_INPUTS}
     trees_before = {p['path']: p for p in old['metadata']['trees'] if not under(p['path'])}
@@ -121,7 +146,9 @@ def test_only_reviewed_fields_change(m, old, s2):
     assert {k for k in trees_before if trees_before[k] != trees_after[k]} == {m.ODB, m.CACHE, m.TEMPLATE_GIT}
     for key in ('runtime', 'protected_trees', 'absent', 'gc_home', 'imports_sha256'):
         assert out['metadata'][key] == old['metadata'][key]
-    assert out['managed_files'] == old['managed_files']
+    managed = [dict(f, previous_sha256=m.CITY_CONFIG_SHA, backup_path=m.CITY_CONFIG_BACKUP)
+               if f['name'] == 'city-config' else f for f in old['managed_files']]
+    assert out['managed_files'] == managed
     assert out['integrity']['files'] == old['integrity']['files']
 
 
@@ -135,6 +162,15 @@ def test_only_reviewed_fields_change(m, old, s2):
     (lambda c, m: c['links'].pop(m.AUTHORITY + '/plans/current'), 'authority link'),
     (lambda c, m: c['pins'].__setitem__(m.AUTHORITY + '/.git', dict(c['pins'][m.AUTHORITY + '/.git'], sha256='0' * 64)),
      'authority file'),
+    (lambda c, m: c['pins'].__setitem__(m.CITY_CONFIG_BACKUP, dict(c['pins'][m.CITY_CONFIG_BACKUP], sha256='0' * 64)),
+     'city config backup bytes'),
+    (lambda c, m: c['pins'].__setitem__(m.TEMPLATE + '/lib/gct_claude_subscription.py',
+                                        dict(c['pins'][m.TEMPLATE + '/lib/gct_claude_subscription.py'], sha256='0' * 64)),
+     'retained Template bytes'),
+    (lambda c, m: c['pins'].__setitem__('/usr/lib/x86_64-linux-gnu/libc.so.6',
+                                        dict(c['pins']['/usr/lib/x86_64-linux-gnu/libc.so.6'], sha256='0' * 64)),
+     'input differs from the baseline'),
+    (lambda c, m: c['trees'].__setitem__(m.O + '/reports/r5/r', dict(sha256='0' * 64)), 'tree differs from the baseline'),
 ])
 def test_build_refuses_drift(m, old, s2, mutate, reason):
     closure = synthetic(m, old, s2)
@@ -283,9 +319,43 @@ def test_capture_target(m, old):
     expected, trees, links = c.target(m, old)
     assert expected[m.GC]['sha256'] == m.NEW and expected[m.ARTIFACT]['sha256'] == m.NEW
     assert expected[m.CHANGED_INPUTS[1][0]]['sha256'] == m.CHANGED_INPUTS[1][2]
+    assert expected[m.CITY_CONFIG_BACKUP] == dict(sha256=m.CITY_CONFIG_SHA, mode=0o644)
     assert not any(p.startswith(m.M5_AUTHORITY + '/') for p in expected)
     assert sum(p.startswith(m.AUTHORITY + '/') for p in expected) == 12
-    assert len(trees) == 49 and len(set(trees)) == 49 and len(links) == 23
+    assert len(trees) == 49 and len(links) == 23
+    assert {trees[m.AUTHORITY + '/' + r] for r in m.AUTH_TREES} == {0o755}
+
+
+def test_carried_changes_against_the_real_s2_closure(m, s2):
+    c = load('capture_m6.py', 'cap')
+    parser, libexpat = m.CHANGED_INPUTS[0][0], m.CHANGED_INPUTS[1][0]
+    assert s2['pins'][parser]['sha256'] == m.CHANGED_INPUTS[0][1]
+    assert s2['pins'][libexpat]['sha256'] == m.CHANGED_INPUTS[1][2]  # updated before S2
+    live = copy.deepcopy(s2['pins'])
+    live[parser] = dict(live[parser], sha256=m.CHANGED_INPUTS[0][2])
+    changes, problems = c.carried_changes(s2['pins'], live, m.CHANGED_INPUTS)
+    assert problems == [] and [x['path'] for x in changes] == [parser]
+    for mutate, bad in ((lambda p: p.__setitem__(parser, s2['pins'][parser]), parser),
+                        (lambda p: p.__setitem__(libexpat, dict(p[libexpat], sha256=m.CHANGED_INPUTS[1][1])), libexpat),
+                        (lambda p: p.__setitem__(m.GC, dict(p[m.GC], mode=0o700)), m.GC)):
+        trial = copy.deepcopy(live)
+        mutate(trial)
+        assert bad in c.carried_changes(s2['pins'], trial, m.CHANGED_INPUTS)[1]
+
+
+def test_policy_on_the_real_legacy_observer(tmp_path):
+    runtime = load('source_runtime.py', 'rt')
+    graph = runtime.legacy()
+    o, s = graph['observe_recovery'], graph['recovery_state']
+    load('metadata_closure.py', 'cl4').install_policy(o, s, 'a' * 64)
+    (tmp_path/'d').mkdir()
+    (tmp_path/'d'/'f').write_bytes(b'x')
+    tree = o.tree_snapshot(str(tmp_path/'d'))
+    assert tree['inventory'] and not any('atime_ns' in item for item in tree['inventory'].values())
+    observed, _ = o.read_file(str(tmp_path/'d'/'f'))
+    assert 'atime_ns' not in observed['metadata']
+    (tmp_path/'d'/'f').read_bytes()  # an ordinary read may move only the access time
+    assert o.tree_snapshot(str(tmp_path/'d')) == tree
 
 
 def test_quiet_slot_waits_for_idle():

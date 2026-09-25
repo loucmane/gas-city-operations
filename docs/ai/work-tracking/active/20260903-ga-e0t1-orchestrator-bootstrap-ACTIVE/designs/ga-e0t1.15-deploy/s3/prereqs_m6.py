@@ -5,9 +5,11 @@
   python3 -I -B prereqs_m6.py <manifest_candidate.py sha256> rollback
 
 Steps run in this order:
-- inventory: read-only. Proves the S2-accepted predecessor (canonical checkout at 28539934, the M5
+- inventory: no live change. Proves the S2-accepted predecessor (canonical checkout at 28539934, the M5
   metadata pair, and the Template common Git directory at the S2-accepted digest cac98745) and records
-  that directory's full access-time-free inventory. capture_m6.py bounds the later Git changes by it.
+  that directory's full access-time-free inventory; capture_m6.py bounds the later Git changes by it. It
+  also writes reports/m6-inputs/city.toml.before, the exact installed city.toml bytes (4f7e170f), which M6
+  names as the city-config backup.
 - fetch: `git fetch --no-tags origin` in the canonical Template, after `ls-remote` shows main at
   cfd353f3. Automatic gc and maintenance are disabled for the call. Afterwards origin/main is cfd353f3,
   its tree is the reviewed 5a9d18aa, and 28539934 is its ancestor.
@@ -23,9 +25,12 @@ S2 suspension record) and its exact predecessor, writes an intent, performs one 
 records the exact postcondition under reports/m6-inputs. An interrupted step can only `resume`, which
 proves the postcondition and never repeats the change.
 
-`rollback` returns the canonical checkout to 28539934. It runs only while the installed manifest is
-still M5 and no M6 executor window may hold the timer paused or may have launched an apply. The fetched
-objects and refs and the authority worktree stay; the record lists them.
+`rollback` returns the canonical checkout to 28539934 (a forced detach, which also repairs an interrupted
+checkout's tracked files). It runs only while the installed manifest is still M5 and no M6 executor window
+may hold the timer paused or may have launched an apply. The fetched objects and refs and the authority
+worktree stay; the record lists them. Residual limits, as in M5: a left-over index.lock, or untracked files
+a partial checkout added, need manual recovery; and a `prepare` that wrote its pause intent but crashed
+before recording the timer stop keeps rollback refused until the operator confirms the timer by hand.
 
 No lifecycle, timer, worker, signer or Bead action. The Obsidian reconciler timer is never touched.
 """
@@ -55,7 +60,10 @@ RECONCILER = 'aegis-obsidian-reconcile.service'
 RECONCILER_TIMER_OBJECT = '/org/freedesktop/systemd1/unit/aegis_2dobsidian_2dreconcile_2etimer'
 SLOT_US = 40_000_000
 SLOT_DEADLINE_S = 180
-GIT_ENV = {'PATH': '/usr/bin:/bin', 'HOME': '/home/loucmane', 'LANG': 'C', 'GIT_CONFIG_NOSYSTEM': '1'}
+GIT_ENV = {'PATH': '/usr/bin:/bin', 'HOME': '/home/loucmane', 'LANG': 'C', 'GIT_CONFIG_NOSYSTEM': '1',
+           'GIT_TERMINAL_PROMPT': '0'}
+# PR 70 changes the renderer; its cfd353f3 blob is pinned, and it reproduces the live fragment (PLAN-S3.md).
+RENDERER_SHA = 'bb97950c604d4bdb0e1adc35d3559e9b3a93a555080bdfca9008423d4d1c7ebe'
 CITY_ENV = {'PATH': '/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin', 'HOME': '/home/loucmane',
             'LANG': 'C.UTF-8', 'GC_HOME': '/home/loucmane/gascity/home', 'GIT_OPTIONAL_LOCKS': '0'}
 BUS_ENV = dict(CITY_ENV, USER='loucmane', LOGNAME='loucmane', XDG_RUNTIME_DIR='/run/user/1000',
@@ -265,14 +273,35 @@ def git_config_and_replace(c):
     return listing['stdout']
 
 
+def inventory_records(c):
+    """Write, or verify if already written, the two inventory records. They are not live state, so an
+    interruption anywhere in the step is recoverable by `resume inventory` (review B should_fix 1)."""
+    tree = c.o.tree_snapshot(str(TEMPLATE/'.git'))
+    require(tree['sha256'] == c.m.TEMPLATE_GIT_S2 and c.s2['trees'][str(TEMPLATE/'.git')]['sha256'] == tree['sha256'],
+            'Template Git directory is not the S2-accepted tree')
+    # The city-config backup M6 names: exactly the installed city.toml bytes, which are also M5's source.
+    city = (CITY/'city.toml').read_bytes()
+    require(identity(CITY/'city.toml') == owned(c.m.CITY_CONFIG_SHA, 0o644) and digest(city) == c.m.CITY_CONFIG_SHA
+            and sha(c.m.CITY_CONFIG_SOURCE) == c.m.CITY_CONFIG_SHA, 'installed city config is not the M5 bytes')
+    for name, data, mode in (('template-git-before.json', encoded(tree), 0o600), ('city.toml.before', city, 0o644)):
+        path = c.inputs/name
+        if os.path.lexists(path):
+            require(identity(path) == owned(digest(data), mode), 'existing inventory record differs: ' + name)
+        else:
+            write_exclusive(path, data, mode)
+
+
 def post_inventory(c):
     head, symbolic, status = checkout_state()
     require(head == c.m.M5_COMMIT and symbolic == 1 and status == UNTRACKED, 'canonical checkout predecessor')
+    inventory_records(c)
     record = c.inputs/'template-git-before.json'
     tree = json.loads(record.read_bytes())
     require(tree['sha256'] == c.m.TEMPLATE_GIT_S2, 'recorded inventory is not the S2-accepted digest')
+    require(Path(c.m.CITY_CONFIG_BACKUP) == c.inputs/'city.toml.before'
+            and identity(c.m.CITY_CONFIG_BACKUP) == owned(c.m.CITY_CONFIG_SHA, 0o644), 'city config backup identity')
     return dict(inventory=str(record), inventory_file_sha256=sha(record), template_git=tree['sha256'],
-                entries=tree['entries'])
+                entries=tree['entries'], city_config_backup=identity(c.m.CITY_CONFIG_BACKUP))
 
 
 def post_fetch(c):
@@ -325,6 +354,10 @@ POST = {'inventory': post_inventory, 'fetch': post_fetch, 'checkout': post_check
 
 
 def step_inventory(c):
+    # The package gates run before anything is created (review B should_fix 2).
+    require(sha(INSTALLED) == c.m.OLD_MANIFEST_SHA and sha(INSTALLED_RECEIPT) == c.m.OLD_RECEIPT_SHA,
+            'installed platform metadata is not the M5 pair')
+    require(not os.path.lexists(c.m.ROOT), 'M6 package root already exists')
     # An empty, owner-only, real directory is what an interruption between mkdir and the intent leaves.
     if os.path.lexists(c.inputs):
         require(os.path.isdir(c.inputs) and not os.path.islink(c.inputs) and os.listdir(c.inputs) == []
@@ -335,11 +368,7 @@ def step_inventory(c):
     head, symbolic, status = checkout_state()
     require(head == c.m.M5_COMMIT and symbolic == 1 and status == UNTRACKED, 'canonical checkout predecessor')
     config = git_config_and_replace(c)
-    tree = c.o.tree_snapshot(str(TEMPLATE/'.git'))
-    require(tree['sha256'] == c.m.TEMPLATE_GIT_S2 and c.s2['trees'][str(TEMPLATE/'.git')]['sha256'] == tree['sha256'],
-            'Template Git directory is not the S2-accepted tree')
     c.intent('inventory', before)
-    write_exclusive(c.inputs/'template-git-before.json', encoded(tree), 0o600)
     c.finish('inventory', before, dict(post_inventory(c), config=config))
 
 
@@ -370,6 +399,7 @@ def step_checkout(c):
     for pinned, value in c.m.RETAINED_TEMPLATE_PINS.items():
         require(blob_digest(c.m.TEMPLATE_COMMIT, pinned[len(prefix):]) == value, 'target retained blob: ' + pinned)
     renderer = blob_digest(c.m.TEMPLATE_COMMIT, 'bin/gct-managed-rig-permissions')
+    require(renderer == RENDERER_SHA, 'target renderer blob')
     c.intent('checkout', before)
     moved = git(TEMPLATE, 'checkout', '--detach', c.m.TEMPLATE_COMMIT)
     require(moved['returncode'] == 0, 'checkout failed: ' + moved['stderr'])
@@ -410,15 +440,20 @@ def rollback(c):
     except Exception as exc:  # restoration must remain possible; record why the host was not quiet
         observed = dict(error=type(exc).__name__, reason=str(exc))
     actions = []
-    head, _, _ = checkout_state()
-    if head != c.m.M5_COMMIT:
-        require(head == c.m.TEMPLATE_COMMIT, 'unknown canonical checkout; inspect by hand')
-        require(not os.path.lexists(TEMPLATE/'.git/index.lock'), 'canonical checkout index is locked')
-        moved = git(TEMPLATE, 'checkout', '--detach', c.m.M5_COMMIT)
+    head, _, status = checkout_state()
+    if head != c.m.M5_COMMIT or status != UNTRACKED:
+        # Also covers an interrupted checkout that left HEAD at either commit with a partly updated tree
+        # (review B should_fix 3). A forced detach restores tracked files only; untracked files, including
+        # deploy/ and the egg-info, are never touched or deleted.
+        require(head in (c.m.M5_COMMIT, c.m.TEMPLATE_COMMIT), 'unknown canonical checkout; inspect by hand')
+        require(not os.path.lexists(TEMPLATE/'.git/index.lock'), 'canonical checkout index is locked; inspect by hand')
+        moved = git(TEMPLATE, 'checkout', '-f', '--detach', c.m.M5_COMMIT)
         require(moved['returncode'] == 0, 'checkout rollback failed: ' + moved['stderr'])
         actions.append('checkout')
     head, symbolic, status = checkout_state()
-    require(head == c.m.M5_COMMIT and symbolic == 1 and status == UNTRACKED, 'rollback postcondition')
+    # Files the target added may remain untracked after a partial checkout; they are listed, never deleted.
+    require(head == c.m.M5_COMMIT and symbolic == 1 and status == UNTRACKED,
+            'rollback postcondition; recover by hand, remaining status: ' + status)
     for pinned, value in c.m.RETAINED_TEMPLATE_PINS.items():
         require(sha(pinned) == value, 'retained Template bytes after rollback: ' + pinned)
     require(sha(c.m.CHANGED_INPUTS[0][0]) == c.m.CHANGED_INPUTS[0][1], 'predecessor signing worker bytes')

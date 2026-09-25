@@ -54,16 +54,19 @@ a separate package) then refreshes the worker provisioning receipt.
 | tree `rigs/gascity/.git/objects` | `361e500a` | `ae95c30c` | S2-accepted closure (exact) |
 | tree `cache/repos`, `cache_sha256` | `e5e959dd` | `4b284f67` | S2-accepted closure (exact; new synthetic core-pack directory) |
 | tree Template `.git` | `33bd60d3` | bounded capture digest | fetch, checkout, `worktree add` |
+| managed file `city-config` | `previous_sha256` `6594ee77`, backup `reports/r5/i/00` | `previous_sha256` `4f7e170f`, backup `reports/m6-inputs/city.toml.before` (new pinned input, written by `inventory` from the live file) | Core `validateSuccessor` (`installer.go` 405-413) and metadata-only backup reuse (`metadata_adopt.go` 73-77) |
 | authority | `template-pr69-authority` `28539934` | `template-pr71-authority` `cfd353f3` at `/home/loucmane/gas-city-template-worktrees/ga-e0t1-15-pr71-authority` | `derive_m6.py` coverage: 12 inputs, 20 trees, 2 links over 294 tracked paths |
 | release, transaction, attempt, parents, evidence, host, namespaces, previous metadata | M5 | fresh, `reports/m6` | M5 pattern |
 
 Everything else is carried unchanged and asserted, including:
-- runtime, protected trees, `absent`, `imports_sha256`, `gc_home`, managed files and integrity files;
+- runtime, protected trees, `absent`, `imports_sha256`, `gc_home`, the five other managed files (each
+  already has `previous_sha256` equal to `sha256`) and integrity files;
+- every input, tree and link the successor names, compared at build time with the frozen baseline;
 - the four retained canonical Template pins;
 - the native provider `1e08503d` (2.1.280);
 - every other tree and link.
 
-Counts: 686 inputs, 49 trees, 23 links.
+Counts: 687 inputs, 49 trees, 23 links.
 
 ## Package (`designs/ga-e0t1.15-deploy/s3`)
 
@@ -77,7 +80,8 @@ Counts: 686 inputs, 49 trees, 23 links.
 | `metadata_closure.py` | M5 bytes, plus `install_policy`: the S2 access-time and dolt-scope policies, and the suspension record from the candidate (`c30776de`, which S2 left). |
 | `source_runtime.py`, `launch.py`, `metadata_executor.py` | Byte-identical to M5 (`2585357a`, `43ad2ac9`, `5a6694ab`). |
 | `record_review.py` | The M5 recorder, with its two paths moved to `reports/m6/q` and `reports/m6-reviews`. |
-| `test_s3.py` | 23 tests. The derivation test needs a repository that holds `cfd353f3`. |
+| `test_s3.py` | 30 tests. The derivation test needs a repository that holds `cfd353f3`. |
+| `operator/gate_extract.py`, `operator/GATE-PROMPTS.md` | The M5 in-window gate extract and prompts, rebound to `reports/m6/q` and the M6 facts. |
 
 External reviewed dependencies:
 - the legacy chain in the tracker `reports/…/recovery-source-r2`;
@@ -137,3 +141,18 @@ nobody writes a Bead note. Notes wait in staging, under the quiescent-window rul
   - an ambiguous result;
   - new privilege;
   - a pinentry prompt.
+
+## Review dispositions for r1 (`dc5c46b5`: two HOLD verdicts)
+
+| Finding | Disposition |
+| --- | --- |
+| A must_fix: `city-config` kept `previous_sha256` `6594ee77`, so Core's successor rule would refuse inside the consumed window | Fixed. `previous_sha256` is now `4f7e170f`, with the pinned backup `reports/m6-inputs/city.toml.before` written by `inventory` from the live bytes. `test_native_successor_rules` restates `validateSuccessor` over the build. |
+| B must_fix: the carried-forward check required libexpat to change, but S2 already had it at `286682ec`, so every live capture would refuse after the Template move | Fixed. `carried_changes()` is a tested pure function: a reviewed input at its predecessor in S2 must move to its successor; one already at its successor must stay there; anything else refuses. It is tested against the real S2 closure. |
+| A should_fix: frame margin, pointer method check, 294 tracked paths, carried pins bound to the baseline, more refusal tests, receipt digest | All taken. The frame margin must exceed 2048. `derive_m6` reproduces M5's pointer `deabdafa` and asserts the 12/20/2/294 target shape. The builder compares every named input, tree and link with the baseline. There are four more refusal cases. The installed receipt digest is tested. |
+| B should_fix 1 and 2: `inventory` not resumable, and `mkdir` before the gates | Fixed. The records are written or verified in the postcondition, so `resume inventory` recovers any interruption, and the package gates run before `mkdir`. |
+| B should_fix 3: an interrupted checkout | `rollback` now does a forced detach to `28539934`, which restores tracked files. Untracked leftovers are listed for manual recovery, never deleted. |
+| B should_fix 4: `GIT_TERMINAL_PROMPT` | Set to `0`. |
+| B should_fix 5 and 6: counts, and root modes | Taken. 741 S2 pins and 29 S2 trees are asserted, and every tree root mode is checked in the capture. |
+| B should_fix 7: renderer blob | Pinned as `bb97950c` and required before the checkout. |
+| B should_fix 8: rollback blocked by a crashed `prepare` | Documented as the inherited M5 residual limit (`prereqs_m6.py` docstring). |
+| B should_fix 9: tests | Added: `carried_changes` against the real S2 closure, and the policy on the real legacy observer. `resume` and `rollback` live paths remain covered by their postcondition code, and the capture `main` by the live run. |
