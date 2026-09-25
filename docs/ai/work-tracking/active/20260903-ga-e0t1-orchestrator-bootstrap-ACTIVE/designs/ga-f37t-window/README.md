@@ -312,13 +312,17 @@ start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
      reads in this plan and it runs once, so either PREFLIGHT runs before 18:50 CEST on 2026-09-25, or RECOVER
      is deferred until after 00:23 CEST on 2026-09-26 so its reads refresh both. Between those times the gate
      check fails closed and nothing at this commit can pass it.
-  3. The cache lstat check again, right before OBSERVE (RECOVER ran gc reload and trace).
+  3. Before OBSERVE (read-only, by the coordinator): RECOVER's `result.json` must show `read_errors` empty and,
+     in `gate_after`, every route file and `.beads` directory with an access time newer than its mtime and
+     ctime; otherwise stop, because PREFLIGHT's route mirror could refuse after creating window root r2.
+     Then the cache lstat check again (RECOVER ran gc reload and trace).
   4. OBSERVE, PREFLIGHT, STAGE and ROUTE.
   5. WATCH-1 and the RESUME decision, as in s5 r2.
 - The two operator-accepted residuals and the operating rules from s5 are unchanged. Route access times
   between RECOVER and the stage reload, by span (s6 r4):
-  - RECOVER to OBSERVE's observed-after: nothing refuses. OBSERVE compares route files and runtime children
-    by identity only.
+  - RECOVER to OBSERVE's observed-after: nothing refuses. OBSERVE does not observe the rig route files; it sees
+    the city route file only as a runtime child (identity only), and compares the city `.beads` entry under
+    the read accounting.
   - OBSERVE to PREFLIGHT: PREFLIGHT's route mirror (`route-chain-r1.py:58-60`) compares the city route file
     and city `.beads` exactly, before the read accounting. A relatime write there refuses PREFLIGHT after
     it has created window root r2, so r2 is consumed but no attempt is spent. RECOVER's final ordinary
@@ -344,7 +348,8 @@ start gate held). STAGE refused at 08:36:05Z with "reload acknowledgement".
      the WATCH-1 rule in s5 r2);
    - the early WATCH captures;
    - then the release, signing, contain, hold, close, ADMIT, RESTORE and TERMINAL steps.
-   PREFLIGHT must run before the start-gate deadline in s5 r2. (`freshen-r11.py` and the FRESHEN wrappers still
+   Timing follows the s6 run order: PREFLIGHT before 18:50 CEST on 2026-09-25, or RECOVER deferred past
+   00:23 CEST on 2026-09-26 and PREFLIGHT within the 19-hour gate after it. (`freshen-r11.py` and the FRESHEN wrappers still
    describe the old rule; they are not part of this run.)
 
 The ga-4z38 package's README holds the full design and its review history; it applies here unchanged except
