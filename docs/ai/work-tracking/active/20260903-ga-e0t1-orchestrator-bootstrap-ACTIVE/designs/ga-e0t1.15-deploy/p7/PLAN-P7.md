@@ -89,6 +89,34 @@ unchanged, so the evidence still applies.
 - the digest chain;
 - the build records.
 
+## Read-only run and adoption binding (r2, 2026-09-25)
+
+`f72173dc` received two independent SOURCE_PASS verdicts with no must_fix.
+
+Before step 1, a read-only rehearsal ran the provisioner's `gc version --json` corroboration in bwrap
+(read-only, no network, the adopt environment). It returned commit `9faeabc2` with `ok: true`, and the
+city shim stayed `a7bcaa7c` (review B should_fix 4). The reviewed-build evidence file is mode 0644 with
+nlink 1.
+
+Steps 1 to 3 then ran once, each passing, at the reviewed commit:
+- **input:** result `6c415b4b`, draft `c047b4d9`, traced revision `2113693e`.
+- **compose:** ok. The composition equals the draft, before equals after, and nothing was installed.
+- **readiness:** ok, all six phases, unchanged.
+  - Preflight is OK on all 12 checks, including `provider_readiness` and `signer`.
+  - The subscription is claude.ai, max, logged in.
+  - The old PATH refused at `worker_profile_sha256`.
+  - Discovery bound `1e08503d`.
+  - The finalized receipt `7cf59ab9` has self digest `ee4400af`. It names Template `cfd353f3`, Core
+    `9faeabc2`, revision `2113693e` and version `d4e57767`.
+
+r2 fills only the five adoption constants:
+- `NEW_SHA` `7cf59ab9` and `NEW_SELF` `ee4400af`;
+- `READY_RESULT_SHA` `a6cac0b9`, `READY_BEFORE_SHA` `1d9b0e35` and `READY_PINS_SHA` `82a4a70c`.
+
+The `p7-adopt.py` digest is then `697116dd`. `test_adoption_constants_bind_the_readiness_evidence`
+binds each constant to its evidence file. The generator test normalizes exactly these five lines back
+to `None`, so it still proves every other byte. There are 16 tests.
+
 ## Run order
 
 Every step runs as `systemd-run --user --wait --collect --pipe --quiet -p UMask=0022

@@ -9,6 +9,7 @@ import copy
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 import types
@@ -124,8 +125,30 @@ def test_generator_reproduces_every_file():
     assert set(captured) == {'prepare-compose-p7.py', 'prepare-preflight-p7.py', 'compose-main.go', 'preflight-main.go',
                              'p7-input.py', 'p7-observe-compose.py', 'p7-readiness.py', 'p7-adopt.py',
                              'source-launch.py', 'typed-interoperability.json'}
+    filled = re.compile(rb"\n(NEW_SHA|NEW_SELF|READY_RESULT_SHA|READY_BEFORE_SHA|READY_PINS_SHA)='[0-9a-f]{64}'\n")
     for name, data in captured.items():
-        assert (HERE/name).read_bytes() == data, name
+        disk = (HERE/name).read_bytes()
+        if name == 'p7-adopt.py':
+            # Run-order step 4 fills exactly these five constants from the readiness evidence; nothing else.
+            before = disk
+            for _ in range(5):
+                disk = filled.sub(lambda match: b'\n' + match.group(1) + b'=None\n', disk, count=1)
+            assert before.count(b"='") - disk.count(b"='") in (0, 5)
+        assert disk == data, name
+
+
+def test_adoption_constants_bind_the_readiness_evidence():
+    ready = Path('/var/tmp/ga-e0t1.15-p7-readiness-20260925')
+    text = (HERE/'p7-adopt.py').read_text()
+    final = json.loads((ready/'receipt.final.json').read_bytes())
+    for name, value in (('NEW_SHA', sha(ready/'receipt.final.json')), ('NEW_SELF', final['receipt_sha256']),
+                        ('READY_RESULT_SHA', sha(ready/'result.json')), ('READY_BEFORE_SHA', sha(ready/'before.json')),
+                        ('READY_PINS_SHA', sha(ready/'before.json.provider-pins'))):
+        assert "\n%s='%s'\n" % (name, value) in text, name
+    result = json.loads((ready/'result.json').read_bytes())
+    assert result['ok'] is True and result['unchanged'] is True and result['error'] is None
+    assert final['template_commit'] == 'cfd353f30f465cdf67bbd41fab48812fe5b9617e'
+    assert final['permission_revision'] == TRACED
 
 
 def test_digest_chain_and_builds():
@@ -137,8 +160,6 @@ def test_digest_chain_and_builds():
     assert compose.BINARY_SHA == sha(compose.BUILD/'compose')
     assert "BASE_SHA='%s'" % sha(HERE/'p7-observe-compose.py') in readiness_text
     assert "READY_SHA='%s'" % sha(HERE/'p7-readiness.py') in adopt_text
-    for name in ('NEW_SHA', 'NEW_SELF', 'READY_RESULT_SHA', 'READY_BEFORE_SHA', 'READY_PINS_SHA'):
-        assert '\n%s=None\n' % name in adopt_text
     for root in (compose.BUILD, Path('/var/tmp/ga-e0t1.15-preflight-diagnostic-20260925')):
         record = json.loads((root/'build-result.json').read_bytes())
         assert record['core_commit'] == '9faeabc2892d8c7133111e13ad55af66790a2ac6'
