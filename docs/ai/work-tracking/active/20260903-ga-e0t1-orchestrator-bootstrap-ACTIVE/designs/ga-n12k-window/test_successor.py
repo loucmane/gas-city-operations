@@ -107,14 +107,35 @@ def test_prep_overlay_and_wrapper(gen):
     assert '# ga-n12k window prep r8:' in wrapper
 
 
-def test_s1_window_pins_still_name_the_ga_qcwl_prep_outputs(gen):
-    """s1 leaves the ga-qcwl PREP digests in place under the ga-n12k root, so the window fails closed until s2."""
+def test_prep_outputs_are_pinned(gen):
+    """s2: each window-base PREP pin is the digest of the ga-n12k PREP output it names and agrees with result.json."""
+    root = gen.PREP_ROOT
+    result = json.loads((root/'result.json').read_bytes())
+    assert result['ok'] is True and result['worker_launched'] is False and result['installed'] is False
+    assert result['changed_receipt_fields'] == ['permission_revision', 'receipt_sha256']
+    assert result['effective_order_names'] == ['nudge-on-route']
     base = (HERE/'window-base-r11.py').read_text()
-    for digest in ('449346e33f73c1882dfd52e3caa0dfc8066ddfdb6eb4ef6c422603be60e817ac',
-                   'c1761144d7ab3b1d557e097902d681325b647324957df56eff4ee8afa77f78eb',
-                   '2de85e1eb06c2b4898aa49896d0683bdd22b77597b8402311dcd956850d93348',
-                   '9d59a0b4c2c3ce2d12668039559b0b11eb60f45e625a98996185573816744c92'):
-        assert digest in base
+    [city] = re.findall(r"CITY_SHA = \('[0-9a-f]{64}',\n +'([0-9a-f]{64})'\)", base)
+    [receipt] = re.findall(r"RECEIPT_SHA = \('[0-9a-f]{64}',\n +'([0-9a-f]{64})'\)", base)
+    [revision] = re.findall(r"REVISION = \('[0-9a-f]{64}',\n +'([0-9a-f]{64})'\)", base)
+    assert city == sha(root/'city.isolated.toml') == result['city_after_sha256']
+    assert receipt == sha(root/'receipt.final.json') == result['receipt_after_sha256']
+    assert revision == result['revision_after']
+    assert "read(PREP/'result.json', '%s')" % sha(root/'result.json') in base
+    assert sha(root/'orders.isolated.json') == gen.ORDERS_SHA
+    assert "orders = json.loads(read(PREP/'orders.isolated.json', '%s'))" % gen.ORDERS_SHA in base
+    for old, _ in gen.PREP_PINS:
+        assert old not in base
+
+
+def test_brief_order_and_commands():
+    brief = (HERE/'worker-brief.md').read_text()
+    assert "-run '^TestMetadataParentsRefuseUnrelatedEntriesAndHardLinks$/^valid$'" in brief
+    assert "-run '^TestMetadataProtectedSiblingParentContract$/^valid$'" in brief
+    assert '`/home/loucmane/gascity/bin/bd show ga-n12k --json`' in brief
+    assert 'base copy' not in brief and 'Do not create a copy of any source file.' in brief
+    task = brief.split('## Worker-owned implementation and tests')[1]
+    assert task.index('sha256sum') < task.index('Before any source edit') < task.index('except the two dispatch gate files')
 
 
 def test_checkpoint_is_the_preserved_patch(gen):

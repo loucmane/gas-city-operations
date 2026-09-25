@@ -59,10 +59,35 @@ S4's TERMINAL verified that epoch and image at 22:59 CEST.
 
 ## Phases
 
-1. **s1 (this commit).** Two SOURCE_PASS reviews that name only `operator/PREP.sh`, then the PREP job.
-2. **s2.**
-   - Re-pin the PREP outputs in the generator (`PREP_PINS`, plus the order list if it changed), with tests.
-   - Two reviews that name the 33 window wrappers.
+1. **s1 (`ac340176`).** Two SOURCE_PASS reviews that named only `operator/PREP.sh`, then the PREP job.
+   - Job `ga-n12k-s1-prep` ran and passed at 23:13 CEST (21:13 UTC).
+   - Result `d6cbdf3e`:
+     - overlay `25026cfd`;
+     - receipt `7cf59ab9` changed to `58973d2e`, touching only `permission_revision` and `receipt_sha256`;
+     - revision `5ca6886c`;
+     - orders `b57082cf`, unchanged;
+     - the worker was not launched.
+2. **s2 (this commit).**
+   - `PREP_PINS` re-pins window-base to those outputs. The nudge-order pins stay, because the order list is
+     byte-identical.
+   - Brief fixes from the s1 reviews:
+     - The worker first checks the patch digest.
+     - Before any edit, it classifies the two metadata failures at the base, using exact `-run` subtest patterns.
+     - It re-applies every hunk except the dispatch-gate ones.
+     - It writes the gate RED against the unchanged gate code, then applies the gate hunk.
+     - The "base copy" option is gone, so no copy of any source file is made.
+     - `bd` reads use the absolute path.
+     - A fix that would need a file outside the allowed set ends at a checkpoint.
+   - Setup outside the package, done after the s1 reviews:
+     - The discovered-from edge from ga-n12k to ga-qcwl was removed, because BIND requires a task with no
+       dependencies (`bind-task-r3.py:50`). The lineage stays in the Bead description and notes.
+     - ga-qcwl was confirmed to have no assignee and no `gc.routed_to` or `gc.run_target`, so the queue audit accepts
+       it.
+     - The seven edited files in the old ga-qcwl worktree were set to mode 0444, so a native Edit there fails.
+     - Before the window, its diff digest is `01f8b8af` and its status digest is `2d733147`. The coordinator
+       compares both after TERMINAL.
+   - Tests: 12. `pins()` passed read-only against the live files.
+   - The two reviews name the 33 window wrappers.
 3. **Window.** As in S4:
    - BIND, the lstat start gate and the `~/.claude.json` snapshot;
    - OBSERVE, PREFLIGHT, STAGE, ROUTE, WATCH-1, then RESUME;

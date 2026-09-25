@@ -50,6 +50,21 @@ PREP_OVERLAY = Path('/var/tmp/ga-qcwl-prep-20260925-r1/city.isolated.toml')
 PREP_OVERLAY_SHA = '449346e33f73c1882dfd52e3caa0dfc8066ddfdb6eb4ef6c422603be60e817ac'
 CHECKPOINT = '/home/loucmane/.local/share/gas-city-staging/ga-qcwl-window/checkpoint-20260925'
 CHECKPOINT_PATCH_SHA = '01f8b8af486ebc9a024a5247a3a580a54e5685a00b1fb4ca50f422edcef60caa'
+# s2: the ga-n12k PREP outputs (job ga-n12k-s1-prep at ac340176, PREP PASS 2026-09-25 21:13Z) replace the ga-qcwl
+# ones in window-base: the isolated overlay, the final receipt image, the isolated revision and the result record.
+# The isolated order list is byte-identical (b57082cf), so the nudge pins in pins() stay.
+PREP_ROOT = Path('/var/tmp/ga-n12k-prep-20260925-r1')
+PREP_PINS = [
+    ('449346e33f73c1882dfd52e3caa0dfc8066ddfdb6eb4ef6c422603be60e817ac',
+     '25026cfdd312016ac8d883c5c0b75148ea9dca6f17e40a4abaac7ab9f3d1243c'),
+    ('c1761144d7ab3b1d557e097902d681325b647324957df56eff4ee8afa77f78eb',
+     '58973d2e24328a1539c53196ff6dcd7e69f9ae2ca8e575557be35eb069827134'),
+    ('2de85e1eb06c2b4898aa49896d0683bdd22b77597b8402311dcd956850d93348',
+     '5ca6886cb8877386e62c98bf972846a5f04136658e556588ea913e4bbbb1aecd'),
+    ('9d59a0b4c2c3ce2d12668039559b0b11eb60f45e625a98996185573816744c92',
+     'd6cbdf3e5705ff585ff1c94c3f6f64a0544751d0f3df24bdf6fd43cb1ec7f97e'),
+]
+ORDERS_SHA = 'b57082cf8c065a460e4b8414c380c4fdedde6cc83a3b5426206aa4f73f0d02a1'
 
 
 def sha(raw):
@@ -115,8 +130,9 @@ def prep(text):
 BRIEF_TASK = '''## Worker-owned implementation and tests
 
 This Bead (ga-n12k) continues ga-qcwl: Core platform provider pins are keyed by provider name only, so two
-closed Claude wrappers cannot share one receipt (read both with `bd show ga-n12k --json` and
-`bd show ga-qcwl --json`). A previous worker implemented most of it and stopped at a checkpoint when its
+closed Claude wrappers cannot share one receipt (read both with standalone
+`/home/loucmane/gascity/bin/bd show ga-n12k --json` and `/home/loucmane/gascity/bin/bd show ga-qcwl --json`).
+A previous worker implemented most of it and stopped at a checkpoint when its
 context ran out; nothing was staged. Its checkpoint is preserved read-only in
 %(checkpoint)s:
 - worker-unstaged.patch (sha256 %(patch)s): the full diff against this base, 7 files;
@@ -129,16 +145,22 @@ and the dispatch gate (observeLiveEnvironment helpers). Readiness stays family-n
 
 Do, in order, and spend context sparingly (read files by line ranges, never dump whole large files or
 full test logs, never re-read what you already have):
-1. Read progress.md and the patch. Re-apply the patch to this worktree with native Edit/Write, file by file.
-   Do not run git apply or any shell write. Record which hunks you applied and any you changed.
-2. Carry the recorded RED evidence forward (cite the preserved files). The dispatch gate has no RED: write its
-   test first against a base copy of the gate code (or show the new test failing before the gate hunk is
-   applied), then GREEN. Prefer a whole-environment fixture through observeLiveEnvironment if one is cheap.
-3. Classify the two platforminstall failures (TestMetadataParentsRefuseUnrelatedEntriesAndHardLinks/valid,
-   TestMetadataProtectedSiblingParentContract/valid): run exactly those two with `-run` at the base state
-   (before step 1, or with the integrity hunks not yet applied). If they fail identically at the base, record
-   them as a pre-existing sandbox limitation; if they pass at the base, they are yours to fix.
-4. Keep every existing single-wrapper behaviour, every refusal of an unpinned, drifted or ambiguous provider,
+1. Verify the patch with standalone `sha256sum <checkpoint>/worker-unstaged.patch` against the digest above
+   (a mismatch is a stop), then read progress.md and the patch.
+2. Before any source edit, classify the two platforminstall failures at the unchanged base, each as its own
+   standalone command:
+   `go test ./internal/platforminstall -count=1 -run '^TestMetadataParentsRefuseUnrelatedEntriesAndHardLinks$/^valid$'`
+   `go test ./internal/platforminstall -count=1 -run '^TestMetadataProtectedSiblingParentContract$/^valid$'`
+   If they fail identically at the base, record them as a pre-existing sandbox limitation. If they pass at the
+   base, the patch breaks them and they are yours to fix; if that fix needs a file outside the allowed set,
+   stop at a checkpoint instead.
+3. Re-apply every hunk of the patch except the two dispatch gate files, with native Edit/Write, file by file.
+   Do not run git apply or any shell write. Record which hunks you applied and any you changed. Carry the
+   recorded integrity and canary RED forward by citing the preserved files.
+4. The dispatch gate has no RED yet: write its test first (from the patch's gate test, or a whole-environment
+   fixture through observeLiveEnvironment if one is cheap), show it failing against the unchanged gate code,
+   then apply the gate hunk and show it GREEN. Do not create a copy of any source file.
+5. Keep every existing single-wrapper behaviour, every refusal of an unpinned, drifted or ambiguous provider,
    and the fail-closed reads. No live change, no Template or Operations change, no receipt or manifest edit
    on disk. Change only the allowed source files listed above and put new tests in the listed _test.go
    files, because SIGNING-RELEASE refuses any other staged path, including a new file.
@@ -173,6 +195,10 @@ def rebind(files):
         text = rename(raw.decode())
         if name == 'prep-r11.py':
             text = prep(text)
+        elif name == 'window-base-r11.py':
+            for old, new in PREP_PINS:
+                text = sub(text, "'%s'" % old, "'%s'" % new)
+            sub(text, "orders = json.loads(read(PREP/'orders.isolated.json', '%s'))" % ORDERS_SHA, '')
         elif name == 'worker-brief.md':
             text = brief(text)
         elif name == 'operator/PREP.sh':
