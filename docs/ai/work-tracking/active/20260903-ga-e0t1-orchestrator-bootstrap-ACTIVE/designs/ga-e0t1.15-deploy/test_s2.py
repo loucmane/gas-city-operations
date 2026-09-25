@@ -189,3 +189,23 @@ def test_cache_admission_refusals_before_any_walk(s2, case, message):
         after['inventory']['.']['mode'] = 0o40700
     with pytest.raises(Exception, match=message):
         s2.s14_admit_cache(before, after)
+
+
+def test_missing_required_key_alone_refuses(s2):
+    before = inventory(**{'.': META})
+    after = inventory(**{'.': META, s2.S14_OPTIONAL_KEY: META})
+    with pytest.raises(Exception, match='unexpected cache additions'):
+        s2.s14_admit_cache(before, after)
+
+
+def test_freshen_roots_match_s2_roots(s2):
+    source = (HERE / 'freshen_cache.py').read_text()
+    assert f"ACCEPT_ROOT = Path('{s2.S14_ACCEPT_ROOT}')" in source
+    assert f"SEQ14_ROOT = Path('{s2.ROOT}')" in source
+
+
+def test_accept_preconditions_are_exact_in_source():
+    text = (HERE / 's2_overrides.py.txt').read_text()
+    for needle in ("'accepted broker is not exactly inactive'", "'accepted broker socket is not listening'",
+                   "'accepted watchdog image is not live'", "ActiveState='inactive',SubState='dead'"):
+        assert needle in text

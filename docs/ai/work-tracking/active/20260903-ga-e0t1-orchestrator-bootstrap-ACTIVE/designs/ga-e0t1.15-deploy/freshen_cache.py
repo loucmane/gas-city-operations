@@ -81,8 +81,10 @@ def touch(path):
             os.close(fd)
         return 'listed'
     if stat.S_ISREG(s.st_mode):
-        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+        # O_NONBLOCK: an entry swapped for a FIFO after the lstat cannot hang the job (review should_fix).
+        fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
         try:
+            require(stat.S_ISREG(os.fstat(fd).st_mode), 'cache entry changed type ' + path)
             os.read(fd, 1)
         finally:
             os.close(fd)
