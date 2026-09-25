@@ -39,7 +39,9 @@ ROOT = O + '/reports/m6'
 OLD_MANIFEST_SHA = '2d7eadce62c4e567697813cc9122414f1e94c3bd9d389aef92015adef7f36319'
 OLD_RECEIPT_SHA = '9342b33eb7b0fd4e68a34c8cee3b8a89b9011a091d7121d249b88c84378fed94'
 BASELINE_PATH = O + '/reports/m6-capture/baseline.json'
-BASELINE_SHA = None  # pinned by the binding step after the capture, then reviewed
+# Frozen by the 2026-09-25 capture (candidate 12b536be at dc34612e, zero drifts, only the parser changed).
+# Nobody runs gc, workflow.py or a Bead write from that capture until restore-accepted.
+BASELINE_SHA = 'b2360cf7edd7150fa5a2c546d7ea76178ba72beeb07de3b74767379acc5b7b31'
 SUSPENSION_SHA = 'c30776de4fdb359a0083ecf9efc20e56595ede9472de3d93e69f47c55439dcb5'
 TEMPLATE = '/home/loucmane/gas-city-template'
 M5_COMMIT = '28539934fa742056e0a65710d5638ff559a21175'

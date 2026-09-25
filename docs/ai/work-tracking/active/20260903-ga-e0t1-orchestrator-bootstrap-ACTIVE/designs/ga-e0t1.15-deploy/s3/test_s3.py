@@ -191,6 +191,22 @@ def test_build_refuses_wrong_predecessor(m, old, s2):
         build(m, changed, synthetic(m, old, s2))
 
 
+def test_build_against_frozen_baseline(m, old):
+    path = Path(m.BASELINE_PATH)
+    if m.BASELINE_SHA is None or not path.exists():
+        pytest.skip('baseline not frozen yet')
+    raw = path.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == m.BASELINE_SHA
+    closure = json.loads(raw)['closure']
+    out, report = m.build(INSTALLED.read_bytes(), raw, closure['host'], parents(m, old), 'a' * 64, 'b' * 64)
+    md = out['metadata']
+    assert (len(md['inputs']), len(md['trees']), len(md['links'])) == (687, 49, 23)
+    assert report['frame']['remaining_bytes'] > 2048
+    assert out['integrity']['repositories'][-1]['commit'] == m.TEMPLATE_COMMIT
+    template_git = [t for t in md['trees'] if t['path'] == m.TEMPLATE_GIT][0]['sha256']
+    assert template_git not in (m.TEMPLATE_GIT_OLD, m.TEMPLATE_GIT_S2)
+
+
 def test_window_is_access_time_neutral():
     w = load('metadata_window.py', 'w')
     start = dict(boot='00000000-0000-0000-0000-000000000000', mono=10**12, boot_time=10**12, wall=10**18, span=1)

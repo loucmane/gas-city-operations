@@ -150,6 +150,35 @@ nobody writes a Bead note. Notes wait in staging, under the quiescent-window rul
   - new privilege;
   - a pinentry prompt.
 
+## Binding step (r4, 2026-09-25): live results
+
+r3 `dc34612e` received two independent SOURCE_PASS verdicts with no must_fix. The remaining
+should_fixes are follow-ups, per the operator's rule that only code, safety or live-state defects hold:
+- a pre-mutation size check;
+- earlier-record parsing in `common`;
+- a pre-mutation config check;
+- the inventory record digest check in the capture;
+- documentation of the fetch race, a consumed commit and the resume temporary file.
+
+Live run, all in the supervisor namespaces, with candidate `C` = `12b536be` at `dc34612e`, clean:
+- `inventory`, `fetch`, `checkout` and `authority` all passed, unresumed, with records under
+  `reports/m6-inputs`.
+- Between `fetch` and `checkout`, the derivation and successor-size tests passed against the fetched
+  canonical objects. That covers the r3 review A size should_fix before the mutation.
+- `checkout` proved every blob first. The worker then reported `d4e57767`.
+- The capture passed with zero drifts. Exactly one S2 pin changed: the parser, at its exact successor.
+  The baseline is `reports/m6-capture/baseline.json`, `b2360cf7`.
+
+The r4 changes:
+- `manifest_candidate.py` pins `BASELINE_SHA`, which changes its digest from `12b536be` to `bdc189e0`.
+  The prerequisite records bind `12b536be`; they are only read by the capture, which has run.
+- `source-pins.json` is new (`3b98da18`) and lists the six executor sources.
+- `test_build_against_frozen_baseline` builds M6 from the real baseline: 687/49/23, frame margin over
+  2048, the authority last, and the Template `.git` at a new bounded digest. There are 32 tests.
+
+The next step is the executor, `launch.py --expect-sources 3b98da18… prepare`, after the binding
+reviews. There must be no gc call, `workflow.py` call or Bead write until `restore-accepted`.
+
 ## Review dispositions for r1 (`dc5c46b5`: two HOLD verdicts)
 
 | Finding | Disposition |
