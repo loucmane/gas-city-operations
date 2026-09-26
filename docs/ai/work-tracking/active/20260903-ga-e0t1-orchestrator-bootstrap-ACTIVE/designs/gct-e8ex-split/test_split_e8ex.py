@@ -73,7 +73,7 @@ def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
     for needle in ('"this Bead" means the claimed task, gct-tttt', 'do not read, update or close it',
                    '/Docs/worklogs/gct-tttt.md` (one note per Bead)', 'run `git write-tree` as its own',
                    '`READY FOR SIGNING: gct-tttt tree <digest>`', 'do not run `gc runtime drain-ack`',
-                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', 'already hold that READY FOR SIGNING line',
+                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', 'or record an\n  escalation you or an earlier session sent', 'Record every escalation',
                    'explicit file paths, never a directory', 'refused as ignored is reported',
                    'every test you can run passes', '"The worker\n  report" means',
                    "are the\n  coordinator's"):
@@ -108,7 +108,10 @@ def test_holders_depend_only_on_the_task_id(s, tmp_path, rendered):
     assert '<' not in alone['spec-6.md'].replace('<digest>', '').replace('<name>', '')
     other = s.holders('gct-tttt')
     assert other == alone
-    task_only = s.render_task(tmp_path / 't', 'gct-aaaa', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee', 'gct-ffff')
+    task_only = s.render_task(tmp_path / 't', 'gct-tttt', 'gct-aaaa', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee',
+                              'gct-ffff')
+    with pytest.raises(ValueError):
+        s.render_task(tmp_path / 'u', 'gct-tttt', 'gct-tttt', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee', 'gct-ffff')
     assert task_only['task.md'] == rendered['task.md']
     for bad in ('<task>', 'gct-e8ex', 'gct-e8ex.3'):
         with pytest.raises(ValueError):

@@ -2,7 +2,7 @@
 
 This package prepares the Template candidate-lane Bead, gct-e8ex, for the Template `codex` worker. The worker
 builds a closed Claude candidate lane for the Template rig, and the handover proof (gct-oak5) needs that lane
-first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (8 tests) proves:
+first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (8 tests; the first bullet covers two) proves:
 - the split is verbatim, and holders name themselves;
 - the live umbrella description is the reviewed r6 brief;
 - every part is small;
@@ -28,10 +28,12 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 2. **Create the task Bead** in the Template rig with a provisional description, no edges, and the label
    `template-candidate`.
 3. **Create the six holders** from `split_e8ex.py render-holders <dir> <task-id>` (spec-1.md to spec-6.md; they
-   depend only on the task id), then close them.
-4. **Update the task description** to `split_e8ex.py render-task <dir> <spec-1> ... <spec-5> <notes>`.
-5. **Measure every live plain `gc bd show` view.** Stop if any view is 9,000 bytes or more, or 200 lines or more:
-   an oversize view goes back to review, never an improvised re-split.
+   depend only on the task id), with no edge, parent or dependency, then close them.
+4. **Update the task description** to `split_e8ex.py render-task <dir> <task-id> <spec-1> ... <spec-5> <notes>`.
+5. **Check the live Beads against the render.** Each live description's sha256 must equal the sha256 the render
+   printed for that file, in position order. Measure every live plain `gc bd show` view, and stop if any view is
+   9,000 bytes or more, or 200 lines or more. A mismatch or an oversize view goes back to review: never edit a
+   closed holder in place, and never improvise a re-split.
 6. **Keep the umbrella.** gct-e8ex stays open as the umbrella, and its notes stay there.
 7. **Route the task.** It goes to `gas-city-template/codex` through a reviewed Template window, which stamps
    `gc.work_dir` to a worktree under `/home/loucmane/gas-city-template-worktrees`, checks that root, and asserts
@@ -111,3 +113,14 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 - **An oversize live view** goes back to review (B 4).
 - **The routing window** asserts that the Template `.git` is writable by the composed codex session (B 2).
 - **README fixes:** the `.gc/` note (A 1) and the stale r2 line (B 6).
+
+## r6 (answers the reviews of `8bf87530`; both SOURCE_PASS)
+
+- **B 3: the stop rule is unconditional.** Before any work the worker reads the task notes. If they hold the
+  READY FOR SIGNING line or a recorded escalation, it sends nothing and stops. A fresh session does not need to
+  know it was restarted, a failed-read escalation is not repeated, and every escalation is recorded in the notes.
+- **B 1: live digests.** Run order step 5 compares each live description with the printed render sha256, in
+  position order. A mismatch goes back to review, and a closed holder is never edited in place.
+- **A 2 and B 2: `render-task` takes the task id** and refuses a holder id equal to it; a test covers it.
+- **B 4:** the holders are created with no edge, parent or dependency.
+- **Cosmetic (A 1, A 5, B 5, B 6):** the usage docstring lists all three commands, and the test count is explained.

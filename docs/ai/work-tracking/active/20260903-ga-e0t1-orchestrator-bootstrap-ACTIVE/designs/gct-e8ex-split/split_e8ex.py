@@ -1,6 +1,8 @@
 """gct-e8ex brief split: the reviewed r6 brief, verbatim, as a short task Bead and six closed holders.
 
-  python3 -B split_e8ex.py render <out-dir> [<task-id> <spec-1-id> ... <spec-5-id> <notes-id>]
+  python3 -B split_e8ex.py render-holders <out-dir> <task-id>
+  python3 -B split_e8ex.py render-task <out-dir> <task-id> <spec-1-id> ... <spec-5-id> <notes-id>
+  python3 -B split_e8ex.py render <out-dir> <task-id> <spec-1-id> ... <spec-5-id> <notes-id>
 
 Why: the Template `codex` worker reads its Bead with `/home/loucmane/gascity/bin/gc bd show <id>`, as its
 prompt (gas-city-native agents/codex/prompt.template.md) names. For gct-e8ex that plain view is about 41K
@@ -101,8 +103,9 @@ def notes_holder(task_id):
             '  Then send one escalation to the mayor with that same line as its subject, and stop: do not close the\n'
             '  task Bead and do not run `gc runtime drain-ack`. The coordinator reads the task notes, reviews, signs,\n'
             '  delivers and closes it.\n'
-            '- If you are restarted and the task notes already hold that READY FOR SIGNING line, send nothing more and\n'
-            '  stop: the coordinator reads the notes even if the mail was not sent.\n\n'
+            '- Before any work, read the task notes. If they already hold that READY FOR SIGNING line, or record an\n'
+            '  escalation you or an earlier session sent, send nothing more and stop: the coordinator reads the notes\n'
+            '  even if a mail was not sent. Record every escalation you send in the task notes.\n\n'
             '## B. Review hints for building the tests (not new requirements)\n\n' + GUIDANCE)
 
 
@@ -148,9 +151,9 @@ def holders(task_id):
     return files
 
 
-def task(holder_ids):
-    """The task description; it depends only on the six holder ids."""
-    check_ids(list(holder_ids))
+def task(holder_ids, task_id=None):
+    """The task description; it depends only on the six holder ids (the task id, if given, must differ)."""
+    check_ids(list(holder_ids) + ([task_id] if task_id else []))
     if len(holder_ids) != 6:
         raise ValueError('need six holder ids')
     head, bodies, tail = parts(r6())
@@ -162,9 +165,9 @@ def render_holders(out, task_id):
     return write(out, holders(task_id))
 
 
-def render_task(out, *holder_ids):
-    """Step 4: the final task description once the six holders exist."""
-    return write(out, {'task.md': task(holder_ids)})
+def render_task(out, task_id, *holder_ids):
+    """Step 4: the final task description once the six holders exist; the task id is checked distinct."""
+    return write(out, {'task.md': task(holder_ids, task_id)})
 
 
 def render(out, task_id, *holder_ids):
