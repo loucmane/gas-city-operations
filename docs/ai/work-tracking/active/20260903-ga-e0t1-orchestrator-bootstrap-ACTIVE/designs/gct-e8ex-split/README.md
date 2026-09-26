@@ -43,8 +43,9 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
    goes back to review. Never edit a closed holder in place.
 6. **Keep the umbrella.** gct-e8ex stays open as the umbrella, and its notes stay there.
 7. **Route the task.** It goes to `gas-city-template/codex` through a reviewed Template window, which stamps
-   `gc.work_dir` to a worktree under `/home/loucmane/gas-city-template-worktrees`, checks that root, and asserts
-   that the composed codex session can write `/home/loucmane/gas-city-template/.git` (needed for `git add`).
+   `gc.work_dir` to a worktree under `/home/loucmane/gas-city-template-worktrees` and checks that root. Since r10
+   the window gives the codex session the `classified-vault-and-template-worktrees` choice, which cannot write
+   `/home/loucmane/gas-city-template/.git`.
 
 ## r2 (answers the reviews of `688723d9`; both SOURCE_PASS)
 
