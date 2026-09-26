@@ -273,7 +273,7 @@ PREP_ROOT = Path('/var/tmp/ga-3oa7-prep-20260926-r1')
 
 
 def test_prep_outputs_are_pinned(g):
-    """s2: window-base pins exactly the ga-3oa7 PREP outputs (PREP PASS 2026-09-26 10:46:26Z), and its isolated
+    """s2: window-base pins exactly the ga-3oa7 PREP outputs (PREP PASS 2026-09-26 14:08:56Z), and its isolated
     city pin is the overlay prep derives (s1 review A should_fix 1)."""
     if g.CACHE_PINNED_NS is None:
         pytest.skip('s1: PREP not yet pinned')

@@ -35,17 +35,17 @@ PROVISIONER = Path('/home/loucmane/gas-city-template/bin/gct-managed-worker-prov
 WITNESS = Path('/var/tmp/ga-e0t1.18-p10-adoption-20260926/typed-support.json')
 WITNESS_SHA = '53dd45539fad45816d62ecd9d4ee26bba380f5fedc1c4d363435471a9c201d30'
 CITY_SHA = ('4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591',
-            '45014c22e045447fe75b4969e0d01667bf2dab36763ae06abdf8a9c13b6f2425')
+            '0e583359552b9c765ae0da5cf971397d6cf0e96b03613238721cc797aad64940')
 RECEIPT_SHA = ('c833908fe89ab180e57ef7164d687f01ae2052f8667360f04b73c5423902f0a4',
-               '87f41c3fae32597d73266cfd4f9322dbe23383de1f0a2d3607ccd9c6c87c20db')
+               '62041d275870f6ea5d04860d9c40821c78313bd802706f22dce6a9660f50369a')
 REVISION = ('83c41af65776eaa90f93b57158e8ad57141e19347a592ce509a19f56c2667add',
-            '37be13bc0cb50ca487a0dc244dcdf8ed91d9140848e376b8dba8466e1855a597')
+            '2a88522aea8912c454204a99942fea748807604c8a640a3612d130e6c83cb28a')
 INPUT = (Path('/var/tmp/ga-e0t1.18-p10-input-20260926/receipt.input.draft.json'), PREP/'receipt.input.json')
 INPUT_SHA = ('c6674ba5f494faeb8179b6e6d49a904e8fe5761a7bfa491ffb3c9d97c9b5ffe7',
              None)  # The isolated input is compared to the exact native-finalized wire below.
 RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
 # The accepted image is the ga-x7lx TERMINAL observed-after record: this same snapshot() after RESTORE on
-# this epoch (TERMINAL PASS 2026-09-26 10:23Z, full native integrity). Its extra keys (providers,
+# this epoch (TERMINAL PASS 2026-09-26 13:11Z, full native integrity). Its extra keys (providers,
 # directories) are not part of the compared image; the provider pins stay the P10 adoption record's.
 ACCEPTED = Path('/var/tmp/ga-x7lx-terminal-20260926-r1/observed-after.json')
 ACCEPTED_SHA = '59e76bbfeb395759ec93a688ef4dfb81af89148d679eda7626a3a0e7c4f327d7'
@@ -118,7 +118,7 @@ def load_support():
 
 def pins():
     # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.
-    read(PREP/'result.json', '471266b9e94a2437d86085003ed5cceea461e11df5b713ca8cfaccf88f4bb0d3')
+    read(PREP/'result.json', 'a99403becaec1b8255e753828f21cb806fe91642ba5290caa93805e5e567b2da')
     read(LAUNCH, '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea')
     read(PROVISIONER, '64425a728fc06a082865f2d53afcc6e4793974f5aadab49492d95f5e0a9f4a35')
     read(WITNESS, WITNESS_SHA)
@@ -239,7 +239,7 @@ def approved_coordinator_cache_image(prior):
     return value
 
 CACHE_PREV_NS = 1790419645618740930
-CACHE_PINNED_NS = None
+CACHE_PINNED_NS = 1790431776352453342
 
 def approved_candidate_cache_image(prior):
     # ga-3oa7 disposition, operator-approved 2026-09-26, for independent review: after the

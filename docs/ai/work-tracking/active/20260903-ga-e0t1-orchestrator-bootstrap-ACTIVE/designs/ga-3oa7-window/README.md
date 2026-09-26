@@ -64,3 +64,30 @@ Unchanged from ga-x7lx:
    - INTAKE: export, apply, tests, signed commit, two intake reviews (including the r15 should_fix checklist on
      the ga-e0t1 note), PR, merge;
    - retire.
+
+## s2 (answers the s1 reviews of `ed810388`; both SOURCE_PASS, filed)
+
+- **Pre-window jobs at s1:**
+  - WORKTREE passed at 14:08:42Z. It created a clean worktree on `codex/ga-3oa7-dispatch-evidence-write` at
+    `8f24ad71`.
+  - PREP passed at 14:08:56Z (`/var/tmp/ga-3oa7-prep-20260926-r1`):
+    - overlay `0e583359`, as derived;
+    - receipt image `62041d27`;
+    - revision `2a88522a`;
+    - result `a99403be`;
+    - orders unchanged at `b57082cf`.
+  - The s1 outcome is recorded on ga-e0t1.
+- **Pins:**
+  - window-base now pins the ga-3oa7 PREP outputs in place of the ga-x7lx ones.
+  - `CACHE_PINNED_NS` is `1790431776352453342`, the live value after the last coordinator note (the workflow.py
+    log at 14:09:36Z).
+- **Review B's R3 check:** R3's hooks are inert in the candidate session. The `deliveryfailure` handler does
+  nothing without bindings, and delivery classification needs the canonical seat. Nothing in the window depends
+  on the base move.
+- **Wording:**
+  - the accepted record's TERMINAL time is now 13:11Z (A 1, B 1);
+  - the PREP test docstring is dated (A 2, B 2).
+- **Evidence:** the s1 test output (17 passed, 3 skipped) is kept in `reports/r4-brief-split-20260926`
+  (B 4).
+- **Do not run `test_successor.py` from here until TERMINAL.** Its s2 run left the pinned cache value unchanged.
+- **Tests:** 19 passed, 1 skipped, because WORKTREE has run.

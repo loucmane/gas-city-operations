@@ -63,7 +63,21 @@ PROVIDER = ('/var/tmp/ga-e0t1.18-p10-adoption-20260926/after.json.provider-pins'
 CACHE_OLD = (1790415062719606803, 1790419645618740930)
 # The pack-cache .git mtime and ctime in the ga-x7lx TERMINAL record; s2 pins the value after the last note.
 CACHE_PREV_NS = 1790419645618740930
-CACHE_PINNED_NS = None
+# s2: pinned after the last coordinator note (the s1 outcome workflow.py log, 2026-09-26 14:09:36Z). From here
+# until TERMINAL no workflow.py and no bd or gc call without GIT_OPTIONAL_LOCKS=0 runs.
+CACHE_PINNED_NS = 1790431776352453342
+# s2: the ga-3oa7 PREP outputs (job ga-3oa7-s1-prep at ed810388, PREP PASS 2026-09-26 14:08:56Z) replace the
+# ga-x7lx ones in window-base. The isolated order list is unchanged (b57082cf).
+PREP_PINS = [
+    ('45014c22e045447fe75b4969e0d01667bf2dab36763ae06abdf8a9c13b6f2425',
+     '0e583359552b9c765ae0da5cf971397d6cf0e96b03613238721cc797aad64940'),
+    ('87f41c3fae32597d73266cfd4f9322dbe23383de1f0a2d3607ccd9c6c87c20db',
+     '62041d275870f6ea5d04860d9c40821c78313bd802706f22dce6a9660f50369a'),
+    ('37be13bc0cb50ca487a0dc244dcdf8ed91d9140848e376b8dba8466e1855a597',
+     '2a88522aea8912c454204a99942fea748807604c8a640a3612d130e6c83cb28a'),
+    ('471266b9e94a2437d86085003ed5cceea461e11df5b713ca8cfaccf88f4bb0d3',
+     'a99403becaec1b8255e753828f21cb806fe91642ba5290caa93805e5e567b2da'),
+]
 OVERLAY_OLD = '45014c22e045447fe75b4969e0d01667bf2dab36763ae06abdf8a9c13b6f2425'
 # Derived read-only by the generated build_overlay from the live city.toml (4f7e170f) and the confined gc config
 # and order list (2026-09-26); it differs from 45014c22 only in the header line and the candidate work_dir.
@@ -118,6 +132,11 @@ def window_base(text):
                "    # ga-x7lx TERMINAL record, the coordinator recorded the ga-x7lx outcome, the R3 intake and merge and the R4 brief on ga-e0t1 through\n")
     text = sub(text, "        # The ga-sh3w TERMINAL record was taken on this epoch after RESTORE; only the coordinator-cache\n",
                "        # The ga-x7lx TERMINAL record was taken on this epoch after RESTORE; only the coordinator-cache\n")
+    # s1 reviews A 1 and B 1: the accepted record's own TERMINAL time.
+    text = sub(text, "# this epoch (TERMINAL PASS 2026-09-26 10:23Z, full native integrity).",
+               "# this epoch (TERMINAL PASS 2026-09-26 13:11Z, full native integrity).")
+    for old, new in PREP_PINS:
+        text = sub(text, "'%s'" % old, "'%s'" % new)
     return text
 
 
