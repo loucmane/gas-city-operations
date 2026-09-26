@@ -35,9 +35,9 @@ OLD_MANIFEST_SHA = '63820eacf37a46ec6d6d97cfe0434189a2a41a27c6650462b992d1034da1
 OLD_RECEIPT_SHA = '1fdb838586d93061743e926cab324bee657d0b93cd11520c43f48419656815d0'
 OLD_RELEASE_ID = 'ops-candidate-lane-metadata-m8-20260926'
 BASELINE_PATH = O + '/reports/m9-capture/baseline.json'
-# Frozen by the capture and pinned at the binding step. Nobody runs gc, workflow.py or a Bead write from the
-# capture until restore-accepted.
-BASELINE_SHA = None
+# Frozen by the 2026-09-26 capture (candidate 0510e94d at 9e5eb6aa, zero drifts, exactly the P9 receipt pin
+# change, the four wrapper pins uid/gid 1000). Nobody runs gc, workflow.py or a Bead write until restore-accepted.
+BASELINE_SHA = '15d39514ae65216eb7a18f661c08feadc780f2be61df31b5bd5cbbb06965c8c7'
 SUSPENSION_SHA = '5c98be4aee73acff8ee390afbe368ba6c58addb7d7ebf136b172dde239df0326'
 TEMPLATE = '/home/loucmane/gas-city-template'
 TEMPLATE_COMMIT = 'cfd353f30f465cdf67bbd41fab48812fe5b9617e'
@@ -93,8 +93,9 @@ INPUT_COUNT = 692 + 4
 TREE_COUNT = 49
 LINK_COUNT = 23
 PROVIDER_COUNT = 4
-# The M9 frame margin floor. M8 left 1,763 spare bytes; the two inputs and the provider pin cost 760, so the
-# computed M9 bound (130,069 of 131,072) leaves 1,003.
+# The M9 frame margin floor. M8 left 1,763 spare bytes; the four inputs and the provider pin cost 1,130, so the
+# computed M9 bound (130,439 of 131,072) leaves 633. Only the fresh parents' device and inode vary at prepare,
+# at most 72 bytes wider than the test's synthetic values.
 FRAME_FLOOR = 512
 
 # There is no new broker receipt: the Core image did not change. The sequence 15 receipt still binds it.

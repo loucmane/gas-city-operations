@@ -129,6 +129,32 @@ From the capture until `restore-accepted`:
 - **B should_fix 4.** The reviewers cite Core from `/var/tmp/ga-e0t1.18-build-20260926/repro-source` at
   `deefb98b`. The rig checkout is not at that commit, and its tree is not evidence for the deployed Core.
 
+## Binding step (r3, 2026-09-26): live results
+
+r2 `9e5eb6aa` received two independent SOURCE_PASS verdicts with no must_fix. The capture then ran once in the
+supervisor namespaces with candidate `C` = `0510e94d` at `9e5eb6aa`, from a clean worktree:
+- **Baseline.** `reports/m9-capture/baseline.json` is `15d39514`, with zero drifts and 767 pins.
+- **Pin changes.** Exactly the P9 receipt.
+- **Cache.** The only bookkeeping entry is the known `954ed149…/.git` (mtime and ctime).
+- **The four new wrapper pins.** Each is uid and gid 1000 with the reviewed digest and mode: 0755 for the bin
+  and 0644 for the rest (r2 review B should_fix 2, checked by hand).
+
+The r3 changes:
+- `manifest_candidate.py` pins `BASELINE_SHA`, and its frame comment now carries the r2 figures (r2 A 1, B 1).
+  Its digest moves from `0510e94d` to `09a0b16f`.
+- `source-pins.json` is new, at `ddad8b1f`.
+- `test_m9.py` gains a comment on the shared `/bin/sh` and stdlib coverage (r2 A 3, B 3).
+- All 32 tests pass, including the build against the frozen baseline.
+
+`capture_m9.py` ran as reviewed, so its docstring keeps the r2 wording "the candidate wrapper and its launch
+module" (r2 A 2); its `target()` pins all four files. The writer's added `--version` hashing time is
+informational: M8 observe took 18.5 s against a 36 s probe limit (r2 B 4).
+
+Before the capture, the P10 diagnostics were built into their final roots, so nothing runs git during the
+quiescence:
+- the candidate composition `53450168`, reproduced exactly;
+- the preflight `c6dd9ebb`, with extraction `a30af307`.
+
 ## Stop conditions
 
 Stop on any of these:

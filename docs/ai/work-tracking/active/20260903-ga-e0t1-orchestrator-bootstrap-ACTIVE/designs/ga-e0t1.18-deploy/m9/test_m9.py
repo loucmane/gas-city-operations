@@ -99,7 +99,9 @@ def test_the_wrapper_reports_the_pinned_version(m):
     assert m.PROVIDER['version'] == m.WRAPPER_VERSION and m.PROVIDER['sha256'] == sha(m.WRAPPER)
 
 
-# The candidate wrapper's version dependency record, read from its own launch configuration.
+# The candidate wrapper's version dependency record, read from its own launch configuration. The /bin/sh entry,
+# the stdlib modules and the shared libraries are covered because the signing wrapper already needs the same set
+# in the writer: the candidate lib's only extra import is `re`, which json already imports (M9 r2 reviews).
 DEPENDENCIES = r'''
 import json, runpy, sys
 module = runpy.run_path(sys.argv[1], run_name='gct_candidate_dependencies')
