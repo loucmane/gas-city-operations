@@ -17,8 +17,9 @@ this executor. The discipline follows the reviewed M5 prereqs.py:
   report applied or no_change.
 - `rollback` refuses on any live file that is neither its predecessor nor its reviewed postimage. It
   restores every changed file from a digest-verified backup through an atomic replace, in reverse
-  order. It moves the prompt aside under a fresh name, restores the checkout with hooks off, then
-  reloads and proves the candidate agent is gone. It never deletes; the candidate root stays.
+  order. r11: it moves the agent directory aside under a fresh dot name (never discovered), restores the
+  checkout with hooks off (a no-op when base equals target), then reloads and proves the candidate agent is
+  gone. It never deletes; the candidate root stays.
 
 The steps, in order:
 - host: read-only host facts.
@@ -292,8 +293,11 @@ def agent_toml() -> bytes:
     """r11: the PackV2 city-pack agent definition (agents/<AGENT>/agent.toml).
 
     `dir = "gascity"` keeps the identity gascity/operations-candidate-worker that the managed fragment's
-    [[patches.agent]] and the registry record name; `scope = "city"` keeps it a single city-level agent rather
-    than one per rig. The prompt is the directory's convention file, so no path is named.
+    [[patches.agent]] and the registry record name, and binds its work directory to the gascity rig. There is
+    deliberately no `scope`, exactly like the reviewed V1 [[agent]] block: in Core, `scope = "city"` is the
+    cross-store switch (hook work queries, sling route guard, claims and demand federate across every rig
+    store), which must not apply to the candidate lane (r11 review A must_fix 1). City-root agents are not
+    expanded per rig, so omitting scope keeps one agent. The prompt is the directory's convention file.
     """
     raw = (
         "# gct-lagl: Operations candidate worker, bound to the gascity rig only. The managed\n"
@@ -301,13 +305,12 @@ def agent_toml() -> bytes:
         "# until the first candidate window's own reviewed package unsuspends it.\n"
         'description = "Operations candidate worker: delivers an uncommitted candidate (gct-lagl)"\n'
         'dir = "gascity"\n'
-        'scope = "city"\n'
         'provider = "claude"\n'
         "max_active_sessions = 1\n"
         "suspended = true\n"
     ).encode()
     parsed = tomllib.loads(raw.decode())
-    require(parsed == dict(description=parsed["description"], dir="gascity", scope="city", provider="claude",
+    require(parsed == dict(description=parsed["description"], dir="gascity", provider="claude",
                            max_active_sessions=1, suspended=True), "derived agent definition")
     return raw
 
@@ -531,14 +534,66 @@ def stage_agent_dir(p: Package, parent: Path, definition: bytes, prompt: bytes) 
     """Build the complete agent directory under a fresh dot name in `parent`; it is never a discovered agent."""
     staged = fresh_name(parent, AGENT + ".tmp")
     os.mkdir(staged, 0o755)
-    for name, raw in ((AGENT_PROMPT, prompt), (AGENT_TOML_NAME, definition)):
-        fd = os.open(staged / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
-        with os.fdopen(fd, "wb") as stream:
-            stream.write(raw); stream.flush(); os.fsync(stream.fileno())
-        os.chmod(staged / name, 0o644)
-    os.chmod(staged, 0o755)
-    fsync_dir(staged)
+    try:
+        for name, raw in ((AGENT_PROMPT, prompt), (AGENT_TOML_NAME, definition)):
+            fd = os.open(staged / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
+            with os.fdopen(fd, "wb") as stream:
+                stream.write(raw); stream.flush(); os.fsync(stream.fileno())
+            os.chmod(staged / name, 0o644)
+        os.chmod(staged, 0o755)
+        fsync_dir(staged)
+    except BaseException:
+        # r12: a partial staging directory is removed here (review A should_fix 2); it only ever holds the
+        # two files this function writes.
+        discard_staged(staged)
+        raise
     return staged
+
+
+def discard_staged(staged: Path) -> None:
+    for name in (AGENT_PROMPT, AGENT_TOML_NAME):
+        if os.path.lexists(staged / name):
+            os.unlink(staged / name)
+    os.rmdir(staged)
+
+
+def clear_own_leftovers(p: Package) -> list[str]:
+    """r12 (r11 review B should_fix 1): remove only this package's own crash leftovers, in their exact shape.
+
+    - agents/.<AGENT>.tmp.gct-lagl.N: an operator directory holding nothing but agent.toml and/or the prompt as
+      regular files (a staging directory is never a discovered agent, so it never went live);
+    - <city parent>/.<city>.gct-validate.lagl-*: a validation shadow whose top-level entries are all symlinks
+      except one real agents/ directory, which itself holds only real directories of regular files or symlinks.
+    Anything of another shape is left for a human and still blocks, exactly as before.
+    """
+    removed = []
+    for staged in sorted((p.live.city / "agents").glob("." + AGENT + ".tmp.gct-lagl.*")):
+        info = staged.lstat()
+        names = set(os.listdir(staged)) if stat.S_ISDIR(info.st_mode) else None
+        if (names is not None and info.st_uid == p.live.uid and names <= {AGENT_PROMPT, AGENT_TOML_NAME}
+                and all(stat.S_ISREG((staged / n).lstat().st_mode) for n in names)):
+            discard_staged(staged)
+            removed.append(str(staged))
+    for shadow in sorted(p.live.city.parent.glob("." + p.live.city.name + ".gct-validate.lagl-*")):
+        info = shadow.lstat()
+        if not stat.S_ISDIR(info.st_mode) or info.st_uid != p.live.uid:
+            continue
+        entries = {name: (shadow / name).lstat() for name in os.listdir(shadow)}
+        real = [n for n, s in entries.items() if not stat.S_ISLNK(s.st_mode)]
+        if real not in ([], ["agents"]) or ("agents" in real and not stat.S_ISDIR(entries["agents"].st_mode)):
+            continue
+        if real:
+            copies = shadow / "agents"
+            if not all(stat.S_ISDIR((copies / n).lstat().st_mode) and all(
+                    stat.S_ISREG(e.lstat().st_mode) or stat.S_ISLNK(e.lstat().st_mode)
+                    for e in (copies / n).iterdir()) for n in os.listdir(copies)):
+                continue
+            shutil.rmtree(copies)
+        for name in os.listdir(shadow):
+            os.unlink(shadow / name)
+        os.rmdir(shadow)
+        removed.append(str(shadow))
+    return removed
 
 
 def agent_dir_state(p: Package) -> dict | None:
@@ -583,7 +638,7 @@ def validate_with_agent(p: Package, staged: Path) -> None:
         require(shown["returncode"] == 0, "gc config show failed: " + shown["stderr"][-300:])
         agents = [a for a in json.loads(shown["stdout"])["config"]["Agents"] if a.get("Name") == AGENT]
         require(len(agents) == 1 and agents[0].get("Dir") == "gascity" and agents[0].get("Suspended") is True
-                and agents[0].get("MaxActiveSessions") == 1 and agents[0].get("Scope") == "city",
+                and agents[0].get("MaxActiveSessions") == 1 and agents[0].get("Scope", "") == "",
                 f"staged agent does not resolve as reviewed: {agents}")
     finally:
         # The shadow holds only symlinks plus one real agents/ directory of copies. rmtree removes only that
@@ -612,10 +667,10 @@ def step_city(p: Package):
     try:
         validate_with_agent(p, staged)
     except BaseException:
-        # Nothing live changed: the staged directory has a dot name and no intent exists yet.
-        for name in (AGENT_PROMPT, AGENT_TOML_NAME):
-            os.unlink(staged / name)
-        os.rmdir(staged)
+        # No agent change is live: the staged directory has a dot name and no intent exists yet. (The shadow's
+        # gc config loads may rewrite Core's own runtime assets under the city's .gc, the same bytes every
+        # quiet() gc status call already writes; r11 review A should_fix 1.)
+        discard_staged(staged)
         raise
     p.intent("city", before)
     os.rename(staged, p.live.agent_dir)
@@ -844,6 +899,7 @@ def rollback(p: Package):
     # refusal after the writes (checkout move, final proofs, reload, quiet) leaves a partial restore and no
     # record; rerunning rollback is idempotent over it.
     observed = p.quiet()
+    cleared = clear_own_leftovers(p)
     require(not [q for q in p.leftovers() if ".tmp" in q or "gct-validate" in q],
             f"leftover temporaries: {p.leftovers()}")
     head, status = checkout_state(p)
@@ -902,6 +958,7 @@ def rollback(p: Package):
     after = p.quiet()
     require(after == observed, f"the city changed during rollback: {observed} -> {after}")
     value = dict(actions=actions, quiet=observed, quiet_after=after, reload=ack, leftovers=p.leftovers(),
+                 cleared_own_leftovers=cleared,
                  candidate_root_left_in_place=os.path.lexists(p.live.candidate_root), binding=p.binding)
     write_exclusive(p.records / "rollback.json", (json.dumps(value, indent=1, sort_keys=True) + "\n").encode())
     print(json.dumps(dict(rollback=actions, ok=True)))

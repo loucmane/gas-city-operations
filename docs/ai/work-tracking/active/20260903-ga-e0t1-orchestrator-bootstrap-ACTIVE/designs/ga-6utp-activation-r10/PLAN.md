@@ -1,4 +1,48 @@
-# ga-6utp: activate the Operations candidate lane (gct-lagl) — r9
+# ga-6utp: activate the Operations candidate lane (gct-lagl) — r12
+
+(The directory keeps its r10 name; it holds r12. Earlier rounds follow, newest first.)
+
+## r12 (2026-09-26): answers both reviews of r11 `59ca1a0f` (both HOLD, the same must_fix)
+
+**Both reviews, must_fix 1.** `scope = "city"` is Core's cross-store switch.
+- Core's `AgentIsCrossStoreEligible` and `AgentReachesWorkflowStore` in internal/agentutil/resolve.go let such
+  an agent discover, be routed and claim work in every rig store, and in HQ.
+- The r10 V1 block had no scope. The candidate lane must stay bound to the gascity rig.
+- The fix: `agent_toml` carries no `scope`, and validation requires the resolved `Scope` to be empty.
+  - Identity and session placement come from `dir = "gascity"`.
+  - A city-root agent is not expanded per rig, so this is still one agent.
+  - The `agent.toml` pin is now `ba01f223`.
+- The package's validation against the real gc passed: `/var/tmp/ga-6utp-r12-dryrun-20260926`, the agent
+  resolved with no scope, and no shadow was left.
+
+**Should-fixes taken:**
+- **Staging.** It cleans up its own partial directory when a write fails (A 2, B 5).
+- **Rollback.** It now clears this package's own crash leftovers, but only in their exact shape (B 1):
+  - a staging directory holding only `agent.toml` and the prompt as regular files;
+  - a `.city.gct-validate.lagl-*` shadow whose entries are symlinks plus one real `agents/` of copied agent
+    directories.
+  Anything else still blocks for a human, and the record lists what was cleared. So no crash window needs a
+  hand removal.
+- **Shadow side effects are documented.** The shadow's gc config loads may rewrite Core's own runtime assets in
+  the live `.gc`: the same bytes every quiet `gc status` writes, and what the Template renderer's shadow already
+  does (A 1, B 2).
+- **The fake gc** skips symlinked agent entries as Core does (A 4).
+- **New tests:**
+  - resolution mismatch;
+  - live city entries unchanged by the shadow;
+  - a symlinked agent being invisible;
+  - rollback clearing exact-shape leftovers and still refusing foreign ones.
+- **Tests and pins.** There are 213 tests. `pins.json` is `50b4220a`.
+- **Checked live.** The hand-restored `city.toml`, registry and fragment are 0644, uid 1000 and nlink 1, as the
+  steps require (B 4).
+- **Titles and docstring are updated** (A 5, B 6).
+
+**Carried, not changed.**
+- The render step still validates fragment plus agent only inside the renderer's `--apply`, after its intent
+  (B 3). A refusal there writes nothing, and rollback recovers.
+
+**Process note.** The r12 edits were made while review B of r11 was still reading. From now on, no edits are
+made in a package worktree while a review of it is running.
 
 The Template source is delivered: PR 70 merged as `e6195b10`, whose tree equals the reviewed head
 `53a98b3f`. This package is the activation package required by gct-lagl DECISIONS 14. It runs only

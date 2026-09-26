@@ -63,7 +63,9 @@ elif args[:3] == ["agent", "list", "--json"] or args[:2] == ["config", "show"]:
     agents = []
     agents_dir = os.path.join(city, "agents")
     for entry in sorted(os.listdir(agents_dir)) if os.path.isdir(agents_dir) else []:
-        if entry.startswith((".", "_")) or not os.path.isdir(os.path.join(agents_dir, entry)):
+        full = os.path.join(agents_dir, entry)
+        # Like Core's DirEntry.IsDir: a symlinked entry is not a directory and is skipped.
+        if entry.startswith((".", "_")) or os.path.islink(full) or not os.path.isdir(full):
             continue
         path = os.path.join(agents_dir, entry, "agent.toml")
         a = tomllib.loads(open(path).read()) if os.path.exists(path) else {}
@@ -72,7 +74,7 @@ elif args[:3] == ["agent", "list", "--json"] or args[:2] == ["config", "show"]:
         if "--validate" in args:
             sys.exit(0)
         print(json.dumps({"config": {"Agents": [
-            {"Name": a["name"], "Dir": a.get("dir", ""), "Scope": a.get("scope", ""),
+            {"Name": a["name"], "Dir": a.get("dir", ""), "Scope": state.get("resolved_scope", a.get("scope", "")),
              "Suspended": a.get("suspended", False), "MaxActiveSessions": a.get("max_active_sessions", 0),
              "Provider": a.get("provider", "")} for a in agents]}}))
         sys.exit(0)
@@ -591,7 +593,8 @@ def test_resume_root_checks_mode_owner_and_emptiness(world):
 def test_the_agent_is_gascity_bound_suspended_and_capped():
     import tomllib
     parsed = tomllib.loads(activate.agent_toml().decode())
-    assert parsed["dir"] == "gascity" and parsed["scope"] == "city" and parsed["suspended"] is True
+    # No scope: `scope = "city"` would make the candidate lane cross-store eligible (r11 review A must_fix 1).
+    assert parsed["dir"] == "gascity" and "scope" not in parsed and parsed["suspended"] is True
     assert parsed["max_active_sessions"] == 1 and "session" not in parsed and "prompt_template" not in parsed
 
 
@@ -614,6 +617,59 @@ def test_r11_a_city_config_gc_rejects_refuses_before_any_live_write(world):
     assert activate.agent_dir_state(p) is None and not p.record("city", ".intent").exists()
     assert not [e for e in os.listdir(world["city"] / "agents") if e.startswith(".")]
     assert not list(world["base"].glob(".city.gct-validate.*"))
+
+
+def test_r12_a_staged_agent_that_resolves_differently_refuses_before_any_live_write(world):
+    run_all(world, activate.STEPS[:5])
+    gc_state(world, resolved_scope="city")
+    with pytest.raises(activate.Refusal, match="does not resolve as reviewed"):
+        activate.step_city(pkg(world))
+    p = pkg(world)
+    assert activate.agent_dir_state(p) is None and not p.record("city", ".intent").exists()
+    assert not [e for e in os.listdir(world["city"] / "agents") if e.startswith(".")]
+
+
+def test_r12_the_live_city_entries_are_unchanged_by_the_validation_shadow(world):
+    run_all(world, activate.STEPS[:5])
+    city = world["city"]
+    before = {str(q): activate.sha(q) for q in city.rglob("*") if q.is_file() and ".gc" not in q.parts}
+    p = pkg(world)
+    staged = activate.stage_agent_dir(p, city / "agents", p.pinned_input(activate.AGENT_TOML_NAME),
+                                      p.pinned_input(activate.PROMPT_NAME))
+    activate.validate_with_agent(p, staged)
+    activate.discard_staged(staged)
+    after = {str(q): activate.sha(q) for q in city.rglob("*") if q.is_file() and ".gc" not in q.parts}
+    assert before == after and not list(world["base"].glob(".city.gct-validate.*"))
+
+
+def test_r12_rollback_clears_only_exact_shape_own_leftovers(world):
+    run_all(world, activate.STEPS[:6])
+    p = pkg(world)
+    staged = activate.stage_agent_dir(p, p.live.city / "agents", b"x", b"y")  # a crash left staging behind
+    shadow = world["base"] / ".city.gct-validate.lagl-crash"
+    (shadow / "agents/builder").mkdir(parents=True)
+    (shadow / "agents/builder/agent.toml").write_text("x")
+    os.symlink(world["city"] / "city.toml", shadow / "city.toml")
+    foreign = world["base"] / ".city.gct-validate.lagl-foreign"
+    foreign.mkdir()
+    (foreign / "real-file").write_text("not ours")
+    with pytest.raises(activate.Refusal, match="leftover temporaries"):
+        activate.rollback(pkg(world))  # the foreign-shaped shadow still blocks
+    assert not staged.exists() and not shadow.exists() and foreign.exists()
+    assert (world["city"] / "city.toml").exists()  # the shadow's symlink target is untouched
+    (foreign / "real-file").unlink()
+    foreign.rmdir()
+    activate.rollback(pkg(world))
+    assert not p.live.agent_dir.exists()
+
+
+def test_r12_a_symlinked_agent_entry_is_invisible_like_core(world):
+    """The shadow must copy agent directories: Core (and the fake) skip symlinked agents/ entries."""
+    real = world["base"] / "elsewhere-agent"
+    real.mkdir()
+    (real / "agent.toml").write_text('dir = "gascity"\n')
+    os.symlink(real, world["city"] / "agents" / "linked-agent")
+    assert not [a for a in activate.listed_agents(pkg(world)) if a["name"] == "linked-agent"]
 
 
 def test_r11_a_packv1_agent_table_is_what_the_fake_core_rejects(world):
