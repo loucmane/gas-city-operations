@@ -260,6 +260,7 @@ readiness has passed; they are filled before the two adoption reviews, and the s
         ("READY_SOURCE=HERE/'p7-readiness.py'", "READY_SOURCE=HERE/'p8-readiness.py'", 1),
         ("READY_SHA='ef43c6203c5e4e3efd183089e1e82556e56180cdeb1f0f9df19bab82f7db6576'", "READY_SHA='%s'" % readiness_sha, 1),
         ("OLD_SHA='%s'" % RECEIPT_P6, "OLD_SHA='%s'" % RECEIPT_NOW, 1),
+        ("# Filled from the passed P7 readiness evidence", "# Filled from the passed P8 readiness evidence", 1),
         ("NEW_SHA='7cf59ab9e5a43fd7bca97028e7faaa2b2f9bfb927a663b4588c66e846e4e425d'\n"
          "NEW_SELF='ee4400af626cccfbdf595b092b02a948e14f907fcd104c4500c93429ab4523f8'\n"
          "READY_RESULT_SHA='a6cac0b99822e8432fa8b01b2a0c87bb212ff141c165d13d4921b2b75f8c8ee7'\n"

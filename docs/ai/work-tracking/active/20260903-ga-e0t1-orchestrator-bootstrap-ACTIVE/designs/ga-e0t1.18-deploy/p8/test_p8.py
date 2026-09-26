@@ -143,6 +143,21 @@ def test_generator_reproduces_every_file():
         assert disk == data, name
 
 
+def test_adoption_constants_bind_the_readiness_evidence():
+    ready = Path('/var/tmp/ga-e0t1.18-p8-readiness-20260926')
+    text = (HERE/'p8-adopt.py').read_text()
+    final = json.loads((ready/'receipt.final.json').read_bytes())
+    for name, value in (('NEW_SHA', sha(ready/'receipt.final.json')), ('NEW_SELF', final['receipt_sha256']),
+                        ('READY_RESULT_SHA', sha(ready/'result.json')), ('READY_BEFORE_SHA', sha(ready/'before.json')),
+                        ('READY_PINS_SHA', sha(ready/'before.json.provider-pins'))):
+        assert "\n%s='%s'\n" % (name, value) in text, name
+    result = json.loads((ready/'result.json').read_bytes())
+    assert result['ok'] is True and result['unchanged'] is True and result['error'] is None
+    assert final['template_commit'] == 'cfd353f30f465cdf67bbd41fab48812fe5b9617e'
+    assert final['permission_revision'] == TRACED
+    assert [h['commit'] for h in final['member_heads'] if h['name'] == 'core'] == [CORE]
+
+
 def test_observer_keeps_the_surviving_watchdog_image():
     compose = load('p8-observe-compose.py')
     # The dolt watchdog that survived sequences 14 and 15 maps 69d00186 (M7 WATCHDOG_IMAGE), not b2760ea4.

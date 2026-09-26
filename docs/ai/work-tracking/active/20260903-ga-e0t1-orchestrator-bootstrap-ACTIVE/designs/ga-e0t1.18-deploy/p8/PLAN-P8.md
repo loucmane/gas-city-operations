@@ -60,6 +60,31 @@ Copied unchanged: `source-launch.py` `31bdeea8`, `typed-interoperability.json` `
 - the watchdog image and policy binding;
 - the digest chain and the build records.
 
+## Read-only run and adoption binding (r2, 2026-09-26)
+
+r1 `cb3257f6` received two independent SOURCE_PASS verdicts with no must_fix. Steps 1 to 3 then ran once
+each, at that commit and passing, with absolute paths (review B should_fix 4):
+- **input:** result `e030b19e`, draft `f2b3f4ce`, traced revision `2113693e`, unchanged as required.
+- **compose:** ok. The composition equals the draft, before equals after, and nothing was installed.
+- **readiness:** ok and unchanged. No inference, signing or worker.
+  - The finalized receipt `23eeb222` has self digest `076fff66`. It names core head `deefb98b`, Template
+    `cfd353f3`, revision `2113693e` and version `d4e57767`.
+
+r2 changes:
+- The stale "P7" comment in `p8-adopt.py` becomes "P8" through a new counted substitution in `make_p8.py`
+  (review A should_fix 1, review B should_fix 5). Regeneration changes only `p8-adopt.py`.
+- The five adoption constants are filled:
+  - `NEW_SHA` `23eeb222` and `NEW_SELF` `076fff66`;
+  - `READY_RESULT_SHA` `a6cac0b9`, `READY_BEFORE_SHA` `70572871` and `READY_PINS_SHA` `82a4a70c`.
+  `p8-adopt.py` is then `f75be251`.
+- `test_adoption_constants_bind_the_readiness_evidence` binds each constant to its evidence file. There are
+  20 tests.
+
+Review notes carried as follow-ups:
+- As in P7, the observer installs the closure policy on a throwaway namespace. So `OLD_IMAGE` and the
+  dolt-scope check are inert in P8, and only the access-time neutral overrides apply (review B should_fix 1).
+- The host observation also runs `gc status` and `gc session list` (review B should_fix 2).
+
 ## Run order
 
 Every step runs as `systemd-run --user --wait --collect --pipe --quiet -p UMask=0022 /usr/bin/python3 -I -S -B

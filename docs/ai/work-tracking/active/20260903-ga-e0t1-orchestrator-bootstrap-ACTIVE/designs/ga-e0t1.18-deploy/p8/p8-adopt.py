@@ -25,12 +25,12 @@ READY=Path('/var/tmp/ga-e0t1.18-p8-readiness-20260926')
 READY_SOURCE=HERE/'p8-readiness.py'
 READY_SHA='d440a6c0b35425a0e82ffff547d85bd406e8acdf499ec8a88698230308b05ca1'
 OLD_SHA='7cf59ab9e5a43fd7bca97028e7faaa2b2f9bfb927a663b4588c66e846e4e425d'
-# Filled from the passed P7 readiness evidence before the adoption reviews.
-NEW_SHA=None
-NEW_SELF=None
-READY_RESULT_SHA=None
-READY_BEFORE_SHA=None
-READY_PINS_SHA=None
+# Filled from the passed P8 readiness evidence before the adoption reviews.
+NEW_SHA='23eeb222d6d5c0afcf8dc8c01a99dfc7b57fbecfdbc0a1f7ca83d3319181d78e'
+NEW_SELF='076fff6631a70657fb11b197f51517c4b040a57fc2d67337de7b538322a8b784'
+READY_RESULT_SHA='a6cac0b99822e8432fa8b01b2a0c87bb212ff141c165d13d4921b2b75f8c8ee7'
+READY_BEFORE_SHA='70572871b3df5b63cce041f72fdc392a2ed1f9b8ee075462acedff2994a2c582'
+READY_PINS_SHA='82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b'
 CORE='deefb98b2aed07875df31351d081fbac195cb1cd'
 EVIDENCE=[
  ('reviewed-build','/var/tmp/ga-e0t1.18-build-20260926/artifact-verification.json','d1fea7a531aedf7bc50fbe08b800f8cb3436ba4f2c633471b9eb34c4a51554de'),
