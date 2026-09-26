@@ -136,6 +136,8 @@ below; the r2 wording is superseded.
   The marker is what decides whether a call happened. A normal apply keeps the long-running broker's epoch, so the
   epoch is only a consistency check.
   If any of the three fails, the pre-submit stop is a hard stop (s2 r5): the timer stays paused and I report.
+  When no envelope file exists yet (a stop in accept, prepare or inside `make_envelope.py` before its write), the
+  receipt condition holds trivially and there is no previous envelope to wait out (s2 r6).
 - **Retry steps** (as ga-e0t1.15 PLAN, ordered in s2 r5):
   1. Wait until the previous envelope's `expires_at` has passed.
   2. Write `retry.json` `{"retry": N, "reaccept": <true if the closure drifted>}` and regenerate. This gives a
@@ -185,7 +187,9 @@ below; the r2 wording is superseded.
   - process loss without `terminal.json`;
   - a failed readback review after postflight2 or after recovery.
 
-  Postflight2 is always run after postflight1 passes, so a terminal or `postflight2-done.json` always exists.
+  Postflight2 is always run after postflight1 passes, so apart from process loss (a hard stop above) a terminal
+  or `postflight2-done.json` always exists. After submit, no phase other than `postflight1` and `postflight2` is
+  ever invoked, because an out-of-order phase would write a terminal the recovery gate refuses (s2 r6).
 - **Sequence reuse.** The broker advances `last_sequence` only while holding its lock, together with a pass or fail
   receipt. Pre-lock refusals write nothing. After a pre-submit stop that meets the three conditions above, sequence
   15 is therefore still unconsumed and is reused. The sequence 14 roots do not show a signed sequence being reused:
@@ -201,8 +205,9 @@ below; the r2 wording is superseded.
   - Sequence 14 launched its submit about 546 s into the window and 172 s after issue.
   - The in-window envelope review is time-boxed at about 4 minutes, with a manifest extract.
 - **Signing.** A pre-window probe of the operator key succeeded non-interactively:
-  `gpg --batch --local-user FD5585…! --detach-sign` on a scratch file, 2026-09-26. The broker's `prepare` is a
-  separate CLI and runs directly from the operator shell. Every `s2_transition.py` phase runs through `systemd-run`.
+  `gpg --batch --local-user FD5585…! --detach-sign` on a scratch file, 2026-09-26. The broker's own `prepare` is
+  invoked only through `make_envelope.py`, run from the operator shell. Every `s2_transition.py` phase runs through
+  `systemd-run`.
 - **Reading the city rules.** `repointed_sinks` in the city-rules records now lists every sink, because the key is
   unchanged. It is not evidence of a repoint. The exact link and manifest checks are what matter.
 - **Accept review.** It must confirm that the worker receipt `/home/loucmane/gascity/city/.gc/runtime/provisioning/receipt.json`
@@ -213,8 +218,8 @@ below; the r2 wording is superseded.
   - the envelope deadline expiring during the postflights.
 
 **Run order.** Every `s2_transition.py` phase runs through
-`systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B`. The broker's `prepare` runs from the
-operator shell. The run is atime-neutral, as ga-e0t1.15 S2 r4 was.
+`systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B`. The broker's own `prepare` runs
+only through `make_envelope.py` from the operator shell. The run is atime-neutral, as ga-e0t1.15 S2 r4 was.
 
 0. **Setup.** Create ROOT (0700) and stage `deadlines.py` byte-for-byte from the sequence 14 root (`1486dbbc`).
    The chain sources in `/tmp` (r4 `4d373634`, r3) are present.
@@ -224,8 +229,14 @@ operator shell. The run is atime-neutral, as ga-e0t1.15 S2 r4 was.
    - An independent review of `delta-vs-r7.json` and the two observations.
    - Write `accepted.json`, regenerate, run the tests and commit.
    - A constants-only diff review.
+   - **Result (2026-09-26 04:37Z).** The accept phase passed: two equal observations, `second.json` `b0a84b98`,
+     delta against R7 of 8 pins, 4 trees and the host keys.
+   - `accepted.json` binds it. The regenerated transition differs only in the `ACCEPTED` constants.
+   - The same commit carries the r6 should-fix items from the r5 reviews: `make_envelope.py` holds
+     `execution.lock`, refuses without `prepare-done.json` or with `terminal.json`, and checks the broker pin, with
+     tests; plus the plan wording. 82 tests.
 3. **Envelope.**
-   - Run `prepare` and note the baseline digest.
+   - Run `s2_transition.py prepare` (through systemd-run) and note the baseline digest.
    - Create the envelope only with `python3 -I -B make_envelope.py`, run from the operator shell (s2 r5).
      - It reads the current attempt's ROOT from `s2_transition.py`, including any `-tN` suffix.
      - It refuses unless `ROOT/preflight.json` exists and `ROOT/envelope.json` does not, because the broker's

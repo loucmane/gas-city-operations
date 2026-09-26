@@ -394,17 +394,56 @@ def test_envelope_wrapper_follows_a_retry_root(tmp_path):
     assert str(env.current_root(fake)) == '/var/tmp/ga-e0t1.18-seq15-20260926-t2'
 
 
-@pytest.mark.parametrize('state, message', [('no-preflight', 'run prepare first'),
-                                            ('existing', 'never overwrite an envelope')])
-def test_envelope_wrapper_refusals(tmp_path, state, message):
-    env = envelope_module()
+def prepared_root(tmp_path):
     root = tmp_path/'root'
     root.mkdir()
-    if state == 'existing':
-        (root/'preflight.json').write_text('{}')
+    (root/'preflight.json').write_text('{}')
+    (root/'prepare-done.json').write_text('{}')
+    return root
+
+
+def test_envelope_wrapper_admits_a_prepared_live_attempt(tmp_path):
+    envelope_module().preconditions(prepared_root(tmp_path))
+
+
+@pytest.mark.parametrize('state, message', [
+    ('no-preflight', 'run prepare first'),
+    ('no-prepare-done', 'run prepare first'),
+    ('terminal', 'never sign an envelope for a dead attempt'),
+    ('existing', 'never overwrite an envelope'),
+    ('dangling-symlink', 'never overwrite an envelope'),
+])
+def test_envelope_wrapper_refusals(tmp_path, state, message):
+    env = envelope_module()
+    root = prepared_root(tmp_path)
+    if state == 'no-preflight':
+        (root/'preflight.json').unlink()
+    elif state == 'no-prepare-done':
+        (root/'prepare-done.json').unlink()
+    elif state == 'terminal':
+        (root/'terminal.json').write_text('{}')
+    elif state == 'existing':
         (root/'envelope.json').write_text('{}')
+    else:
+        (root/'envelope.json').symlink_to(tmp_path/'nowhere')
     with pytest.raises(SystemExit, match=message):
         env.preconditions(root)
+
+
+def test_envelope_wrapper_broker_pin_matches_the_transition_and_the_live_broker(s2):
+    env = envelope_module()
+    assert env.BROKER == str(s2.BROKER) and env.BROKER_PIN['sha256'] == s2.BROKER_SHA
+    env.broker_pin()
+
+
+@pytest.mark.parametrize('text', ["no root here\n",
+                                  "ROOT=Path('/var/tmp/ga-e0t1.18-seq15-20260926')\nROOT=Path('/var/tmp/ga-e0t1.18-seq15-20260926-t1')\n",
+                                  "ROOT=Path('/var/tmp/other-root')\n"])
+def test_envelope_wrapper_refuses_an_ambiguous_or_foreign_root(tmp_path, text):
+    fake = tmp_path/'s2_transition.py'
+    fake.write_text(text)
+    with pytest.raises(ValueError):
+        envelope_module().current_root(fake)
 
 
 def test_recovery_calls_the_gate_before_creating_its_root():
