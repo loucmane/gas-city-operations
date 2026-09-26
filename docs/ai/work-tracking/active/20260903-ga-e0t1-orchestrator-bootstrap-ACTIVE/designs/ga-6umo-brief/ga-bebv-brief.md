@@ -13,7 +13,7 @@ ga-6umo reviews on 2026-09-26, and recorded on ga-e0t1 (r4 of this brief).
   `--add-dir` for `.git` roots.
 - `[providers.codex]` (`base = "builtin:codex"`) keeps `permission_mode = unrestricted`
   (`--dangerously-bypass-approvals-and-sandbox`), the builtin `sandbox` key and extra model choices.
-  `codex-evidence` and `codex-managed-worklog` inherit them.
+  `codex-evidence`, `codex-managed-worklog` and `codex-attention` (`managed/attention-funnel.toml`) inherit them.
 
 Core applies an `opt_<key>` value from any in-progress Bead assigned to a worker, so every lane can widen itself
 today.
