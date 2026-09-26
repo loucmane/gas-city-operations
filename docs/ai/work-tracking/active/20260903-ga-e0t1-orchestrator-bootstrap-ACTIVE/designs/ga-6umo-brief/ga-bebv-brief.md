@@ -1,7 +1,7 @@
 # Live city: no provider inherits a builtin choice wider than the city declares
 
 Coordinator deployment Bead: a reviewed platform package, not a worker task. Found by the gct-mbg6 window and
-ga-6umo reviews on 2026-09-26, and recorded on ga-e0t1 (r3 of this brief).
+ga-6umo reviews on 2026-09-26, and recorded on ga-e0t1 (r4 of this brief).
 
 ## Problem
 
@@ -35,16 +35,17 @@ This package deploys together with the merged ga-6umo Core fix, as one reviewed 
   task `work_dir` values proves each is accepted.
 - **overridable_options** stays at the ga-6umo default (`model`, `effort`) unless a named flow needs more.
 - **Deployment preconditions and discipline.**
-  - The city is suspended, and no session Bead is open: every session is recreated under the new Core, because
-    ga-6umo needs a creation-time `gc.launch_identity`.
+  - The city is suspended with zero live sessions during the change, as in every metadata successor. ga-6umo r4
+    adds no session identity field, so existing session Beads need no recreation.
   - The receipt is refreshed with the new permission revision.
   - Two reviews, preflight, postflight and rollback.
 
 ## Interim and after
 
 Until this and ga-6umo land, route no Gas City worker outside a reviewed window. The restriction stays after
-they land too, until the ga-6umo known residual paths have their own fixes: worker-created session Beads,
-`gc.routed_to` to privileged pools, controller API reach and the symlink race.
+they land too, until the ga-6umo declared residual (session identity rewrite, worker session creation,
+`gc.routed_to`, session-key substitution, controller API reach, the symlink race) is closed by the Core
+authorization Bead.
 
 ## Acceptance
 
