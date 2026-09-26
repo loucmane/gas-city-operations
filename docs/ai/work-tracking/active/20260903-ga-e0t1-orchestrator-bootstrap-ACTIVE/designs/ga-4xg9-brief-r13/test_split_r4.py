@@ -56,16 +56,27 @@ def test_pointer_names_the_exempt_bd_path_with_quoted_ids(rendered):
 def test_clarifications_cover_every_r12_review_item(s, rendered):
     task = rendered['task.md']
     assert s.CLARIFICATIONS in task
-    for needle in ('`tracking.py` PostToolUse site is not generic', 'every other coordination request',
-                   'at 16 MiB', 'at\n   least 300000 ms', '`COMMANDS`\n   frozenset', 'only after\n   the remedy is abandoned',
+    for needle in ('`tracking.py` PostToolUse site is not generic', '`degraded_pretooluse_fallback`',
+                   'every other coordination request', 'at 16 MiB', 'at 1 MiB', 'up to five timed gc calls',
+                   '300000 ms', 'except for the residual in item 8', '`COMMANDS`\n   frozenset',
+                   'any exception from `_profile()`', "the profile's `canonical_root`",
+                   'only after\n   the remedy is abandoned',
                    '`workflow.py reconcile-attachment` exists for `depend` intents only',
-                   'more than 30 s after it was\n   killed', 'Observed claim delta'):
+                   'more than 30 s after it was\n   killed', 'Observed claim delta', 'the acceptance bullet',
+                   'window-prepared Bead'):
         assert needle in task, needle
     assert task.index('## Pre-window clarifications') < task.index('## Working rules')
 
 
+def test_spec_holders_say_the_clarifications_amend_them(rendered):
+    for name in ('spec-1.md', 'spec-2.md'):
+        header = rendered[name].split('\n\n', 1)[0]
+        assert "amended by the task Bead's pre-window clarifications, which win where they differ" in header, name
+
+
 def test_observed_deltas_match_the_recorded_ga_x7lx_window():
-    """Clarification 9 is exactly the live route and claim delta the ga-x7lx window recorded."""
+    """Clarification 9 is exactly the live route and claim delta the ga-x7lx window recorded. Evidence-bound:
+    it reads the ga-x7lx window roots under /var/tmp, which are not retained forever."""
     route = Path('/var/tmp/ga-x7lx-route-20260926-r1')
     before = json.loads((route/'task-before.json').read_text())
     routed = json.loads((route/'task-after.json').read_text())

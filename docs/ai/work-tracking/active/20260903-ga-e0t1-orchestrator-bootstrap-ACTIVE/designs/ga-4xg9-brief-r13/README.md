@@ -31,20 +31,47 @@ brief's accepted deltas. `CLARIFICATIONS` in `split_r4.py` does both.
   - the stuck-state note;
   - the reconcile wording;
   - the residual double route.
-- **Item 1 reflects R3 as merged** (Operations PR 392, `72c888e3`). The `pretool.py` site is None-safe. The
-  `tracking.py` site sends every request-less target to the delivery recorder, so evidence-write needs its own
-  branch there.
+- **Item 1 reflects R3 as it stands under merge** (Operations PR 392, head `72c888e3`; `main` is still
+  `040139d8`). The `pretool.py` site is None-safe. The `tracking.py` site sends every request-less target to the
+  delivery recorder, so evidence-write needs its own branch there. The degraded fallback also needs an
+  evidence-write hard block.
 - **Item 9 corrects the accepted claim delta.** The ga-4z38 worker never claimed, so the first live claim was
   ga-x7lx, on 2026-09-26. Besides `status`, `assignee` and `updated_at`, a claim sets `started_at`,
   `gc.session_id`, `gc.session_name` and `gc.work_branch`. The route delta matched the brief.
 
+## r14 (answers both reviews of `b080cb47`, both SOURCE_PASS)
+
+- **Item 9** now names the acceptance bullet it amends. It says the observation was made on a window-prepared
+  Bead, and that any other key on a real dispatch child leaves the record pending, with the first live dispatch
+  watched.
+- **Spec holders:** the header says the task's clarifications amend the text and win.
+- **Item 4:**
+  - it counts five timed gc calls, including the readback, and notes the untimed ownership reads;
+  - it defers to item 8's residual.
+- **Item 5:**
+  - it covers any exception from `_profile()`, including `OSError`;
+  - it derives the canonical root from the runtime it runs from and checks it against `canonical_root`.
+- **Item 3:**
+  - it names the reverse-dependency read;
+  - it adds 1 MiB caps on the `bd show`, `agent list` and sling outputs.
+- **Item 1:**
+  - it asks the worker to confirm against its base;
+  - it adds the degraded-fallback hard block.
+- **Pinning:** the r12 digest is pinned in full.
+- **Tests:** 6 pass. The delta test is evidence-bound, because it reads the ga-x7lx window roots under
+  `/var/tmp`.
+
 ## Run order
 
 1. Two reviews of this package.
-2. After R3 is merged, create the task and spec Beads:
-   - create the spec holders, render with their ids, then create the task Bead;
-   - close the holders;
-   - measure every view.
+2. After R3 is merged:
+   - Re-check item 1 against the merged `tracking.py` and `pretool.py`.
+   - Create the task and spec Beads:
+     - create the spec holders, render with their ids, then create the task Bead;
+     - no edge of any kind to ga-4xg9 or ga-fsfg, since bd 1.2.2 keeps children of a blocked parent out of
+       `bd ready`, and any edge embeds the other record;
+     - close the holders;
+     - measure every view.
 3. Generate the R4 successor window from the ga-x7lx package at the post-merge `main`, with the same cache
    disposition class. That class needs the operator's approval, since each window's value is new drift.
 4. ga-4xg9 stays open as the umbrella until R4 is delivered, then it is closed and superseded.
