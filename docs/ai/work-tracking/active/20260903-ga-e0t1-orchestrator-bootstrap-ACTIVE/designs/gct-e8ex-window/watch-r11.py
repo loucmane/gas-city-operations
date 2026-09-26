@@ -1,15 +1,15 @@
 """Read-only in-window observation of the gct-mbg6 worker; one fresh root per run, never mutates.
 
-Runs as a job of the host job runner (operator/WATCH.sh), in the supervisor namespaces, so its git,
-process and tmux reads see the real host rather than a sandbox view. Adapted from the ga-y49e
+Runs as a job of the host job runner (operator/WATCH.sh), in the supervisor namespaces, so its process
+and tmux reads see the real host rather than a sandbox view. Adapted from the ga-y49e
 observe-worker-create-r2.py observation (native sessions, task, trace, git, tmux, processes), over
 window-base-r11.py. Each run creates /var/tmp/gct-mbg6-watch-<UTC>/ exclusively and records:
 - native sessions, the task Bead and every session Bead of the template or task;
 - the template trace for the last 30 minutes;
 - no git state: the Template variant runs no git while the worker is live (s1 r2), so HEAD, branch,
   status and diffs are recorded as empty and read after containment instead;
-- an inventory of every untracked path and every evidence file (kind, mode, owner, size, SHA256,
-  link target);
+- an empty inventory (the Template variant walks no worktree path), the task note markers and the
+  Template .git/config digest (a non-blocking, bounded read of a plain file only);
 - city tmux panes and the processes whose argv names the worktree or whose cwd is inside it, each with
   one boolean: whether its environment carries GIT_OPTIONAL_LOCKS=0 (nothing else from the environment is
   read into evidence);
@@ -329,9 +329,19 @@ def main():
     markers = [line[:300] for line in notes.splitlines()
                if 'READY FOR SIGNING:' in line or 'ESCALATED:' in line or 'STOPPED:' in line][-5:]
     try:
-        fd = os.open('/home/loucmane/gas-city-template/.git/config', os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
-        with os.fdopen(fd, 'rb') as handle:
-            template_config = hashlib.sha256(handle.read(1 << 20)).hexdigest()
+        fd = os.open('/home/loucmane/gas-city-template/.git/config',
+                     os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC | os.O_NONBLOCK)
+        try:
+            s = os.fstat(fd)
+            if not (stat.S_ISREG(s.st_mode) and s.st_uid == 1000 and s.st_nlink == 1 and s.st_size <= 1 << 20):
+                template_config = 'not a plain file: mode %o nlink %d size %d' % (s.st_mode, s.st_nlink, s.st_size)
+            else:
+                data = b''
+                while len(data) <= 1 << 20 and (chunk := os.read(fd, 65536)):
+                    data += chunk
+                template_config = hashlib.sha256(data).hexdigest() if len(data) == s.st_size else 'size changed'
+        finally:
+            os.close(fd)
     except OSError as exc:
         template_config = 'unreadable: %s' % exc.__class__.__name__
     result = dict(ok=True, mutation=False, head=head, branch=branch, note_markers=markers,

@@ -385,14 +385,35 @@ def watch(text):
                "    notes = bead.get('notes') or ''\n"
                "    markers = [line[:300] for line in notes.splitlines()\n"
                "               if 'READY FOR SIGNING:' in line or 'ESCALATED:' in line or 'STOPPED:' in line][-5:]\n"
+               # s1 r4 (r3 review A must_fix 1): a worker-planted FIFO must not block the open, and only a plain,
+               # single-link operator file of at most 1 MiB is read, in full.
                "    try:\n"
-               "        fd = os.open('" + TEMPLATE_REPO + "/.git/config', os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)\n"
-               "        with os.fdopen(fd, 'rb') as handle:\n"
-               "            template_config = hashlib.sha256(handle.read(1 << 20)).hexdigest()\n"
+               "        fd = os.open('" + TEMPLATE_REPO + "/.git/config',\n"
+               "                     os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC | os.O_NONBLOCK)\n"
+               "        try:\n"
+               "            s = os.fstat(fd)\n"
+               "            if not (stat.S_ISREG(s.st_mode) and s.st_uid == 1000 and s.st_nlink == 1 and s.st_size <= 1 << 20):\n"
+               "                template_config = 'not a plain file: mode %o nlink %d size %d' % (s.st_mode, s.st_nlink, s.st_size)\n"
+               "            else:\n"
+               "                data = b''\n"
+               "                while len(data) <= 1 << 20 and (chunk := os.read(fd, 65536)):\n"
+               "                    data += chunk\n"
+               "                template_config = hashlib.sha256(data).hexdigest() if len(data) == s.st_size else 'size changed'\n"
+               "        finally:\n"
+               "            os.close(fd)\n"
                "    except OSError as exc:\n"
                "        template_config = 'unreadable: %s' % exc.__class__.__name__\n"
                "    result = dict(ok=True, mutation=False, head=head, branch=branch, note_markers=markers,\n"
                "                  template_git_config_sha256=template_config,\n")
+    # s1 r4 (r3 review B should_fix 7): the docstring matches the Template variant.
+    text = sub(text, "Runs as a job of the host job runner (operator/WATCH.sh), in the supervisor namespaces, so its git,\n"
+                     "process and tmux reads see the real host rather than a sandbox view.",
+               "Runs as a job of the host job runner (operator/WATCH.sh), in the supervisor namespaces, so its process\n"
+               "and tmux reads see the real host rather than a sandbox view.")
+    text = sub(text, "- an inventory of every untracked path and every evidence file (kind, mode, owner, size, SHA256,\n"
+                     "  link target);\n",
+               "- an empty inventory (the Template variant walks no worktree path), the task note markers and the\n"
+               "  Template .git/config digest (a non-blocking, bounded read of a plain file only);\n")
     return sub(text, "- worktree HEAD, branch, full status, unstaged and staged diffs, and the staged patch;\n",
                "- no git state: the Template variant runs no git while the worker is live (s1 r2), so HEAD, branch,\n"
                "  status and diffs are recorded as empty and read after containment instead;\n")
@@ -420,6 +441,13 @@ The codex sandbox can write the whole Template .git, so this tool runs no git at
   files; every read is bounded (1 GiB), and the excluded index must stay a plain single-link file.
 - the candidate branch is resolved from the ref bytes (the loose ref file, else packed-refs), never through git,
   and must still point at BASE (the worker delivers staged, uncommitted work).
+- the .git directory itself is recorded; accepted additions must belong to the operator and not be
+  world-writable; a loose object with trailing bytes after its zlib stream refuses.
+- `before` refuses a baseline carrying a hook other than git's samples and the four pinned git-lfs hooks,
+  info/grafts, shallow, refs/replace/ or alternates.
+Known fail-closed cases: `git add` of a file over core.bigFileThreshold (512 MiB) writes a pack, and any file over
+1 GiB exceeds the read bound; a worker contained mid-add leaves index.lock or objects/xx/tmp_obj_*. All refuse and
+are investigated, not treated as tampering by default.
 Run `after` immediately after TERMINAL, before any other coordinator git call. Another Template worktree's index
 rewritten during the window (a `git status` there with optional locks) also refuses: it fails closed and is
 investigated. It writes only its own output file.
@@ -453,8 +481,8 @@ def entry(path):
     return value
 
 def walk():
-    """Every entry under COMMON (directories included), never following a link."""
-    out={}
+    """Every entry under COMMON (directories included, and COMMON itself as '.'), never following a link."""
+    out={'.':entry(COMMON)}
     def refuse(error):raise error
     for directory,dirs,files in os.walk(COMMON,onerror=refuse):
         dirs.sort()
@@ -471,6 +499,8 @@ def branch_target():
         return loose.read_text().strip()
     packed=COMMON/'packed-refs'
     if os.path.lexists(packed):
+        s=os.lstat(packed)
+        assert stat.S_ISREG(s.st_mode) and s.st_size<=LIMIT,'packed-refs is not a plain bounded file'
         for line in packed.read_text().splitlines():
             parts=line.split(' ')
             if len(parts)==2 and parts[1]==BRANCH:return parts[0]
@@ -489,7 +519,7 @@ def loose_ok(rel):
         raw=inflate.decompress((COMMON/rel).read_bytes(),LIMIT)
     except zlib.error:
         return False
-    if inflate.unconsumed_tail or not inflate.eof:return False
+    if inflate.unconsumed_tail or inflate.unused_data or not inflate.eof:return False
     head,_,body=raw.partition(b'\0')
     kind,_,size=head.partition(b' ')
     return kind in (b'blob',b'tree',b'commit',b'tag') and size.isdigit() and int(size)==len(body) \
@@ -511,6 +541,11 @@ def compare(before,after):
         if after['objects'].get(k)!=v:changed.append(k)
     for k,v in after['objects'].items():
         if k in before['objects']:continue
+        # An accepted addition belongs to the operator and is not world-writable. Group write is allowed: the
+        # group is the operator's private group, and a worker under the user manager's umask 0002 makes 0775
+        # object directories.
+        if v['uid']!=1000 or v['mode']&0o002:
+            changed.append(k);continue
         if v['type']==stat.S_IFDIR and LOOSE_DIR.fullmatch(k):continue
         if v['type']==stat.S_IFREG and v['nlink']==1 and LOOSE.fullmatch(k) and loose_ok(k):continue
         changed.append(k)
@@ -524,9 +559,27 @@ def write(path,value):
     with os.fdopen(fd,'wb') as out:out.write(raw)
     return hashlib.sha256(raw).hexdigest()
 
+# The four stock git-lfs hooks the Template repository has carried since 2026-07-30, pinned by content. Every
+# coordinator git call in this package disables hooks anyway (core.hooksPath=/dev/null).
+LFS_HOOKS={'hooks/post-checkout':'791471b4ff472aab844a4fceaa48bbb0a12193616f971e8e940625498b4938a6',
+    'hooks/post-commit':'21e961572bb3f43a5f2fbafc1cc764d86046cc2e5f0bbecebfe9684a0b73b664',
+    'hooks/post-merge':'75da0da66a803b4b030ad50801ba57062c6196105eb1d2251590d100edb9390b',
+    'hooks/pre-push':'df5417b2daa3aa144c19681d1e997df7ebfe144fb7e3e05138bd80ae998008e4'}
+
+def baseline_problems(value):
+    """s1 r4 (r3 review B should_fix 9): the recorded baseline itself must carry no hook other than git's samples
+    and the pinned git-lfs hooks, no grafts, no replace refs and no alternates, since the later signing step
+    relies on it."""
+    problems=[k for k,v in value['control'].items() if k.startswith('hooks/') and v['type']!=stat.S_IFDIR
+        and not k.endswith('.sample') and not (v['type']==stat.S_IFREG and LFS_HOOKS.get(k)==v.get('sha256'))]
+    problems+=[k for k in value['control'] if k in ('info/grafts','shallow') or k.startswith('refs/replace/')]
+    problems+=[k for k in value['objects'] if k in ('objects/info/alternates','objects/info/http-alternates')]
+    return problems
+
 def main(argv):
     if len(argv)==2 and argv[0]=='before':
         value=observe();assert value['candidate_branch']==BASE,'candidate branch is not BASE'
+        assert not baseline_problems(value),('baseline carries',baseline_problems(value))
         print(json.dumps(dict(ok=True,control=len(value['control']),objects=len(value['objects']),
             sha256=write(argv[1],value))));return 0
     assert len(argv)==4 and argv[0]=='after','usage: see docstring'

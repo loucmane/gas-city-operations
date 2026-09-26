@@ -110,7 +110,15 @@ not prove that Core never runs git in the Template repository while handling the
 - the snapshot after TERMINAL compares it exactly.
 
 Another Template worktree's index rewritten during the window, for example by a `git status` there with optional
-locks, makes the snapshot refuse. That fails closed and is investigated.
+locks, makes the snapshot refuse. So does a worker contained mid-`git add`, which leaves `index.lock` or
+`objects/xx/tmp_obj_*`. Both fail closed and are investigated, not treated as tampering by default.
+
+From RESUME until `common-snapshot-r1.py after` passes, no coordinator git runs in any Template worktree or in
+the Template repository (r3 review B should_fix 8). No aegis-reviewer delegation binds a Template worktree
+either, because the reviewer gate runs git there with the common config. The snapshot's `before` also refuses a
+baseline that carries `info/grafts`, `shallow`, `refs/replace/`, alternates, or any hook other than git's samples
+and the four stock git-lfs hooks (`post-checkout`, `post-commit`, `post-merge`, `pre-push`, present since
+2026-07-30). Those four are pinned by content, and every coordinator git call here disables hooks anyway.
 
 ## Run order
 
@@ -131,7 +139,8 @@ locks, makes the snapshot refuse. That fails closed and is investigated.
    - first `common-snapshot-r1.py after`, before any other coordinator git call in the Template repository;
    - then a separately reviewed intake check. It re-runs `verify_linked`, the pinned drivers, the absent attributes
      files and the tracked `.gitattributes` check against the worker's tree. Only then does it run hardened git:
-     `git write-tree` must equal the READY digest, then the staged diff is exported for review;
+     `git write-tree` must equal the READY digest, then the review diff is exported tree to tree
+     (`git diff BASE <write-tree oid>`), so it is exactly what is signed;
    - a signed commit in place, two reviews bound to it, the Template PR, CI, merge, then close gct-mbg6;
    - the Bead records and post-checks.
 
@@ -178,6 +187,27 @@ locks, makes the snapshot refuse. That fails closed and is investigated.
   note lines and records the Template `.git/config` digest. It drops the evidence walk, which a worker-made link
   could redirect.
 - **Stated limits (A should_fix 2, A should_fix 4, B should_fix 7-8)**: see Known scope.
+
+## s1 r4 (answers the s1 r3 reviews of `790e39ac`)
+
+- **WATCH cannot block (A must_fix 1).** The config digest read opens with `O_NONBLOCK`, and only a plain,
+  single-link operator file of at most 1 MiB is read, in full. A worker-planted FIFO would otherwise hang WATCH
+  and, since the runner runs one job at a time, keep CONTAIN and HOLD from running. `test_watch_config_read_cannot_block`
+  runs the generated read on a FIFO.
+- **Snapshot (A should_fix 1-4).**
+  - The `.git` directory itself is recorded.
+  - packed-refs must be a plain bounded file before it is read.
+  - Accepted additions must belong to the operator and not be world-writable. Group write is allowed: the
+    operator's private group, and umask 0002 workers make 0775 directories.
+  - A loose object with trailing bytes after its zlib stream refuses.
+- **Stated fail-closed cases (A should_fix 5).** `git add` of a file over `core.bigFileThreshold` writes a pack,
+  and a file over 1 GiB exceeds the read bound; both refuse.
+- **Tests (A should_fix 7).** New cases: a new multi-pack-index, commit-graph and alternates, a hard-linked
+  addition, trailing zlib bytes, a world-writable object, the index replaced by a symlink or hard link, the
+  branch read from packed-refs only, and a changed `.git` mode.
+- **For the intake check (A should_fix 6).** The index is outside the snapshot, and `git write-tree` trusts its
+  cache-tree extension. So the intake exports the review diff tree to tree, as `git diff BASE <write-tree oid>`.
+  The reviewed diff and the signed tree then cannot diverge.
 
 ## Tests
 

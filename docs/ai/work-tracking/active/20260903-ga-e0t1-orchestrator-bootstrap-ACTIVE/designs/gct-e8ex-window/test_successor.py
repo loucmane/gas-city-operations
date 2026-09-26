@@ -253,6 +253,28 @@ def test_watch_runs_no_git_while_the_worker_is_live():
     assert 'note_markers=markers' in code and 'os.walk(evidence)' not in code
 
 
+def test_watch_config_read_cannot_block(tmp_path):
+    """s1 r4 (r3 review A must_fix 1): the WATCH config read, run on a planted FIFO, returns at once."""
+    import threading
+    watch = (HERE/'watch-r11.py').read_text()
+    start = watch.index('    try:\n        fd = os.open(')
+    end = watch.index("        template_config = 'unreadable: %s' % exc.__class__.__name__\n") + len(
+        "        template_config = 'unreadable: %s' % exc.__class__.__name__\n")
+    block = watch[start:end]
+    assert 'os.O_NONBLOCK' in block and 'stat.S_ISREG(s.st_mode)' in block
+    fifo = tmp_path/'config'
+    os.mkfifo(fifo)
+    code = 'import hashlib, os, stat\ndef read():\n' + block.replace("'/home/loucmane/gas-city-template/.git/config'",
+                                                                   repr(str(fifo))) + '    return template_config\n'
+    scope = {}
+    exec(compile(code, 'watch-config-read', 'exec'), scope)
+    result = []
+    thread = threading.Thread(target=lambda: result.append(scope['read']()), daemon=True)
+    thread.start()
+    thread.join(5)
+    assert result and result[0].startswith('not a plain file'), result
+
+
 def test_common_snapshot_covers_the_whole_git_directory(g):
     """s1 r2 (B must_fix 3): every file and link under the Template .git but the object store and this index."""
     tool = load(HERE/'common-snapshot-r1.py', 'common_snapshot')
@@ -269,6 +291,8 @@ def test_common_snapshot_covers_the_whole_git_directory(g):
     assert any(k.startswith('objects/pack/pack-') and k.endswith('.pack') for k in objects)
     assert ('packed-refs' in control) == os.path.exists(g.TEMPLATE_REPO + '/.git/packed-refs')
     assert 'subprocess' not in (HERE/'common-snapshot-r1.py').read_text()
+    # The live baseline carries no non-sample hook, grafts, shallow, replace refs or alternates.
+    assert tool.baseline_problems(seen) == []
 
 
 def fake_git(tool, root, g):
@@ -337,6 +361,80 @@ def test_common_snapshot_allows_only_git_add(g, tmp_path):
     tool, common, zlib, existing, before = fresh('config')
     (common/'config').write_text('[core]\n\tfsmonitor = /tmp/x\n')
     assert tool.compare(before, tool.observe()) == ['config']
+
+    # s1 r4 (r3 review A should_fix 7): the remaining shapes.
+    for name, shape in (('midx', 'objects/pack/multi-pack-index'), ('graph', 'objects/info/commit-graph'),
+                        ('alternates', 'objects/info/alternates')):
+        tool, common, zlib, existing, before = fresh(name)
+        (common/shape).parent.mkdir(exist_ok=True)
+        (common/shape).write_bytes(b'x')
+        assert tool.compare(before, tool.observe()) != [], name
+
+    tool, common, zlib, existing, before = fresh('hardlink')
+    added = loose(common, zlib, b'linked content')
+    os.link(added, common/'objects'/'extra')
+    assert tool.compare(before, tool.observe()) != []
+
+    tool, common, zlib, existing, before = fresh('trailing')
+    added = loose(common, zlib, b'trailing content')
+    added.chmod(0o644)
+    added.write_bytes(added.read_bytes() + b'junk')
+    assert tool.compare(before, tool.observe()) != []
+
+    tool, common, zlib, existing, before = fresh('worldwritable')
+    added = loose(common, zlib, b'writable content')
+    added.chmod(0o646)
+    assert tool.compare(before, tool.observe()) != []
+
+    for name in ('indexlink', 'indexhard'):
+        tool, common, zlib, existing, before = fresh(name)
+        index = common/('worktrees/%s/index' % g.TASK)
+        index.rename(common/'moved-index')
+        if name == 'indexlink':
+            index.symlink_to(common/'moved-index')
+        else:
+            os.link(common/'moved-index', index)
+        assert 'mutable-index' in tool.compare(before, tool.observe()), name
+
+    tool, common, zlib, existing, before = fresh('packed')
+    ref = common/('refs/heads/' + g.BRANCH)
+    ref.unlink()
+    (common/'packed-refs').write_text('# pack-refs with: peeled\n%s refs/heads/%s\n' % (g.BASE, g.BRANCH))
+    assert tool.branch_target() == g.BASE
+
+    tool, common, zlib, existing, before = fresh('root')
+    common.chmod(0o777)
+    try:
+        assert '.' in tool.compare(before, tool.observe())
+    finally:
+        common.chmod(0o755)
+
+    # r3 review B should_fix 3: the full main() round trip, a removed object, a new control file, a linked loose.
+    tool, common, zlib, existing, before = fresh('main')
+    record = tmp_path/'main-before.json'
+    assert tool.main(['before', str(record)]) == 0
+    digest = hashlib.sha256(record.read_bytes()).hexdigest()
+    loose(common, zlib, b'main staged')
+    assert tool.main(['after', str(record), digest, str(tmp_path/'main-after-ok.json')]) == 0
+    (common/'hooks').mkdir()
+    (common/'hooks/pre-commit').write_text('#!/bin/sh\n')
+    assert tool.main(['after', str(record), digest, str(tmp_path/'main-after-hook.json')]) == 1
+    with pytest.raises(AssertionError):
+        tool.main(['after', str(record), '0' * 64, str(tmp_path/'main-after-digest.json')])
+    with pytest.raises(AssertionError):
+        tool.main(['before', str(tmp_path/'main-before-hook.json')])
+
+    tool, common, zlib, existing, before = fresh('removed')
+    existing.unlink()
+    assert tool.compare(before, tool.observe()) != []
+
+    tool, common, zlib, existing, before = fresh('linkedloose')
+    target = loose(common, zlib, b'real target')
+    raw = target.read_bytes()
+    target.unlink()
+    (tmp_path/'outside').write_bytes(raw)
+    target.symlink_to(tmp_path/'outside')
+    assert tool.compare(before, tool.observe()) != []
 
     tool, common, zlib, existing, before = fresh('hidden')
     (common/'objects/info').mkdir()
