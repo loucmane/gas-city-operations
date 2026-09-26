@@ -8,7 +8,8 @@ refused `project_context.py --check` before the shell executed it.
 ## Opt-in profile, not a wildcard Bash grant
 
 `.claude/orchestrator-command-profile.json` is a project-local, protected opt-in.
-Operations enables four command classes, using closed grammars:
+The profile knows five command classes, each a closed grammar. Operations enables the
+first four; the fifth, `delivery` (ga-fsfg R3, below), needs its own explicit opt-in:
 
 - `project-context`: the unchanged canonical `project_context.py`, current root,
   and `--check` only.
@@ -23,6 +24,9 @@ Operations enables four command classes, using closed grammars:
   Its narrow ledger actions are note append, unassigned/unrouted P2 child creation, and
   dependency plus transactional attach. It does not approve raw Beads mutations or
   cross-rig work.
+- `delivery`: push a signed Operations branch, open its pull request into `main` and
+  merge that pull request, one fixed-environment `/usr/bin/git` or `/usr/bin/gh` command
+  per call. See "Delivery (ga-fsfg R3)".
 
 ## Remote observation and journal-bound discharge (ga-fsfg R1)
 
@@ -226,13 +230,329 @@ they do not permit the requested command to run.
 
 The profile is permission policy, not operator task authorization. A supported
 command remains subject to the operator's stated scope. It grants no signing,
-push/merge, arbitrary Bead mutation CLI, dispatch, lifecycle, file-write or privileged access.
+arbitrary Bead mutation CLI, dispatch, lifecycle, file-write or privileged access. Push
+and merge are granted only through the `delivery` class's closed grammar below.
 It does not prove Claude implementation-worker capabilities.
+
+## Delivery (ga-fsfg R3)
+
+The `delivery` class lets the canonical seat deliver a signed branch of an Operations
+worktree `<W>` without a human at the keyboard: push the branch, open its pull request
+into `main`, and merge that pull request. Reading the checks is already remote
+observation (R1). Each step is one closed command, and each approval is audited on
+`<W>` as `native_permission:delivery`.
+
+### Opt-in and profile fields
+
+The profile opts in by listing `delivery` in `commands` together with every field
+below. All are top-level. `_profile()` validates them whenever the profile loads. A
+missing or invalid field refuses the class, and, exactly as a drifted
+`review_projects` record does, every other class too until it is fixed. Fields
+present without `delivery` in `commands` grant nothing.
+
+| Field | Value |
+| --- | --- |
+| `repository` | `owner/name`, today `loucmane/gas-city-operations` |
+| `default_branch` | `main`; `git check-ref-format --branch` must accept it and it never starts with `-` |
+| `remote_url` | the one accepted push and fetch URL, today `https://github.com/loucmane/gas-city-operations.git` |
+| `signing_key` | the fingerprint git reports as `%GF` for the reviewed key, uppercase hex, today `FD5585922F5335BC378AD8D42ECF4432C7E7982D` |
+| `required_checks` | non-empty list of check names, copied by the coordinator from the repository's branch protection |
+| `delivery_path` | the exact `PATH` of every delivery command and gate read, today `/usr/local/bin:/usr/bin:/bin` |
+| `delivery_home` | the fixed `HOME` of every delivery command and gate read, today `/home/loucmane` |
+| `credential_helpers` | the exact `credential.*` entries, in order, as `{"key": ..., "value": ...}` objects copied from the live global configuration |
+
+Today the credential entries are `credential.https://github.com.helper` with the
+values `` (empty) and `!/usr/bin/gh auth git-credential`, and the same pair for
+`https://gist.github.com`:
+
+```json
+"credential_helpers": [
+  {"key": "credential.https://github.com.helper", "value": ""},
+  {"key": "credential.https://github.com.helper", "value": "!/usr/bin/gh auth git-credential"},
+  {"key": "credential.https://gist.github.com.helper", "value": ""},
+  {"key": "credential.https://gist.github.com.helper", "value": "!/usr/bin/gh auth git-credential"}
+]
+```
+
+### Closed grammar
+
+These are the only forms `delivery` approves. Each starts with the literal prefix
+`/usr/bin/env -i HOME=<delivery_home> PATH=<delivery_path>`, so the command runs with
+exactly that environment and nothing inherited:
+
+```bash
+/usr/bin/env -i HOME=/home/loucmane PATH=/usr/local/bin:/usr/bin:/bin /usr/bin/git -C /home/loucmane/gas-city-ops-worktrees/ga-x-slug push origin codex/ga-x-slug
+/usr/bin/env -i HOME=/home/loucmane PATH=/usr/local/bin:/usr/bin:/bin /usr/bin/gh pr create --repo github.com/loucmane/gas-city-operations --base main --head codex/ga-x-slug --title 'feat(ga-x): the change' --body-file /home/loucmane/gas-city-ops-worktrees/ga-x-slug/docs/pr-body.md
+/usr/bin/env -i HOME=/home/loucmane PATH=/usr/local/bin:/usr/bin:/bin /usr/bin/gh pr merge 123 --repo github.com/loucmane/gas-city-operations --merge --match-head-commit 0123456789abcdef0123456789abcdef01234567
+```
+
+- **Canonical quoting.** The command must be exactly Python's `shlex.join` of its
+  words: single spaces, and a word in single quotes only when it holds a character
+  outside `A-Za-z0-9_@%+=:,./-`. The shell and the gate therefore always see the same
+  words, and no unquoted word can be expanded (a glob in a title or body-file path
+  would otherwise let the shell choose another file). Double quotes refuse.
+- No shell syntax anywhere, even quoted: `;`, `&`, `|`, `<`, `>`, `$`, a backquote,
+  CR or LF. One operation per call. `run_in_background` refuses.
+- The prefix is exact: any other `HOME` or `PATH`, an extra assignment, `env` without
+  its absolute path, `env -u`, another order or a wrapper refuses. A form such as
+  `env -i ... /usr/bin/git ...` that is not one of the three commands refuses too.
+  Everywhere else an `env -i` prefix still reads as untrusted: `strip_shell_prefixes`
+  and `ORCHESTRATOR_ENVIRONMENT` are unchanged.
+- Push: `/usr/bin/git`, then `-C <W>` and no other Git global option (no `-c`,
+  `--config-env`, `--exec-path`, `--git-dir`, `--work-tree` or `--namespace`), then
+  exactly `push origin <branch>`. Every flag refuses (`-f`, `--force*`, `--delete`,
+  `-d`, `--mirror`, `--all`, `--tags`, `--prune`, `-o`, `--push-option`,
+  `--receive-pack`, `--exec`, `--no-verify`, `-u`), as does a refspec with `:` or `+`,
+  a remote other than `origin`, or a URL or path in its place.
+- Pull request: `--repo`, `--base`, `--head`, `--title` and `--body-file` in that
+  order and nothing else. `--title` is printable and never starts with `-`; the body
+  file is a canonical absolute path.
+- Merge: `<number>` is decimal digits without a leading zero, `<sha>` is exactly 40
+  lowercase hex characters, and every other option refuses (`--admin`,
+  `--delete-branch`, `-d`, `--auto`, `--squash`, `--rebase`).
+- `<branch>` is a plain branch name: characters `A-Za-z0-9._/-`, never starting with
+  `-`, `refs/`, `heads/`, `tags/` or `remotes/`, never `HEAD` or any name ending in
+  `HEAD`, never `default_branch`, and accepted by `git check-ref-format --branch`.
+
+### What every approval checks
+
+Delivery is stationary, like the coordination verbs. The canonical seat stays on
+`main`, where readiness is BLOCKED by design; no readiness exemption is added. The
+gate selects `<W>` as the target and evaluates readiness, observation, pending events
+and advisory handling there. Plan mode, observation, protected paths, native
+delegation and hard policy keep their precedence (hard policy still refuses a force
+push before the class is consulted). The evaluation runs once per PreToolUse; the
+second `target_for` call reuses it. In order:
+
+1. **Call identity.** The HEAD-bound profile lists `delivery`; the seat is the
+   canonical root and the payload's `cwd`; the permission mode is a known non-plan
+   mode; the payload carries a `tool_use_id` and a session id.
+2. **Find `<W>` by file reads only.** For the push, `-C <W>`. For the pull request, the
+   unique direct child of the Operations `worktree_root` whose administrative `HEAD`
+   names `--head`. For the merge, the unique direct child whose `HEAD` resolves to
+   `<sha>` through a loose ref or `packed-refs` (a `reftable` store refuses). None or
+   several refuse. `<W>` must be a canonical absolute path without a symlink
+   component, a direct child of the Operations `worktree_root` (so registered Core and
+   review-project worktrees refuse), and a verified linked worktree of the canonical
+   repository: its gitfile, the back-pointer and `commondir` agree. For the push, its
+   current branch is `<branch>`.
+3. **Workflow state.** `<W>` is not advisory (an advisory target refuses delivery,
+   because `decisions.py` returns before `native_permission` for it and no binding
+   could be written); neither the seat nor `<W>` is in observation or has an
+   unresolved pending event; no unexpired binding holds `<W>`.
+4. **Coordinate's target validation of `<W>`:** a journal in phase `ready`, verified
+   external ownership of its Bead, and a `codex/<bead>-<slug>` branch. A clean signed
+   worktree that the seat does not own never qualifies. Then the canonical runtime
+   tree check (the `git status` part of the reused runtime check), bounded by the
+   deadline.
+5. **Configuration**, for `<W>` and for the canonical root (where gh runs git). Nothing
+   else runs if it refuses. See the allowlist below.
+6. **Everything else:** the first `git` on `delivery_path` is `/usr/bin/git`;
+   `gh config get http_unix_socket` and `gh config get -h github.com
+   http_unix_socket` are empty; the hooks directories, attributes and origin URL of
+   `<W>` and of the canonical root; no history rewriting; the branch rules; the remote
+   `main`; every signature; a clean tree; then the operation's own checks.
+
+Every Git read the gate makes for delivery runs as
+`/usr/bin/git --no-optional-locks --no-replace-objects -c core.commitGraph=false -c core.hooksPath=/dev/null -c core.fsmonitor=false -c core.attributesFile=/dev/null -c gpg.program=/usr/bin/gpg -c gpg.ssh.program=/bin/false -c gpg.x509.program=/bin/false`
+with exactly the environment `HOME=<delivery_home>`, `PATH=<delivery_path>`,
+`GIT_NO_REPLACE_OBJECTS=1` and `GIT_ATTR_NOSYSTEM=1`, so the configuration it judges
+is the one the push will use. The configuration listing
+(`git config --list --show-scope --null`) runs without the `-c` entries, so the gate's
+own command-scope values never appear in what is judged. The gh reads run with
+exactly `HOME` and `PATH`, in the canonical root. Any failed or late read refuses.
+
+**Worktree and history rules.**
+- Every commit in `<remote-main>..HEAD` carries an OpenPGP signature (its `gpgsig`
+  header begins `-----BEGIN PGP SIGNATURE-----`) that is good by exactly
+  `signing_key`: `%G?` is `G` and `%GF` equals the key. SSH and X.509 signatures
+  refuse, and so do unsigned, foreign-signed, badly signed and unknown-validity (`U`)
+  commits. `<remote-main>` is the object `git ls-remote origin
+  refs/heads/<default_branch>` returns in exactly one line; it must exist locally
+  and be an ancestor of `HEAD`, so a local `main` ahead of the remote cannot hide
+  commits.
+- Nothing may rewrite history for the walk: `git for-each-ref refs/replace/` is empty
+  (loose, packed or reftable), there is no `info/grafts` and no `shallow` file, and
+  the reads use `--no-replace-objects` and `core.commitGraph=false`, so a forged
+  commit-graph cannot supply false parents.
+- The tracked tree is clean and the index matches `HEAD` (`git status
+  --untracked-files=no` with Git's default change detection pinned); every index entry
+  is tagged `H` in `git ls-files -v`, so no assume-unchanged or skip-worktree bit hides
+  a change. Untracked files are allowed.
+- The branch resolves only as `refs/heads/<branch>`: no tag, remote-tracking ref,
+  `refs/<branch>` or pseudo-ref file of the same name.
+
+**Configuration allowlist.** Within `remote.*`, `url.*`, `push.*`, `credential.*`,
+`http.*`, `protocol.*`, `gpg.*`, `filter.*`, `diff.*`, `merge.*`, `submodule.*`,
+`hook.*` and the keys `core.sshCommand`, `core.askPass`, `core.hooksPath`,
+`core.gitProxy`, `core.fsmonitor`, `core.alternateRefsCommand` and
+`core.attributesFile`, only these entries may appear:
+- exactly one `remote.origin.url` equal to `remote_url`, and
+  `git remote get-url --push --all origin` returns exactly that one line;
+- exactly one `remote.origin.fetch = +refs/heads/*:refs/remotes/origin/*`;
+- exactly the `credential.*` entries of `credential_helpers`, in order;
+- `push.autoSetupRemote = true`;
+- `gpg.program = /usr/bin/gpg` (no `gpg.format`, `gpg.ssh.*` or `gpg.x509.*`);
+- the four global git-lfs entries exactly as they are live:
+  `filter.lfs.clean = git-lfs clean -- %f`, `filter.lfs.smudge = git-lfs smudge -- %f`,
+  `filter.lfs.process = git-lfs filter-process` and `filter.lfs.required = true`.
+
+Everything else in those namespaces refuses: `pushurl`, a second URL,
+`remote.origin.push`, `mirror`, `vcs`, `receivepack`, `uploadpack`, any other remote,
+any `insteadOf` or `pushInsteadOf`, any other `push.*` (including `push.default`), any
+`http.*` or `protocol.*`, every program-running key and every other driver,
+`submodule.*` or `hook.*` key. The list is strict on purpose: a harmless key such as
+`merge.conflictStyle` or gh's `remote.origin.gh-resolved` refuses too.
+
+Nothing may select a driver, which keeps the lfs filter inert. No `.gitattributes` at
+`HEAD`, in the index or in the work tree (untracked and ignored files included) may
+carry `filter=`, `diff=` or `merge=`; there may be no `info/attributes` in the common
+or administrative directory, no `core.attributesFile`, and no global attributes file
+at `<delivery_home>/.config/git/attributes` or `$XDG_CONFIG_HOME/git/attributes`.
+System attributes are never read (`GIT_ATTR_NOSYSTEM=1`). No gitlink (mode 160000) may
+be in `HEAD`'s tree. Neither the common `hooks/` nor the administrative `hooks/`
+directory may hold any entry, judged by `lstat` so that symlinks count, other than
+git's regular `*.sample` files. All of this is checked in `<W>` and in the canonical
+root.
+
+**Operation checks.**
+- Pull request: `git ls-remote origin refs/heads/<branch>` returns exactly one line
+  naming exactly that ref, whose object is `<W>`'s `HEAD`. The body file is a regular,
+  singly linked file of at most 64 KiB inside `<W>`, with no symlink component, tracked
+  at `HEAD` as a regular blob, and its bytes equal that blob (`git hash-object
+  --no-filters`), so no untracked, ignored or uncommitted text becomes a public PR body.
+- Merge: `<W>`'s `HEAD` is `<sha>`, and `gh pr view <number> --repo
+  github.com/<repository> --json
+  state,baseRefName,headRefName,headRefOid,isCrossRepository,statusCheckRollup`
+  shows `state` `OPEN`, `isCrossRepository` false, base `default_branch`, head
+  `<W>`'s branch and head commit `<sha>`. Every rollup entry is green (a `CheckRun`
+  concluded `SUCCESS`, a `StatusContext` in state `SUCCESS`), every
+  `required_checks` name is present, and a rollup of 100 or more entries refuses
+  rather than being judged on a partial page.
+
+### Tracking, bindings and discharge
+
+Pending events come one at a time: `target_for` refuses a delivery while any pending
+event is unresolved at the seat or at `<W>`. So the order is push, `discharge`,
+`pr create`, `discharge`, merge, `discharge`, each discharge being
+`workflow.py discharge --root <W> --pending-id <id> --note <text>`. `discharge` does
+not rewrite tracked S:W:H:E files, so the tree stays clean between the steps; any
+`log` that records evidence precedes the commit, which precedes the push.
+
+The shared classifiers never trust the `env -i` prefix, so the event kind comes from a
+binding. After every check passes, `native_permission()` writes one create-only JSON
+record (at most 4 KiB) under `<canonical>/.aegis/state/delivery-bindings/`. It names
+`<W>` and the operation, and its file name is the sha256 of the session id, the hook's
+`tool_use_id` and the request digest, never the raw ids. The directory and file are
+opened without following a symlink (`O_CREAT|O_EXCL|O_NOFOLLOW`, component by
+component), and a symlinked directory or file refuses. The count and the write happen
+under an exclusive lock: at most 16 unexpired bindings exist, and at most one per
+`<W>`, so a second call for the same `<W>` refuses while one is in flight. A binding
+never approves anything; nothing reads one to decide an approval. There are exactly two
+write points: the approval return and the advisory-seat audit return. If anything after
+the write blocks the call, for example the audit append failing, the binding is removed
+before the refusal returns.
+
+PostToolUse looks up its own call's binding, re-derives `<W>` and the operation from
+its own command (the push's `-C <W>`, the worktree whose branch is `--head`, or the
+binding's `<W>` whose `HEAD` must be `<sha>`, all by file reads) and requires both to
+match. It rechecks only `<W>`'s identity (direct child, verified linked worktree,
+`ready` journal, verified ownership, branch form), never the delivery preconditions,
+because after a merge the pull request is no longer `OPEN` and the remote `main` is a
+new merge commit. It then records one `delivery` event on `<W>` and consumes the
+binding. A binding rewritten by a same-uid process therefore cannot retarget an event;
+`O_EXCL` only guards creation. A PostToolUse with no binding for its call, a binding
+for another call, or a binding whose `<W>` fails the recheck keeps today's behaviour: a
+recorded block and exit 2. If PostToolUse runs after a command that exited non-zero,
+it still records the event; `discharge` resolves it and the journal keeps the outcome.
+
+A failed Bash call fires `PostToolUseFailure`. A synchronous handler (the
+`deliveryfailure` sub-command of `.claude/scripts/gate_lib.py`, separate from the
+async ledger recorder) removes that call's binding and records no event, so a retry is
+a new call with its own binding. Unconsumed bindings (an interrupted call, or an
+advisory prompt the operator declined) expire after 30 minutes, the Bash tool's
+10-minute maximum plus a margin, and are pruned by the next PreToolUse. The documented
+recovery from a stale binding is to wait for its expiry.
+
+An advisory seat's delivery is validated and audited on `<W>` as
+`advisory_delivery_no_native_approval` and gets no native approval, but its binding is
+written, so a delivery the operator approves by hand is still tracked on `<W>`.
+
+### Deadline
+
+The PreToolUse hook entry in `.claude/settings.json` carries an explicit `timeout` of
+120 seconds. A delivery evaluation has a gate-side deadline of 60 seconds measured by a
+monotonic clock from hook entry, so the reads that run before it (hard policy's
+`delivery_default_branch`, the profile loads, target validation) count against it.
+Every delivery read's timeout is `min(30 s, time left)`, the deadline is checked once
+more immediately before the approval return, and running out of time refuses that
+delivery. Refusals for every other tool and class are unchanged. Readiness
+(`evaluate_readiness`) and some reused reads are unbounded or self-bounded
+(`delivery_default_branch` runs `git symbolic-ref` with no timeout), so the 60-second
+deadline is best-effort for them and the 120-second hook timeout is the real backstop.
+
+### Limits
+
+- **The push is not pinned to the verified commit.** A commit made in `<W>` between
+  the approval and the push would be pushed unchecked. `main` stays protected, because
+  the merge re-verifies every commit and `--match-head-commit` pins the head.
+- **The base race is accepted.** `--match-head-commit` makes GitHub refuse if the head
+  moves after the check, but the base can still change between the check and the merge.
+- **A merge refuses whenever `main` has moved** since the branch was last updated,
+  because the remote `main` must be an ancestor of `HEAD`. Bring the branch up to date,
+  re-sign it and push it first.
+- **The signing key is the only review boundary** on what reaches `main` through this
+  class, including changes to the gate and to the profile: delivery deliberately does
+  not require `<W>`'s runtime or profile to equal the canonical copies. That is
+  acceptable because the key lives only with the host signer, which no worker or
+  Claude session can use, and the coordinator signs only changes that passed two
+  independent reviews. Readiness at `<W>` may import `<W>`'s tracked helpers; the clean
+  and signature checks run first, so those are signed bytes.
+- **Shell startup files are trusted.** The Bash tool's shell runs its startup files
+  before the command. The prefix removes every variable they set, but a shell function
+  or alias defined there could still shadow the command itself. The startup files are
+  part of the trusted operator setup, as the sandbox is.
+- **A call that outlives its binding**, such as an advisory prompt answered after 30
+  minutes, reaches PostToolUse with no binding: exit 2 and no event. The coordinator
+  reconciles.
+- **Effect without success leaves no event.** A delivery that took effect but reported
+  failure (for example a Bash timeout after the remote merge) fires
+  `PostToolUseFailure`, which records nothing. The coordinator reconciles by reading
+  the remote state.
+- The gate's signature reads run with no `TMPDIR`, so Git writes the signature it
+  verifies under `/tmp`, which must be writable where the hook runs.
+- **A runtime-changing branch cannot be discharged from the seat.** Delivery itself
+  does not compare `<W>`'s runtime with the canonical copy, but the stationary
+  `discharge` is a coordination verb, and coordinate's reviewed-runtime check refuses a
+  target whose `scripts`, `aegis_foundation`, `.claude/scripts` or
+  `plugins/gas-city-workflow/scripts` differ from the canonical checkout, or whose
+  profile or descriptor differs. After such a branch's push its delivery event stays
+  pending on `<W>` and the next delivery step refuses; reconcile it outside this class.
+
+### Live preflight before the first real delivery
+
+Fixtures cannot show these live preconditions, so the coordinator runs this read-only
+preflight first:
+
+- `%G?` is `G` for a commit signed by `signing_key` under `HOME=<delivery_home>` with
+  the gate's read environment (it is `U` unless the key has full or ultimate validity
+  in that keyring).
+- Live PreToolUse, PostToolUse and PostToolUseFailure payloads for Bash carry a
+  `tool_use_id` and a session id, and PreToolUse and PostToolUse carry an identical
+  `tool_input` (the binding key depends on both). The first real delivery observes
+  this and fails closed if either differs.
+- `gh auth status` and `git ls-remote origin` succeed under the exact fixed-environment
+  prefix. They fail if the gh token lives in a keyring that needs DBus, or if the
+  network is reachable only through a proxy variable the prefix removes.
+- A recorded inventory of the live global, canonical and `<W>` configuration shows no
+  key the allowlist refuses.
+- The session runs with the PreToolUse `timeout` of 120 and the synchronous
+  `PostToolUseFailure` `deliveryfailure` entry in `.claude/settings.json`.
 
 ## Identity and preservation
 
 The profile must be a regular, unaliased, size-bounded JSON object with unique
-keys, exact schema and a nonempty subset of the four known command classes.
+keys, exact schema and a nonempty subset of the five known command classes.
 Both task and canonical copies must equal their tracked HEAD bytes **and each
 other**. A task branch cannot opt itself in or expand the canonical grant. The
 managed descriptor, Git remote/common-directory identity, current hook cwd, city,

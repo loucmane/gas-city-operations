@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import sys
+import time
 import traceback
 
 from .contracts import (
@@ -113,6 +114,12 @@ def degraded_pretooluse_fallback(raw_payload: str, exc: BaseException) -> int:
 
     try:
         coordinating = coordination_request(root, loaded) is not None
+        if not coordinating:
+            # ga-fsfg R3: a delivery call is stationary coordination too; it never
+            # degrades into an allow.
+            from .delivery import delivery_request
+
+            coordinating = delivery_request(root, loaded) is not None
     except Exception:
         coordinating = True
     if coordinating:
@@ -164,7 +171,23 @@ def degraded_pretooluse_fallback(raw_payload: str, exc: BaseException) -> int:
     )
 
 
+def _prune_delivery_bindings(root) -> None:
+    """ga-fsfg R3: expired delivery bindings are pruned by the next PreToolUse.
+
+    Best effort: pruning never decides or disrupts any call.
+    """
+
+    try:
+        from .delivery_binding import prune_expired
+
+        prune_expired(root)
+    except Exception:  # noqa: BLE001 - expired bindings are ignored by every check anyway.
+        pass
+
+
 def pretooluse_gate(raw_payload: str | None = None) -> int:
+    # ga-fsfg R3: the delivery deadline is measured from hook entry.
+    started = time.monotonic()
     root = project_root()
     loaded = load_payload_result(raw_payload)
     if isinstance(loaded, PayloadLoadError):
@@ -181,6 +204,8 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
             return 0
         return block_unclassifiable_payload(loaded.reason, loaded.raw_preview)
     payload = loaded
+    payload.hook_started = started
+    _prune_delivery_bindings(root)
     plan_denial = deny_plan_mode_mutation(root, payload)
     if plan_denial is not None:
         return plan_denial
@@ -316,7 +341,9 @@ def pretooluse_gate(raw_payload: str | None = None) -> int:
     try:
         target = target_for(root, payload)
         if target is not None:
-            coordination_log = coordination_request(root, payload)[0] in {"log", "discharge"}
+            # A delivery target (ga-fsfg R3) has no workflow request.
+            parsed = coordination_request(root, payload)
+            coordination_log = parsed is not None and parsed[0] in {"log", "discharge"}
             root = target
     except Exception as exc:  # An invalid target must not fall through advisory/override.
         return gate_hard_block(

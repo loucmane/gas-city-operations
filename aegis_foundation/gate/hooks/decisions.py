@@ -361,11 +361,23 @@ def gate_allow_or_record(root: Path, payload: Payload, *, reason: str) -> int:
                 )
             )
     except Exception as exc:  # Fail closed before output, including audit failure.
+        _discard_delivery_binding(payload)
         return block(
             "BLOCKED: Claude command profile could not establish an audited approval: "
             f"{type(exc).__name__}: {exc}"
         )
     return 0
+
+
+def _discard_delivery_binding(payload: Payload) -> None:
+    """ga-fsfg R3: an approval that is not emitted leaves no binding holding its worktree."""
+
+    try:
+        from .delivery import discard
+
+        discard(payload)
+    except Exception:  # noqa: BLE001 - the call is refused either way; the binding expires.
+        pass
 
 
 def block(message: str) -> int:

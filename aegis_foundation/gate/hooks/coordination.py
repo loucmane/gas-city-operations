@@ -286,6 +286,13 @@ def target_for(root: Path, payload: Payload, *, post_success: bool = False) -> P
 
     if not (root / PROFILE).exists():
         return None
+    # ga-fsfg R3: a delivery call selects its worktree through the delivery class;
+    # PostToolUse resolves it through the call's binding.
+    from .delivery import delivery_target
+
+    delivered = delivery_target(root, payload, post_success=post_success)
+    if delivered is not None:
+        return delivered
     parsed = request(root, payload)
     if parsed is None:
         return None

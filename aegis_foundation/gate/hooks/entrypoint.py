@@ -52,7 +52,8 @@ def bash_guard() -> int:
 def main() -> int:
     if len(sys.argv) < 2:
         print(
-            "usage: gate_lib.py <pretooluse|posttooluse|stop|path|bash|record|recordjson>",
+            "usage: gate_lib.py "
+            "<pretooluse|posttooluse|stop|path|bash|record|recordjson|deliveryfailure>",
             file=sys.stderr,
         )
         return 1
@@ -73,6 +74,12 @@ def main() -> int:
         return session_start_hook()
     if command in {"record", "posttoolusefailure", "sessionend", "subagentstart"}:
         return ledger_record()
+    if command == "deliveryfailure":
+        # ga-fsfg R3: the synchronous PostToolUseFailure handler that removes a failed
+        # delivery call's binding; the async ledger recorder stays separate.
+        from .delivery import delivery_failure
+
+        return delivery_failure()
     if command == "recordjson":
         result = ledger_record()
         print("{}")

@@ -47,6 +47,12 @@ def test_modular_gate_inventory_and_size_budget() -> None:
         "coordination_runtime.py",
         "decisions.py",
         "delegation.py",
+        # ga-fsfg R3: the delivery class.
+        "delivery.py",
+        "delivery_binding.py",
+        "delivery_checks.py",
+        "delivery_grammar.py",
+        "delivery_worktree.py",
         "entrypoint.py",
         "evidence.py",
         "hard_policy.py",
