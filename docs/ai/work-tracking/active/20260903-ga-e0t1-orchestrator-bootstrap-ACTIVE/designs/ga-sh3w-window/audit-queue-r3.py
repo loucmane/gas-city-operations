@@ -13,7 +13,7 @@ import types
 
 MODE = sys.argv[1] if len(sys.argv) == 2 else None
 assert MODE in ('route', 'resume'), 'audit mode'
-ROOT = Path('/var/tmp/ga-sh3w-audit-%s-20260923-r1' % MODE)
+ROOT = Path('/var/tmp/ga-sh3w-audit-%s-20260926-r1' % MODE)
 RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
 raw = RUNNER.read_bytes()
 assert hashlib.sha256(raw).hexdigest() == 'eddf5e1174a7b275abe280e91ea5c8ea0762600d38524ba9631f53fb4874cdf3'
@@ -27,7 +27,7 @@ exec(compile(raw,str(SUPPORT),'exec',dont_inherit=True),support.__dict__)
 ENV=dict(support.ENV,BD_DISABLE_METRICS='1')
 GC = ['/home/loucmane/gascity/bin/gc', '--city', '/home/loucmane/gascity/city']
 TARGET = 'gascity/operations-candidate-worker'
-ALIASES = {TARGET, 'operations-candidate-worker'}
+ALIASES = {TARGET, 'operations-candidate-worker', 'gascity--operations-candidate-worker'}
 ROOT.mkdir(mode=0o700)
 def run(name, args):
     r = owned._run_owned_phase(name=name, argv=GC+args, environment=ENV,
@@ -57,7 +57,8 @@ for store, scope in [('core', ['--rig', 'gascity']), ('city', [])]:
             a = v.get('assignee') or ''
             routed = m.get('gc.routed_to') == TARGET
             legacy = not m.get('gc.routed_to') and m.get('gc.run_target') == TARGET and m.get('gc.kind') == 'workflow'
-            assigned = a in ALIASES or a.startswith(('ci-', TARGET+'-', 'operations-candidate-worker-'))
+            assigned = a in ALIASES or a.startswith(('ci-', 's-', TARGET+'-', 'operations-candidate-worker-',
+                                               'gascity--operations-candidate-worker-'))
             if name=='open' and store=='core' and v['id']=='ga-sh3w':
                 assert routed and not a and v['status']=='open', 'expected open task drift'
                 continue

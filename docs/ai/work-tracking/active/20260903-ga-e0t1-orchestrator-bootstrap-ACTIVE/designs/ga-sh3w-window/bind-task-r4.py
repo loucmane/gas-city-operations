@@ -20,9 +20,9 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-sh3w-window')
 ROOT=Path('/var/tmp/ga-sh3w-bind-20260926-r1')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='2ac4d49324288e12741d4a2636620828011951c11a8616d45db8e3ffd75082b1'
+HELPER_SHA='b6131d893e85fdfa118a78f12d300f0975f6dd52beec9c763f58c5f32c88051f'
 WORKTREE_RESULT=Path('/var/tmp/ga-sh3w-worktree-20260926-r1/result.json')
-WORKTREE_SHA='73a6bfebe19aa191f49fb5c2c53609aa986196e83d8092e771102474afb8b067'
+WORKTREE_SHA='b993cdfdd7b6530e8b9ba4528834a7cf2e7dbc807b8d13a267fc6735d16c4b53'
 DESCRIPTION_SHA='5cbf64f179cca878e2ecfc2898c44a6b465ffa84cfaae558b2fcb0377b65c942'
 BEAD='ga-sh3w'
 TARGET='gascity/operations-candidate-worker'

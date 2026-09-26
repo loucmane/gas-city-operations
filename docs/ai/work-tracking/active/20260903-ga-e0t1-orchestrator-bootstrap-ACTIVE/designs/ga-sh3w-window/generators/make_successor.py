@@ -83,7 +83,8 @@ IDENTITY = [
     (TARGET_OLD, TARGET_NEW),
     ('ga-qcwl', 'ga-sh3w'),
 ]
-ROOT_DATE = re.compile(r"(/var/tmp/ga-sh3w-[a-z0-9-]+?)-202609\d\d-r\d")
+# Every output root, including the %s-formatted audit roots (s1 review B must_fix 1), moves to one fresh date.
+ROOT_DATE = re.compile(r"(/var/tmp/ga-sh3w-[a-z0-9%-]+?)-202609\d\d-r\d")
 
 GC_OLD, GC_NEW = ('b2760ea407d8a5853fb7fbb3c184870ad4b6e9ccd763241a8ec59a8c3201d489',
                   'fce2e9a0bea6c79f257e55b6424cf9271405d58f916a1017f3c14e232ad5d13b')
@@ -170,9 +171,10 @@ def rename(text):
 
 
 # The hardened git prefix for every coordinator read of the candidate worktree (gct-lagl HANDOFF 4.2).
-HARDENED = ("['/usr/bin/env','GIT_CONFIG_NOSYSTEM=1','GIT_CONFIG_GLOBAL=/dev/null','/usr/bin/git',"
-            "'--no-optional-locks','--git-dir=%s','--work-tree=%s','-c','core.hooksPath=/dev/null',"
-            "'-c','core.fsmonitor=false']" % (ADMIN, WORK))
+HARDENED = ("['/usr/bin/env','GIT_CONFIG_NOSYSTEM=1','GIT_CONFIG_GLOBAL=/dev/null','GIT_ATTR_NOSYSTEM=1',"
+            "'HOME=/nonexistent','/usr/bin/git','--no-optional-locks','--git-dir=%s','--work-tree=%s',"
+            "'-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','-c','core.attributesFile=/dev/null']"
+            % (ADMIN, WORK))
 
 
 def window_base(text):
@@ -295,13 +297,15 @@ def observer(text, name):
 
 
 def audit(text):
-    # Core names sessions and assignees by the target basename with "." encoded as "__" (agent.
-    # SanitizeQualifiedNameForSession, targetBasename). The candidate basename has no dot, so its forms are the
-    # qualified name and the bare basename, each optionally with a "-<token>" session suffix.
+    # The assignee forms Core can use for this target: the qualified name; the pool session name, which is
+    # the target basename with "." encoded as "__" (targetBasename, SanitizeQualifiedNameForSession; this
+    # basename has no dot) plus "-<token>"; and the no-session-bead fallback SessionNameFor, with "/" encoded as
+    # "--" (s1 review B should_fix 2). The "ci-" and "s-" prefixes cover session ids.
     text = sub(text, "ALIASES = {TARGET, 'gc.implementation-worker', 'gc__implementation-worker'}",
-               "ALIASES = {TARGET, 'operations-candidate-worker'}")
+               "ALIASES = {TARGET, 'operations-candidate-worker', 'gascity--operations-candidate-worker'}")
     text = sub(text, "a.startswith(('ci-', TARGET+'-', 'gc.implementation-worker-', 'gc__implementation-worker-'))",
-               "a.startswith(('ci-', TARGET+'-', 'operations-candidate-worker-'))")
+               "a.startswith(('ci-', 's-', TARGET+'-', 'operations-candidate-worker-',\n"
+               "                                               'gascity--operations-candidate-worker-'))")
     return text
 
 
@@ -405,6 +409,11 @@ worktree after the previous candidate session drained:
   admin directory, back-pointer and commondir, HEAD is BASE, no driver or gitlink applies, and the status with
   ignored files is empty.
 It writes nothing else and refuses any existing output root.
+
+Partial failure: if `git worktree add` succeeds and a post-check refuses, the worktree, its admin directory and
+the branch stay, and ROOT holds only intent.json. BIND refuses without this job's exact result.json, so nothing
+can be routed. Recovery is a coordinator decision recorded on the Bead: inspect, then `git worktree remove` and
+delete the branch, and rerun from a new reviewed commit with a new output root (-r1 is consumed).
 """
 import hashlib
 import json
@@ -424,14 +433,15 @@ BASE='%(base)s'
 BRANCH='%(branch)s'
 TOOLS=Path('%(tools)s')
 TOOLS_SHA='%(tools_sha)s'
-ENV=dict(HOME='/home/loucmane',USER='loucmane',LOGNAME='loucmane',LANG='C.UTF-8',PATH='/usr/bin:/bin',
-         GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_GLOBAL='/dev/null',GIT_OPTIONAL_LOCKS='0')
+ENV=dict(HOME='/nonexistent',USER='loucmane',LOGNAME='loucmane',LANG='C.UTF-8',PATH='/usr/bin:/bin',
+         GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_GLOBAL='/dev/null',GIT_ATTR_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
 
-def git(*args):
+def git(*args,expected=(0,)):
     r=subprocess.run(['/usr/bin/git','--no-optional-locks','-C',str(OPS),'-c','core.hooksPath=/dev/null',
-        '-c','core.fsmonitor=false',*args],env=ENV,stdin=subprocess.DEVNULL,capture_output=True,timeout=120)
-    assert r.returncode==0,(args,r.stderr[-2000:])
-    return r.stdout
+        '-c','core.fsmonitor=false','-c','core.attributesFile=/dev/null',*args],env=ENV,stdin=subprocess.DEVNULL,
+        capture_output=True,timeout=120)
+    assert r.returncode in expected,(args,r.returncode,r.stderr[-2000:])
+    return r
 
 def main():
     assert os.getuid()==os.geteuid()==1000 and globals().get('_SOURCE_SHA')
@@ -443,9 +453,8 @@ def main():
     s=CANDIDATE_ROOT.lstat()
     assert stat.S_ISDIR(s.st_mode) and s.st_uid==1000 and not stat.S_IMODE(s.st_mode)&0o022,'candidate root authority'
     assert os.listdir(CANDIDATE_ROOT)==[],'candidate root is not empty'
-    assert git('rev-parse','--verify','refs/heads/main^{commit}').decode().strip()==BASE,'Operations main is not BASE'
-    assert subprocess.run(['/usr/bin/git','--no-optional-locks','-C',str(OPS),'rev-parse','--verify','--quiet',
-        'refs/heads/'+BRANCH],env=ENV,capture_output=True).returncode==1,'branch already exists'
+    assert git('rev-parse','--verify','refs/heads/main^{commit}').stdout.decode().strip()==BASE,'Operations main is not BASE'
+    assert git('rev-parse','--verify','--quiet','refs/heads/'+BRANCH,expected=(1,)).returncode==1,'branch already exists'
     assert not os.path.lexists(ADMIN),'admin directory already exists'
     ROOT.mkdir(mode=0o700)
     (ROOT/'intent.json').write_text(json.dumps(dict(work=str(WORK),base=BASE,branch=BRANCH,executor_sha256=_SOURCE_SHA),
@@ -596,6 +605,12 @@ def rebind(files):
             text = audit(text)
         elif name.startswith('operator/'):
             text = operator_script(name, text)
+            if name == 'operator/PREP.sh':
+                text = sub(text, '# ga-sh3w window prep r7:', '# ga-sh3w window prep r8:')
+                text = sub(text, '# staging log below. It is the reviewed ga-nibd prep (the ga-gegx prep) on the post-S3 host,\n'
+                                 '# rebound to ga-sh3w, with\n',
+                           '# staging log below. It is the reviewed ga-qcwl prep on the post-P10 host, retargeted to the\n'
+                           '# Operations candidate (ga-sh3w), with\n')
         out[name] = text.encode()
     here = WORKTREE + '/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-sh3w-window'
     out['worktree-task-r1.py'] = (WORKTREE_TASK % dict(ops=OPS, root=CANDIDATE_ROOT, work=WORK, admin=ADMIN,

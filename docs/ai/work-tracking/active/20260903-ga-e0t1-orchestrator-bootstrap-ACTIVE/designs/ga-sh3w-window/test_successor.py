@@ -73,6 +73,18 @@ def test_no_signing_lane_leftovers():
     assert not (HERE/'release-r11.py').exists() and not list((HERE/'operator').glob('*RELEASE*'))
 
 
+def test_every_output_root_has_one_date():
+    """All /var/tmp/ga-sh3w-* roots, %s-formatted ones included, carry the fresh date (s1 review B must_fix 1)."""
+    roots = set()
+    for name, raw in package_files().items():
+        roots |= set(re.findall(r"/var/tmp/ga-sh3w-[A-Za-z0-9%<>_-]*?-(\d{8})-r\d", raw.decode()))
+    assert roots == {'20260926'}, roots
+    audit = (HERE/'audit-queue-r3.py').read_text()
+    assert "ROOT = Path('/var/tmp/ga-sh3w-audit-%s-20260926-r1' % MODE)" in audit
+    for wrapper, mode in (('ROUTE.sh', 'route'), ('RESUME.sh', 'route'), ('RESUME.sh', 'resume')):
+        assert '/var/tmp/ga-sh3w-audit-%s-20260926-r1' % mode in (HERE/'operator'/wrapper).read_text(), (wrapper, mode)
+
+
 def test_wrappers_bind_their_scripts():
     """Every 64-hex constant a wrapper names for a package script equals that script's digest."""
     for wrapper in (HERE/'operator').glob('*.sh'):
@@ -97,12 +109,14 @@ def test_identity_and_epoch(g):
     for name in ('route-task-r5.py', 'watch-r11.py', 'close-r11.py', 'audit-queue-r3.py'):
         assert 'gascity/operations-candidate-worker' in (HERE/name).read_text(), name
     audit = (HERE/'audit-queue-r3.py').read_text()
-    assert "ALIASES = {TARGET, 'operations-candidate-worker'}" in audit
+    assert "ALIASES = {TARGET, 'operations-candidate-worker', 'gascity--operations-candidate-worker'}" in audit
+    assert "'gascity--operations-candidate-worker-'" in audit and "'s-'" in audit
 
 
 def test_hardened_candidate_git():
     base = (HERE/'window-base-r11.py').read_text()
-    assert "'GIT_CONFIG_NOSYSTEM=1','GIT_CONFIG_GLOBAL=/dev/null'" in base
+    assert "'GIT_CONFIG_NOSYSTEM=1','GIT_CONFIG_GLOBAL=/dev/null','GIT_ATTR_NOSYSTEM=1'" in base
+    assert "'-c','core.attributesFile=/dev/null'" in base
     assert "'--git-dir=/home/loucmane/gas-city-ops/.git/worktrees/ga-sh3w'" in base
     assert "HARDENED+['rev-parse','--verify','HEAD^{commit}']" in base
     assert "HARDENED+['status','--porcelain=v1','--ignored','--untracked-files=all']" in base

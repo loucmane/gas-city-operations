@@ -28,7 +28,7 @@ RECEIPT = CITY/'.gc/runtime/provisioning/receipt.json'
 WORK = Path('/home/loucmane/gas-city-ops-candidate-worktrees/ga-sh3w')
 BASE = '040139d8738a025cbb5afcc8170b700292c5016e'
 ADMIN = Path('/home/loucmane/gas-city-ops/.git/worktrees/ga-sh3w')
-HARDENED = ['/usr/bin/env','GIT_CONFIG_NOSYSTEM=1','GIT_CONFIG_GLOBAL=/dev/null','/usr/bin/git','--no-optional-locks','--git-dir=/home/loucmane/gas-city-ops/.git/worktrees/ga-sh3w','--work-tree=/home/loucmane/gas-city-ops-candidate-worktrees/ga-sh3w','-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false']
+HARDENED = ['/usr/bin/env','GIT_CONFIG_NOSYSTEM=1','GIT_CONFIG_GLOBAL=/dev/null','GIT_ATTR_NOSYSTEM=1','HOME=/nonexistent','/usr/bin/git','--no-optional-locks','--git-dir=/home/loucmane/gas-city-ops/.git/worktrees/ga-sh3w','--work-tree=/home/loucmane/gas-city-ops-candidate-worktrees/ga-sh3w','-c','core.hooksPath=/dev/null','-c','core.fsmonitor=false','-c','core.attributesFile=/dev/null']
 GC = ['/home/loucmane/gascity/bin/gc', '--city', str(CITY)]
 PROVISIONER = Path('/home/loucmane/gas-city-template/bin/gct-managed-worker-provision')
 WITNESS = Path('/var/tmp/ga-e0t1.18-p10-adoption-20260926/typed-support.json')

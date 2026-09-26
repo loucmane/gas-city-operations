@@ -1,8 +1,8 @@
 #!/bin/sh
-# ga-sh3w window prep r7: the isolation overlay and its receipt image. Read-only: installs nothing
+# ga-sh3w window prep r8: the isolation overlay and its receipt image. Read-only: installs nothing
 # and launches no worker. It writes its fresh evidence root /var/tmp/ga-sh3w-prep-20260926-r1 plus the
-# staging log below. It is the reviewed ga-nibd prep (the ga-gegx prep) on the post-S3 host,
-# rebound to ga-sh3w, with
+# staging log below. It is the reviewed ga-qcwl prep on the post-P10 host, retargeted to the
+# Operations candidate (ga-sh3w), with
 # nudge-on-route kept out of the order skip list and given a 45m event
 # lookback through an order override.
 #

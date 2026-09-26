@@ -10,6 +10,11 @@ worktree after the previous candidate session drained:
   admin directory, back-pointer and commondir, HEAD is BASE, no driver or gitlink applies, and the status with
   ignored files is empty.
 It writes nothing else and refuses any existing output root.
+
+Partial failure: if `git worktree add` succeeds and a post-check refuses, the worktree, its admin directory and
+the branch stay, and ROOT holds only intent.json. BIND refuses without this job's exact result.json, so nothing
+can be routed. Recovery is a coordinator decision recorded on the Bead: inspect, then `git worktree remove` and
+delete the branch, and rerun from a new reviewed commit with a new output root (-r1 is consumed).
 """
 import hashlib
 import json
@@ -29,14 +34,15 @@ BASE='040139d8738a025cbb5afcc8170b700292c5016e'
 BRANCH='codex/ga-sh3w-delivery-class'
 TOOLS=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/candidate_git.py')
 TOOLS_SHA='d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe'
-ENV=dict(HOME='/home/loucmane',USER='loucmane',LOGNAME='loucmane',LANG='C.UTF-8',PATH='/usr/bin:/bin',
-         GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_GLOBAL='/dev/null',GIT_OPTIONAL_LOCKS='0')
+ENV=dict(HOME='/nonexistent',USER='loucmane',LOGNAME='loucmane',LANG='C.UTF-8',PATH='/usr/bin:/bin',
+         GIT_CONFIG_NOSYSTEM='1',GIT_CONFIG_GLOBAL='/dev/null',GIT_ATTR_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
 
-def git(*args):
+def git(*args,expected=(0,)):
     r=subprocess.run(['/usr/bin/git','--no-optional-locks','-C',str(OPS),'-c','core.hooksPath=/dev/null',
-        '-c','core.fsmonitor=false',*args],env=ENV,stdin=subprocess.DEVNULL,capture_output=True,timeout=120)
-    assert r.returncode==0,(args,r.stderr[-2000:])
-    return r.stdout
+        '-c','core.fsmonitor=false','-c','core.attributesFile=/dev/null',*args],env=ENV,stdin=subprocess.DEVNULL,
+        capture_output=True,timeout=120)
+    assert r.returncode in expected,(args,r.returncode,r.stderr[-2000:])
+    return r
 
 def main():
     assert os.getuid()==os.geteuid()==1000 and globals().get('_SOURCE_SHA')
@@ -48,9 +54,8 @@ def main():
     s=CANDIDATE_ROOT.lstat()
     assert stat.S_ISDIR(s.st_mode) and s.st_uid==1000 and not stat.S_IMODE(s.st_mode)&0o022,'candidate root authority'
     assert os.listdir(CANDIDATE_ROOT)==[],'candidate root is not empty'
-    assert git('rev-parse','--verify','refs/heads/main^{commit}').decode().strip()==BASE,'Operations main is not BASE'
-    assert subprocess.run(['/usr/bin/git','--no-optional-locks','-C',str(OPS),'rev-parse','--verify','--quiet',
-        'refs/heads/'+BRANCH],env=ENV,capture_output=True).returncode==1,'branch already exists'
+    assert git('rev-parse','--verify','refs/heads/main^{commit}').stdout.decode().strip()==BASE,'Operations main is not BASE'
+    assert git('rev-parse','--verify','--quiet','refs/heads/'+BRANCH,expected=(1,)).returncode==1,'branch already exists'
     assert not os.path.lexists(ADMIN),'admin directory already exists'
     ROOT.mkdir(mode=0o700)
     (ROOT/'intent.json').write_text(json.dumps(dict(work=str(WORK),base=BASE,branch=BRANCH,executor_sha256=_SOURCE_SHA),

@@ -168,3 +168,31 @@ Operating rules carried from ga-qcwl:
 - `gc` only with the env prefix;
 - no coordinator Bead write, `gc` call or directory walk from PREFLIGHT to TERMINAL, apart from the reviewed
   jobs and read-only checks.
+
+## Review history
+
+- **s1 `604f9502`.** Review A gave SOURCE_PASS. Review B held on must_fix 1: the `%s`-formatted audit root
+  kept the old qcwl date (`-20260923-r1`), while ROUTE and RESUME look for `-20260926-r1`, so every RESUME
+  after a successful ROUTE would have refused. Both transcripts are filed under `604f9502`.
+- **s1 r2** answers both reviews:
+  - B must_fix 1: the root date rewrite matches `%s` roots, and `test_every_output_root_has_one_date` asserts
+    one date for every root and that the audit, ROUTE and RESUME agree.
+  - A should_fix 1 and 8, and B should_fix 4: the hardened candidate git and the WORKTREE git now also set
+    `GIT_ATTR_NOSYSTEM=1`, `HOME=/nonexistent` and `core.attributesFile=/dev/null`, as `candidate_git` does.
+    The branch probe goes through the timed, hardened helper (A 2).
+  - A should_fix 3: the WORKTREE docstring states the partial-failure disposition. BIND refuses without the
+    exact result; recovery (worktree remove, branch delete, new commit and root) is a recorded coordinator
+    decision.
+  - B should_fix 2: the audit aliases add Core's no-session-bead fallback `gascity--operations-candidate-worker`
+    and the `s-` id prefix.
+  - A should_fix 6: the PREP wrapper's history label is r8.
+  - A should_fix 5: the P10 preflight directory's `phase_runner.py` is `eddf5e11`, checked live.
+- **Carried to s2:**
+  - the window PREP pins are qcwl placeholders until s2 re-pins them, and they fail closed (B 1);
+  - the audit covers the gascity rig and city stores, while a candidate-routed Bead in another rig would only
+    cost the attempt (B 3);
+  - check the worker-start trust key for the linked worktree, which is keyed by the main repository path
+    (B 5);
+  - have TERMINAL or INTAKE prove that the shared common directory's config, hooks, `info/attributes` and
+    non-candidate refs are unchanged (A 7);
+  - the IDENTITY and digest rewrites are global, and the leftover-token test compensates for that (A 4).
