@@ -126,3 +126,41 @@ Run after M9 is accepted. Use P9's order, each step once, as
 - an authentication posture other than subscription;
 - a pinentry prompt;
 - drift outside the receipt.
+
+## Read-only run and adoption binding (r2, 2026-09-26)
+
+r1 `afd50580` received two SOURCE_PASS verdicts with no must_fix. Steps 1 to 3 then ran once each, all passing,
+at the reviewed commit:
+- **input:** result `79c189d4`, draft `c6674ba5`, and the traced revision is unchanged at `83c41af6`.
+- **compose:** ok and unchanged. Both profiles' observed argv, environment and revision equal the draft.
+- **readiness:** ok and unchanged, with no inference, signing or worker. All eight modes completed:
+  - the finalized receipt is `c833908f`, self `6bb7ca5b`;
+  - the signing profile is still `ad0c695b`, and the candidate is `e641dc17`;
+  - Core preflight passed for signing (ending in `signer`) and for the candidate (ending in `no_signer`);
+  - both negatives stopped at `worker_profile_sha256 mismatch` after `check_path_stamp`.
+  These are exactly the dry proof's results.
+
+r2 fills the five adoption constants:
+- `NEW_SHA` `c833908f` and `NEW_SELF` `6bb7ca5b`;
+- `READY_RESULT_SHA` `ebccc145`, `READY_BEFORE_SHA` `6dedcfa2` and `READY_PINS_SHA` `82a4a70c`.
+
+The tests now also assert the signing profile in the installed evidence (A should_fix 2), and compare the signing
+composition in full (A should_fix 4).
+
+**Review notes carried (no must_fix):**
+- **Lane coupling (B 1, A 3).** The whole-inventory consumers walk every receipt profile: `observeLiveEnvironment`
+  and the canary. After P10, drift in the candidate policy, wrapper or M9 pin also fails a signing canary or
+  managed dispatch. Neither is active today, because no rig sets `managed_product`. Every receipt change also
+  makes existing canary receipts stale, so any later canary must be minted after P10.
+- **Mode name (A 1).** `negative-old-path` is now a generic PATH-extension negative. The name stays, because
+  renaming it would change the built diagnostic.
+- **Controller pin (B 2).** `p10-adopt.py` inherits P9's `controller_pid` 995924 pin, which fails closed on a
+  controller restart.
+
+**Window requirements from review B.** These go to the first-window package:
+- (a) The routed candidate Bead carries no `opt_*` or `template_overrides`, since those change the argv.
+- (b) Every open or in-progress Bead routed or assigned to the candidate carries exactly `gc.check_path` =
+  the pack's `build-artifact-valid.sh`.
+- (c) The Bead carries `gc.build.artifact_schema` and `gc.build.artifact_path_keys`, plus the artifact path key,
+  as the signing bind step does.
+- (d) The pack cache must not refresh, because the check path and digest live under it.

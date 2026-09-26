@@ -174,8 +174,9 @@ def test_the_candidate_profile_is_cores_own_composition(p):
         assert run.returncode == 0, run.stderr
         observed = json.loads(run.stdout)
         assert observed['profile'] == name and observed['permission_revision'] == REVISION
-        if name == CANDIDATE:
-            assert observed['argv'] == p.CANDIDATE['argv'] and observed['environment'] == p.CANDIDATE['environment']
+        expected = p.CANDIDATE if name == CANDIDATE else json.loads(LIVE.read_bytes())['profiles'][0]
+        if name == CANDIDATE or sha(LIVE) == p.RECEIPT_OLD_SHA:
+            assert observed['argv'] == expected['argv'] and observed['environment'] == expected['environment']
 
 
 def test_diagnostic_builds_are_the_reviewed_builder_over_these_sources():
@@ -243,3 +244,7 @@ def test_adoption_constants_bind_the_readiness_evidence():
     result = json.loads((ready/'result.json').read_bytes())
     assert result['ok'] is True and result['unchanged'] is True and result['error'] is None
     assert [q['name'] for q in final['profiles']] == [SIGNING, CANDIDATE]
+    # The signing lane is byte-for-byte unchanged in the evidence the adoption installs (r1 review A should_fix 2).
+    assert final['profiles'][0]['worker_profile_sha256'] == SIGNING_DIGEST
+    live = json.loads(LIVE.read_bytes())
+    assert final['profiles'][0] == live['profiles'][0] or sha(LIVE) == sha(ready/'receipt.final.json')
