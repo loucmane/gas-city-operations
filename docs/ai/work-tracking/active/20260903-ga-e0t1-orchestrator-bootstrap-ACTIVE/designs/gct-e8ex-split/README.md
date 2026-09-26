@@ -181,3 +181,21 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 - **Routing-time checks (A 3, B 3, B 7) and an abandoned task (A 6)** belong to the Template window package:
   ROUTE re-asserts that the task has no notes and re-measures its plain view before `gc sling`, and a task
   replaced in recovery is closed, never routed.
+
+## r10 (operator decision 2026-09-26: the codex worker gets no Template .git write)
+
+Four review rounds of the Template window held on the codex grant to write the Template `.git`. The operator
+chose to drop it: the window gives the codex agent the narrower `classified-vault-and-template-worktrees`
+choice, so the worker cannot stage. Holder 6 changes to match, and to match spec part 1, which already says the
+worker delivers uncommitted work and the coordinator does all staging:
+- the worker must not stage or write any git state (`git add`, `rm`, `mv`, `restore --staged`, `write-tree`,
+  `commit`, `stash`), which overrides the staging step in its prompt;
+- it leaves its files in the worktree (never under `.agents/`, `.claude/skills/` or `.gc/`), records
+  `git status --porcelain --untracked-files=all` and a bounded test summary, and appends the literal last note
+  `READY FOR SIGNING: <task> worktree`, then escalates once and stops;
+- the coordinator reads the worktree, reviews, stages, signs, delivers and closes.
+
+Apply order, on the live Beads: gct-mbg6 is still clean (open, unassigned, no notes, metadata or edges), so it
+is re-rendered, not replaced. `render-holders` gives the new holder 6 text (holders 1 to 5 are byte-identical);
+create it closed and edgeless; `render-task` with holders 1 to 5 and the new holder 6; update the gct-mbg6
+description; re-run the step 5 live check. The old holder 6, gct-icv2, stays closed and unreferenced.

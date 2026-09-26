@@ -71,14 +71,22 @@ def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
     assert header.startswith('gct-e8ex coordinator notes and review hints (holder 6 of 6)')
     assert 'not a work item\nand is closed' in header and s.GUIDANCE in text
     for needle in ('"this Bead" means the claimed task, gct-tttt', 'do not read, update or close it',
-                   '/Docs/worklogs/gct-tttt.md` (one note per Bead)', 'run `git write-tree` as its own',
-                   '`READY FOR SIGNING: gct-tttt tree <digest>`', 'do not run\n  `gc runtime drain-ack`',
-                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', '`ESCALATED:` with its reason, then send it', 'do not close the task Bead', 'never run `git commit`', 'stop without sending', 'Keep every task note to a few lines', 'a bounded test summary',
-                   '`git diff --cached --name-only`', '`git restore --staged <file>`',
-                   'explicit file paths, never a directory', 'refused as ignored is reported',
-                   'every test you can run passes', '"The worker\n  report" means',
+                   '/Docs/worklogs/gct-tttt.md` (one note per Bead)',
+                   '`READY FOR SIGNING: gct-tttt worktree`', 'do not run\n  `gc runtime drain-ack`',
+                   '`.agents/`, `.claude/skills/` or `.gc/`', '`ESCALATED:` with its reason, then send it',
+                   'do not close the task Bead', 'never run `git commit`', 'stop without sending',
+                   'Keep every task note to a few lines', 'a bounded\n  test summary',
+                   'you must not stage: this\n  overrides the staging step in your prompt',
+                   'Never run `git add`, `git rm`, `git mv`', '`git write-tree`, `git commit`, `git stash`',
+                   '`git status --porcelain --untracked-files=all` as its own command',
+                   'the coordinator does all staging', 'reviews, stages, signs, delivers and closes it',
+                   'every test you can run passes', '"The worker report" means',
                    "are the\n  coordinator's"):
         assert needle in text, needle
+    # r10 (operator decision 2026-09-26: no Template .git write): no staging instruction survives.
+    for gone in ('tree <digest>', '`git diff --cached --name-only`', 'explicit file paths, never a directory',
+                 'means stage and'):
+        assert gone not in text, gone
     for needle in ('ReadControlPolicy', 'InspectToolchain', 'run-isolated-composition.py', 'managedworker_test',
                    'gas-city-template-candidate-worktrees'):
         assert needle in text, needle
@@ -105,8 +113,8 @@ def test_holders_depend_only_on_the_task_id(s, tmp_path, rendered):
     assert sorted(alone) == ['spec-%d.md' % n for n in range(1, 7)]
     for name, text in alone.items():
         assert text == rendered[name], name
-    # Only the two intended angle-bracket tokens remain: the digest to fill in and Core's quoted error text.
-    assert '<' not in alone['spec-6.md'].replace('<digest>', '').replace('<name>', '').replace('<file>', '')
+    # Only one angle-bracket token remains: Core's quoted error text.
+    assert '<' not in alone['spec-6.md'].replace('<name>', '')
     assert '<' not in rendered['task.md'][rendered['task.md'].index('## Stop check'):].replace('<n>', '')
     other = s.holders('gct-tttt')
     assert other == alone
@@ -139,7 +147,7 @@ def test_stop_check_comes_before_every_read(rendered):
 def test_ready_note_comes_before_the_mail(rendered):
     """r8 (r7 review A 4): the READY line is appended before the one escalation is sent."""
     text = rendered['spec-6.md']
-    ready = text.index('`READY FOR SIGNING: gct-tttt tree <digest>`')
+    ready = text.index('`READY FOR SIGNING: gct-tttt worktree`')
     assert ready < text.index('If that line cannot be appended, stop without sending') < text.index(
         'Otherwise send one escalation')
     assert 'do not close this Bead and do not run\n`gc runtime drain-ack`' in rendered['task.md']
