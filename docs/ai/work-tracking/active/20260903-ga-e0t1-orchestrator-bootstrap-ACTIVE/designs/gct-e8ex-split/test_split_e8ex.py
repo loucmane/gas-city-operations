@@ -72,8 +72,8 @@ def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
     assert 'not a work item\nand is closed' in header and s.GUIDANCE in text
     for needle in ('"this Bead" means the claimed task, gct-tttt', 'do not read, update or close it',
                    '/Docs/worklogs/gct-tttt.md` (one note per Bead)', 'run `git write-tree` as its own',
-                   '`READY FOR SIGNING: gct-tttt tree <digest>`', 'do not run `gc runtime drain-ack`',
-                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', '`ESCALATED:` with its reason, then send it', 'stop without sending', 'Keep every task note to a few lines', 'a bounded test summary',
+                   '`READY FOR SIGNING: gct-tttt tree <digest>`', 'do not run\n  `gc runtime drain-ack`',
+                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', '`ESCALATED:` with its reason, then send it', 'do not close the task Bead', 'never run `git commit`', 'stop without sending', 'Keep every task note to a few lines', 'a bounded test summary',
                    '`git diff --cached --name-only`', '`git restore --staged <file>`',
                    'explicit file paths, never a directory', 'refused as ignored is reported',
                    'every test you can run passes', '"The worker\n  report" means',
@@ -127,7 +127,8 @@ def test_stop_check_comes_before_every_read(rendered):
     stop = task.index('## Stop check (before anything else)')
     assert stop < task.index('## The full specification (read first)') < task.index('1. `/home/loucmane/gascity/bin/gc bd show')
     head = task[stop:task.index('## The full specification (read first)')]
-    for needle in ('`READY FOR SIGNING:`, `ESCALATED:` or `STOPPED:`', 'records an escalation or a failed read',
+    for needle in ('`READY FOR SIGNING:`, `ESCALATED:` or `STOPPED:`', 'otherwise records a sent escalation',
+                   'If any part of the task view itself is truncated',
                    'do not close this Bead, do not run `gc runtime drain-ack`', '`STOPPED: task view truncated`'):
         assert needle in head, needle
     failed = task[task.index('If any read is truncated or fails'):]
@@ -138,4 +139,7 @@ def test_stop_check_comes_before_every_read(rendered):
 def test_ready_note_comes_before_the_mail(rendered):
     """r8 (r7 review A 4): the READY line is appended before the one escalation is sent."""
     text = rendered['spec-6.md']
-    assert text.index('`READY FOR SIGNING: gct-tttt tree <digest>`') < text.index('Then send one escalation')
+    ready = text.index('`READY FOR SIGNING: gct-tttt tree <digest>`')
+    assert ready < text.index('If that line cannot be appended, stop without sending') < text.index(
+        'Otherwise send one escalation')
+    assert 'do not close this Bead and do not run\n`gc runtime drain-ack`' in rendered['task.md']

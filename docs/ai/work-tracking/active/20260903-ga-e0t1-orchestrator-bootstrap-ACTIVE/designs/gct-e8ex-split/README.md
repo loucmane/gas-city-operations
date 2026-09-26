@@ -10,7 +10,8 @@ first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (10 test
 - the notes holder carries the notes and the review guidance;
 - render refuses bad ids;
 - the holders depend only on the task id;
-- the stop check comes before every read.
+- the stop check comes before every read;
+- the READY note comes before the mail, and a failed READY record sends nothing.
 
 ## Why
 
@@ -165,3 +166,18 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 - **Step 5 recovery (A 3, B 4).** A dirty task needs a new task Bead and new holders; a second mismatch after one
   recovery goes back to review instead of looping.
 - **Tests (A 4).** The stop-check clauses, the failed-read order and the READY-before-mail order are pinned (10 tests).
+
+## r9 (answers the reviews of `5b08cd60`: A and B SOURCE_PASS)
+
+- **READY record-or-stop (A 1, B 1).** If the READY line cannot be appended, nothing is sent; holder 6 also says
+  never to run `git commit` (B 5).
+- **The stop check matches only markers and sent escalations (A 5, B 2).** A worker note about some failed file
+  read no longer stops a restarted session.
+- **Any truncation stops (B 3).** Any truncated part of the task view, not only hidden notes, appends
+  `STOPPED: task view truncated` and stops.
+- **The failed-read path forbids close and drain-ack (B 4).**
+- **Tests:** the READY fallback order, the no-close and never-commit needles and the new stop-check wording are
+  pinned (10 tests; the READY-before-mail test is `test_ready_note_comes_before_the_mail`).
+- **Routing-time checks (A 3, B 3, B 7) and an abandoned task (A 6)** belong to the Template window package:
+  ROUTE re-asserts that the task has no notes and re-measures its plain view before `gc sling`, and a task
+  replaced in recovery is closed, never routed.

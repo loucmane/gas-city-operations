@@ -104,8 +104,9 @@ def notes_holder(task_id):
             '  worklog. Keep every task note to a few lines; detail goes to the worklog. As the last note, append\n'
             '  exactly this line with the digest filled in:\n'
             f'  `READY FOR SIGNING: {task_id} tree <digest>`\n'
-            '  Then send one escalation to the mayor with that same line as its subject, and stop: do not close the\n'
-            '  task Bead and do not run `gc runtime drain-ack`. The coordinator reads the task notes, reviews, signs,\n'
+            '  If that line cannot be appended, stop without sending anything. Otherwise send one escalation to the\n'
+            '  mayor with that same line as its subject, and stop: do not close the task Bead, do not run\n'
+            '  `gc runtime drain-ack` and never run `git commit`. The coordinator reads the task notes, reviews, signs,\n'
             '  delivers and closes it.\n'
             '- The stop check at the top of the task description applies throughout. Record every other escalation\n'
             '  first as a task note starting `ESCALATED:` with its reason, then send it; if that note cannot be\n'
@@ -117,10 +118,10 @@ def pointer(ids):
     lines = ['## Stop check (before anything else)\n\n',
              'The claimed task is "this Bead" throughout; the heading keeps the source id of the umbrella. Before any\n',
              'other read, read this Bead\'s notes (in the task view you already have). If any note contains\n',
-             '`READY FOR SIGNING:`, `ESCALATED:` or `STOPPED:`, or otherwise records an escalation or a failed read, send\n',
+             '`READY FOR SIGNING:`, `ESCALATED:` or `STOPPED:`, or otherwise records a sent escalation, send\n',
              'nothing, do not close this Bead, do not run `gc runtime drain-ack`, and stop: the coordinator reads the\n',
-             'notes. If the task view itself is truncated and you cannot see the notes, append the note\n',
-             '`STOPPED: task view truncated` and stop the same way, sending nothing.\n\n',
+             'notes. If any part of the task view itself is truncated, append the note `STOPPED: task view truncated`\n',
+             'and stop the same way, sending nothing.\n\n',
              '## The full specification (read first)\n\n',
              'This description continues in six closed holder Beads. Parts 1 to 5 are the rest of this description,\n',
              'verbatim from the reviewed r6 brief and split only because of its length: the requirements this task must\n',
@@ -133,7 +134,8 @@ def pointer(ids):
         lines.append(f'{n}. `{GC_SHOW} {sid}` ({"part %d: " % n if n <= 5 else ""}{what}).\n')
     lines.append('If any read is truncated or fails, stop: first append to this Bead the note `ESCALATED: read <n> failed`\n'
                  '(n is its number above), then escalate to the mayor as your prompt describes; if that note cannot be\n'
-                 'recorded, stop without sending. Do not guess the missing text.\n\n')
+                 'recorded, stop without sending. Do not guess the missing text, do not close this Bead and do not run\n'
+                 '`gc runtime drain-ack`.\n\n')
     return ''.join(lines)
 
 
