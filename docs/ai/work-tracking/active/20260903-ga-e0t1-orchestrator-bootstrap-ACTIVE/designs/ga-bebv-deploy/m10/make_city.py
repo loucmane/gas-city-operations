@@ -15,8 +15,9 @@ exact, count-checked changes, nothing else:
 
 Why: the ga-6umo hotfix (Core 207a78e2, sequence 16) keeps only benign metadata options (model and effort)
 and refuses a work_dir outside the configured roots. The live providers still merge by_key over the builtin
-schemas, which offer unrestricted permission modes (claude bypassPermissions, codex --yolo and
-danger-full-access). Replace mode removes them from every provider derived from claude or codex. The
+schemas, which offer an unrestricted permission mode (claude --dangerously-skip-permissions, codex
+--dangerously-bypass-approvals-and-sandbox) and the codex danger-full-access sandbox. Replace mode removes them
+from every schema derived from claude or codex (the builtin PermissionModes map itself stays in Core). The
 offline Core probe (PLAN-M10.md) resolved all 118 agent and provider entries with the 207a78e2 source: no
 unsafe choice, and every launch command and default equals today's.
 """

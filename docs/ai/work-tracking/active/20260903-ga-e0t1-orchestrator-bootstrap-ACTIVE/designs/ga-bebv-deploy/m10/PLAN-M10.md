@@ -10,12 +10,14 @@ The ga-6umo hotfix keeps only benign metadata options (model and effort) and ref
 work_dir outside the configured work_dir, the rig session worktrees and the agent's `work_dir_roots`. The live
 city.toml still merges the claude and codex providers `by_key` over the builtin schemas, and those offer
 unrestricted choices:
-- claude `bypassPermissions` (`--dangerously-skip-permissions`);
-- codex `--yolo` and `danger-full-access`.
+- claude `unrestricted` (`--dangerously-skip-permissions`);
+- codex `unrestricted` (`--dangerously-bypass-approvals-and-sandbox`) and the `danger-full-access` sandbox.
 
 Every provider derived from claude or codex inherits them (claude-signing, claude-candidate, claude-attention,
 codex-managed, codex-managed-worklog, codex-attention, codex-evidence). The hotfix already stops metadata from
-selecting them; M10 removes them from the configuration itself. The task worktree roots move under
+selecting them; M10 removes them from every option schema. Known residual (r1 review B should_fix 2): the
+builtin `PermissionModes` map merges additively, so Core still knows those argv as permission-mode policy
+(`ValidateManagedLaunchPermissionPolicy`). No schema offers them, so nothing can select them. The task worktree roots move under
 `work_dir_roots` so the guard accepts every real candidate worktree and nothing else.
 
 ## The city.toml change (make_city.py, 4f7e170f to e5b68c40)
@@ -50,8 +52,19 @@ agent and named provider with `ResolveProvider` and `BuildProviderLaunchCommand`
 | resolution errors | 0 | 0 |
 | launch command or default differences | | 0 |
 
-The guard accepted 33 Template, 35 Core, 18 Blog and 6 HPFetcher worktrees. It refused only
-`blog-worktrees/.git`, a Git metadata directory, which is correct.
+The guard accepted 33 Template, 35 Core, 18 Blog and 6 HPFetcher worktrees, and 0 under the operations
+candidate root, which has none today. It refused only `blog-worktrees/.git`, a Git metadata directory, which
+is correct.
+
+Limits of the probe (r1 reviews A should_fix 5 and B should_fix 3): it compares the default launch command and
+the effective defaults only. It does not compare resume commands (they carry no schema flags), title
+arguments or `PermissionModes`, and its output records no digest of the city bytes it loaded. The binding of
+`probe-full.json` to e5b68c40 rests on the run log of 2026-09-27, not on the file.
+
+Behaviour change (r1 review B should_fix 1): the builtin claude title model is `haiku`, and replace mode drops
+that choice, so title generation runs `claude -p` without `--model` (the CLI default). That is a cost and
+latency change, not a safety one. Follow-up: add `title_model = "haiku-4-5"` to `[providers.claude]` in the
+next city-config successor.
 
 ## The complete delta (M9 to M10)
 
@@ -153,6 +166,38 @@ From the prerequisite until `restore-accepted`:
 - no gc, no `workflow.py`, no Bead write, and no git in pinned repositories;
 - no edit of the package worktree while a review runs;
 - nothing resumes a city agent or reruns provisioning.
+
+## Review and binding (2026-09-27)
+
+**r1 `2d6646d5`** received two independent SOURCE_PASS verdicts with no must_fix. The should_fix items were:
+- **Wording** (A 1, B 2, B 8). The unsafe flag names above are corrected here and in `make_city.py`.
+- **Selections is stricter than Core** (A 2). `selections()` treats a by_key child key as replacing its
+  parent's choice list, while Core merges the choices by value. So it can refuse falsely but never admit a
+  withdrawn choice. It held against the live files.
+- **Not digest-pinned** (A 3, B 7). `make_city.py` is not pinned by digest. Its output is bound twice to
+  CITY_NEW.
+- **Interrupted steps** (A 4, B 4, B 5).
+  - An `inputs` step interrupted after its intent refuses on rerun and on resume. It touches no live state;
+    recovery is by hand.
+  - A `city` step interrupted between the temporary write and the rename leaves
+    `.city.toml.ga-bebv-m10.forward.tmp`. Rollback lists it but does not remove it; inspect it by hand. The
+    city root is neither a capture tree nor a protected tree.
+- **No control-flow tests** (B 6). The prerequisite's control flow has no interruption-matrix tests.
+- **Core residual** (B 9), for ga-5eix. `ContainedIn` accepts a root itself, so a Bead can name a whole
+  worktree root as its work_dir. Every root already lies inside that lane's existing write grant.
+
+The code items apply to a successor prerequisite; this one already ran as reviewed.
+
+**Live results, all from `2d6646d5`, in the supervisor namespaces:**
+- **`prereqs_m10.py 5ebd17c0 inputs`.** Record `reports/m10-inputs/prereq-inputs.json`.
+- **`prereqs_m10.py 5ebd17c0 city`.** The live city.toml is e5b68c40, and no temporary file is left.
+- **`capture_m10.py 5ebd17c0`.** `reports/m10-capture/baseline.json` is `fc9ee176`:
+  - zero drifts and 769 pins over 49 trees;
+  - pin changes exactly city.toml;
+  - cache bookkeeping only the known `954ed149…/.git` entry.
+
+The binding commit pins `BASELINE_SHA` (`manifest_candidate.py` moves from `5ebd17c0` to the digest in
+`source-pins.json`), adds `source-pins.json`, and fixes the wording above. No executed code changed.
 
 ## Stop conditions
 

@@ -44,8 +44,10 @@ OLD_MANIFEST_SHA = '5a29dc596af192e0f314391453d25d6be548695a0defd64bdfc2fa76554e
 OLD_RECEIPT_SHA = '4c19802fc60f12695ec4080497b195278943185c4e8758f41feeac50e5b16092'
 OLD_RELEASE_ID = 'ops-candidate-provider-metadata-m9-20260926'
 BASELINE_PATH = O + '/reports/m10-capture/baseline.json'
-# Frozen by the capture after the city prerequisite, then reviewed. Until then build() refuses.
-BASELINE_SHA = None
+# Frozen by the 2026-09-27 capture (candidate 5ebd17c0 at 2d6646d5, after the city prerequisite; zero drifts,
+# exactly the city.toml pin change, the known cache Git bookkeeping entry). Nobody runs gc, workflow.py or a
+# Bead write until restore-accepted.
+BASELINE_SHA = 'fc9ee176706faf43e94f409a7a8df728eb6521f6e6f4d7115b1080865d333118'
 SUSPENSION_SHA = '6d89f53738fbae8a2f07c7026de61207704ed44bbde79c0fc1f3a1d18b166ee0'
 TEMPLATE = '/home/loucmane/gas-city-template'
 TEMPLATE_COMMIT = 'cfd353f30f465cdf67bbd41fab48812fe5b9617e'
