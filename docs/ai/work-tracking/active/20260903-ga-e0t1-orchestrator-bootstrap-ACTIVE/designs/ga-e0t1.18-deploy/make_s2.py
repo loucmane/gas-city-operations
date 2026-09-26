@@ -2,10 +2,10 @@
 
   python3 -I -B make_s2.py [output]
 
-Source: designs/ga-e0t1.15-deploy/s2_transition.py (sha 9ce041ec), the file that ran the sequence 14 adoption of
-b2760ea4 (attempt t1, then its read-only recovery acceptance). Every change is one of the exact, count-checked
-substitutions below. Reviewers diff s2_transition.py against the source; test_s2.py proves that the committed
-file equals this generator's output.
+Source: designs/ga-e0t1.15-deploy/s2_transition.py (sha 9ce041ec), the final sequence 14 file: attempt t1 ran an
+earlier byte revision of it, and this revision ran the read-only recovery acceptance of b2760ea4. Every change is
+one of the exact, count-checked substitutions below. Reviewers diff s2_transition.py against the source;
+test_s2.py proves that the committed file equals this generator's output.
 
 What sequence 15 changes, and why:
 - Identity: Core b2760ea4 -> fce2e9a0 (S1 of ga-e0t1.18, build source deefb98b / tree af5c3f04 = merge f3856bd1,
@@ -21,9 +21,16 @@ What sequence 15 changes, and why:
 - Broker: it stayed active after sequence 14 (socket activation), so the predecessor broker is active and running
   and the transition admits the unchanged broker record or, exactly as before, a fresh activation epoch.
 - Postflight: sequence 14's postflight1 refused on a transient supervisor-scope member during initialization.
-  Before each postflight capture the scope must now pass on two consecutive reads 5 s apart (bounded 180 s); the
-  capture then checks it again exactly.
-- The sequence 14 recovery phase is removed; a sequence 15 recovery would be its own reviewed change.
+  Before each postflight capture the scope must now pass on two consecutive reads 5 s apart (bounded 180 s),
+  recorded as <phase>-scope-wait.json (passes, elapsed, every distinct error); the capture then checks it again
+  exactly. The wait uses the same observation calls as the capture (host_observation runs gc status and session
+  list with the new binary), no other access.
+- Budget (s2 r2, both reviews): submit now requires at least 240 s of window and envelope budget left, not 31 s.
+- Recovery (s2 r2, review B must_fix 1): the read-only, deadline-free recovery phase is kept and generalized to
+  any postflight1 or postflight2 terminal after a completed broker call, so a post-submit deadline or transient
+  refusal is recoverable by reviewed code, not a dead end.
+- Cache (s2 r2): with no additions, the cache root metadata must also be exactly unchanged.
+- Accept (s2 r2): the broker socket must be active, enabled, Result success and SubState listening or running.
 """
 import hashlib
 import json
@@ -121,8 +128,10 @@ def overrides(r):
          "        o.require(s14_sha(Path('/proc/'+str(w)+'/exe').read_bytes()) in (%r,c.OLD),'surviving watchdog image is not a known prior image')\n"
          % PRIOR_IMAGE),
         ("    c.o.require(S14_NEW_KEY in tops and tops<={S14_NEW_KEY,S14_OPTIONAL_KEY},'unexpected cache additions')\n",
-         "    # sequence 15: the embedded pack content is unchanged, so no required directory appears.\n"
-         "    c.o.require(tops<={S14_OPTIONAL_KEY},'unexpected cache additions')\n"),
+         "    # sequence 15: the embedded pack content is unchanged, so no required directory appears; with no\n"
+         "    # additions the cache root metadata must also be exactly unchanged (s2 r2).\n"
+         "    c.o.require(tops<={S14_OPTIONAL_KEY},'unexpected cache additions')\n"
+         "    if not tops:c.o.require(a['.']==b['.'],'cache root changed without additions')\n"),
         ("        o.require(bool(admitted) and S14_NEW_KEY in admitted,'candidate cache not admitted')\n",
          "        o.require(admitted is not None and set(admitted)<={S14_OPTIONAL_KEY},'candidate cache not admitted')\n"),
         ("    c.o.require(old_dolt['watchdog_image']=='live','predecessor watchdog not live')\n",
@@ -147,20 +156,45 @@ def overrides(r):
          "# sequence 15: sequence 14's postflight1 refused on a transient supervisor-scope member during\n"
          "# initialization. Wait, bounded and read-only, until the quiet scope passes on two consecutive reads 5 s\n"
          "# apart. The postflight capture then checks the scope again exactly.\n"
+         "# It returns its evidence (passes, elapsed, every distinct error seen) for the caller to record.\n"
          "S15_SCOPE_WAIT_NS=180*d.SECOND\n"
          "def s15_wait_scope_settled():\n"
          "    o=c.o;o.GC_SHA=c.NEW\n"
-         "    start=time.monotonic_ns();last=None;passes=0\n"
+         "    start=time.monotonic_ns();last=None;passes=0;reads=0;errors=[]\n"
          "    while time.monotonic_ns()-start<S15_SCOPE_WAIT_NS:\n"
+         "        reads+=1\n"
          "        try:\n"
          "            c.s.quiet_scope(o.host_observation());passes+=1\n"
-         "            if passes>=2:return\n"
+         "            if passes>=2:\n"
+         "                return dict(settled=True,reads=reads,elapsed_ns=time.monotonic_ns()-start,errors=errors)\n"
          "        except Exception as exc:\n"
          "            last=str(exc);passes=0\n"
+         "            if last not in errors:errors.append(last)\n"
          "        time.sleep(5)\n"
          "    o.require(False,'supervisor scope not settled within bound: '+str(last))\n"),
         ("    if after:\n        s14_wait_initialized()\n",
-         "    if after:\n        s14_wait_initialized()\n        s15_wait_scope_settled()\n"),
+         "    if after:\n        s14_wait_initialized()\n"
+         "        record(args.phase+'-scope-wait.json',s15_wait_scope_settled())\n"),
+        ("        c.o.require(budget>31*d.SECOND,'insufficient one-shot submission budget')\n",
+         "        # sequence 15 (s2 r2): both postflights, with their bounded waits, must fit in what is left.\n"
+         "        c.o.require(budget>240*d.SECOND,'insufficient one-shot submission budget')\n"),
+        ("    # reads as \"<path> (deleted)\". That is admitted only when the mapped image is exactly c.OLD.\n",
+         "    # reads as \"<path> (deleted)\". Sequence 15 admits it only when the mapped image is exactly 69d00186 (the\n"
+         "    # survivor of sequence 14) or c.OLD.\n"),
+        ("# --- 3. Cache admission. After the new Core starts, exactly one new synthetic directory (S14_NEW_KEY)\n"
+         "# must appear, and S14_OPTIONAL_KEY may appear. Their full contents must equal the S1b expectation,\n",
+         "# --- 3. Cache admission. Sequence 15: no synthetic directory may appear except S14_OPTIONAL_KEY, whose\n"
+         "# full contents must equal the ga-e0t1.15 S1b expectation (the pack content is unchanged),\n"),
+        ("# --- 5. Transition. This is sequence 13's rule (fresh Core epoch, the gc pin at NEW) plus fresh dolt\n"
+         "# members with the same identities, the admitted cache, and its tree summary.\n",
+         "# --- 5. Transition. This is sequence 13's rule (fresh Core epoch, the gc pin at NEW) plus fresh or\n"
+         "# survived dolt members, the broker rule below, and the admitted cache with its tree summary.\n"),
+        ("    # validate_transition rule: inactive to active/running with a fresh epoch, every other field\n",
+         "    # validate_transition rule, widened for sequence 15 to also admit the unchanged running broker; every other field\n"),
+        ("    # submitted (review B r2 should_fix 1): the broker is exactly inactive with its socket listening\n"
+         "    # (the base broker_precondition), and the dolt watchdog runs the live binary.\n",
+         "    # submitted (review B r2 should_fix 1). Sequence 15: the broker is active and running with its socket\n"
+         "    # active, and the dolt watchdog is live or the survivor of a known prior image.\n"),
         ("    o.require(host['broker']==dict(MainPID='0',NRestarts='0',ExecMainStartTimestampMonotonic='0',\n"
          "              ActiveState='inactive',SubState='dead',UnitFileState='disabled',Result='success'),\n"
          "              'accepted broker is not exactly inactive')\n"
@@ -173,15 +207,40 @@ def overrides(r):
          "    o.require(broker['ActiveState']=='active' and broker['SubState']=='running' and broker['NRestarts']=='0'\n"
          "              and broker['UnitFileState']=='disabled' and broker['Result']=='success' and int(broker['MainPID'])>1,\n"
          "              'accepted broker is not exactly active and running')\n"
-         "    o.require(host['broker_socket']['ActiveState']=='active' and host['broker_socket']['UnitFileState']=='enabled',\n"
-         "              'accepted broker socket')\n"
+         "    sock=host['broker_socket']\n"
+         "    o.require(sock['ActiveState']=='active' and sock['UnitFileState']=='enabled' and sock['Result']=='success'\n"
+         "              and sock['SubState'] in ('listening','running'),'accepted broker socket')\n"
          "    o.require(scope['dolt_members']['watchdog_image'] in ('live','deleted-old'),'accepted watchdog image')\n"),
         ("S14_ACCEPT_ROOT=Path('/var/tmp/ga-e0t1.15-predecessor-20260925-r3')", 'S14_ACCEPT_ROOT=Path(%r)' % accept_root),
+        # Recovery (s2 r2): kept and generalized, not removed.
+        ("# --- 9. Recovery acceptance (sequence 13 precedent). The broker submission of 2026-09-25T17:34Z\n"
+         "# succeeded (broker-result.json, submit-done.json in ROOT). postflight1 then refused with 'supervisor\n"
+         "# scope membership', apparently a transient member seen at initialization. ROOT stays terminal and\n"
+         "# preserved. This phase is read-only: no broker call, no timer change, no write outside\n",
+         "# --- 9. Recovery acceptance (sequence 13 and 14 precedent). Sequence 15 keeps this phase for any\n"
+         "# postflight1 or postflight2 terminal after a completed broker call (submit-done.json and\n"
+         "# broker-result.json present), for example a transient scope member or an expired envelope deadline\n"
+         "# during the postflight waits. ROOT stays terminal and\n"
+         "# preserved. This phase is read-only: no broker call, no timer change, no write outside\n"),
+        ("S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.15-seq14-recovery-20260925')",
+         "S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.18-seq15-recovery-20260926')"),
+        ("    c.o.require(json.loads((ROOT/'terminal.json').read_text())=={'phase':'postflight1','error_type':'Refused',\n"
+         "                'reason':'supervisor scope membership','submission_started':True},'terminal disposition changed')\n",
+         "    # Sequence 15: any submit, postflight1 or postflight2 terminal after a broker call that returned\n"
+         "    # success (for example the post-call fence or a postflight wait hitting the envelope deadline).\n"
+         "    terminal=json.loads((ROOT/'terminal.json').read_text())\n"
+         "    c.o.require(terminal.get('phase') in ('submit','postflight1','postflight2') and terminal.get('submission_started') is True,\n"
+         "                'recovery only follows a terminal after submission started')\n"
+         "    c.o.require(not os.path.lexists(ROOT/'postflight2.json'),'postflight2 already accepted; nothing to recover')\n"),
+        ("    c.o.require(os.path.lexists(ROOT/'submit-done.json') and os.path.lexists(ROOT/'broker-result.json'),'submission record')\n",
+         "    broker_result=json.loads((ROOT/'broker-result.json').read_text())\n"
+         "    c.o.require(broker_result.get('returncode')==0 and c.o.decode(broker_result.get('stdout','').encode()).get('ok') is True,\n"
+         "                'recovery needs a broker call that returned exact success')\n"),
+        ("        s14_wait_initialized()\n        c.timer_inactive()\n",
+         "        s14_wait_initialized()\n"
+         "        rec('scope-wait-%d.json'%n,s15_wait_scope_settled())\n"
+         "        c.timer_inactive()\n"),
     ]
-
-
-RECOVERY_START = '# --- 9. Recovery acceptance (sequence 13 precedent).'
-RECOVERY_END = "    s14_recover(sys.argv[2],sys.argv[3]);sys.exit(0)\n"
 
 
 def main():
@@ -196,11 +255,6 @@ def main():
     for old, new in header(accepted, r) + overrides(r):
         assert text.count(old) == 1, old[:90]
         text = text.replace(old, new)
-    assert text.count(RECOVERY_START) == 1 and text.count(RECOVERY_END) == 1
-    start = text.index(RECOVERY_START)
-    end = text.index(RECOVERY_END) + len(RECOVERY_END)
-    text = (text[:start] + '# --- 9. (sequence 15) The sequence 14 recovery acceptance phase is removed; a sequence 15\n'
-            '# recovery would be its own reviewed change.\n' + text[end:])
     OUT.write_text(text)
     print(sha(text.encode()))
 

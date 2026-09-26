@@ -96,11 +96,47 @@ rationale. In summary:
 | Inventory | `live_key_inventory.py`, derived with both keys set to `69fe9a2e`, writes the TSVs (`25735dc8`, `1ee92cb5`). A read-only check found no link or manifest still naming `a21cc0a2` |
 | Dolt | The watchdog that survived sequence 14 maps the deleted `69d00186`. The predecessor may be live, or deleted with image `69d00186` or OLD. The transition still admits exactly fresh or exactly survived |
 | Broker | It stayed active after sequence 14. Accept requires it active and running with NRestarts 0; the precondition then pins the accepted record exactly. The transition admits the unchanged record, or a fresh activation epoch as before |
-| Postflight | Before each capture, a bounded wait of 180 s requires the quiet scope to pass on two consecutive reads 5 s apart. This addresses the transient member that refused sequence 14's postflight 1 |
-| Recovery | The sequence 14 recovery phase is removed |
+| Postflight | Before each capture, a bounded wait of 180 s requires the quiet scope to pass on two consecutive reads 5 s apart. This addresses the transient member that refused sequence 14's postflight 1. The result is recorded as `<phase>-scope-wait.json` |
+| Budget | Submit requires at least 240 s of remaining window and envelope budget, up from 31 s |
+| Recovery | The read-only, deadline-free recovery phase is kept, generalized to any `submit`, `postflight1` or `postflight2` terminal after a broker call that returned exact success. Root: `/var/tmp/ga-e0t1.18-seq15-recovery-20260926` |
+| Cache (r2) | With no additions, the cache root metadata must also be exactly unchanged |
+| Accept (r2) | The broker socket must be active, enabled, Result success, and SubState listening or running |
 
-`test_s2.py` has 7 tests, including a live check of the prior state: the live Core is OLD, the shim is `a7bcaa7c`,
-and the surviving watchdog maps `69d00186`.
+`test_s2.py` has 39 tests. They cover:
+- behavioural cases, ported from sequence 14 and extended to every sequence 15 rule:
+  - fresh or survived dolt from a live or a deleted predecessor;
+  - an unchanged or freshly started broker, and each broker refusal;
+  - cache admission with no additions, and each cache refusal;
+  - the settled-scope wait: reset, error record and timeout;
+  - retry naming and window bounds;
+- the recovery gate;
+- a live check of the prior state.
+
+**s2 r2.** Both reviews of `08082d93` asked for these changes: B held on the unguarded post-submit budget with no
+recovery, and on the untested predicates; A passed with the same points as should-fix. The following
+procedure rules also answer their should-fix items.
+- **Timer.**
+  - A refusal before submit restores only the timer, after proving no broker call happened: no
+    `broker-result.json` and no `/var/lib/gas-city-provisioning/receipts/<envelope sha>.json`.
+  - After a post-submit terminal, the timer stays paused until the recovery phase has run and a readback review
+    has passed. Then it is restored. If recovery also refuses, it is a hard stop: the timer stays paused, the city
+    stays suspended, everything is preserved, and I report.
+- **When submit counts as started.** `submission_started` becomes true at `submit-start.json`, before the broker
+  call. A submit-phase terminal therefore counts as post-submit only if `broker-result.json` exists. Without it, no
+  broker call happened, and it is a pre-submit retry.
+- **Sequence reuse.** A pre-submit retry after an envelope was created reuses sequence 15, because the broker has not
+  recorded it; the broker allows this. It never reuses the envelope or the ROOT.
+- **Signing.** A pre-window probe of the operator key succeeded non-interactively:
+  `gpg --batch --local-user FD5585…! --detach-sign` on a scratch file, 2026-09-26. The broker's `prepare` runs
+  directly from the operator shell, not through the python wrapper.
+- **Reading the city rules.** `repointed_sinks` in the city-rules records now lists every sink, because the key is
+  unchanged. It is not evidence of a repoint. The exact link and manifest checks are what matter.
+- **Accept review.** It must confirm that the worker receipt `/home/loucmane/gascity/city/.gc/runtime/provisioning/receipt.json`
+  and the platform pair are inside the accepted closure, as pins or trees.
+- **Known post-submit refusal modes**, all of which go to recovery or a hard stop:
+  - the new Core rewrites any 69fe9a2e cache entry, the shim, a link or the M6 metadata;
+  - a scope that never settles;
+  - the envelope deadline expiring during the postflights.
 
 **Run order.** Everything runs through `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B`.
 It is atime-neutral, as ga-e0t1.15 S2 r4 was.
@@ -116,7 +152,7 @@ It is atime-neutral, as ga-e0t1.15 S2 r4 was.
 3. **Envelope.**
    - Run `prepare` and note the baseline digest.
    - Create the envelope with the installed broker's prepare:
-     `--operation replace-gas-city-control-plane.v1 --artifact /var/tmp/ga-e0t1.18-build-20260926/gc-a --bead ga-ecwh --commit deefb98b… --tree af5c3f04… --sequence 15 --output ROOT/envelope.json`.
+     `/usr/local/libexec/gas-city/gct-privileged-provision prepare --operation replace-gas-city-control-plane.v1 --artifact /var/tmp/ga-e0t1.18-build-20260926/gc-a --bead ga-ecwh --commit deefb98b2aed07875df31351d081fbac195cb1cd --tree af5c3f045c1f50cd62c859f6dc58fa613e5f2f99 --sequence 15 --output /var/tmp/ga-e0t1.18-seq15-20260926/envelope.json`.
      It is signed with FD5585… and must not prompt.
    - Run `bind-envelope`, then an independent full-envelope review.
    - All of this happens inside the fixed 900 s window.

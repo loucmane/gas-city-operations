@@ -265,7 +265,8 @@ def submit(args):
         c.timer_inactive();checked_capture(b,binding,False)
         outputs_absent('submit')
         budget=fence(b,binding)
-        c.o.require(budget>31*d.SECOND,'insufficient one-shot submission budget')
+        # sequence 15 (s2 r2): both postflights, with their bounded waits, must fit in what is left.
+        c.o.require(budget>240*d.SECOND,'insufficient one-shot submission budget')
         result=subprocess.run([str(BROKER),'apply','--envelope','/proc/self/fd/'+str(fd)],
                               pass_fds=(fd,),capture_output=True,text=True,timeout=30,check=False)
         record('broker-result.json',dict(returncode=result.returncode,stdout=result.stdout,stderr=result.stderr))
@@ -461,7 +462,8 @@ def s14_quiet_scope(host):
               'dolt watchdog argv')
     # The unit uses KillMode=process with preserved sessions, so the watchdog and server may survive
     # a Core restart (review B r1 must_fix 1). A surviving watchdog maps the replaced binary, which
-    # reads as "<path> (deleted)". That is admitted only when the mapped image is exactly c.OLD.
+    # reads as "<path> (deleted)". Sequence 15 admits it only when the mapped image is exactly 69d00186 (the
+    # survivor of sequence 14) or c.OLD.
     if w_exe==S14_GC_BIN:
         image='live'
     else:
@@ -489,8 +491,8 @@ def s14_quiet_scope(host):
                 reconciler_members=[],descendants=[],city_tmux_absent=True)
 c.s.quiet_scope=s14_quiet_scope
 
-# --- 3. Cache admission. After the new Core starts, exactly one new synthetic directory (S14_NEW_KEY)
-# must appear, and S14_OPTIONAL_KEY may appear. Their full contents must equal the S1b expectation,
+# --- 3. Cache admission. Sequence 15: no synthetic directory may appear except S14_OPTIONAL_KEY, whose
+# full contents must equal the ga-e0t1.15 S1b expectation (the pack content is unchanged),
 # with the marker derived per key. Every pre-existing entry stays exact (no atime is recorded; block 0).
 # Only the cache root entry's mtime, ctime and nlink may change.
 def s14_expected_files():
@@ -563,8 +565,10 @@ def s14_admit_cache(before,after):
             c.o.require(a[key]==meta,'pre-existing cache entry changed: '+key)
     added=set(a)-set(b)
     tops={k.split('/',1)[0] for k in added}
-    # sequence 15: the embedded pack content is unchanged, so no required directory appears.
+    # sequence 15: the embedded pack content is unchanged, so no required directory appears; with no
+    # additions the cache root metadata must also be exactly unchanged (s2 r2).
     c.o.require(tops<={S14_OPTIONAL_KEY},'unexpected cache additions')
+    if not tops:c.o.require(a['.']==b['.'],'cache root changed without additions')
     for key in sorted(tops):
         s14_check_new_dir(key)
     return sorted(tops)
@@ -645,8 +649,8 @@ def s14_capture(candidate):
     return observed
 c.capture=s14_capture
 
-# --- 5. Transition. This is sequence 13's rule (fresh Core epoch, the gc pin at NEW) plus fresh dolt
-# members with the same identities, the admitted cache, and its tree summary.
+# --- 5. Transition. This is sequence 13's rule (fresh Core epoch, the gc pin at NEW) plus fresh or
+# survived dolt members, the broker rule below, and the admitted cache with its tree summary.
 def validate_successor_transition(before,after):
     adjusted=copy.deepcopy(before)
     prior,current=before['host'],after['host']
@@ -672,7 +676,7 @@ def validate_successor_transition(before,after):
     c.o.require(fresh!=survived,'dolt outcome is neither exactly fresh nor exactly survived')
     adjusted['scope']=dict(adjusted['scope'],core_members=new_scope['core_members'],dolt_members=new_dolt)
     # Broker: socket activation by the one submission (review B r1 must_fix 2). This is the base
-    # validate_transition rule: inactive to active/running with a fresh epoch, every other field
+    # validate_transition rule, widened for sequence 15 to also admit the unchanged running broker; every other field
     # fixed. The socket either stays unchanged or goes listening to running (the R7 correction).
     ob,nb=prior['broker'],current['broker']
     c.o.require(ob.keys()==nb.keys(),'broker record field drift')
@@ -797,16 +801,20 @@ def s14_wait_initialized():
 # sequence 15: sequence 14's postflight1 refused on a transient supervisor-scope member during
 # initialization. Wait, bounded and read-only, until the quiet scope passes on two consecutive reads 5 s
 # apart. The postflight capture then checks the scope again exactly.
+# It returns its evidence (passes, elapsed, every distinct error seen) for the caller to record.
 S15_SCOPE_WAIT_NS=180*d.SECOND
 def s15_wait_scope_settled():
     o=c.o;o.GC_SHA=c.NEW
-    start=time.monotonic_ns();last=None;passes=0
+    start=time.monotonic_ns();last=None;passes=0;reads=0;errors=[]
     while time.monotonic_ns()-start<S15_SCOPE_WAIT_NS:
+        reads+=1
         try:
             c.s.quiet_scope(o.host_observation());passes+=1
-            if passes>=2:return
+            if passes>=2:
+                return dict(settled=True,reads=reads,elapsed_ns=time.monotonic_ns()-start,errors=errors)
         except Exception as exc:
             last=str(exc);passes=0
+            if last not in errors:errors.append(last)
         time.sleep(5)
     o.require(False,'supervisor scope not settled within bound: '+str(last))
 
@@ -843,16 +851,17 @@ def s14_observe_closure(template):
     protected={path:o.tree_snapshot(path,protected=True) for path in template['protected']}
     scope=s.quiet_scope(host)
     # The predecessor properties the postflight depends on are checked here, before anything is
-    # submitted (review B r2 should_fix 1): the broker is exactly inactive with its socket listening
-    # (the base broker_precondition), and the dolt watchdog runs the live binary.
+    # submitted (review B r2 should_fix 1). Sequence 15: the broker is active and running with its socket
+    # active, and the dolt watchdog is live or the survivor of a known prior image.
     # sequence 15: the broker stayed active after sequence 14 (the accepted record pins its epoch), and the
     # watchdog may be the survivor mapping 69d00186.
     broker=host['broker']
     o.require(broker['ActiveState']=='active' and broker['SubState']=='running' and broker['NRestarts']=='0'
               and broker['UnitFileState']=='disabled' and broker['Result']=='success' and int(broker['MainPID'])>1,
               'accepted broker is not exactly active and running')
-    o.require(host['broker_socket']['ActiveState']=='active' and host['broker_socket']['UnitFileState']=='enabled',
-              'accepted broker socket')
+    sock=host['broker_socket']
+    o.require(sock['ActiveState']=='active' and sock['UnitFileState']=='enabled' and sock['Result']=='success'
+              and sock['SubState'] in ('listening','running'),'accepted broker socket')
     o.require(scope['dolt_members']['watchdog_image'] in ('live','deleted-old'),'accepted watchdog image')
     s14_preimages()
     parents=s14_parents()
@@ -922,7 +931,7 @@ def observe(args):
     after=args.phase.startswith('postflight')
     if after:
         s14_wait_initialized()
-        s15_wait_scope_settled()
+        record(args.phase+'-scope-wait.json',s15_wait_scope_settled())
     # The rules are checked before _s13_observe can record an ok observation (review r1
     # should_fix), and once more after it. Their evidence is recorded once both checks pass.
     s14_city_rules(after)
@@ -937,7 +946,74 @@ def main():
     c.o.require(ACCEPTED_SHA!='0'*64,'accepted predecessor not yet bound; only the accept phase may run')
     return _s13_main()
 
-# --- 9. (sequence 15) The sequence 14 recovery acceptance phase is removed; a sequence 15
-# recovery would be its own reviewed change.
+# --- 9. Recovery acceptance (sequence 13 and 14 precedent). Sequence 15 keeps this phase for any
+# postflight1 or postflight2 terminal after a completed broker call (submit-done.json and
+# broker-result.json present), for example a transient scope member or an expired envelope deadline
+# during the postflight waits. ROOT stays terminal and
+# preserved. This phase is read-only: no broker call, no timer change, no write outside
+# S14_RECOVERY_ROOT. It proves the adopted state with the same capture, transition, receipt and
+# city-rule checks as the postflights, over two complete observations at least 5 s apart, which must
+# be equal. It does not use the elapsed-window fence: the adoption itself happened inside the window
+# (submit-done.json), and this phase only reads.
+S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.18-seq15-recovery-20260926')
+
+def s14_recover(baseline_sha,binding_sha):
+    c.o.require(sys.flags.isolated and sys.flags.dont_write_bytecode and sys.flags.optimize==0,'use python3 -I -B')
+    # Sequence 15: any submit, postflight1 or postflight2 terminal after a broker call that returned
+    # success (for example the post-call fence or a postflight wait hitting the envelope deadline).
+    terminal=json.loads((ROOT/'terminal.json').read_text())
+    c.o.require(terminal.get('phase') in ('submit','postflight1','postflight2') and terminal.get('submission_started') is True,
+                'recovery only follows a terminal after submission started')
+    c.o.require(not os.path.lexists(ROOT/'postflight2.json'),'postflight2 already accepted; nothing to recover')
+    broker_result=json.loads((ROOT/'broker-result.json').read_text())
+    c.o.require(broker_result.get('returncode')==0 and c.o.decode(broker_result.get('stdout','').encode()).get('ok') is True,
+                'recovery needs a broker call that returned exact success')
+    S14_RECOVERY_ROOT.mkdir(mode=0o700)
+    def rec(name,value):
+        data=json.dumps(value,indent=1,sort_keys=True).encode()
+        fd=os.open(S14_RECOVERY_ROOT/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
+        try:
+            view=memoryview(data)
+            while view:
+                n=os.write(fd,view);c.o.require(n>0,'short record write');view=view[n:]
+            os.fsync(fd)
+        finally:os.close(fd)
+        return s14_sha(data)
+    rec('start.json',dict(executor_sha256=s14_sha(Path(__file__).read_bytes()),baseline_sha256=baseline_sha,
+                          binding_sha256=binding_sha))
+    b=baseline(baseline_sha)
+    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)
+    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')
+    observations=[]
+    for n in (1,2):
+        s14_wait_initialized()
+        rec('scope-wait-%d.json'%n,s15_wait_scope_settled())
+        c.timer_inactive()
+        rules_before=s14_city_rules(True)
+        runtime=c.runtime_readiness()
+        closure=c.capture(True)
+        now=time.monotonic_ns()
+        rec('observation-%d-raw.json'%n,dict(closure=closure,runtime=runtime,monotonic_ns=now))
+        validate_successor_transition(b['closure'],closure)
+        c.o.require(not Path('/proc',str(b['closure']['host']['host']['pid'])).exists(),'old Core remains')
+        receipt=verified_receipt(binding,closure['host'],b['closure']['host'])
+        c.o.require(c.runtime_readiness()==runtime,'runtime changed during observation')
+        rules_after=s14_city_rules(True)
+        c.o.require(rules_after==rules_before,'city rules changed during observation')
+        observations.append(dict(closure=closure,runtime=runtime,monotonic_ns=now,receipt=receipt,rules=rules_after))
+        rec('observation-%d.json'%n,observations[-1])
+        if n==1:time.sleep(5)
+    first,second=observations
+    c.o.require(5*10**9<=second['monotonic_ns']-first['monotonic_ns']<=900*10**9,'observation interval')
+    c.o.require(first['closure']==second['closure'] and first['runtime']==second['runtime']
+                and first['receipt']==second['receipt'] and first['rules']==second['rules'],'observations differ')
+    rec('pass.json',dict(ok=True,recovery_acceptance=True,
+                         dolt_outcome=second['closure']['scope']['dolt_members']['watchdog_image'],
+                         admitted_cache_keys=second['closure'].get('admitted_cache_keys'),
+                         shim=second['rules']['shim'],repointed_sinks=second['rules']['repointed_sinks']))
+    print(json.dumps(dict(ok=True,root=str(S14_RECOVERY_ROOT)),sort_keys=True))
+
+if len(sys.argv)==4 and sys.argv[1]=='recover' and __name__=='__main__':
+    s14_recover(sys.argv[2],sys.argv[3]);sys.exit(0)
 
 if __name__=='__main__':main()
