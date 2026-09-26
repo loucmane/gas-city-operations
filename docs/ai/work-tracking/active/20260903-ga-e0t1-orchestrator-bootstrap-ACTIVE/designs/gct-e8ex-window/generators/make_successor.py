@@ -390,11 +390,18 @@ def watch(text):
     admin directory) and the whole worktree root, so a coordinator git call against the worktree while the worker
     is live could run a driver or command the worker chose. WATCH runs no git; the worker's git state is read
     after containment by the reviewed post-window intake check."""
+    # s1 r6 (r5 review B must_fix 1): record, unredacted for this one key only, the sandbox write roots each
+    # worktree process carries, and every opt_/template_override key on the task and on the template's session
+    # Beads, so a relaunch that restored the Template .git write root is visible.
+    text = sub(text, "                processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks,\n",
+               "                roots = [arg.split(b'=', 1)[1].decode(errors='replace')[:2000] for arg in argv\n"
+               "                         if arg.startswith(b'sandbox_workspace_write.writable_roots=')]\n"
+               "                processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks, writable_roots=roots,\n")
     text = sub(text, WATCH_GIT,
                "    # Template variant (s1 r2): no git runs against the worktree while the codex worker is live. Its\n"
-               "    # sandbox can write the Template .git and the worktree root, so any coordinator git call here could\n"
-               "    # run a driver or command it chose. The git state is read after containment by the reviewed\n"
-               "    # post-window intake check; the task notes (READY FOR SIGNING / ESCALATED / STOPPED) are the signal.\n"
+               "    # sandbox can write the worktree root, and a relaunch through an opt_ override could restore the\n"
+               "    # Template .git, so any coordinator git call here could run a driver or command it chose. The\n"
+               "    # task notes (READY FOR SIGNING / ESCALATED / STOPPED) are the signal.\n"
                "    head = branch = None\n"
                "    status = staged = ''\n")
     # s1 r3 (B should_fix 3): no evidence walk (the codex worker writes no .gc/worker-evidence, and is_dir() would
@@ -432,6 +439,18 @@ def watch(text):
                "        template_config = 'unreadable: %s' % exc.__class__.__name__\n"
                "    result = dict(ok=True, mutation=False, head=head, branch=branch, note_markers=markers,\n"
                "                  template_git_config_sha256=template_config,\n")
+    text = sub(text, "    notes = bead.get('notes') or ''\n",
+               "    def overrides(metadata):\n"
+               "        return sorted(k for k in (metadata or {}) if k.startswith('opt_') or k.startswith('template_override'))\n"
+               "    override_keys = dict(task=overrides(bead.get('metadata')),\n"
+               "                         sessions={v['id']: overrides(v.get('metadata')) for v in census\n"
+               "                                   if overrides(v.get('metadata')) and ((v.get('metadata') or {}).get('template') == TEMPLATE\n"
+               "                                   or (v.get('metadata') or {}).get('gc.work_dir') == str(w.WORK))})\n"
+               "    process_roots = sorted({root for p in processes for root in p['writable_roots']})\n"
+               "    notes = bead.get('notes') or ''\n")
+    text = sub(text, "                  template_git_config_sha256=template_config,\n",
+               "                  template_git_config_sha256=template_config, override_keys=override_keys,\n"
+               "                  process_writable_roots=process_roots,\n")
     # s1 r4 (r3 review B should_fix 7): the docstring matches the Template variant.
     text = sub(text, "Runs as a job of the host job runner (operator/WATCH.sh), in the supervisor namespaces, so its git,\n"
                      "process and tmux reads see the real host rather than a sandbox view.",
@@ -450,53 +469,38 @@ def watch(text):
 # tool is written whole. It runs no git, compares every entry outside objects/ exactly, keeps every existing
 # object entry and allows only new loose objects that hash to their own name, records directories, raises on
 # any walk error and bounds every read. The ga-3oa7 tool is asserted as the source it replaces.
-COMMON_TOOL = r'''"""Read-only proof that the worker left the Template common git directory unchanged (s1 r3).
+COMMON_TOOL = r'''"""Read-only proof that nothing changed the Template common git directory during the window (s1 r6).
 
   common-snapshot-r1.py before <out-json>
   common-snapshot-r1.py after <before-json> <before-sha256> <out-json>
 
-The codex sandbox can write the whole Template .git, so this tool runs no git at all: it reads files only.
-- control: every file, link and directory under the .git outside objects/ is compared exactly (type, mode, owner,
-  size, sha256 or link target), except this worktree's own index, which `git add` rewrites. That covers config,
-  hooks/, info/, refs/, packed-refs, logs/, every worktrees/<name>/ admin file, HEAD, shallow, modules/ and lfs/.
-- objects: every entry that exists under objects/ in `before` (loose objects, packs, indexes, objects/info/ with
-  its alternates, and every directory) must be unchanged in `after`. The only allowed differences are new
-  loose-object directories and NEW loose objects (regular single-link files) whose zlib content hashes to their
-  own name, which is what `git add` writes: a new object can never shadow an existing id. A new pack, index or
-  multi-pack-index, an overwritten or removed object, and a directory replaced by a link all refuse.
-- every directory is recorded (type and mode) and any walk error raises, so an unlistable directory cannot hide
-  files; every read is bounded (1 GiB), and the excluded index must stay a plain single-link file.
-- the candidate branch is resolved from the ref bytes (the loose ref file, else packed-refs), never through git,
-  and must still point at BASE (the worker delivers staged, uncommitted work).
-- the .git directory itself is recorded, with every entry's owner and group; accepted additions must belong to
-  the operator's user and group and not be world-writable; a loose object with trailing bytes after its zlib
-  stream refuses.
-Since s1 r5 the codex worker has no write root in this .git at all, so this tool is defence in depth. It runs
-after CLOSE and TERMINAL.
+Since s1 r5 the codex worker has no write root in the Template .git (it gets the
+classified-vault-and-template-worktrees choice) and never stages. Nothing in the window may therefore change this
+directory, and any change refuses: no addition is accepted, not even a loose object or an index rewrite.
+- Every file, link and directory under the .git, the .git itself included, is compared exactly: type, mode,
+  owner, group, size, sha256 or link target. That covers config, hooks/, info/, refs/, packed-refs, logs/, the
+  object store (loose objects, packs, indexes, objects/info/ and its alternates), every worktrees/<name>/ admin
+  file with its index, HEAD, shallow, modules/ and lfs/.
+- It runs no git. Every directory is recorded, any walk error raises, so an unlistable directory cannot hide
+  files, and every read is bounded (1 GiB).
+- The candidate branch is resolved from the ref bytes (the loose ref file, else packed-refs, each a plain bounded
+  file), never through git, and must still point at BASE.
 - `before` refuses a baseline carrying a hook other than git's samples and the four pinned git-lfs hooks,
   info/grafts, shallow, refs/replace/ (loose or in packed-refs) or alternates.
-Known fail-closed cases: `git add` of a file over core.bigFileThreshold (512 MiB) writes a pack, and any file over
-1 GiB exceeds the read bound; a worker contained mid-add leaves index.lock or objects/xx/tmp_obj_*. All refuse and
-are investigated, not treated as tampering by default.
-Run `after` immediately after TERMINAL, before any other coordinator git call. Another Template worktree's index
-rewritten during the window (a `git status` there with optional locks) also refuses: it fails closed and is
-investigated. It writes only its own output file.
+Run `before` after WORKTREE and before BIND, and `after` after CLOSE and TERMINAL, before any other coordinator git
+call. A `git status` with optional locks in any Template worktree during the window rewrites an index and refuses:
+that fails closed and is investigated. It writes only its own output file.
 """
 import hashlib
 import json
 import os
-import re
 import stat
 import sys
-import zlib
 from pathlib import Path
 
 COMMON=Path('%(repo)s/.git')
 BASE='%(base)s'
 BRANCH='refs/heads/%(branch)s'
-MUTABLE={'worktrees/%(task)s/index'}
-LOOSE_DIR=re.compile(r'objects/[0-9a-f]{2}')
-LOOSE=re.compile(r'objects/[0-9a-f]{2}/[0-9a-f]{38}')
 LIMIT=1<<30
 
 def entry(path):
@@ -521,73 +525,29 @@ def walk():
             out[str(here/name)]=entry(Path(directory)/name)
     return out
 
+def plain(path):
+    """A plain bounded file's text, or None when absent; anything else refuses."""
+    if not os.path.lexists(path):return None
+    s=os.lstat(path)
+    assert stat.S_ISREG(s.st_mode) and s.st_size<=LIMIT,('not a plain bounded file',str(path))
+    return Path(path).read_text()
+
 def branch_target():
-    loose=COMMON/BRANCH
-    if os.path.lexists(loose):
-        s=os.lstat(loose)
-        assert stat.S_ISREG(s.st_mode),'candidate branch ref is not a regular file'
-        return loose.read_text().strip()
-    packed=COMMON/'packed-refs'
-    if os.path.lexists(packed):
-        s=os.lstat(packed)
-        assert stat.S_ISREG(s.st_mode) and s.st_size<=LIMIT,'packed-refs is not a plain bounded file'
-        for line in packed.read_text().splitlines():
-            parts=line.split(' ')
-            if len(parts)==2 and parts[1]==BRANCH:return parts[0]
+    loose=plain(COMMON/BRANCH)
+    if loose is not None:return loose.strip()
+    for line in (plain(COMMON/'packed-refs') or '').splitlines():
+        parts=line.split(' ')
+        if len(parts)==2 and parts[1]==BRANCH:return parts[0]
     raise AssertionError('candidate branch not found')
 
 def observe():
-    everything=walk()
-    control={k:v for k,v in everything.items() if k!='objects' and not k.startswith('objects/') and k not in MUTABLE}
-    objects={k:v for k,v in everything.items() if k=='objects' or k.startswith('objects/')}
-    return dict(control=control,objects=objects,candidate_branch=branch_target())
-
-def loose_ok(rel):
-    """A new loose object must hash to its own name, so it can never shadow an existing object id."""
-    inflate=zlib.decompressobj()
-    try:
-        raw=inflate.decompress((COMMON/rel).read_bytes(),LIMIT)
-    except zlib.error:
-        return False
-    if inflate.unconsumed_tail or inflate.unused_data or not inflate.eof:return False
-    head,_,body=raw.partition(b'\0')
-    kind,_,size=head.partition(b' ')
-    return kind in (b'blob',b'tree',b'commit',b'tag') and size.isdigit() and int(size)==len(body) \
-        and hashlib.sha1(raw).hexdigest()==rel[8:10]+rel[11:]
-
-def mutable_ok(after):
-    """The excluded index must still be a plain, single-link file of the operator."""
-    for rel in MUTABLE:
-        path=COMMON/rel
-        if not os.path.lexists(path):return False
-        s=os.lstat(path)
-        if not (stat.S_ISREG(s.st_mode) and s.st_uid==1000 and s.st_nlink==1 and s.st_size<=LIMIT):return False
-    return True
+    return dict(entries=walk(),candidate_branch=branch_target())
 
 def compare(before,after):
-    changed=sorted(k for k in set(before['control'])|set(after['control'])
-        if before['control'].get(k)!=after['control'].get(k))
-    for k,v in before['objects'].items():
-        if after['objects'].get(k)!=v:changed.append(k)
-    for k,v in after['objects'].items():
-        if k in before['objects']:continue
-        # An accepted addition belongs to the operator and is not world-writable. Group write is allowed: the
-        # group is the operator's private group, and a worker under the user manager's umask 0002 makes 0775
-        # object directories.
-        if v['uid']!=1000 or v['gid']!=1000 or v['mode']&0o002:
-            changed.append(k);continue
-        if v['type']==stat.S_IFDIR and LOOSE_DIR.fullmatch(k):continue
-        if v['type']==stat.S_IFREG and v['nlink']==1 and LOOSE.fullmatch(k) and loose_ok(k):continue
-        changed.append(k)
+    keys=set(before['entries'])|set(after['entries'])
+    changed=[k for k in keys if before['entries'].get(k)!=after['entries'].get(k)]
     if after['candidate_branch']!=BASE:changed.append('candidate_branch')
-    if not mutable_ok(after):changed.append('mutable-index')
     return sorted(set(changed))
-
-def write(path,value):
-    raw=(json.dumps(value,sort_keys=True,indent=1)+'\n').encode()
-    fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
-    with os.fdopen(fd,'wb') as out:out.write(raw)
-    return hashlib.sha256(raw).hexdigest()
 
 # The four stock git-lfs hooks the Template repository has carried since 2026-07-30, pinned by content. Every
 # coordinator git call in this package disables hooks anyway (core.hooksPath=/dev/null).
@@ -597,34 +557,35 @@ LFS_HOOKS={'hooks/post-checkout':'791471b4ff472aab844a4fceaa48bbb0a12193616f971e
     'hooks/pre-push':'df5417b2daa3aa144c19681d1e997df7ebfe144fb7e3e05138bd80ae998008e4'}
 
 def baseline_problems(value):
-    """s1 r4 (r3 review B should_fix 9): the recorded baseline itself must carry no hook other than git's samples
-    and the pinned git-lfs hooks, no grafts, no replace refs and no alternates, since the later signing step
-    relies on it."""
-    problems=[k for k,v in value['control'].items() if k.startswith('hooks/') and v['type']!=stat.S_IFDIR
+    """The recorded baseline itself must carry no hook other than git's samples and the pinned git-lfs hooks, no
+    grafts, no shallow, no replace refs (loose or packed) and no alternates, since the later signing relies on it."""
+    entries=value['entries']
+    problems=[k for k,v in entries.items() if k.startswith('hooks/') and v['type']!=stat.S_IFDIR
         and not k.endswith('.sample') and not (v['type']==stat.S_IFREG and LFS_HOOKS.get(k)==v.get('sha256'))]
-    problems+=[k for k in value['control'] if k in ('info/grafts','shallow') or k.startswith('refs/replace/')]
-    problems+=[k for k in value['objects'] if k in ('objects/info/alternates','objects/info/http-alternates')]
-    # s1 r5 (r4 reviews A should_fix 2, B should_fix 1): a replace ref may also sit in packed-refs.
-    packed=COMMON/'packed-refs'
-    if 'packed-refs' in value['control']:
-        for line in packed.read_text().splitlines():
-            parts=line.split(' ')
-            if len(parts)==2 and parts[1].startswith('refs/replace/'):problems.append('packed-refs: '+parts[1])
+    problems+=[k for k in entries if k in ('info/grafts','shallow','objects/info/alternates',
+        'objects/info/http-alternates') or k.startswith('refs/replace/')]
+    for line in (plain(COMMON/'packed-refs') or '').splitlines():
+        parts=line.split(' ')
+        if len(parts)==2 and parts[1].startswith('refs/replace/'):problems.append('packed-refs: '+parts[1])
     return problems
+
+def write(path,value):
+    raw=(json.dumps(value,sort_keys=True,indent=1)+'\n').encode()
+    fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,'wb') as out:out.write(raw)
+    return hashlib.sha256(raw).hexdigest()
 
 def main(argv):
     if len(argv)==2 and argv[0]=='before':
         value=observe();assert value['candidate_branch']==BASE,'candidate branch is not BASE'
         assert not baseline_problems(value),('baseline carries',baseline_problems(value))
-        print(json.dumps(dict(ok=True,control=len(value['control']),objects=len(value['objects']),
-            sha256=write(argv[1],value))));return 0
+        print(json.dumps(dict(ok=True,entries=len(value['entries']),sha256=write(argv[1],value))));return 0
     assert len(argv)==4 and argv[0]=='after','usage: see docstring'
     raw=Path(argv[1]).read_bytes();assert hashlib.sha256(raw).hexdigest()==argv[2],'before record digest'
     before=json.loads(raw);after=observe()
     changed=compare(before,after)
-    added=sorted(set(after['objects'])-set(before['objects']))
-    result=dict(ok=not changed,changed=changed,added_objects=len(added),candidate_branch=after['candidate_branch'])
-    print(json.dumps(dict(result,sha256=write(argv[3],dict(result,after=after,added=added)))))
+    result=dict(ok=not changed,changed=changed,candidate_branch=after['candidate_branch'])
+    print(json.dumps(dict(result,sha256=write(argv[3],dict(result,after=after)))))
     return 0 if not changed else 1
 
 if __name__=='__main__':raise SystemExit(main(sys.argv[1:]))

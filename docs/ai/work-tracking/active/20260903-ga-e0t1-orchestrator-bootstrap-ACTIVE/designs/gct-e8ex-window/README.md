@@ -76,21 +76,17 @@ lines. The evidence is in `reports/gct-e8ex-split-20260926/live-check-r10`. The 
    - it moves them from the ga-3oa7 TERMINAL value `1790431776352453342` to the value s2 pins after the last
      coordinator note;
    - s1 carries `None`, which refuses.
-10. **The common-directory snapshot** (s1 r3) runs no git and reads files only.
-    - Outside `objects/`, it compares every file, link and directory under the Template `.git` exactly, except
-      this worktree's own index. That index must stay a plain single-link file.
-    - Inside `objects/`, every existing entry must be unchanged: loose objects, packs, indexes, `objects/info/`
-      and every directory. The only additions allowed are new loose objects, as plain single-link files whose
-      zlib content hashes to their own name. That is what `git add` writes, and such an object can never shadow
-      an existing id.
-    - A new pack or multi-pack-index, an overwritten object and a directory replaced by a link all refuse. So
-      does any walk error, such as an unlistable directory. Every read is bounded.
-    - The candidate branch is read from the ref bytes and must still point at BASE.
-11. **No coordinator git while the worker is live** (s1 r2). The codex sandbox can write the worktree root (and,
-    before s1 r5, could write the Template `.git`), so a coordinator git call against the worktree could run a
-    driver or command the worker chose, for example through a worktree `.gitattributes`. WATCH therefore runs no git and records HEAD, branch, status and diffs as empty. The worker's signal is
-    its task notes: `READY FOR SIGNING`, `ESCALATED:` or `STOPPED:`. PREFLIGHT's git reads run before ROUTE, when
-    no worker exists.
+10. **The common-directory snapshot** (s1 r6) runs no git and reads files only. Since the worker has no write
+    root in the Template `.git`, nothing may change it: every file, link and directory under it is compared
+    exactly (the `.git` itself, config, hooks, refs, packed-refs, logs, the whole object store and every worktree
+    index included), with owner and group. Any change refuses, any walk error raises, every read is bounded, and
+    the candidate branch, read from the ref bytes, must still point at BASE.
+11. **No coordinator git while the worker is live** (s1 r2). The codex sandbox can write the worktree root, and a
+    relaunch through an `opt_` override could even restore the Template `.git` (Known scope), so a coordinator
+    git call against the worktree could run a driver or command the worker chose. WATCH therefore runs no git
+    and records HEAD, branch, status and diffs as empty. The worker's signal is its task notes:
+    `READY FOR SIGNING: gct-mbg6 worktree`, `ESCALATED:` or `STOPPED:`. PREFLIGHT's git reads run before ROUTE,
+    when no worker exists.
 12. **WORKTREE checks before it checks out** (s1 r2). The pinned drivers, the absent attributes file and the exact
     `.gitattributes` bytes (two comment lines and `patches/*.patch -whitespace`) are checked before
     `git worktree add`, so no checkout-time filter can run. The post-add checks stay.
@@ -105,28 +101,31 @@ Unchanged from ga-3oa7:
 
 ## Known scope
 
-The codex write roots include the whole `gas-city-template-worktrees` root, not only this worktree. That is the
-deployed lane's existing grant, not something this window adds. After TERMINAL, the coordinator reviews the
-staged tree before signing. The window's containment and the common snapshot are the other controls. Other
-Template worktrees' gitfiles are not covered, and no coordinator git runs in them until they are re-verified.
-
-Known limit (s1 r3, B should_fix 7): the in-window `gc --rig gas-city-template` calls (the WATCH task read, the
-audit, the CONTAIN and HOLD rig suspension) are gc and bd runs, not git calls in the worktree. The package does
-not prove that Core never runs git in the Template repository while handling them. Two mitigations apply:
-- every WATCH records the digest of the Template `.git/config`, read without git, so a sandbox write into it
-  shows while the worker is live;
-- the snapshot after TERMINAL compares it exactly.
-
-Another Template worktree's index rewritten during the window, for example by a `git status` there with optional
-locks, makes the snapshot refuse. So does a worker contained mid-`git add`, which leaves `index.lock` or
-`objects/xx/tmp_obj_*`. Both fail closed and are investigated, not treated as tampering by default.
-
-From RESUME until `common-snapshot-r1.py after` passes, no coordinator git runs in any Template worktree or in
-the Template repository (r3 review B should_fix 8). No aegis-reviewer delegation binds a Template worktree
-either, because the reviewer gate runs git there with the common config. The snapshot's `before` also refuses a
-baseline that carries `info/grafts`, `shallow`, `refs/replace/`, alternates, or any hook other than git's samples
-and the four stock git-lfs hooks (`post-checkout`, `post-commit`, `post-merge`, `pre-push`, present since
-2026-07-30). Those four are pinned by content, and every coordinator git call here disables hooks anyway.
+- **The worktree root.** The codex write roots include the whole `gas-city-template-worktrees` root, not only this
+  worktree: that is the deployed choice, not something this window adds. Any Template worktree, its files and its
+  `.git` gitfile can be changed by the worker or by a process that survived containment (CLOSE's residue check
+  scans argv and cwd only, and the codex sandbox was never proven against the user bus). The intake below
+  therefore never runs git in, or signs from, any path under that root or under the Template `.git`.
+- **A relaunch with a wider choice (s1 r6, r5 review B must_fix 1).** Core applies an `opt_worklog_access`
+  override from the task on every session start, and the worker can write its own task. A relaunch could so
+  regain the Template `.git` write root. Every WATCH records each `opt_*`/`template_override*` key on the task
+  and on the template's session Beads, and each worktree process's sandbox write roots, unredacted for that one
+  key. The intake refuses if any WATCH or the task after TERMINAL shows such a key, or a process root naming the
+  Template `.git`, and the snapshot refuses any change to the `.git`.
+- **Core's in-window gc calls** (the WATCH task read, the audit, the CONTAIN and HOLD rig suspension) are not
+  proven to run no git in the Template repository. Every WATCH records the Template `.git/config` digest, read
+  without git, and the snapshot compares it exactly.
+- **`/tmp`.** Codex `workspace-write` also makes `/tmp` writable, so a survivor could replace the city tmux socket
+  `/tmp/tmux-1000/city` that CLOSE queries. Only ROUTE's `city_problems` checks the socket's server identity (a
+  non-tmux listener refuses), and that runs before the worker exists; after routing this is not detected by the
+  window, and the next window's ROUTE would refuse such a listener.
+- **Fail-closed cases.** Another Template worktree's index rewritten during the window, for example by a
+  `git status` there with optional locks, makes the snapshot refuse; it is investigated, not treated as
+  tampering by default. The snapshot's `before` refuses a baseline carrying `info/grafts`, `shallow`,
+  `refs/replace/` (loose or packed), alternates, or any hook other than git's samples and the four stock git-lfs
+  hooks (`post-checkout`, `post-commit`, `post-merge`, `pre-push`, present since 2026-07-30, pinned by content).
+- From RESUME until the intake has signed, no coordinator git and no aegis-reviewer delegation runs in any
+  Template worktree or in the Template repository.
 
 ## Run order
 
@@ -141,21 +140,23 @@ and the four stock git-lfs hooks (`post-checkout`, `post-commit`, `post-merge`, 
 
    Do not run `test_successor.py` between the s2 pin and TERMINAL.
 5. **Window at s2:** BIND, OBSERVE, PREFLIGHT, STAGE, ROUTE, WATCH-1, RESUME, WATCH, CONTAIN/CLOSE, ADMIT,
-   RESTORE and TERMINAL. The worker is done when the task notes carry `READY FOR SIGNING: gct-mbg6 tree
-   <digest>` or an `ESCALATED:`/`STOPPED:` note.
-6. **After TERMINAL:**
-   - first `common-snapshot-r1.py after`, before any other coordinator git call in the Template repository;
-   - then a separately reviewed Template intake (the Operations R3/R4 pattern). It exports the worker's files
-     from the worktree without running git there: a manifest of every changed and new path, with bytes and
-     digests, taken read-only. The export is applied to a fresh Template intake worktree at BASE, where the
-     coordinator stages exactly the manifest with hardened git. The review diff is exported tree to tree
-     (`git diff BASE <tree>`, with replace objects off), so it is exactly what is signed;
-   - a signed commit in that intake worktree, two reviews bound to it, the Template PR, CI and merge, then close
-     gct-mbg6;
-   - the Bead records and post-checks.
+   RESTORE and TERMINAL. The worker is done when the task notes carry `READY FOR SIGNING: gct-mbg6 worktree` or
+   an `ESCALATED:`/`STOPPED:` note.
+6. **After TERMINAL** (the Template intake, its own reviewed package):
+   - `common-snapshot-r1.py after`; any change to the Template `.git` refuses;
+   - the WATCH records and the task are checked: no `opt_*`/`template_override*` key, and no process root naming
+     the Template `.git`;
+   - the worker's files are exported without running git anywhere under the Template worktree root or `.git`: a
+     read-only manifest of every changed and new path, with bytes and digests;
+   - the exported bytes and their tree id (computed in a scratch index outside every codex write root) are
+     committed to the Operations ga-e0t1 worktree, and two aegis-reviewer runs bind to that Operations commit;
+   - signing happens in a standalone Template clone outside every codex write root (never a linked worktree of
+     `/home/loucmane/gas-city-template`), fetched from GitHub at BASE. The coordinator writes the reviewed bytes,
+     stages with hardened git (replace objects off), and the tree id must equal the reviewed one before the signed
+     commit; then the push, the Template PR, CI and merge, and gct-mbg6 is closed.
 
-   The worker's worktree is never signed in place, and no coordinator git runs in it. A process that survived
-   containment can therefore change only files the export already recorded.
+   The worker's worktree is never signed in place, and nothing reviewed or signed passes through a path a codex
+   session or a surviving process can write.
 
 ## s1 r2 (answers the s1 reviews of `fd1f5d8c`: A and B HOLD)
 
@@ -239,6 +240,29 @@ and the four stock git-lfs hooks (`post-checkout`, `post-commit`, `post-merge`, 
   - the snapshot's lstat-then-read is safe because it runs after CLOSE;
   - Core's in-window gc calls stay a detection-only known limit (Known scope);
   - the negative tests keep asserting `!= []`, with the key-exact form used where it matters.
+
+## s1 r6 (answers the s1 r5 reviews of `bb8a908e`: A and B HOLD)
+
+- **Correction of r5.** The r5 claims that a survivor "can change only files the export already recorded" and
+  "cannot change what is reviewed or signed" were wrong. The intake worktree was unplaced, and the reviewer gate
+  binds Template candidates only inside the codex-writable worktree root, so a survivor could rewrite its files or
+  gitfile before staging or signing (A must_fix 1, B must_fix 2). Run order step 6 now keeps everything reviewed
+  and signed out of reach:
+  - reviews bind to an Operations commit carrying the exported bytes and their tree id;
+  - signing happens in a standalone Template clone outside every codex write root, whose tree must equal the
+    reviewed id.
+- **The worker can relaunch itself with the wider choice (B must_fix 1).** It can set `opt_worklog_access` on its
+  own task, and Core applies that on the next session start. WATCH now records every `opt_*` and
+  `template_override*` key on the task and the template's session Beads, and each worktree process's sandbox write
+  roots. The intake refuses on any of them, and the snapshot refuses any change to the `.git` (Known scope).
+- **The snapshot is exact (A should_fix 2, B should_fix 2).** With no worker write root in the `.git`, nothing may
+  change it: the loose-object and index allowances are gone, and every entry is compared. packed-refs is read only
+  as a plain bounded file in every path (A should_fix 3). `test_common_snapshot_refuses_any_change` covers
+  unchanged-passes and eleven kinds of change, a linked `objects/pack`, a group change, packed-refs as a FIFO, a
+  packed replace ref, the `main()` round trip and an unlistable directory.
+- **Stale staging text** is fixed across the README, the snapshot docstring, the WATCH comment and the tests
+  (A should_fix 1, B should_fix 1 and 3). `/tmp` and the gitfiles of other worktrees are stated as known scope
+  (A should_fix 5).
 
 ## Tests
 

@@ -189,7 +189,7 @@ def test_codex_cannot_write_the_template_git_metadata():
     city = tomllib.loads(raw.decode())
     [schema] = [o for o in city['providers']['codex']['options_schema'] if o.get('key') == 'worklog_access']
     [picked] = [c for c in schema['choices'] if c['value'] == 'classified-vault-and-template-worktrees']
-    assert picked['flag_args'][:3] == ['--sandbox', 'workspace-write', '-c']
+    assert len(picked['flag_args']) == 4 and picked['flag_args'][:3] == ['--sandbox', 'workspace-write', '-c']
     roots = json.loads(picked['flag_args'][-1].split('=', 1)[1])
     assert roots == ['/home/loucmane/vaults/main/GasCity', '/home/loucmane/gas-city-template-worktrees']
     prep = (HERE/'prep-r11.py').read_text()
@@ -261,12 +261,17 @@ def test_wrappers_resolve_to_this_package():
 
 
 def test_watch_runs_no_git_while_the_worker_is_live():
-    """s1 r2 (B must_fix 2): the codex sandbox can write the Template .git, so WATCH never runs git."""
+    """s1 r2 (B must_fix 2): the worker can write the worktree root (and a relaunch could restore the Template .git),
+    so WATCH never runs git. s1 r6 (r5 review B must_fix 1): it records every opt_/template_override key on the task
+    and on the template's session Beads, and each worktree process's sandbox write roots."""
     watch = (HERE/'watch-r11.py').read_text()
     code = watch.split('"""', 2)[2]
     assert 'HARDENED' not in code and "'git-" not in code and '/usr/bin/git' not in code
     assert 'head = branch = None' in code
     assert 'note_markers=markers' in code and 'os.walk(evidence)' not in code
+    assert 'override_keys=override_keys' in code and 'process_writable_roots=process_roots' in code
+    assert "arg.startswith(b'sandbox_workspace_write.writable_roots=')" in code
+    assert "k.startswith('opt_') or k.startswith('template_override')" in code
 
 
 def test_watch_config_read_cannot_block(tmp_path):
@@ -292,28 +297,27 @@ def test_watch_config_read_cannot_block(tmp_path):
 
 
 def test_common_snapshot_covers_the_whole_git_directory(g):
-    """s1 r2 (B must_fix 3): every file and link under the Template .git but the object store and this index."""
+    """s1 r6: every entry under the Template .git, object store and every index included, is compared."""
     tool = load(HERE/'common-snapshot-r1.py', 'common_snapshot')
-    assert tool.MUTABLE == {'worktrees/%s/index' % g.TASK}
     if not Path(g.ADMIN).exists():
         tool.BRANCH = 'HEAD'  # before WORKTREE the candidate branch does not exist; the walk is what is tested
     seen = tool.observe()
-    control, objects = seen['control'], seen['objects']
-    assert 'config' in control and 'HEAD' in control and seen['candidate_branch']
-    assert any(k.startswith('refs/') for k in control) and any(k.startswith('logs/') for k in control)
-    assert any(k.startswith('worktrees/') and k.endswith('/gitdir') for k in control)
-    assert not any(k == 'objects' or k.startswith('objects/') for k in control)
-    assert 'objects' in objects and 'objects/pack' in objects
-    assert any(k.startswith('objects/pack/pack-') and k.endswith('.pack') for k in objects)
-    assert ('packed-refs' in control) == os.path.exists(g.TEMPLATE_REPO + '/.git/packed-refs')
-    assert 'subprocess' not in (HERE/'common-snapshot-r1.py').read_text()
+    entries = seen['entries']
+    assert '.' in entries and 'config' in entries and 'HEAD' in entries and seen['candidate_branch']
+    assert any(k.startswith('refs/') for k in entries) and any(k.startswith('logs/') for k in entries)
+    assert any(k.startswith('worktrees/') and k.endswith('/gitdir') for k in entries)
+    assert any(k.startswith('worktrees/') and k.endswith('/index') for k in entries)
+    assert 'objects' in entries and 'objects/pack' in entries
+    assert any(k.startswith('objects/pack/pack-') and k.endswith('.pack') for k in entries)
+    assert ('packed-refs' in entries) == os.path.exists(g.TEMPLATE_REPO + '/.git/packed-refs')
+    code = (HERE/'common-snapshot-r1.py').read_text()
+    assert 'subprocess' not in code and 'MUTABLE' not in code and 'loose_ok' not in code
     # The live baseline carries no non-sample hook, grafts, shallow, replace refs or alternates.
     assert tool.baseline_problems(seen) == []
 
 
 def fake_git(tool, root, g):
-    """A minimal common directory for the snapshot's behaviour: config, the candidate ref, a pack, a loose object,
-    this worktree's index."""
+    """A minimal common directory: config, HEAD, the candidate ref, a pack, a loose object, this worktree's index."""
     import zlib
     common = root/'.git'
     (common/'refs/heads/codex').mkdir(parents=True)
@@ -322,126 +326,77 @@ def fake_git(tool, root, g):
     (common/('refs/heads/' + g.BRANCH)).write_text(g.BASE + '\n')
     (common/'objects/pack').mkdir(parents=True)
     (common/('objects/pack/pack-%s.pack' % ('1' * 40))).write_bytes(b'PACK')
+    raw = b'blob 4\0base'
+    name = hashlib.sha1(raw).hexdigest()
+    (common/'objects'/name[:2]).mkdir()
+    (common/'objects'/name[:2]/name[2:]).write_bytes(zlib.compress(raw))
     (common/('worktrees/%s' % g.TASK)).mkdir(parents=True)
     (common/('worktrees/%s/index' % g.TASK)).write_bytes(b'DIRC')
     tool.COMMON = common
-    return common, zlib
+    return common, common/'objects'/name[:2]/name[2:]
 
 
-def loose(common, zlib, body, kind=b'blob'):
-    raw = kind + b' %d\0' % len(body) + body
-    name = hashlib.sha1(raw).hexdigest()
-    (common/'objects'/name[:2]).mkdir(exist_ok=True)
-    (common/'objects'/name[:2]/name[2:]).write_bytes(zlib.compress(raw))
-    return common/'objects'/name[:2]/name[2:]
-
-
-def test_common_snapshot_allows_only_git_add(g, tmp_path):
-    """s1 r3 (reviews of 709fcb33, A must_fix 1, B must_fix 1-2): the after comparison, on a fake common directory.
-    Allowed: new loose objects that hash to their name, and this worktree's index rewritten. Refused: an existing
-    object overwritten, a new pack, a new loose object that does not hash to its name, a directory replaced by a
-    link, a moved branch, a config write. An unlistable directory raises."""
+def test_common_snapshot_refuses_any_change(g, tmp_path):
+    """s1 r6: with no worker write root in the .git, nothing may change it. An unchanged directory passes; any
+    change refuses (an overwritten, added or removed object, a new pack or loose object, an index rewrite, a link,
+    a mode or group change, a config write, a moved branch), and an unlistable directory raises."""
     def fresh(name):
         tool = load(HERE/'common-snapshot-r1.py', 'common_snapshot_' + name)
-        common, zlib = fake_git(tool, tmp_path/name, g)
-        existing = loose(common, zlib, b'base content')
-        return tool, common, zlib, existing, tool.observe()
+        common, obj = fake_git(tool, tmp_path/name, g)
+        return tool, common, obj, tool.observe()
 
-    tool, common, zlib, existing, before = fresh('ok')
-    loose(common, zlib, b'staged content')
-    (common/('worktrees/%s/index' % g.TASK)).write_bytes(b'DIRC2')
+    tool, common, obj, before = fresh('same')
     assert tool.compare(before, tool.observe()) == []
 
-    tool, common, zlib, existing, before = fresh('overwrite')
-    existing.write_bytes(zlib.compress(b'blob 4\0evil'))
-    assert tool.compare(before, tool.observe()) != []
+    changes = {
+        'overwrite': lambda c, o: (o.chmod(0o644), o.write_bytes(b'evil')),
+        'removed': lambda c, o: o.unlink(),
+        'newpack': lambda c, o: (c/('objects/pack/pack-%s.pack' % ('2' * 40))).write_bytes(b'PACK'),
+        'newloose': lambda c, o: ((c/'objects/ab').mkdir(), (c/'objects/ab'/('c' * 38)).write_bytes(b'x')),
+        'midx': lambda c, o: (c/'objects/pack/multi-pack-index').write_bytes(b'x'),
+        'alternates': lambda c, o: ((c/'objects/info').mkdir(), (c/'objects/info/alternates').write_text('/x\n')),
+        'index': lambda c, o: (c/('worktrees/%s/index' % g.TASK)).write_bytes(b'DIRC2'),
+        'config': lambda c, o: (c/'config').write_text('[core]\n\tfsmonitor = /tmp/x\n'),
+        'hook': lambda c, o: ((c/'hooks').mkdir(), (c/'hooks/pre-commit').write_text('#!/bin/sh\n')),
+        'mode': lambda c, o: c.chmod(0o777),
+        'branch': lambda c, o: (c/('refs/heads/' + g.BRANCH)).write_text('0' * 40 + '\n'),
+    }
+    for name, change in changes.items():
+        tool, common, obj, before = fresh(name)
+        try:
+            change(common, obj)
+            assert tool.compare(before, tool.observe()) != [], name
+        finally:
+            common.chmod(0o755)
 
-    tool, common, zlib, existing, before = fresh('pack')
-    (common/('objects/pack/pack-%s.pack' % ('2' * 40))).write_bytes(b'PACK')
-    assert tool.compare(before, tool.observe()) != []
-
-    tool, common, zlib, existing, before = fresh('misnamed')
-    (common/'objects/ee').mkdir()
-    (common/'objects/ee'/('e' * 38)).write_bytes(zlib.compress(b'blob 3\0abc'))
-    assert tool.compare(before, tool.observe()) != []
-
-    tool, common, zlib, existing, before = fresh('link')
+    tool, common, obj, before = fresh('link')
     (common/'objects/pack').rename(common/'objects/moved')
     (common/'objects/pack').symlink_to(common/'objects/moved')
-    assert tool.compare(before, tool.observe()) != []
+    assert 'objects/pack' in tool.compare(before, tool.observe())
 
-    tool, common, zlib, existing, before = fresh('branch')
-    (common/('refs/heads/' + g.BRANCH)).write_text('0' * 40 + '\n')
-    assert tool.compare(before, tool.observe()) != []
-
-    tool, common, zlib, existing, before = fresh('config')
-    (common/'config').write_text('[core]\n\tfsmonitor = /tmp/x\n')
-    assert tool.compare(before, tool.observe()) == ['config']
-
-    # s1 r4 (r3 review A should_fix 7): the remaining shapes.
-    for name, shape in (('midx', 'objects/pack/multi-pack-index'), ('graph', 'objects/info/commit-graph'),
-                        ('alternates', 'objects/info/alternates')):
-        tool, common, zlib, existing, before = fresh(name)
-        (common/shape).parent.mkdir(exist_ok=True)
-        (common/shape).write_bytes(b'x')
-        assert tool.compare(before, tool.observe()) != [], name
-
-    tool, common, zlib, existing, before = fresh('hardlink')
-    added = loose(common, zlib, b'linked content')
-    os.link(added, common/'objects'/'extra')
-    assert tool.compare(before, tool.observe()) != []
-
-    tool, common, zlib, existing, before = fresh('trailing')
-    added = loose(common, zlib, b'trailing content')
-    added.chmod(0o644)
-    added.write_bytes(added.read_bytes() + b'junk')
-    assert tool.compare(before, tool.observe()) != []
-
-    tool, common, zlib, existing, before = fresh('worldwritable')
-    added = loose(common, zlib, b'writable content')
-    added.chmod(0o646)
-    assert tool.compare(before, tool.observe()) != []
-
-    for name in ('indexlink', 'indexhard'):
-        tool, common, zlib, existing, before = fresh(name)
-        index = common/('worktrees/%s/index' % g.TASK)
-        index.rename(common/'moved-index')
-        if name == 'indexlink':
-            index.symlink_to(common/'moved-index')
-        else:
-            os.link(common/'moved-index', index)
-        assert 'mutable-index' in tool.compare(before, tool.observe()), name
-
-    tool, common, zlib, existing, before = fresh('packed')
-    ref = common/('refs/heads/' + g.BRANCH)
-    ref.unlink()
-    (common/'packed-refs').write_text('# pack-refs with: peeled\n%s refs/heads/%s\n' % (g.BASE, g.BRANCH))
-    assert tool.branch_target() == g.BASE
-
-    # s1 r5: a replace ref in packed-refs fails the baseline; an addition in another group refuses.
-    tool, common, zlib, existing, before = fresh('packedreplace')
-    (common/'packed-refs').write_text('%s refs/replace/%s\n' % (g.BASE, g.BASE))
-    assert any(p.startswith('packed-refs: refs/replace/') for p in tool.baseline_problems(tool.observe()))
     other = [gid for gid in os.getgroups() if gid != 1000]
     if other:
-        tool, common, zlib, existing, before = fresh('group')
-        added = loose(common, zlib, b'other group')
-        os.chown(added, -1, other[0])
-        assert str(added.relative_to(common)) in tool.compare(before, tool.observe())
+        tool, common, obj, before = fresh('group')
+        os.chown(common/'config', -1, other[0])
+        assert tool.compare(before, tool.observe()) == ['config']
 
-    tool, common, zlib, existing, before = fresh('root')
-    common.chmod(0o777)
-    try:
-        assert '.' in tool.compare(before, tool.observe())
-    finally:
-        common.chmod(0o755)
+    tool, common, obj, before = fresh('packed')
+    (common/('refs/heads/' + g.BRANCH)).unlink()
+    (common/'packed-refs').write_text('# pack-refs with: peeled\n%s refs/heads/%s\n' % (g.BASE, g.BRANCH))
+    assert tool.branch_target() == g.BASE
+    (common/'packed-refs').unlink()
+    os.mkfifo(common/'packed-refs')
+    with pytest.raises(AssertionError):
+        tool.branch_target()
 
-    # r3 review B should_fix 3: the full main() round trip, a removed object, a new control file, a linked loose.
-    tool, common, zlib, existing, before = fresh('main')
+    tool, common, obj, before = fresh('packedreplace')
+    (common/'packed-refs').write_text('%s refs/replace/%s\n' % (g.BASE, g.BASE))
+    assert any(p.startswith('packed-refs: refs/replace/') for p in tool.baseline_problems(tool.observe()))
+
+    tool, common, obj, before = fresh('main')
     record = tmp_path/'main-before.json'
     assert tool.main(['before', str(record)]) == 0
     digest = hashlib.sha256(record.read_bytes()).hexdigest()
-    loose(common, zlib, b'main staged')
     assert tool.main(['after', str(record), digest, str(tmp_path/'main-after-ok.json')]) == 0
     (common/'hooks').mkdir()
     (common/'hooks/pre-commit').write_text('#!/bin/sh\n')
@@ -451,19 +406,7 @@ def test_common_snapshot_allows_only_git_add(g, tmp_path):
     with pytest.raises(AssertionError):
         tool.main(['before', str(tmp_path/'main-before-hook.json')])
 
-    tool, common, zlib, existing, before = fresh('removed')
-    existing.unlink()
-    assert tool.compare(before, tool.observe()) != []
-
-    tool, common, zlib, existing, before = fresh('linkedloose')
-    target = loose(common, zlib, b'real target')
-    raw = target.read_bytes()
-    target.unlink()
-    (tmp_path/'outside').write_bytes(raw)
-    target.symlink_to(tmp_path/'outside')
-    assert tool.compare(before, tool.observe()) != []
-
-    tool, common, zlib, existing, before = fresh('hidden')
+    tool, common, obj, before = fresh('hidden')
     (common/'objects/info').mkdir()
     (common/'objects/info').chmod(0o311)
     try:
@@ -519,7 +462,8 @@ def test_overlay_recomputes(g):
     assert [p for p in patches if not p['suspended']] == [dict(dir='gas-city-template', name='codex',
         suspended=False, work_dir=g.WORK, min_active_sessions=0, max_active_sessions=1,
         option_defaults=dict(worklog_access='classified-vault-and-template-worktrees'))]
-    # s1 r5: the overlay the window installs gives codex the narrower choice, as Core itself resolves it.
+    # s1 r5: the overlay patch carries the narrower choice and expected_config requires it; the proof of the
+    # effective value is PREP's own exact `gc config show` comparison under the overlay.
     parsed = tomllib.loads(candidate.decode())
     [codex] = [a for a in parsed['patches']['agent'] if a.get('dir') == 'gas-city-template' and a.get('name') == 'codex'
                and 'work_dir' in a]

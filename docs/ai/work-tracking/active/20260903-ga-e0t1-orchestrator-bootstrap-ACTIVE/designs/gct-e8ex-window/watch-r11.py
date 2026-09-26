@@ -260,9 +260,9 @@ def main():
                                                     '--json', '--limit', '0'])['stdout'])
     run('trace', w.GC + ['trace', 'show', '--template', TEMPLATE, '--since', '30m', '--json'])
     # Template variant (s1 r2): no git runs against the worktree while the codex worker is live. Its
-    # sandbox can write the Template .git and the worktree root, so any coordinator git call here could
-    # run a driver or command it chose. The git state is read after containment by the reviewed
-    # post-window intake check; the task notes (READY FOR SIGNING / ESCALATED / STOPPED) are the signal.
+    # sandbox can write the worktree root, and a relaunch through an opt_ override could restore the
+    # Template .git, so any coordinator git call here could run a driver or command it chose. The
+    # task notes (READY FOR SIGNING / ESCALATED / STOPPED) are the signal.
     head = branch = None
     status = staged = ''
     run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid} #{pane_dead}'],
@@ -301,7 +301,9 @@ def main():
                     locks = b'GIT_OPTIONAL_LOCKS=0' in (proc/'environ').read_bytes().split(b'\0')
                 except OSError:
                     locks = None
-                processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks,
+                roots = [arg.split(b'=', 1)[1].decode(errors='replace')[:2000] for arg in argv
+                         if arg.startswith(b'sandbox_workspace_write.writable_roots=')]
+                processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks, writable_roots=roots,
                                       argv=redacted([arg.decode(errors='replace') for arg in argv if arg])))
         except (FileNotFoundError, ProcessLookupError, PermissionError):
             continue
@@ -325,6 +327,13 @@ def main():
                or (v.get('metadata') or {}).get('gc.trigger_bead_id') == TASK
                or (v.get('metadata') or {}).get('gc.work_dir') == str(w.WORK)]
     [bead] = task
+    def overrides(metadata):
+        return sorted(k for k in (metadata or {}) if k.startswith('opt_') or k.startswith('template_override'))
+    override_keys = dict(task=overrides(bead.get('metadata')),
+                         sessions={v['id']: overrides(v.get('metadata')) for v in census
+                                   if overrides(v.get('metadata')) and ((v.get('metadata') or {}).get('template') == TEMPLATE
+                                   or (v.get('metadata') or {}).get('gc.work_dir') == str(w.WORK))})
+    process_roots = sorted({root for p in processes for root in p['writable_roots']})
     notes = bead.get('notes') or ''
     markers = [line[:300] for line in notes.splitlines()
                if 'READY FOR SIGNING:' in line or 'ESCALATED:' in line or 'STOPPED:' in line][-5:]
@@ -345,7 +354,8 @@ def main():
     except OSError as exc:
         template_config = 'unreadable: %s' % exc.__class__.__name__
     result = dict(ok=True, mutation=False, head=head, branch=branch, note_markers=markers,
-                  template_git_config_sha256=template_config,
+                  template_git_config_sha256=template_config, override_keys=override_keys,
+                  process_writable_roots=process_roots,
                   status_records=records, staged=staged.splitlines(),
                   live_sessions=sessions.get('sessions'), related_session_beads=related,
                   task=dict(status=bead['status'], assignee=bead.get('assignee'),
