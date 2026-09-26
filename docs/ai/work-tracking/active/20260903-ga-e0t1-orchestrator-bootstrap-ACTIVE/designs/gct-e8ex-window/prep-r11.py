@@ -121,7 +121,9 @@ RECEIPT_SHA = 'c833908fe89ab180e57ef7164d687f01ae2052f8667360f04b73c5423902f0a4'
 REVISION = '83c41af65776eaa90f93b57158e8ad57141e19347a592ce509a19f56c2667add'
 ORDER_COUNT = 34
 HEADER = '\n# gct-mbg6 bounded one-worker window; restore exact preserved baseline.\n'
-OVERLAY_SHA = 'ecc53a30ebcd6bb678c9932895b313afed2ef806f79a699b2ad2643588eacb93'
+OVERLAY_SHA = '7c3cfc4d5ae185cdc863860c17433cd6d802d916e150fd9b6102cccec7a0cdf8'
+# s1 r5: the codex choice without the Template .git (vault and Template worktrees only).
+NARROW_ACCESS = 'classified-vault-and-template-worktrees'
 LAUNCH = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
               '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6/source-launch.py')
 LAUNCH_SHA = '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea'
@@ -212,7 +214,8 @@ def expected_config(baseline, selected, target, names):
     for i in selected:
         expected['config']['Agents'][i]['Suspended'] = i != target
         if i == target:
-            expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1)
+            expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1,
+                                                   OptionDefaults=dict(worklog_access=NARROW_ACCESS))
     expected['config']['Workspace']['MaxActiveSessions'] = 1
     expected['config']['Orders']['Skip'] = names
     assert baseline['config']['Orders']['Overrides'] is None
@@ -258,8 +261,9 @@ def build_overlay(city, baseline, orders):
     target = identities.index(('gas-city-template', 'codex'))
     # The Template codex agent is held only by the suspension of its rig, not at the agent level.
     assert agents[target]['Provider'] == 'codex' and agents[target]['Suspended'] is False
-    # Its sandbox write roots include the Template .git (git add and write-tree need it); city.toml, which
-    # defines that choice, is pinned by digest.
+    # Its deployed default includes the Template .git in the sandbox write roots. s1 r5 (operator decision
+    # 2026-09-26): the overlay gives it the narrower choice instead, so the worker cannot write git state.
+    # city.toml, which defines both choices, is pinned by digest.
     assert agents[target]['OptionDefaults'] == {'worklog_access': 'classified-vault-template-worktrees-and-git-metadata'}
     assert agents[target]['MaxActiveSessions'] == 1
     selected = [i for i, a in enumerate(agents) if a['Dir'] in ('', 'gas-city-template')]
@@ -274,13 +278,20 @@ def build_overlay(city, baseline, orders):
         a = agents[i]
         patch = dict(dir=a['Dir'], name=a['Name'], suspended=i != target)
         if i == target:
-            patch.update(work_dir=WORK, min_active_sessions=0, max_active_sessions=1)
+            patch.update(work_dir=WORK, min_active_sessions=0, max_active_sessions=1,
+                         option_defaults=dict(worklog_access=NARROW_ACCESS))
         patches.append(patch)
     parts = [HEADER, '[orders]\n', 'skip = ' + json.dumps(names) + '\n', NUDGE_OVERRIDE]
     for patch in patches:
         parts.append('\n[[patches.agent]]\n')
         for key, value in patch.items():
-            parts.append(key + ' = ' + json.dumps(value) + '\n')
+            if not isinstance(value, dict):
+                parts.append(key + ' = ' + json.dumps(value) + '\n')
+        for key, value in patch.items():
+            if isinstance(value, dict):
+                parts.append('[patches.agent.' + key + ']\n')
+                for inner, item in value.items():
+                    parts.append(inner + ' = ' + json.dumps(item) + '\n')
     candidate = city.replace(b'max_active_sessions = 16\n', b'max_active_sessions = 1\n', 1) + ''.join(parts).encode()
     tomllib.loads(candidate.decode())
     return candidate, patches, names, target, selected
@@ -304,7 +315,7 @@ def main():
     write('config.baseline.json', baseline)
     write('orders.baseline.json', orders)
     candidate, patches, names, target, selected = build_overlay(city, baseline, orders)
-    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the derived ecc53a30'
+    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the derived 7c3cfc4d'
     write('city.baseline.toml', city)
     write('city.isolated.toml', candidate)
     write('declared-delta.json', dict(patches=patches, order_skip=names, workspace_cap=1))

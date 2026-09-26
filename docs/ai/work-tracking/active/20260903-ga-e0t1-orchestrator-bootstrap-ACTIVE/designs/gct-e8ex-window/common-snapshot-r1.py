@@ -16,10 +16,13 @@ The codex sandbox can write the whole Template .git, so this tool runs no git at
   files; every read is bounded (1 GiB), and the excluded index must stay a plain single-link file.
 - the candidate branch is resolved from the ref bytes (the loose ref file, else packed-refs), never through git,
   and must still point at BASE (the worker delivers staged, uncommitted work).
-- the .git directory itself is recorded; accepted additions must belong to the operator and not be
-  world-writable; a loose object with trailing bytes after its zlib stream refuses.
+- the .git directory itself is recorded, with every entry's owner and group; accepted additions must belong to
+  the operator's user and group and not be world-writable; a loose object with trailing bytes after its zlib
+  stream refuses.
+Since s1 r5 the codex worker has no write root in this .git at all, so this tool is defence in depth. It runs
+after CLOSE and TERMINAL.
 - `before` refuses a baseline carrying a hook other than git's samples and the four pinned git-lfs hooks,
-  info/grafts, shallow, refs/replace/ or alternates.
+  info/grafts, shallow, refs/replace/ (loose or in packed-refs) or alternates.
 Known fail-closed cases: `git add` of a file over core.bigFileThreshold (512 MiB) writes a pack, and any file over
 1 GiB exceeds the read bound; a worker contained mid-add leaves index.lock or objects/xx/tmp_obj_*. All refuse and
 are investigated, not treated as tampering by default.
@@ -46,7 +49,7 @@ LIMIT=1<<30
 
 def entry(path):
     s=os.lstat(path)
-    value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid)
+    value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid,gid=s.st_gid)
     if stat.S_ISREG(s.st_mode):
         assert s.st_size<=LIMIT,('file over the read bound',str(path))
         value['size']=s.st_size
@@ -119,7 +122,7 @@ def compare(before,after):
         # An accepted addition belongs to the operator and is not world-writable. Group write is allowed: the
         # group is the operator's private group, and a worker under the user manager's umask 0002 makes 0775
         # object directories.
-        if v['uid']!=1000 or v['mode']&0o002:
+        if v['uid']!=1000 or v['gid']!=1000 or v['mode']&0o002:
             changed.append(k);continue
         if v['type']==stat.S_IFDIR and LOOSE_DIR.fullmatch(k):continue
         if v['type']==stat.S_IFREG and v['nlink']==1 and LOOSE.fullmatch(k) and loose_ok(k):continue
@@ -149,6 +152,12 @@ def baseline_problems(value):
         and not k.endswith('.sample') and not (v['type']==stat.S_IFREG and LFS_HOOKS.get(k)==v.get('sha256'))]
     problems+=[k for k in value['control'] if k in ('info/grafts','shallow') or k.startswith('refs/replace/')]
     problems+=[k for k in value['objects'] if k in ('objects/info/alternates','objects/info/http-alternates')]
+    # s1 r5 (r4 reviews A should_fix 2, B should_fix 1): a replace ref may also sit in packed-refs.
+    packed=COMMON/'packed-refs'
+    if 'packed-refs' in value['control']:
+        for line in packed.read_text().splitlines():
+            parts=line.split(' ')
+            if len(parts)==2 and parts[1].startswith('refs/replace/'):problems.append('packed-refs: '+parts[1])
     return problems
 
 def main(argv):

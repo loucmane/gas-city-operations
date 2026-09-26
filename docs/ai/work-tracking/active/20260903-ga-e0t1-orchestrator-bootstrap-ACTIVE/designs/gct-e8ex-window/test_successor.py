@@ -179,9 +179,25 @@ def test_live_pins():
     assert sha('/home/loucmane/gascity/city/city.toml') == base.CITY_SHA[0]
 
 
-def test_codex_can_write_the_template_git_metadata():
-    """The composed codex session's sandbox write roots include the Template .git (git add, write-tree), from the
-    pinned city.toml: the agent's worklog_access default selects the choice that lists it."""
+def test_codex_cannot_write_the_template_git_metadata():
+    """s1 r5 (operator decision 2026-09-26): the window's codex choice has exactly the vault and the Template
+    worktrees as write roots, never the Template .git, from the pinned city.toml. The deployed default (which does
+    list the .git) is what the overlay replaces."""
+    base = load(HERE/'window-base-r11.py', 'window_base_codex_narrow')
+    raw = Path('/home/loucmane/gascity/city/city.toml').read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == base.CITY_SHA[0]
+    city = tomllib.loads(raw.decode())
+    [schema] = [o for o in city['providers']['codex']['options_schema'] if o.get('key') == 'worklog_access']
+    [picked] = [c for c in schema['choices'] if c['value'] == 'classified-vault-and-template-worktrees']
+    assert picked['flag_args'][:3] == ['--sandbox', 'workspace-write', '-c']
+    roots = json.loads(picked['flag_args'][-1].split('=', 1)[1])
+    assert roots == ['/home/loucmane/vaults/main/GasCity', '/home/loucmane/gas-city-template-worktrees']
+    prep = (HERE/'prep-r11.py').read_text()
+    assert "NARROW_ACCESS = 'classified-vault-and-template-worktrees'" in prep
+
+
+def test_deployed_codex_default_still_lists_the_git():
+    """The deployed default (the choice the overlay replaces) lists the Template .git, pinned by city.toml."""
     base = load(HERE/'window-base-r11.py', 'window_base_codex')
     raw = Path('/home/loucmane/gascity/city/city.toml').read_bytes()
     assert hashlib.sha256(raw).hexdigest() == base.CITY_SHA[0]
@@ -402,6 +418,17 @@ def test_common_snapshot_allows_only_git_add(g, tmp_path):
     (common/'packed-refs').write_text('# pack-refs with: peeled\n%s refs/heads/%s\n' % (g.BASE, g.BRANCH))
     assert tool.branch_target() == g.BASE
 
+    # s1 r5: a replace ref in packed-refs fails the baseline; an addition in another group refuses.
+    tool, common, zlib, existing, before = fresh('packedreplace')
+    (common/'packed-refs').write_text('%s refs/replace/%s\n' % (g.BASE, g.BASE))
+    assert any(p.startswith('packed-refs: refs/replace/') for p in tool.baseline_problems(tool.observe()))
+    other = [gid for gid in os.getgroups() if gid != 1000]
+    if other:
+        tool, common, zlib, existing, before = fresh('group')
+        added = loose(common, zlib, b'other group')
+        os.chown(added, -1, other[0])
+        assert str(added.relative_to(common)) in tool.compare(before, tool.observe())
+
     tool, common, zlib, existing, before = fresh('root')
     common.chmod(0o777)
     try:
@@ -490,7 +517,16 @@ def test_overlay_recomputes(g):
     candidate, patches, names, target, selected = prep.build_overlay(city, baseline, orders)
     assert hashlib.sha256(candidate).hexdigest() == g.OVERLAY_NEW == prep.OVERLAY_SHA
     assert [p for p in patches if not p['suspended']] == [dict(dir='gas-city-template', name='codex',
-        suspended=False, work_dir=g.WORK, min_active_sessions=0, max_active_sessions=1)]
+        suspended=False, work_dir=g.WORK, min_active_sessions=0, max_active_sessions=1,
+        option_defaults=dict(worklog_access='classified-vault-and-template-worktrees'))]
+    # s1 r5: the overlay the window installs gives codex the narrower choice, as Core itself resolves it.
+    parsed = tomllib.loads(candidate.decode())
+    [codex] = [a for a in parsed['patches']['agent'] if a.get('dir') == 'gas-city-template' and a.get('name') == 'codex'
+               and 'work_dir' in a]
+    assert codex['option_defaults'] == {'worklog_access': 'classified-vault-and-template-worktrees'}
+    expected = prep.expected_config(baseline, selected, target, names)
+    assert expected['config']['Agents'][target]['OptionDefaults'] == {
+        'worklog_access': 'classified-vault-and-template-worktrees'}
 
 
 PREP_ROOT = Path('/var/tmp/gct-mbg6-prep-20260926-r1')

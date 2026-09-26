@@ -15,7 +15,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-e8ex-window
 COMMIT=${1:?usage: PREP.sh <reviewed commit>}
-PREP_SHA=1d6ae73353745b9355c31961a34ef9fcae2f0ce1b1a111688141431826b1653a
+PREP_SHA=1578eb293f80087c9d659f862ea28f18f4a8505ce8f806f877b3098533cbf641
 OUT=/var/tmp/gct-mbg6-prep-20260926-r1
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

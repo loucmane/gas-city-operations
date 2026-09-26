@@ -1,13 +1,15 @@
 """The one gct-mbg6 contract binding before the window: gc.work_dir only; never route or resume.
 
 gct-mbg6: bind-task-r5.py as reviewed for ga-x7lx and ga-3oa7, retargeted to the Template codex task. The Bead
-description is the short gct-e8ex task brief (sha256 381cd7a83680b4259e7a774f61876d7e9ff619d6c7f13b746fe7359feb770004): the reviewed r6 gct-e8ex brief head and tail,
+description is the short gct-e8ex task brief (sha256 c66bab3c40693762c54c998efa8b5f8bab2813391ba15a9318a00b7b33f2ef0c): the reviewed r6 gct-e8ex brief head and tail,
 verbatim, with the stop check and a pointer to six closed holders (designs/gct-e8ex-split). The task
 carries no dependency edge, so `bd show` prints no embedded record.
 Template window (twelfth successor): the codex agent is not in the provisioning receipt, so the Core start
 preflight does not gate it and no gc.check_path stamp is written; the binding sets gc.work_dir only. There is
-no info/exclude check: the codex worker stages in its worktree and the coordinator signs in place. No option
-or template override is written. It runs as its own job BEFORE the window, so no window root may exist yet.
+no info/exclude check: the codex worker cannot write the Template .git (s1 r5) and leaves its changes
+uncommitted for a reviewed Template intake. No option or template override is written on the Bead (the
+narrower codex choice comes from the PREP overlay). It runs as its own job BEFORE the window, so no window
+root may exist yet.
 """
 import hashlib
 import json
@@ -23,7 +25,7 @@ HELPER=HERE/'window-base-r11.py'
 HELPER_SHA='bcea663b38313492cd39efb7ff173d4d12dad019b0ef99f482f4f167ad0f9e40'
 WORKTREE_RESULT=Path('/var/tmp/gct-mbg6-worktree-20260926-r1/result.json')
 WORKTREE_SHA='310f75d0d1e29e99a8305a03caa4245e81dd445045986b60eca50bc8bb0108aa'
-DESCRIPTION_SHA='381cd7a83680b4259e7a774f61876d7e9ff619d6c7f13b746fe7359feb770004'
+DESCRIPTION_SHA='c66bab3c40693762c54c998efa8b5f8bab2813391ba15a9318a00b7b33f2ef0c'
 BEAD='gct-mbg6'
 TARGET='gas-city-template/codex'
 WORK='/home/loucmane/gas-city-template-worktrees/gct-mbg6'

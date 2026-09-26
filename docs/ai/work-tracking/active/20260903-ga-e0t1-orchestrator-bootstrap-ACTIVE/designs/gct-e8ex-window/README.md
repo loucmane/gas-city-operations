@@ -11,16 +11,20 @@ two SOURCE_PASS), using asserted replacements only. That package ran live cleanl
 
 ## The brief
 
-The reviewed r6 gct-e8ex brief was split for readability. The package is `designs/gct-e8ex-split`, r9
-`e6fa8ecd`, with two SOURCE_PASS in each of r7, r8 and r9. The Beads, all in gas-city-template, are:
-- **gct-mbg6**, the task: description `381cd7a8`, open, unassigned, no edges, notes or metadata, label
+The reviewed r6 gct-e8ex brief was split for readability. The package is `designs/gct-e8ex-split`, r10
+`0e4b6708`, with two SOURCE_PASS in each of r7 to r10. The Beads, all in gas-city-template, are:
+- **gct-mbg6**, the task: description `c66bab3c`, open, unassigned, no edges, notes or metadata, label
   `template-candidate`. It opens with a stop check and points to the holders.
 - six closed, edgeless holders in order: `gct-v1nl`, `gct-q6a4`, `gct-t54b`, `gct-2fax`, `gct-ilmv` (the r6 text)
-  and `gct-icv2` (coordinator notes: stage, append `READY FOR SIGNING: gct-mbg6 tree <digest>`, escalate once,
-  stop; no close, drain-ack or commit).
+  and `gct-i852`. gct-i852 holds the r10 coordinator notes:
+  - never stage or write git state, and leave the changes uncommitted;
+  - append `READY FOR SIGNING: gct-mbg6 worktree`, escalate once and stop;
+  - no close, drain-ack or commit.
 
-The live check passed: every digest equals the render, and every plain view is under 9,000 bytes and 200 lines.
-The evidence is in `reports/gct-e8ex-split-20260926/live-check-r1`. The umbrella gct-e8ex stays open.
+  The r9 holder 6, gct-icv2, is closed and unreferenced.
+
+The r10 live check passed: every digest equals the render, and every plain view is under 9,000 bytes and 200
+lines. The evidence is in `reports/gct-e8ex-split-20260926/live-check-r10`. The umbrella gct-e8ex stays open.
 `test_brief_is_the_reviewed_split` re-reads the live Beads against `split_e8ex.py`.
 
 ## What changes from ga-3oa7
@@ -52,15 +56,19 @@ The evidence is in `reports/gct-e8ex-split-20260926/live-check-r1`. The umbrella
    9,000 bytes. A test pins the order.
 5. **BIND sets only `gc.work_dir`.** The codex agent is not in the provisioning receipt, so Core's start
    preflight does not gate it and no `gc.check_path` stamp is written. There is no info/exclude check and no
-   intake export: the worker stages in its worktree and the coordinator signs in place. BIND also refuses a task
-   with notes.
-6. **PREP r11.** The overlay `ecc53a30` has 42 agent patches: every city and Template agent is suspended except
-   `gas-city-template/codex`, which is bound to the worktree with sessions 0..1. The codex singleton warning is
-   already in the baseline. PREP asserts the codex provider, that it is not suspended at the agent level, and its
-   `worklog_access` default.
-7. **The Template `.git` is writable.** `test_codex_can_write_the_template_git_metadata` proves, from the pinned
-   `city.toml`, that the codex default `classified-vault-template-worktrees-and-git-metadata` gives exactly the
-   write roots: the GasCity vault, `gas-city-template-worktrees` and `gas-city-template/.git`.
+   intake export: the worker leaves its changes uncommitted in the worktree (since s1 r5 it cannot stage). BIND
+   also refuses a task with notes.
+6. **PREP r11.** The overlay `7c3cfc4d` has 42 agent patches: every city and Template agent is suspended except
+   `gas-city-template/codex`, which is bound to the worktree with sessions 0..1 and, since s1 r5, the narrower
+   `worklog_access` choice. The codex singleton warning is already in the baseline. PREP asserts the codex
+   provider, that it is not suspended at the agent level and its deployed default, and its live `gc config show`
+   comparison proves the effective OptionDefaults.
+7. **The Template `.git` is not writable** (s1 r5, operator decision 2026-09-26). The deployed codex default
+   `classified-vault-template-worktrees-and-git-metadata` lists `gas-city-template/.git` as a write root. The
+   overlay replaces it with `classified-vault-and-template-worktrees`, whose roots are exactly the GasCity vault
+   and `gas-city-template-worktrees` (`test_codex_cannot_write_the_template_git_metadata`, from the pinned
+   `city.toml`). The worker cannot stage; the coordinator takes the tree through a reviewed Template intake.
+   Items 10 to 12 stay as defence in depth.
 8. **Accepted image:** the ga-3oa7 TERMINAL `observed-after.json` (`3059c650`), compared on the same four keys,
    with the P10 provider pins `82a4a70c`.
 9. **Coordinator-cache disposition (needs the operator's approval for this window at s2):**
@@ -78,9 +86,9 @@ The evidence is in `reports/gct-e8ex-split-20260926/live-check-r1`. The umbrella
     - A new pack or multi-pack-index, an overwritten object and a directory replaced by a link all refuse. So
       does any walk error, such as an unlistable directory. Every read is bounded.
     - The candidate branch is read from the ref bytes and must still point at BASE.
-11. **No coordinator git while the worker is live** (s1 r2). The codex sandbox can write the Template `.git` and
-    the worktree root, so a coordinator git call against the worktree could run a driver or command the worker
-    chose. WATCH therefore runs no git and records HEAD, branch, status and diffs as empty. The worker's signal is
+11. **No coordinator git while the worker is live** (s1 r2). The codex sandbox can write the worktree root (and,
+    before s1 r5, could write the Template `.git`), so a coordinator git call against the worktree could run a
+    driver or command the worker chose, for example through a worktree `.gitattributes`. WATCH therefore runs no git and records HEAD, branch, status and diffs as empty. The worker's signal is
     its task notes: `READY FOR SIGNING`, `ESCALATED:` or `STOPPED:`. PREFLIGHT's git reads run before ROUTE, when
     no worker exists.
 12. **WORKTREE checks before it checks out** (s1 r2). The pinned drivers, the absent attributes file and the exact
@@ -137,14 +145,17 @@ and the four stock git-lfs hooks (`post-checkout`, `post-commit`, `post-merge`, 
    <digest>` or an `ESCALATED:`/`STOPPED:` note.
 6. **After TERMINAL:**
    - first `common-snapshot-r1.py after`, before any other coordinator git call in the Template repository;
-   - then a separately reviewed intake check. It re-runs `verify_linked`, the pinned drivers, the absent attributes
-     files and the tracked `.gitattributes` check against the worker's tree. Only then does it run hardened git:
-     `git write-tree` must equal the READY digest, then the review diff is exported tree to tree
-     (`git diff BASE <write-tree oid>`), so it is exactly what is signed;
-   - a signed commit in place, two reviews bound to it, the Template PR, CI, merge, then close gct-mbg6;
+   - then a separately reviewed Template intake (the Operations R3/R4 pattern). It exports the worker's files
+     from the worktree without running git there: a manifest of every changed and new path, with bytes and
+     digests, taken read-only. The export is applied to a fresh Template intake worktree at BASE, where the
+     coordinator stages exactly the manifest with hardened git. The review diff is exported tree to tree
+     (`git diff BASE <tree>`, with replace objects off), so it is exactly what is signed;
+   - a signed commit in that intake worktree, two reviews bound to it, the Template PR, CI and merge, then close
+     gct-mbg6;
    - the Bead records and post-checks.
 
-   No coordinator git runs in the worktree before that intake check passes.
+   The worker's worktree is never signed in place, and no coordinator git runs in it. A process that survived
+   containment can therefore change only files the export already recorded.
 
 ## s1 r2 (answers the s1 reviews of `fd1f5d8c`: A and B HOLD)
 
@@ -208,6 +219,26 @@ and the four stock git-lfs hooks (`post-checkout`, `post-commit`, `post-merge`, 
 - **For the intake check (A should_fix 6).** The index is outside the snapshot, and `git write-tree` trusts its
   cache-tree extension. So the intake exports the review diff tree to tree, as `git diff BASE <write-tree oid>`.
   The reviewed diff and the signed tree then cannot diverge.
+
+## s1 r5 (answers the s1 r4 reviews of `49114364`: A HOLD, B SOURCE_PASS; operator decision)
+
+- **A must_fix 1: a process surviving containment.** The snapshot after TERMINAL is a point-in-time check, CLOSE's
+  residue check only scans argv and cwd, and the plan signed in the worker's worktree. A survivor holding the
+  sandbox's write access to the Template `.git` could therefore rewrite its config after the check and hijack
+  the coordinator's signing git.
+  - The operator chose, on 2026-09-26, to drop that grant instead of detecting it (item 7). The PREP overlay
+    gives codex `classified-vault-and-template-worktrees`, and a confined `gc config show` on the overlay reports
+    exactly that choice.
+  - The coordinator no longer signs in the worker's worktree. A reviewed Template intake exports the files into
+    a fresh intake worktree (run order step 6), so a survivor cannot change what is reviewed or signed.
+  - The split moves to r10 (holder 6: do not stage).
+- **The snapshot (A should_fix 1-2, B should_fix 1)** records every entry's group and requires the operator's
+  group for additions, and `before` also refuses replace refs in `packed-refs`. The intake runs git with replace
+  objects off.
+- **Carried (B should_fix 2-4):**
+  - the snapshot's lstat-then-read is safe because it runs after CLOSE;
+  - Core's in-window gc calls stay a detection-only known limit (Known scope);
+  - the negative tests keep asserting `!= []`, with the key-exact form used where it matters.
 
 ## Tests
 

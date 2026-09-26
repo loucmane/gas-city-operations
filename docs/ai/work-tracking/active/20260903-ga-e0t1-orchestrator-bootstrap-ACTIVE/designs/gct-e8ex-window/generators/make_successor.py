@@ -5,7 +5,7 @@
 Step 4 of the goal needs the Template Claude candidate lane (gct-e8ex) before the Claude<->Codex handover proof
 (gct-oak5). The only worker scoped to build it is the Template rig's `codex` agent (gas-city-native prompt;
 provider codex, gpt-5.6-sol, max_active_sessions 1), whose Codex quota returned on 2026-09-26. Its brief is split
-for readability (designs/gct-e8ex-split r9): task gct-mbg6 (TASK below) plus six closed holders.
+for readability (designs/gct-e8ex-split r10): task gct-mbg6 (TASK below) plus six closed holders.
 
 The window stack is the reviewed ga-3oa7 package (s2 c991d20c, ran live cleanly on 2026-09-26), retargeted:
 1. Identity: ga-3oa7 becomes TASK; the target gascity/operations-candidate-worker becomes gas-city-template/codex;
@@ -20,10 +20,11 @@ The window stack is the reviewed ga-3oa7 package (s2 c991d20c, ran live cleanly 
    with ignored files, survey of processes holding the worktree, the gc.work_dir and description checks, and (from
    the split reviews) no notes, no assignee and a JSON view under 9000 bytes.
 4. BIND sets only gc.work_dir: the codex agent is not in the provisioning receipt, so Core's start preflight does
-   not gate it and needs no gc.check_path stamp. There is no info/exclude check (no intake.py export: the codex
-   worker stages its tree in the worktree and the coordinator signs in place).
+   not gate it and needs no gc.check_path stamp. There is no info/exclude check: since s1 r5 the codex worker
+   cannot write the Template .git and leaves its changes uncommitted; a reviewed Template intake exports them.
 5. PREP: the overlay suspends every Template agent except codex (Dir '' and 'gas-city-template'), binds codex to
-   the worktree with sessions 0..1; the codex singleton warning is already in the baseline.
+   the worktree with sessions 0..1 and (s1 r5) the classified-vault-and-template-worktrees choice, which has no
+   Template .git write root; the codex singleton warning is already in the baseline.
 6. Accepted image: the ga-3oa7 TERMINAL observed-after record, with the same one-field coordinator-cache
    disposition class (it needs the operator's approval for this window at s2).
 7. The common-directory snapshot moves to the Template repository's .git.
@@ -43,7 +44,7 @@ DROP_DIRS = ('generators/',)
 DIGEST = re.compile(r'[0-9a-f]{64}')
 
 TASK = 'gct-mbg6'
-DESCRIPTION_SHA = '381cd7a83680b4259e7a774f61876d7e9ff619d6c7f13b746fe7359feb770004'
+DESCRIPTION_SHA = 'c66bab3c40693762c54c998efa8b5f8bab2813391ba15a9318a00b7b33f2ef0c'
 PACKAGE = 'gct-e8ex-window'
 TEMPLATE_REPO = '/home/loucmane/gas-city-template'
 ROOT_DIR = '/home/loucmane/gas-city-template-worktrees'
@@ -160,8 +161,10 @@ def bind(text):
                      "must be exactly its postimage. It runs as its own job BEFORE the window, so no window root may exist yet.\n",
                "Template window (twelfth successor): the codex agent is not in the provisioning receipt, so the Core start\n"
                "preflight does not gate it and no gc.check_path stamp is written; the binding sets gc.work_dir only. There is\n"
-               "no info/exclude check: the codex worker stages in its worktree and the coordinator signs in place. No option\n"
-               "or template override is written. It runs as its own job BEFORE the window, so no window root may exist yet.\n")
+               "no info/exclude check: the codex worker cannot write the Template .git (s1 r5) and leaves its changes\n"
+               "uncommitted for a reviewed Template intake. No option or template override is written on the Bead (the\n"
+               "narrower codex choice comes from the PREP overlay). It runs as its own job BEFORE the window, so no window\n"
+               "root may exist yet.\n")
     text = sub(text, "    s=EXCLUDE.lstat()\n"
                      "    assert stat.S_ISREG(s.st_mode) and s.st_uid==1000,'exclude authority'\n"
                      "    assert hashlib.sha256(EXCLUDE.read_bytes()).hexdigest()==EXCLUDE_AFTER,'common info/exclude is not the EXCLUDE postimage'\n",
@@ -228,14 +231,16 @@ def worktree(text):
 OVERLAY_OLD = '0e583359552b9c765ae0da5cf971397d6cf0e96b03613238721cc797aad64940'
 # Derived read-only by the generated build_overlay from the live city.toml and the confined gc config and order
 # list (2026-09-26): 42 agent patches, only gas-city-template/codex unsuspended (work_dir the gct-mbg6 worktree,
-# sessions 0..1), 33 order skips.
-OVERLAY_NEW = 'ecc53a30ebcd6bb678c9932895b313afed2ef806f79a699b2ad2643588eacb93'
+# sessions 0..1), 33 order skips. s1 r5: the codex patch also sets option_defaults worklog_access to the narrower
+# classified-vault-and-template-worktrees choice (no Template .git); a confined `gc config show` on this overlay
+# reports exactly that OptionDefaults for gas-city-template/codex.
+OVERLAY_NEW = '7c3cfc4d5ae185cdc863860c17433cd6d802d916e150fd9b6102cccec7a0cdf8'
 # The P10 provider pins the observers compare (unchanged from ga-3oa7).
 PROVIDER = ('/var/tmp/ga-e0t1.18-p10-adoption-20260926/after.json.provider-pins',
             '82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b')
-# The split (designs/gct-e8ex-split at e6fa8ecd): holder ids in position order.
-SPLIT_COMMIT = 'e6fa8ecd5c1c0a15939ff77f11dbe364f6c68e99'
-HOLDERS = ('gct-v1nl', 'gct-q6a4', 'gct-t54b', 'gct-2fax', 'gct-ilmv', 'gct-icv2')
+# The split (designs/gct-e8ex-split r10 at 0e4b6708): holder ids in position order; gct-i852 replaced gct-icv2.
+SPLIT_COMMIT = '0e4b67080b7816d703f81d9559124b256f22fe1f'
+HOLDERS = ('gct-v1nl', 'gct-q6a4', 'gct-t54b', 'gct-2fax', 'gct-ilmv', 'gct-i852')
 # s2: the gct-mbg6 PREP outputs replace the ga-3oa7 ones in window-base (empty until PREP has run).
 PREP_PINS = []
 
@@ -249,11 +254,33 @@ def prep(text):
                "    target = identities.index(('gas-city-template', 'codex'))\n"
                "    # The Template codex agent is held only by the suspension of its rig, not at the agent level.\n"
                "    assert agents[target]['Provider'] == 'codex' and agents[target]['Suspended'] is False\n"
-               "    # Its sandbox write roots include the Template .git (git add and write-tree need it); city.toml, which\n"
-               "    # defines that choice, is pinned by digest.\n"
+               "    # Its deployed default includes the Template .git in the sandbox write roots. s1 r5 (operator decision\n"
+               "    # 2026-09-26): the overlay gives it the narrower choice instead, so the worker cannot write git state.\n"
+               "    # city.toml, which defines both choices, is pinned by digest.\n"
                "    assert agents[target]['OptionDefaults'] == {'worklog_access': 'classified-vault-template-worktrees-and-git-metadata'}\n")
     text = sub(text, "    selected = [i for i, a in enumerate(agents) if a['Dir'] in ('', 'gascity')]\n",
                "    selected = [i for i, a in enumerate(agents) if a['Dir'] in ('', 'gas-city-template')]\n")
+    # s1 r5: the codex patch carries option_defaults with the narrower choice, written as a TOML subtable.
+    text = sub(text, "            patch.update(work_dir=WORK, min_active_sessions=0, max_active_sessions=1)\n",
+               "            patch.update(work_dir=WORK, min_active_sessions=0, max_active_sessions=1,\n"
+               "                         option_defaults=dict(worklog_access=NARROW_ACCESS))\n")
+    text = sub(text, "        for key, value in patch.items():\n"
+                     "            parts.append(key + ' = ' + json.dumps(value) + '\\n')\n",
+               "        for key, value in patch.items():\n"
+               "            if not isinstance(value, dict):\n"
+               "                parts.append(key + ' = ' + json.dumps(value) + '\\n')\n"
+               "        for key, value in patch.items():\n"
+               "            if isinstance(value, dict):\n"
+               "                parts.append('[patches.agent.' + key + ']\\n')\n"
+               "                for inner, item in value.items():\n"
+               "                    parts.append(inner + ' = ' + json.dumps(item) + '\\n')\n")
+    text = sub(text, "            expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1)\n",
+               "            expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1,\n"
+               "                                                   OptionDefaults=dict(worklog_access=NARROW_ACCESS))\n")
+    text = sub(text, "OVERLAY_SHA = '%s'" % OVERLAY_NEW,
+               "OVERLAY_SHA = '%s'\n"
+               "# s1 r5: the codex choice without the Template .git (vault and Template worktrees only).\n"
+               "NARROW_ACCESS = 'classified-vault-and-template-worktrees'" % OVERLAY_NEW)
     text = sub(text, "   - every city and gascity agent suspended, except gas-city-template/codex, which is\n",
                "   - every city and gas-city-template agent suspended, except gas-city-template/codex, which is\n")
     return sub(text, "\nWhat it does, all in read-only, network-isolated bwrap namespaces:\n",
@@ -441,10 +468,13 @@ The codex sandbox can write the whole Template .git, so this tool runs no git at
   files; every read is bounded (1 GiB), and the excluded index must stay a plain single-link file.
 - the candidate branch is resolved from the ref bytes (the loose ref file, else packed-refs), never through git,
   and must still point at BASE (the worker delivers staged, uncommitted work).
-- the .git directory itself is recorded; accepted additions must belong to the operator and not be
-  world-writable; a loose object with trailing bytes after its zlib stream refuses.
+- the .git directory itself is recorded, with every entry's owner and group; accepted additions must belong to
+  the operator's user and group and not be world-writable; a loose object with trailing bytes after its zlib
+  stream refuses.
+Since s1 r5 the codex worker has no write root in this .git at all, so this tool is defence in depth. It runs
+after CLOSE and TERMINAL.
 - `before` refuses a baseline carrying a hook other than git's samples and the four pinned git-lfs hooks,
-  info/grafts, shallow, refs/replace/ or alternates.
+  info/grafts, shallow, refs/replace/ (loose or in packed-refs) or alternates.
 Known fail-closed cases: `git add` of a file over core.bigFileThreshold (512 MiB) writes a pack, and any file over
 1 GiB exceeds the read bound; a worker contained mid-add leaves index.lock or objects/xx/tmp_obj_*. All refuse and
 are investigated, not treated as tampering by default.
@@ -471,7 +501,7 @@ LIMIT=1<<30
 
 def entry(path):
     s=os.lstat(path)
-    value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid)
+    value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid,gid=s.st_gid)
     if stat.S_ISREG(s.st_mode):
         assert s.st_size<=LIMIT,('file over the read bound',str(path))
         value['size']=s.st_size
@@ -544,7 +574,7 @@ def compare(before,after):
         # An accepted addition belongs to the operator and is not world-writable. Group write is allowed: the
         # group is the operator's private group, and a worker under the user manager's umask 0002 makes 0775
         # object directories.
-        if v['uid']!=1000 or v['mode']&0o002:
+        if v['uid']!=1000 or v['gid']!=1000 or v['mode']&0o002:
             changed.append(k);continue
         if v['type']==stat.S_IFDIR and LOOSE_DIR.fullmatch(k):continue
         if v['type']==stat.S_IFREG and v['nlink']==1 and LOOSE.fullmatch(k) and loose_ok(k):continue
@@ -574,6 +604,12 @@ def baseline_problems(value):
         and not k.endswith('.sample') and not (v['type']==stat.S_IFREG and LFS_HOOKS.get(k)==v.get('sha256'))]
     problems+=[k for k in value['control'] if k in ('info/grafts','shallow') or k.startswith('refs/replace/')]
     problems+=[k for k in value['objects'] if k in ('objects/info/alternates','objects/info/http-alternates')]
+    # s1 r5 (r4 reviews A should_fix 2, B should_fix 1): a replace ref may also sit in packed-refs.
+    packed=COMMON/'packed-refs'
+    if 'packed-refs' in value['control']:
+        for line in packed.read_text().splitlines():
+            parts=line.split(' ')
+            if len(parts)==2 and parts[1].startswith('refs/replace/'):problems.append('packed-refs: '+parts[1])
     return problems
 
 def main(argv):
