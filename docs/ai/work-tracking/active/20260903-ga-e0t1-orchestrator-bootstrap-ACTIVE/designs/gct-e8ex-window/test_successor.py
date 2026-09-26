@@ -59,16 +59,24 @@ def package_files():
 
 
 def bead(name):
-    run = subprocess.run(['/home/loucmane/gascity/bin/gc', '--city', '/home/loucmane/gascity/city', '--rig',
-                          'gas-city-template', 'bd', 'show', name, '--json'], env=ENV, capture_output=True, text=True,
-                         timeout=60)
+    """s1 r2 (B should_fix 3): gc runs under a read-only bind of / (so it cannot repair live runtime assets), with
+    GIT_OPTIONAL_LOCKS=0. The network stays shared: the Bead store is the local Dolt server on 127.0.0.1."""
+    run = subprocess.run(['/usr/bin/bwrap', '--ro-bind', '/', '/', '--new-session', '--die-with-parent', '--proc',
+                          '/proc', '--dev', '/dev', '--', '/home/loucmane/gascity/bin/gc', '--city',
+                          '/home/loucmane/gascity/city', '--rig', 'gas-city-template', 'bd', 'show', name, '--json'],
+                         env=ENV, capture_output=True, text=True, timeout=60)
     assert run.returncode == 0, run.stderr
     [row] = json.loads(run.stdout)
     return row, run.stdout
 
 
 def template_git(g, *args):
-    return subprocess.run(HARDENED + ['-C', g.TEMPLATE_REPO, *args], capture_output=True, check=True).stdout
+    """The WORKTREE job's own pre-add form: -C the Template repository, hooks, fsmonitor and attributesFile off."""
+    return subprocess.run(['/usr/bin/env', '-i', 'HOME=/nonexistent', 'USER=loucmane', 'LOGNAME=loucmane',
+                           'LANG=C.UTF-8', 'PATH=/usr/bin:/bin', 'GIT_CONFIG_NOSYSTEM=1', 'GIT_CONFIG_GLOBAL=/dev/null',
+                           'GIT_ATTR_NOSYSTEM=1', 'GIT_OPTIONAL_LOCKS=0', '/usr/bin/git', '--no-optional-locks', '-C',
+                           g.TEMPLATE_REPO, '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false', '-c',
+                           'core.attributesFile=/dev/null', *args], capture_output=True, check=False).stdout
 
 
 def test_package_is_the_generator_output(generated):
@@ -91,6 +99,8 @@ def test_no_leftovers():
                       'EXCLUDE_AFTER', "'gc.check_path':CHECK", 'implementation-worker', 'SIGNING-RELEASE',
                       'exclude-task-r1.py', 'gct-TASK', 'TBD'):
             assert token not in text, (name, token)
+        # The package directory is gct-e8ex-window; gct-mbg6-window names only /var/tmp output roots.
+        assert not re.search(r'(?<!/var/tmp/)gct-mbg6-window', text), name
         for line in text.splitlines():
             if 'operations-candidate-worker' in line:
                 assert name == 'prep-r11.py' and 'provider claude-candidate' in line, (name, line)
@@ -194,7 +204,7 @@ def test_route_calls_the_reviewed_pieces_in_order():
         assert sha(path) == digest, var
     order = ['preroute-bead', 'pr.city_problems(', 'cg.verify_linked(', 'cg.no_gitlinks(',
              "'Template driver config is not the git-lfs set'", "'routed worktree is not freshly clean'", 'pr.survey(',
-             "'gc.work_dir'", "==DESCRIPTION_SHA,'description'", "'task has notes or an assignee before routing'",
+             "'task id'", "'gc.work_dir'", "==DESCRIPTION_SHA,'description'", "'task has notes or an assignee before routing'",
              "'task view over the split cap'", "argv=w.GC+['--rig','gas-city-template','sling'"]
     positions = [route.index(token) for token in order]
     assert positions == sorted(positions)
@@ -202,15 +212,58 @@ def test_route_calls_the_reviewed_pieces_in_order():
 
 
 def test_template_drivers_are_the_pinned_lfs_set(g):
-    """The live Template driver config and .gitattributes are exactly what WORKTREE and ROUTE pin."""
-    drivers = subprocess.run(HARDENED + ['--git-dir=' + g.TEMPLATE_REPO + '/.git', 'config', '--includes',
-                                         '--get-regexp', r'^(filter|diff|merge)\.'], capture_output=True).stdout
+    """The live Template driver config and .gitattributes are exactly what WORKTREE (before the add, in this same
+    form) and ROUTE pin; the tracked .gitattributes selects no filter, diff or merge driver."""
+    drivers = template_git(g, 'config', '--includes', '--get-regexp', r'^(filter|diff|merge)\.')
     assert hashlib.sha256(drivers).hexdigest() == g.LFS_DRIVERS_SHA
     assert template_git(g, 'rev-parse', '--verify', g.BASE + ':.gitattributes').decode().strip() == g.GITATTRIBUTES_BLOB
+    content = template_git(g, 'cat-file', 'blob', g.GITATTRIBUTES_BLOB)
+    assert content == g.GITATTRIBUTES_BYTES
+    rules = [line for line in content.decode().splitlines() if line and not line.startswith('#')]
+    assert rules == ['patches/*.patch -whitespace']
     attrs = [p for p in template_git(g, 'ls-tree', '-r', '-z', '--name-only', '--full-tree', g.BASE).split(b'\0')
              if p.rsplit(b'/', 1)[-1] == b'.gitattributes']
     assert attrs == [b'.gitattributes']
     assert not os.path.lexists(g.TEMPLATE_REPO + '/.git/info/attributes')
+    worktree = (HERE/'worktree-task-r1.py').read_text()
+    assert worktree.index("'.gitattributes content'") < worktree.index("git('worktree','add'")
+    assert worktree.index("'repository attributes file present'") < worktree.index("git('worktree','add'")
+
+
+def test_wrappers_resolve_to_this_package():
+    """s1 r2 (A and B must_fix 1): every wrapper's C= resolves to this directory, and HOLD's CONTAIN wrappers exist."""
+    for wrapper in (HERE/'operator').glob('*.sh'):
+        text = wrapper.read_text()
+        [w] = re.findall(r'^W=(\S+)$', text, re.M)
+        [d] = re.findall(r'^D=\$W/(\S+)$', text, re.M)
+        [c] = re.findall(r'^C=\$D/(\S+)$', text, re.M)
+        assert Path(w, d, c).resolve() == HERE.resolve(), wrapper.name
+    hold = load(HERE/'hold-r11.py', 'hold_paths')
+    for contain in hold.CONTAIN:
+        assert contain.startswith('designs/%s/operator/' % HERE.name), contain
+        assert (HERE.parent.parent/contain).is_file(), contain
+
+
+def test_watch_runs_no_git_while_the_worker_is_live():
+    """s1 r2 (B must_fix 2): the codex sandbox can write the Template .git, so WATCH never runs git."""
+    watch = (HERE/'watch-r11.py').read_text()
+    code = watch.split('"""', 2)[2]
+    assert 'HARDENED' not in code and "'git-" not in code and '/usr/bin/git' not in code
+    assert 'head = branch = None' in code
+
+
+def test_common_snapshot_covers_the_whole_git_directory(g):
+    """s1 r2 (B must_fix 3): every file and link under the Template .git but the object store and this index."""
+    tool = load(HERE/'common-snapshot-r1.py', 'common_snapshot')
+    assert tool.MUTABLE == {'worktrees/%s/index' % g.TASK}
+    if not Path(g.ADMIN).exists():
+        tool.BRANCH = 'HEAD'  # before WORKTREE the candidate branch does not exist; the walk is what is tested
+    seen = tool.observe()
+    assert 'config' in seen and 'HEAD' in seen and seen['candidate_branch']
+    assert any(k.startswith('refs/') for k in seen) and any(k.startswith('logs/') for k in seen)
+    assert any(k.startswith('worktrees/') and k.endswith('/gitdir') for k in seen)
+    assert not any(k.startswith('objects/') and not k.startswith('objects/info/') for k in seen)
+    assert ('packed-refs' in seen) == os.path.exists(g.TEMPLATE_REPO + '/.git/packed-refs')
 
 
 def test_bind_writes_only_the_work_dir(g):
@@ -293,4 +346,4 @@ def test_common_snapshot_covers_the_template_git(g):
     tool = (HERE/'common-snapshot-r1.py').read_text()
     assert "COMMON=Path('/home/loucmane/gas-city-template/.git')" in tool
     assert "BASE='%s'" % g.BASE in tool and "BRANCH='refs/heads/%s'" % g.BRANCH in tool
-    assert "for sub in ('hooks','info')" in tool and "entry(COMMON/'config')" in tool
+    assert 'for directory,dirs,files in os.walk(COMMON):' in tool

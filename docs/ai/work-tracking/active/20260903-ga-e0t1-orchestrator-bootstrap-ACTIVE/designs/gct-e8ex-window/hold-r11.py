@@ -35,7 +35,7 @@ BASE_SHA = 'bcea663b38313492cd39efb7ff173d4d12dad019b0ef99f482f4f167ad0f9e40'
 WINDOW = Path('/var/tmp/gct-mbg6-window-20260926-r1')
 VAR = Path('/var/tmp')
 DONE = Path('/home/loucmane/.local/share/gas-city-staging/jobs/done')
-CONTAIN = tuple('designs/gct-mbg6-window/operator/CONTAIN-%d.sh' % slot for slot in (1, 2))
+CONTAIN = tuple('designs/gct-e8ex-window/operator/CONTAIN-%d.sh' % slot for slot in (1, 2))
 
 
 def stranded(window, done):

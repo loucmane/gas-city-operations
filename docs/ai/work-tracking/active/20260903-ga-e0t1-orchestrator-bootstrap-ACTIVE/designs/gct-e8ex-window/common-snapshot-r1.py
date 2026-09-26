@@ -4,9 +4,11 @@
   common-snapshot-r1.py after <before-json> <before-sha256> <out-json>
 
 The compared set is the common directory's control surface that a sandbox escape could use against the coordinator:
-config, every file under hooks/ and info/ (info/exclude included), and the candidate branch, which must
-still point at BASE (the candidate delivers uncommitted work). Coordinator refs (main, the ga-e0t1 branch,
-remote-tracking refs) legitimately move after TERMINAL and are not compared. It writes only its own output file.
+every file and link under the Template .git except the object store (objects/, but objects/info/ is
+compared) and this worktree's own index, plus the candidate branch, which must still point at BASE (the
+worker delivers staged, uncommitted work). No coordinator git runs in the Template repository during the
+window, so every ref is compared. Run `after` immediately after TERMINAL, before any other coordinator
+git call. It writes only its own output file.
 """
 import hashlib
 import json
@@ -29,14 +31,24 @@ def entry(path):
     elif stat.S_ISLNK(s.st_mode):value['target']=os.readlink(path)
     return value
 
+# s1 r2 (B must_fix 3, A should_fix 1): the codex sandbox can write this whole directory, so the compared set
+# is every file and link under it (config, hooks/, info/, refs/, packed-refs, logs/, objects/info/ with its
+# alternates, every worktrees/<name>/ admin file, HEAD, shallow, modules/, lfs/) except the object store, which
+# `git add` legitimately extends, and this worktree's own index, which `git add` rewrites.
+OBJECTS=Path('objects')
+MUTABLE={'worktrees/gct-mbg6/index'}
+
 def observe():
-    out={'config':entry(COMMON/'config')}
-    for sub in ('hooks','info'):
-        for directory,dirs,files in os.walk(COMMON/sub):
-            dirs.sort()
-            for name in sorted(files):
-                path=Path(directory)/name
-                out[str(path.relative_to(COMMON))]=entry(path)
+    out={}
+    for directory,dirs,files in os.walk(COMMON):
+        dirs.sort()
+        here=Path(directory).relative_to(COMMON)
+        # os.walk lists a symlinked directory in dirs and never descends it: record it as a link.
+        for name in sorted(files)+[d for d in dirs if os.path.islink(Path(directory)/d)]:
+            rel=here/name
+            if (rel.parts[:1]==OBJECTS.parts and rel.parts[:2]!=('objects','info')) or str(rel) in MUTABLE:
+                continue
+            out[str(rel)]=entry(Path(directory)/name)
     r=subprocess.run(['/usr/bin/git','--no-optional-locks','--git-dir='+str(COMMON),'rev-parse','--verify',BRANCH+'^{commit}'],
         env=ENV,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=60)
     assert r.returncode==0,r.stderr

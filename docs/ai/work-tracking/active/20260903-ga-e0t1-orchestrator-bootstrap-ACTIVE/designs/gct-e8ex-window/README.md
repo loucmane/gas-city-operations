@@ -68,8 +68,21 @@ The evidence is in `reports/gct-e8ex-split-20260926/live-check-r1`. The umbrella
    - it moves them from the ga-3oa7 TERMINAL value `1790431776352453342` to the value s2 pins after the last
      coordinator note;
    - s1 carries `None`, which refuses.
-10. **The common-directory snapshot** compares the Template `.git`: config, `hooks/`, `info/` and the candidate
-    branch, which must still point at BASE. It is the check against a sandbox write into the Template `.git`.
+10. **The common-directory snapshot** (s1 r2) compares every file and link under the Template `.git` except the
+    object store and this worktree's own index, which `git add` legitimately writes. That covers config, `hooks/`,
+    `info/`, `refs/`, `packed-refs`, `logs/`, `objects/info/` (alternates), every `worktrees/<name>/` admin file,
+    `HEAD` and `lfs/`. The candidate branch must still point at BASE.
+11. **No coordinator git while the worker is live** (s1 r2). The codex sandbox can write the Template `.git` and
+    the worktree root, so a coordinator git call against the worktree could run a driver or command the worker
+    chose. WATCH therefore runs no git and records HEAD, branch, status and diffs as empty. The worker's signal is
+    its task notes: `READY FOR SIGNING`, `ESCALATED:` or `STOPPED:`. PREFLIGHT's git reads run before ROUTE, when
+    no worker exists.
+12. **WORKTREE checks before it checks out** (s1 r2). The pinned drivers, the absent attributes file and the exact
+    `.gitattributes` bytes (two comment lines and `patches/*.patch -whitespace`) are checked before
+    `git worktree add`, so no checkout-time filter can run. The post-add checks stay.
+13. **Rig-level hold.** The overlay suspends every city and Template agent at the agent level. Agents of the other
+    rigs (gascity, hpfetcher, blog) are held by their rigs' suspension only, as in ga-3oa7. RESUME resumes only
+    gas-city-template, and the resume-mode audit and `suspension_status_matches` refuse any other running agent.
 
 Unchanged from ga-3oa7:
 - the host epoch, gc `fce2e9a0`, M9 and P10;
@@ -98,11 +111,36 @@ staged tree before signing. The window's containment and the common snapshot are
    RESTORE and TERMINAL. The worker is done when the task notes carry `READY FOR SIGNING: gct-mbg6 tree
    <digest>` or an `ESCALATED:`/`STOPPED:` note.
 6. **After TERMINAL:**
-   - the Bead records, `common-snapshot-r1.py after` and the post-checks;
-   - the staged tree: `git write-tree` must equal the READY digest, then review of the staged diff;
-   - a signed commit in place, two reviews bound to it, the Template PR, CI, merge, then close gct-mbg6.
+   - first `common-snapshot-r1.py after`, before any other coordinator git call in the Template repository;
+   - then a separately reviewed intake check. It re-runs `verify_linked`, the pinned drivers, the absent attributes
+     files and the tracked `.gitattributes` check against the worker's tree. Only then does it run hardened git:
+     `git write-tree` must equal the READY digest, then the staged diff is exported for review;
+   - a signed commit in place, two reviews bound to it, the Template PR, CI, merge, then close gct-mbg6;
+   - the Bead records and post-checks.
+
+   No coordinator git runs in the worktree before that intake check passes.
+
+## s1 r2 (answers the s1 reviews of `fd1f5d8c`: A and B HOLD)
+
+- **Wrapper paths (A must_fix 1-3, B must_fix 1).** The rename turned `$D/ga-3oa7-window` and HOLD's
+  `designs/ga-3oa7-window/...` into `gct-mbg6-window`, which does not exist, so no job could run. HOLD also could
+  not recognise a stranded CONTAIN. The rename now maps the package directory in every form, and `/var/tmp` window
+  roots to `gct-mbg6-window-*`. Tests resolve every wrapper's `C=` to this directory and require HOLD's CONTAIN
+  wrappers to exist.
+- **No in-window git (B must_fix 2, A should_fix 2)** and **the wider common snapshot (B must_fix 3, A
+  should_fix 1)**: items 10 and 11 above. The post-TERMINAL order in the run order binds coordinator git to a
+  reviewed intake check.
+- **Pre-add checks (A should_fix 3, B should_fix 1)**: item 12. The test reads the drivers in WORKTREE's own
+  pre-add form (B should_fix 2) and asserts the `.gitattributes` bytes (A should_fix 6).
+- **The ROUTE id check** is restored (A should_fix 4). `pr.survey` is given the worktree, not the shared root,
+  which is now stated in ROUTE.
+- **The rig-level hold** is stated (B should_fix 4): item 13.
+- **The test's live Bead reads are confined** (B should_fix 3): gc runs under a read-only bind of `/`, so it cannot
+  repair live runtime assets. The network stays shared, because the Bead store is the local Dolt server on
+  127.0.0.1 and PREP's `--unshare-net` form cannot reach it.
+- **Stale text:** BIND.sh, the ROUTE comment and the WORKTREE docstring (branch reflog) are fixed (A 5, B 5).
 
 ## Tests
 
-`test_successor.py`: 17 pass and 3 skip at s1. The skips are the s2 pins: the PREP outputs, the live
-`pins()` and the cache value.
+`test_successor.py` is run at s1; the three s2 pins skip until then: the PREP outputs, the live `pins()` and the
+cache value.

@@ -8,7 +8,7 @@
 S=/home/loucmane/.local/share/gas-city-staging/gct-e8ex-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
-C=$D/gct-mbg6-window
+C=$D/gct-e8ex-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
 ADMIT_SHA=be07f5ab9dcd9b934d88ba5dd8b5b66dde87959708d850dbe14698b660ab5ded
 BUDGET_SHA=b4ca4dc896dd138d15433574cdaba7faf101fc27ef47344f854137b399628d96

@@ -10,9 +10,9 @@
 S=/home/loucmane/.local/share/gas-city-staging/gct-e8ex-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
-C=$D/gct-mbg6-window
+C=$D/gct-e8ex-window
 COMMIT=${1:?usage: HOLD-2.sh <reviewed commit>}
-HOLD_SHA=b356aaf5c4317ad3ad060d98f4b7e0aa9bfe1f749da21069c3b0e27e217c286b
+HOLD_SHA=5893c8f692a598d4b24778612ab6c82db2f67789c1e57179cca55aedfc049e44
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

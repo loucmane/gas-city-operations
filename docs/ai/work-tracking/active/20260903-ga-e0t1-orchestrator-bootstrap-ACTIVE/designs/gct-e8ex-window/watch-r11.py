@@ -6,7 +6,8 @@ observe-worker-create-r2.py observation (native sessions, task, trace, git, tmux
 window-base-r11.py. Each run creates /var/tmp/gct-mbg6-watch-<UTC>/ exclusively and records:
 - native sessions, the task Bead and every session Bead of the template or task;
 - the template trace for the last 30 minutes;
-- worktree HEAD, branch, full status, unstaged and staged diffs, and the staged patch;
+- no git state: the Template variant runs no git while the worker is live (s1 r2), so HEAD, branch,
+  status and diffs are recorded as empty and read after containment instead;
 - an inventory of every untracked path and every evidence file (kind, mode, owner, size, SHA256,
   link target);
 - city tmux panes and the processes whose argv names the worktree or whose cwd is inside it, each with
@@ -258,19 +259,12 @@ def main():
     census = json.loads(run('session-beads', w.GC + ['bd', 'list', '--type', 'session', '--include-infra', '--all',
                                                     '--json', '--limit', '0'])['stdout'])
     run('trace', w.GC + ['trace', 'show', '--template', TEMPLATE, '--since', '30m', '--json'])
-    # The hardened form (gct-lagl HANDOFF 4.2): the candidate worktree can select no driver or hook.
-    git = list(w.HARDENED)
-    head = run('git-head', git + ['rev-parse', 'HEAD'])['stdout'].strip()
-    branch = run('git-branch', git + ['branch', '--show-current'])['stdout'].strip()
-    # -z: NUL-separated, never quoted, so every untracked path is exact.
-    status = run('git-status', git + ['status', '--porcelain=v1', '-z', '--untracked-files=all'])['stdout']
-    # Plumbing only: diff-files and diff-index never refresh or lock the worker's index, so a WATCH can
-    # never collide with the worker's own staging or signing.
-    run('git-diff', git + ['diff-files', '--patch', '--binary', '--no-textconv', '--no-ext-diff', '--exit-code'],
-        expected=(0, 1))
-    run('git-staged', git + ['diff-index', '--cached', '--patch', '--binary', '--no-textconv', '--no-ext-diff',
-                             '--exit-code', 'HEAD'], expected=(0, 1))
-    staged = run('git-staged-names', git + ['diff-index', '--cached', '--name-status', 'HEAD'])['stdout']
+    # Template variant (s1 r2): no git runs against the worktree while the codex worker is live. Its
+    # sandbox can write the Template .git and the worktree root, so any coordinator git call here could
+    # run a driver or command it chose. The git state is read after containment by the reviewed
+    # post-window intake check; the task notes (READY FOR SIGNING / ESCALATED / STOPPED) are the signal.
+    head = branch = None
+    status = staged = ''
     run('tmux', ['/usr/bin/tmux', '-L', 'city', 'list-panes', '-a', '-F', '#{session_name} #{pane_pid} #{pane_dead}'],
         expected=(0, 1))
     # ga-gegx: the visible pane of each live session, captured the way Core captures it (release-r11

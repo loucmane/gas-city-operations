@@ -9,7 +9,7 @@
 S=/home/loucmane/.local/share/gas-city-staging/gct-e8ex-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
-C=$D/gct-mbg6-window
+C=$D/gct-e8ex-window
 COMMIT=${1:?usage: CONTAIN-2.sh <reviewed commit>}
 WINDOW_SHA=1cb433d19990314ab281bf5bec29101f7f45a77eaf3510fdb77a0f35ca6a462a
 PATH=/usr/local/bin:/usr/bin:/bin

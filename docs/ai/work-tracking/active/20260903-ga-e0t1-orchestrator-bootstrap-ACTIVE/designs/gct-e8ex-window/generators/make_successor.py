@@ -87,8 +87,8 @@ def rename(text):
                      (OLD_DESCRIPTION, DESCRIPTION_SHA), (TARGET_OLD, TARGET),
                      ("'--rig','gascity'", "'--rig','gas-city-template'"),
                      ("'--rig', 'gascity'", "'--rig', 'gas-city-template'"),
-                     ('/designs/ga-3oa7-window', '/designs/' + PACKAGE),
-                     ('gas-city-staging/ga-3oa7-window', 'gas-city-staging/' + PACKAGE)):
+                     ('/var/tmp/ga-3oa7-window', '/var/tmp/' + TASK + '-window'),
+                     ('ga-3oa7-window', PACKAGE)):
         text = text.replace(old, new)
     return text.replace('ga-3oa7', TASK)
 
@@ -115,6 +115,7 @@ PREROUTE_NEW = (
     "    problems=pr.survey(work,1000,slice_root,record['hidden'])\n"
     "    assert not problems,('processes hold the worktree',problems)\n"
     "    shown_bead=json.loads(shown);shown_bead=shown_bead[0] if isinstance(shown_bead,list) else shown_bead\n"
+    "    assert shown_bead.get('id')=='%(task)s','task id'\n"
     "    assert (shown_bead.get('metadata') or {}).get('gc.work_dir')==str(work),'gc.work_dir'\n"
     "    assert hashlib.sha256(str(shown_bead.get('description','')).encode()).hexdigest()==DESCRIPTION_SHA,'description'\n"
     "    # gct-e8ex split r8/r9 reviews: the stop check reads the notes, so none may exist before the first session,\n"
@@ -176,7 +177,31 @@ def bind(text):
     return sub(text, "    metadata={'gc.work_dir':WORK,'gc.check_path':CHECK}\n", "    metadata={'gc.work_dir':WORK}\n")
 
 
+GITATTRIBUTES_BYTES = (b'# Patch files preserve diff syntax; embedded context markers otherwise look\n'
+                       b'# like whitespace errors to an outer `git diff --check`.\n'
+                       b'patches/*.patch -whitespace\n')
+# s1 r2 (A should_fix 3, B should_fix 1): the pinned drivers, the absent attributes file and the .gitattributes
+# bytes are checked BEFORE `git worktree add`, through the common repository, so a checkout-time filter is
+# refused rather than detected afterwards. The post-add DRIVERS_CHECK stays.
+PRE_ADD = (
+    "    # Template variant, s1 r2: before the checkout, the common config carries exactly the pinned git-lfs\n"
+    "    # drivers, no repository attributes file exists, and the one tracked .gitattributes at BASE is the\n"
+    "    # reviewed blob, whose bytes select no filter, diff or merge driver.\n"
+    "    drivers=git('config','--includes','--get-regexp',r'^(filter|diff|merge)\\.',expected=(0,1)).stdout\n"
+    "    assert hashlib.sha256(drivers).hexdigest()=='" + LFS_DRIVERS_SHA + "','Template driver config is not the git-lfs set'\n"
+    "    assert not os.path.lexists(OPS/'.git'/'info'/'attributes'),'repository attributes file present'\n"
+    "    assert git('rev-parse','--verify',BASE+':.gitattributes').stdout.decode().strip()=='" + GITATTRIBUTES_BLOB + "'\n"
+    "    assert git('cat-file','blob','" + GITATTRIBUTES_BLOB + "').stdout==" + repr(GITATTRIBUTES_BYTES) +
+    ",'.gitattributes content'\n")
+
+
 def worktree(text):
+    text = sub(text, "    git('worktree','add','-b',BRANCH,str(WORK),BASE)\n",
+               PRE_ADD + "    git('worktree','add','-b',BRANCH,str(WORK),BASE)\n")
+    text = sub(text, "It writes nothing else and refuses any existing output root.\n",
+               "It writes nothing else (besides the new branch's reflog, which `worktree add -b` creates) and refuses any\n"
+               "existing output root. s1 r2: the pinned drivers, the absent attributes file and the .gitattributes bytes\n"
+               "are checked before the add, so no checkout-time filter can run.\n")
     text = sub(text, "OPS=Path('/home/loucmane/gas-city-ops')\nCANDIDATE_ROOT=Path('/home/loucmane/gas-city-ops-candidate-worktrees')\n",
                "OPS=Path('%s')\nCANDIDATE_ROOT=Path('%s')\n" % (TEMPLATE_REPO, ROOT_DIR))
     text = sub(text, "    assert os.listdir(CANDIDATE_ROOT)==[],'candidate root is not empty'\n"
@@ -307,7 +332,79 @@ def observer_integrity(text):
     return text
 
 
+WATCH_GIT = (
+    "    # The hardened form (gct-lagl HANDOFF 4.2): the candidate worktree can select no driver or hook.\n"
+    "    git = list(w.HARDENED)\n"
+    "    head = run('git-head', git + ['rev-parse', 'HEAD'])['stdout'].strip()\n"
+    "    branch = run('git-branch', git + ['branch', '--show-current'])['stdout'].strip()\n"
+    "    # -z: NUL-separated, never quoted, so every untracked path is exact.\n"
+    "    status = run('git-status', git + ['status', '--porcelain=v1', '-z', '--untracked-files=all'])['stdout']\n"
+    "    # Plumbing only: diff-files and diff-index never refresh or lock the worker's index, so a WATCH can\n"
+    "    # never collide with the worker's own staging or signing.\n"
+    "    run('git-diff', git + ['diff-files', '--patch', '--binary', '--no-textconv', '--no-ext-diff', '--exit-code'],\n"
+    "        expected=(0, 1))\n"
+    "    run('git-staged', git + ['diff-index', '--cached', '--patch', '--binary', '--no-textconv', '--no-ext-diff',\n"
+    "                             '--exit-code', 'HEAD'], expected=(0, 1))\n"
+    "    staged = run('git-staged-names', git + ['diff-index', '--cached', '--name-status', 'HEAD'])['stdout']\n")
+
+
+def watch(text):
+    """s1 r2 (B must_fix 2, A should_fix 2): the codex sandbox can write the Template .git (config, attributes, the
+    admin directory) and the whole worktree root, so a coordinator git call against the worktree while the worker
+    is live could run a driver or command the worker chose. WATCH runs no git; the worker's git state is read
+    after containment by the reviewed post-window intake check."""
+    text = sub(text, WATCH_GIT,
+               "    # Template variant (s1 r2): no git runs against the worktree while the codex worker is live. Its\n"
+               "    # sandbox can write the Template .git and the worktree root, so any coordinator git call here could\n"
+               "    # run a driver or command it chose. The git state is read after containment by the reviewed\n"
+               "    # post-window intake check; the task notes (READY FOR SIGNING / ESCALATED / STOPPED) are the signal.\n"
+               "    head = branch = None\n"
+               "    status = staged = ''\n")
+    return sub(text, "- worktree HEAD, branch, full status, unstaged and staged diffs, and the staged patch;\n",
+               "- no git state: the Template variant runs no git while the worker is live (s1 r2), so HEAD, branch,\n"
+               "  status and diffs are recorded as empty and read after containment instead;\n")
+
+
+COMMON_OBSERVE_OLD = (
+    "def observe():\n"
+    "    out={'config':entry(COMMON/'config')}\n"
+    "    for sub in ('hooks','info'):\n"
+    "        for directory,dirs,files in os.walk(COMMON/sub):\n"
+    "            dirs.sort()\n"
+    "            for name in sorted(files):\n"
+    "                path=Path(directory)/name\n"
+    "                out[str(path.relative_to(COMMON))]=entry(path)\n")
+COMMON_OBSERVE_NEW = (
+    "# s1 r2 (B must_fix 3, A should_fix 1): the codex sandbox can write this whole directory, so the compared set\n"
+    "# is every file and link under it (config, hooks/, info/, refs/, packed-refs, logs/, objects/info/ with its\n"
+    "# alternates, every worktrees/<name>/ admin file, HEAD, shallow, modules/, lfs/) except the object store, which\n"
+    "# `git add` legitimately extends, and this worktree's own index, which `git add` rewrites.\n"
+    "OBJECTS=Path('objects')\n"
+    "MUTABLE={'worktrees/%s/index'}\n"
+    "\n"
+    "def observe():\n"
+    "    out={}\n"
+    "    for directory,dirs,files in os.walk(COMMON):\n"
+    "        dirs.sort()\n"
+    "        here=Path(directory).relative_to(COMMON)\n"
+    "        # os.walk lists a symlinked directory in dirs and never descends it: record it as a link.\n"
+    "        for name in sorted(files)+[d for d in dirs if os.path.islink(Path(directory)/d)]:\n"
+    "            rel=here/name\n"
+    "            if (rel.parts[:1]==OBJECTS.parts and rel.parts[:2]!=('objects','info')) or str(rel) in MUTABLE:\n"
+    "                continue\n"
+    "            out[str(rel)]=entry(Path(directory)/name)\n" % TASK)
+
+
 def common(text):
+    text = sub(text, COMMON_OBSERVE_OLD, COMMON_OBSERVE_NEW)
+    text = sub(text, "config, every file under hooks/ and info/ (info/exclude as the ga-sh3w EXCLUDE job left it), and the candidate branch, which must\n"
+                     "still point at BASE (the candidate delivers uncommitted work). Coordinator refs (main, the ga-e0t1 branch,\n"
+                     "remote-tracking refs) legitimately move after TERMINAL and are not compared. It writes only its own output file.\n",
+               "every file and link under the Template .git except the object store (objects/, but objects/info/ is\n"
+               "compared) and this worktree's own index, plus the candidate branch, which must still point at BASE (the\n"
+               "worker delivers staged, uncommitted work). No coordinator git runs in the Template repository during the\n"
+               "window, so every ref is compared. Run `after` immediately after TERMINAL, before any other coordinator\n"
+               "git call. It writes only its own output file.\n")
     return sub(text, "COMMON=Path('/home/loucmane/gas-city-ops/.git')", "COMMON=Path('%s/.git')" % TEMPLATE_REPO)
 
 
@@ -362,7 +459,16 @@ FIXUPS = {
     'common-snapshot-r1.py': [
         ('"""Read-only proof that the candidate left the Operations common git directory unchanged (s1 review A 7).',
          '"""Read-only proof that the worker left the Template common git directory unchanged (s1 review A 7).'),
-        ("(info/exclude as the ga-sh3w EXCLUDE job left it)", "(info/exclude included)"),
+    ],
+    'operator/BIND.sh': [
+        ("contract binding (gc.work_dir, gc.check_path), before the window.",
+         "contract binding (gc.work_dir only), before the window."),
+    ],
+    'route-task-r5.py': [
+        ("    # %(task)s: the reviewed pre-route check (ga-6utp preroute.check) is the last step before the sling.\n",
+         "    # %(task)s: the Template pre-route, built from the reviewed ga-6utp preroute pieces (preroute.check itself\n"
+         "    # requires a root holding only this worktree), is the last step before the sling. pr.survey is given the\n"
+         "    # worktree, not the shared Template root, whose other worktrees are not this window's.\n"),
     ],
 }
 
@@ -377,7 +483,7 @@ def fixup(name, text):
 EDITS = {'route-task-r5.py': route, 'bind-task-r5.py': bind, 'worktree-task-r1.py': worktree, 'prep-r11.py': prep,
          'suspension-lineage.py': lineage, 'hold-r11.py': hold, 'audit-queue-r3.py': audit,
          'common-snapshot-r1.py': common, 'window-base-r11.py': window_base,
-         'observe-integrity-r11.py': observer_integrity}
+         'observe-integrity-r11.py': observer_integrity, 'watch-r11.py': watch}
 
 
 def rebind(files):

@@ -10,7 +10,9 @@ routed worktree of the Template repository:
 - afterwards the worktree exists, the reviewed candidate_git.verify_linked accepts its gitfile, admin
   directory, back-pointer and commondir, HEAD is BASE, no gitlink applies, the drivers are exactly the pinned
   git-lfs set, and the status with ignored files is empty.
-It writes nothing else and refuses any existing output root.
+It writes nothing else (besides the new branch's reflog, which `worktree add -b` creates) and refuses any
+existing output root. s1 r2: the pinned drivers, the absent attributes file and the .gitattributes bytes
+are checked before the add, so no checkout-time filter can run.
 
 Partial failure: if `git worktree add` succeeds and a post-check refuses, the worktree, its admin directory and
 the branch stay, and ROOT holds only intent.json. BIND refuses without this job's exact result.json, so nothing
@@ -62,6 +64,14 @@ def main():
     ROOT.mkdir(mode=0o700)
     (ROOT/'intent.json').write_text(json.dumps(dict(work=str(WORK),base=BASE,branch=BRANCH,executor_sha256=_SOURCE_SHA),
         sort_keys=True)+'\n')
+    # Template variant, s1 r2: before the checkout, the common config carries exactly the pinned git-lfs
+    # drivers, no repository attributes file exists, and the one tracked .gitattributes at BASE is the
+    # reviewed blob, whose bytes select no filter, diff or merge driver.
+    drivers=git('config','--includes','--get-regexp',r'^(filter|diff|merge)\.',expected=(0,1)).stdout
+    assert hashlib.sha256(drivers).hexdigest()=='a3cf4a1c62cb600373035123a48f183b55253d98337e4a430c8a483c49b7be70','Template driver config is not the git-lfs set'
+    assert not os.path.lexists(OPS/'.git'/'info'/'attributes'),'repository attributes file present'
+    assert git('rev-parse','--verify',BASE+':.gitattributes').stdout.decode().strip()=='84c48ec45d32b997de49fa694d00b7e4ba3c677e'
+    assert git('cat-file','blob','84c48ec45d32b997de49fa694d00b7e4ba3c677e').stdout==b'# Patch files preserve diff syntax; embedded context markers otherwise look\n# like whitespace errors to an outer `git diff --check`.\npatches/*.patch -whitespace\n','.gitattributes content'
     git('worktree','add','-b',BRANCH,str(WORK),BASE)
     assert WORK.is_dir() and not WORK.is_symlink(),'worktree not created'
     admin=cg.verify_linked(CANDIDATE_ROOT,OPS/'.git',WORK,WORK.name)

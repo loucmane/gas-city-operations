@@ -13,7 +13,7 @@
 S=/home/loucmane/.local/share/gas-city-staging/gct-e8ex-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
-C=$D/gct-mbg6-window
+C=$D/gct-e8ex-window
 COMMIT=${1:?usage: PREP.sh <reviewed commit>}
 PREP_SHA=1d6ae73353745b9355c31961a34ef9fcae2f0ce1b1a111688141431826b1653a
 OUT=/var/tmp/gct-mbg6-prep-20260926-r1

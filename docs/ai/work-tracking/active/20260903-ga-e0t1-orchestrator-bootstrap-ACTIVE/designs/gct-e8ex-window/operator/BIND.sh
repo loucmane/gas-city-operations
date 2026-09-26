@@ -1,5 +1,5 @@
 #!/bin/sh
-# gct-mbg6 window bind: the one gct-mbg6 contract binding (gc.work_dir, gc.check_path), before the window.
+# gct-mbg6 window bind: the one gct-mbg6 contract binding (gc.work_dir only), before the window.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
 # Log: ~/.local/share/gas-city-staging/gct-e8ex-window/bind-<timestamp>.txt. Exits with the first failing
@@ -7,9 +7,9 @@
 S=/home/loucmane/.local/share/gas-city-staging/gct-e8ex-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
-C=$D/gct-mbg6-window
+C=$D/gct-e8ex-window
 COMMIT=${1:?usage: BIND.sh <reviewed commit>}
-STEP_SHA=07f980dbf8069b0b6c621c1aab9072ef9b7facaf26668d13c57500fdf6d20b29
+STEP_SHA=d07cf470cd009fea443ff8569355824f6ae26b4008593fa399165309533cb7f8
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

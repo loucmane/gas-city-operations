@@ -15,7 +15,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-e8ex-window')
 ROOT=Path('/var/tmp/gct-mbg6-route-20260926-r1')
 BIND=Path('/var/tmp/gct-mbg6-bind-20260926-r1')
-BIND_SHA='07f980dbf8069b0b6c621c1aab9072ef9b7facaf26668d13c57500fdf6d20b29'
+BIND_SHA='d07cf470cd009fea443ff8569355824f6ae26b4008593fa399165309533cb7f8'
 DESCRIPTION_SHA='381cd7a83680b4259e7a774f61876d7e9ff619d6c7f13b746fe7359feb770004'
 PREROUTE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/preroute.py')
 PREROUTE_SHA='d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6'
@@ -56,7 +56,9 @@ def main():
     before=bead('task-before-read');w.save('task-before.json',before)
     assert before==bound and before['status']=='open' and not before.get('assignee')
     assert 'gc.routed_to' not in before['metadata']
-    # gct-mbg6: the reviewed pre-route check (ga-6utp preroute.check) is the last step before the sling.
+    # gct-mbg6: the Template pre-route, built from the reviewed ga-6utp preroute pieces (preroute.check itself
+    # requires a root holding only this worktree), is the last step before the sling. pr.survey is given the
+    # worktree, not the shared Template root, whose other worktrees are not this window's.
     shown=run('preroute-bead',w.GC+['--rig','gas-city-template','bd','show','gct-mbg6','--json'])['stdout']
     bead_json=ROOT/'preroute-bead.json'
     fd=os.open(bead_json,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
@@ -92,6 +94,7 @@ def main():
     problems=pr.survey(work,1000,slice_root,record['hidden'])
     assert not problems,('processes hold the worktree',problems)
     shown_bead=json.loads(shown);shown_bead=shown_bead[0] if isinstance(shown_bead,list) else shown_bead
+    assert shown_bead.get('id')=='gct-mbg6','task id'
     assert (shown_bead.get('metadata') or {}).get('gc.work_dir')==str(work),'gc.work_dir'
     assert hashlib.sha256(str(shown_bead.get('description','')).encode()).hexdigest()==DESCRIPTION_SHA,'description'
     # gct-e8ex split r8/r9 reviews: the stop check reads the notes, so none may exist before the first session,
