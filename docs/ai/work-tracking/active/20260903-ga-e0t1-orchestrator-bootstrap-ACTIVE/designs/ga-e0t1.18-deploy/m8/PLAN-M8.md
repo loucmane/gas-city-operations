@@ -66,6 +66,40 @@ repositories, and no edit of the package worktree while a review runs.
 **Then P9.** The activation reload moved the permission revision from `2113693e` to `83c41af6`. The signing-lane
 receipt `23eeb222` pins the old revision, so a P9 refresh follows, bound to M8.
 
+## Binding step (r2, 2026-09-26): live results
+
+r1 `97377e9c` received two independent SOURCE_PASS verdicts with no must_fix. The capture then ran once in
+the supervisor namespaces with candidate `C` = `dd9b51de` at `97377e9c`, from a clean worktree:
+- **Baseline.** `reports/m8-capture/baseline.json` is `36ec0b4e`, with zero drifts.
+- **Pin changes.** `pin_changes` recorded exactly the three admitted pairs: the P8 receipt, the registry and
+  the fragment.
+- **Cache.** The only bookkeeping entry is the known `954ed149…/.git` (mtime and ctime).
+- **Runtime and mount.** Both are identical to the M7 baseline, compared by hand (review B should_fix 3).
+
+The r2 changes:
+- `manifest_candidate.py` pins `BASELINE_SHA`, which moves its digest from `dd9b51de` to `af5fca3d`.
+- `source-pins.json` is new, at `e7622cbb`.
+- All 21 tests pass, including the build against the frozen baseline. That covers the frame floor before
+  `prepare` could consume `reports/m8` (review A should_fix 6).
+
+**Review notes carried** (no must_fix from either review):
+- **Candidate wrapper (A 1).** P9 refreshes only the signing profile's revision. The candidate provider wrapper
+  `bin/gct-claude-candidate-worker` must be pinned in the platform providers before any receipt carries a
+  candidate profile. That belongs to the first-window package.
+- **Rollback target (A 2).** After M8, `previous_sha256` equals `core.sha256`, so a platform rollback to
+  `b2760ea4` is no longer expressible. Core's successor rule forces this. The ga-e0t1.15 gc-b stays pinned.
+- **Backups under /var/tmp (A 4).** They must stay in place while M7 or M8 names them.
+- **Test gaps (A 3, B 6).** Carried as follow-ups; every code path is fail-closed.
+- **Wording (A 5, B 2, B 4).**
+  - The spare-byte arithmetic is 1,763 measured, versus an estimate of about 1,743.
+  - The 2,048 floor was a test only.
+  - The cache-rule docstring names the M7-era call.
+  - The agent directory is pinned file by file: an added file is not drift.
+- **Quiescence (B 5).** Additionally, nothing may resume or unsuspend `operations-candidate-worker`, create a
+  worktree under the candidate root, or rerun provisioning before `restore-accepted`.
+- **Dry probe (B 1).** The probe script is operator evidence in the session scratchpad. The capture itself is the
+  bound evidence.
+
 ## Stop conditions
 
 Stop on any of these:

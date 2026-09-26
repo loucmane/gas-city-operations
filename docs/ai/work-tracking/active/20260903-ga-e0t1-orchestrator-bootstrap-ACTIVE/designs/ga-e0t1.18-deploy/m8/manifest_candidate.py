@@ -31,7 +31,9 @@ OLD_MANIFEST_SHA = '4bec5ef14bd81f6dc1830ada48fc502937ff91a531981dfff3fde5aaa92a
 OLD_RECEIPT_SHA = '3be61bf580649ebcb7b5ac7a33a8b3c12413c633035f61ee7c2b205e16441fef'
 OLD_RELEASE_ID = 'template-pr71-core-seq15-metadata-m7-20260926'
 BASELINE_PATH = O + '/reports/m8-capture/baseline.json'
-BASELINE_SHA = None
+# Frozen by the 2026-09-26 capture (candidate dd9b51de at 97377e9c, zero drifts, exactly the three admitted pin
+# changes, runtime and mount identical to M7). Nobody runs gc, workflow.py or a Bead write until restore-accepted.
+BASELINE_SHA = '36ec0b4e43f7b2015e0e7be29cd2e94943fcd678909294b5f0b04777ed866e25'
 SUSPENSION_SHA = '5c98be4aee73acff8ee390afbe368ba6c58addb7d7ebf136b172dde239df0326'
 TEMPLATE_COMMIT = 'cfd353f30f465cdf67bbd41fab48812fe5b9617e'
 AUTHORITY = '/home/loucmane/gas-city-template-worktrees/ga-e0t1-15-pr71-authority'
