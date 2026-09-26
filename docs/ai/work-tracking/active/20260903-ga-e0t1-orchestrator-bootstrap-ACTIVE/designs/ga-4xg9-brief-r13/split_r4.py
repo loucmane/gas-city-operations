@@ -1,4 +1,4 @@
-"""R4 brief r14 (package ga-4xg9-brief-r13): split the reviewed r12 R4 brief verbatim for a readable candidate brief, and add the
+"""R4 brief r15 (package ga-4xg9-brief-r13): split the reviewed r12 R4 brief verbatim for a readable candidate brief, and add the
 pre-window clarifications the r12 reviews and the live claim observation require.
 
   python3 -B split_r4.py render <out-dir> [<spec-1-id> <spec-2-id>]
@@ -27,43 +27,53 @@ R12_SHA = 'b46fbffe42f35347ce8e3aaf9c63b34e71953349a47fdeaa87a64d2a4c9a0f46'
 OPS = '/home/loucmane/gas-city-ops'
 BD = '/home/loucmane/gascity/bin/bd'
 
-CLARIFICATIONS = '''## Pre-window clarifications (r13, part of this description; they win over the spec text)
+CLARIFICATIONS = '''## Pre-window clarifications (part of this description; they win over the spec text)
 
 These answer the r12 reviews and the first live observations; each is binding.
 
-1. **`request()` sites.** R3 (merged before your base; confirm against your base) made the `pretool.py`
+1. **`request()` sites.** R3 is merged at your base (Operations PR 392, merge `8f24ad71`); if
+   `aegis_foundation/gate/hooks/delivery.py` is absent at your base, stop with gc.failure_class
+   base_without_r3. R3 made the `pretool.py`
    site None-safe. The `tracking.py` PostToolUse site is not generic: a target whose
    `coordination_request()` is `None` goes straight to `record_delivery_event`. `evidence-write` must add
    its own branch there, chosen by the payload (a native `Write` resolved by your evidence-write target),
    before the delivery branch, and a test must show a Write reaches the evidence-write path, not the
    delivery one. The degraded PreToolUse fallback (`degraded_pretooluse_fallback` in `pretool.py`) treats
    only coordination and delivery requests as coordinating; an evidence-write Write must also hard-block
-   there, never degrade into the generic Write handling, with a test.
+   there, never degrade into the generic Write handling, with a test. Put the new detection inside the
+   existing `try`, so a detector exception also counts as coordinating.
 2. **Pending dispatch.** Read "every other request at `<W>` keeps refusing while it is pending" as
-   "every other coordination request". `workflow.py log --root <W> --pending-id <id>` must still run in
-   that state; the remedy depends on it.
+   "every other `coordinate` action and `reconcile-attachment` refuse while it is pending"; the other
+   workflow verbs keep their current behaviour, and nothing in R3's delivery path changes.
+   `workflow.py log --root <W> --pending-id <id>` must still run in that state; the remedy depends on it.
 3. **Output caps.** The executor caps the `bd ready --limit 0 --json` output at 16 MiB, as
    `workflow_context_recovery.py` does for its reverse-dependency read, and each `bd show`, `agent list`
-   and sling JSON output at 1 MiB; it refuses above a cap.
-4. **Bash timeout.** The executor makes up to five timed gc calls of 30 s each (`bd show`, `bd ready`,
-   `agent list`, the sling and the readback `bd show`), plus its local reads; the inherited ownership
-   reads have no timeout of their own. That can exceed the Bash tool's default timeout. The docs tell the
+   and sling JSON output at 1 MiB; it refuses above a cap. The caps are checked after capture, so they
+   bound what is accepted, not memory (the 30 s timeouts bound that). A cap refusal after the sling
+   leaves the intent pending, like any failed readback.
+4. **Bash timeout.** Every gc call that uses the dispatch argv (the `bd show` reads, `bd ready`,
+   `agent list`, the sling and the readback) is timed at 30 s; the inherited ownership reads have no
+   timeout of their own. Together they can exceed the Bash tool's default timeout. The docs tell the
    caller to pass a Bash timeout of 300000 ms for `coordinate --action dispatch`, and state that a killed
-   call is safe because of the `last_sling_at` 60 s guard, except for the residual in item 8.
+   call is safe because of the `last_sling_at` 60 s guard, except for the residual in item 8. Run the
+   sling in its own process group (`start_new_session=True`) and kill the whole group on timeout.
 5. **Closed sets and errors.** `dispatch` and `evidence-write` are added to the closed `COMMANDS`
    frozenset in `native_permissions.py`. The executor turns any exception from `_profile()` (for example
    `ValueError`, `DelegationPolicyError` or `OSError`) and a `None` result into a `WorkflowError`. It
    passes the canonical root (the seat, where the profile lives) to `_profile()`: it derives that root
    from the canonical runtime it runs from (the git common directory's parent), never from a hard-coded
-   path, and requires it to equal the profile's `canonical_root`; the docs name that root.
+   path, and requires it to equal the profile's `canonical_root`; the docs name that root. Reuse the
+   gate's existing derivation (`_worktree_and_canonical_root` in `delegation.py`) and give the executor an
+   injectable root for tests, so no test reads the live profile.
 6. **Operator stuck-state note.** The operator records a stuck dispatch on the primary Bead only after
    the remedy is abandoned: writing it earlier changes the child's stored parent snapshot, so the
    "unrouted and otherwise as recorded" branch could never match again.
 7. **Reconcile wording.** Read "No reconcile verb exists for coordination intents today" as "none
    exists for dispatch intents"; `workflow.py reconcile-attachment` exists for `depend` intents only.
 8. **Residual double route.** The 60 s re-sling guard holds because every sling call times out after
-   30 s. The docs state the residual risk: a killed sling that still lands more than 30 s after it was
-   killed could route the child to the same target twice.
+   30 s. The docs state the residual risk as an invariant: any sling that lands more than 60 s after its
+   `last_sling_at` (for example an orphaned or killed sling) could route the child to the same target
+   twice.
 9. **Observed claim delta (corrects the Readback paragraph and the acceptance bullet "a readback with
    any change beyond `gc.routed_to`, the claim fields (`status`, `assignee`) and `updated_at`").** The
    ga-x7lx window (2026-09-26) observed a pool claim live. Besides `status` (`open` to `in_progress`),
@@ -71,10 +81,13 @@ These answer the r12 reviews and the first live observations; each is binding.
    `gc.session_name` and `gc.work_branch` (Core writes the rig checkout's branch there, a known Core
    defect, ga-l7gz). The accepted claim delta is exactly those fields and keys, added or changed; every
    other field and metadata key must be unchanged, and the acceptance test refuses anything beyond them.
+   `status` may change only to `in_progress`. A partial claim delta (any subset of these fields and
+   keys) is accepted, since a readback can race the claim.
    The observed route delta matched the brief (`gc.routed_to` added, `updated_at`). Both observations
    were made on a window-prepared Bead that already carried `gc.work_dir` and `gc.check_path`; a
    dispatch child starts with no `gc.*` key, so if a real sling or claim of such a child adds any other
-   key, the record stays pending (fail closed) and the docs say the first live dispatch is watched.
+   key, the record stays pending (fail closed) and the docs say the first live dispatch is watched and
+   should use a throwaway child.
 
 '''
 

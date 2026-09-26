@@ -57,12 +57,15 @@ def test_clarifications_cover_every_r12_review_item(s, rendered):
     task = rendered['task.md']
     assert s.CLARIFICATIONS in task
     for needle in ('`tracking.py` PostToolUse site is not generic', '`degraded_pretooluse_fallback`',
-                   'every other coordination request', 'at 16 MiB', 'at 1 MiB', 'up to five timed gc calls',
+                   'every other `coordinate` action', 'at 16 MiB', 'at 1 MiB', 'Every gc call that uses the dispatch argv',
                    '300000 ms', 'except for the residual in item 8', '`COMMANDS`\n   frozenset',
                    'any exception from `_profile()`', "the profile's `canonical_root`",
                    'only after\n   the remedy is abandoned',
                    '`workflow.py reconcile-attachment` exists for `depend` intents only',
-                   'more than 30 s after it was\n   killed', 'Observed claim delta', 'the acceptance bullet',
+                   'more than 60 s after its\n   `last_sling_at`', 'Observed claim delta', 'the acceptance bullet',
+                   'base_without_r3', 'inside the\n   existing `try`', '`reconcile-attachment` refuse while it is pending',
+                   'checked after capture', '`start_new_session=True`', '`_worktree_and_canonical_root`',
+                   '`status` may change only to `in_progress`', 'A partial claim delta',
                    'window-prepared Bead'):
         assert needle in task, needle
     assert task.index('## Pre-window clarifications') < task.index('## Working rules')

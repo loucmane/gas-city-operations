@@ -1,7 +1,7 @@
 # R4 brief r13: a readable split, plus the pre-window clarifications
 
 This package prepares the ga-fsfg R4 candidate brief (dispatch and evidence-write) for its window.
-`split_r4.py` renders the three Bead texts. `test_split_r4.py` (5 tests) proves:
+`split_r4.py` renders the three Bead texts. `test_split_r4.py` (6 tests) proves:
 - the split is verbatim;
 - every part is readable inline;
 - the pointer uses the exempt bd path;
@@ -31,8 +31,8 @@ brief's accepted deltas. `CLARIFICATIONS` in `split_r4.py` does both.
   - the stuck-state note;
   - the reconcile wording;
   - the residual double route.
-- **Item 1 reflects R3 as it stands under merge** (Operations PR 392, head `72c888e3`; `main` is still
-  `040139d8`). The `pretool.py` site is None-safe. The `tracking.py` site sends every request-less target to the
+- **Item 1 reflects R3 as merged** (Operations PR 392, merge `8f24ad71` of head `72c888e3`; the merged
+  `tracking.py` and `pretool.py` equal the head, checked with an empty diff). The `pretool.py` site is None-safe. The `tracking.py` site sends every request-less target to the
   delivery recorder, so evidence-write needs its own branch there. The degraded fallback also needs an
   evidence-write hard block.
 - **Item 9 corrects the accepted claim delta.** The ga-4z38 worker never claimed, so the first live claim was
@@ -75,3 +75,26 @@ brief's accepted deltas. `CLARIFICATIONS` in `split_r4.py` does both.
 3. Generate the R4 successor window from the ga-x7lx package at the post-merge `main`, with the same cache
    disposition class. That class needs the operator's approval, since each window's value is new drift.
 4. ga-4xg9 stays open as the umbrella until R4 is delivered, then it is closed and superseded.
+
+## r15 (answers the r14 reviews of `a4ec24fd`: A SOURCE_PASS, B HOLD)
+
+- **B must_fix 1: the review binding.** The coordinator merged `main` into the ga-e0t1 branch while review B ran
+  (`a4a75a6f`), so the checkout was no longer the candidate. The merge did not touch this package; the diff is
+  empty. r15 is reviewed with the worktree frozen for the whole review.
+- **B should_fix:**
+  - item 2 names the refusing verbs (`coordinate` and `reconcile-attachment`);
+  - items 4 and 8 state the invariant (a sling landing more than 60 s after its `last_sling_at`) and require the
+    sling in its own process group;
+  - item 9 pins `status` to `in_progress` and accepts a partial claim delta;
+  - item 4 times every gc call on the dispatch argv, without a count;
+  - item 5 reuses `_worktree_and_canonical_root` with an injectable root for tests;
+  - item 1 has a named stop, `base_without_r3`, and puts the fallback detection inside the existing `try`;
+  - item 3 says the caps are checked after capture;
+  - the labels are fixed.
+- **A should_fix:**
+  - the README test count;
+  - the item 8 invariant;
+  - the item 3 memory note;
+  - the throwaway first dispatch;
+  - the test seam.
+- R3 is merged (`8f24ad71`), and the merged hook files equal the reviewed head.
