@@ -70,7 +70,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PROJECT_DIR/.claude/scripts/pretooluse-gate.sh"
+            "command": "bash $CLAUDE_PROJECT_DIR/.claude/scripts/pretooluse-gate.sh",
+            "timeout": 120
           }
         ]
       }
@@ -115,6 +116,15 @@
             "type": "command",
             "command": "bash $CLAUDE_PROJECT_DIR/.claude/scripts/ledger-record.sh",
             "async": true
+          }
+        ]
+      },
+      {
+        "matcher": "^Bash$",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 $CLAUDE_PROJECT_DIR/.claude/scripts/gate_lib.py deliveryfailure"
           }
         ]
       }

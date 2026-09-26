@@ -85,6 +85,7 @@ def parse_payload(raw: str) -> Payload | PayloadLoadError:
         permission_mode=(
             str(data["permission_mode"]) if isinstance(data.get("permission_mode"), str) else None
         ),
+        tool_use_id=str(data["tool_use_id"]) if isinstance(data.get("tool_use_id"), str) else None,
     )
 
 
