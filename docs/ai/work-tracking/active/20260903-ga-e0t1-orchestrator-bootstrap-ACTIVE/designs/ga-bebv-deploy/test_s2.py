@@ -552,3 +552,10 @@ def test_snapshot_drops_only_atime(s2, tmp_path):
     want = {'device', 'inode', 'uid', 'gid', 'mode', 'type', 'nlink', 'size', 'mtime_ns', 'ctime_ns'}
     for meta in value['inventory'].values():
         assert set(meta) == want
+
+
+def test_make_tests_reproduces_the_tests_and_the_envelope_wrapper(tmp_path):
+    subprocess.run([sys.executable, '-I', '-B', str(HERE/'make_tests.py'), str(tmp_path)], check=True,
+                   capture_output=True)
+    for name in ('test_s2.py', 'make_envelope.py'):
+        assert (tmp_path/name).read_bytes() == (HERE/name).read_bytes(), name

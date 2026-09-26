@@ -119,6 +119,12 @@ def main():
     assert set(accepted) == {'path', 'sha256'}, accepted
     text = raw.decode()
     r = retry()
+    # S2 review should_fix: the bound observation must come from a sequence 16 accept root, at most the current
+    # one (a reaccept retry is generated before its new accept runs, while accepted.json still names the last).
+    if accepted['sha256'] != '0' * 64:
+        current = 1 + (r['retry'] if r['reaccept'] else 0)
+        roots = ['/var/tmp/ga-bebv-predecessor-20260927-r%d/second.json' % i for i in range(1, current + 1)]
+        assert accepted['path'] in roots, accepted
     for old, new in header(accepted, r) + overrides(r):
         assert text.count(old) == 1, old[:90]
         text = text.replace(old, new)

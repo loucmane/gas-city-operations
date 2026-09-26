@@ -32,8 +32,8 @@ OUTPUTS={
 }
 BROKER=Path('/usr/local/libexec/gas-city/gct-privileged-provision')
 BROKER_SHA='0f56141d190c72474e9c74db0dd8d1c04789b089279721f3140cf727675615d5'
-ACCEPTED=Path('/nonexistent/accepted-pending.json')
-ACCEPTED_SHA='0000000000000000000000000000000000000000000000000000000000000000'
+ACCEPTED=Path('/var/tmp/ga-bebv-predecessor-20260927-r1/second.json')
+ACCEPTED_SHA='dceae524dd4dd36a53dae224145b4449d7edfbd66438320631b2bca4f49f3e2d'
 ARTIFACT=Path('/var/tmp/ga-bebv-build-20260927/gc-a')
 c.OLD='fce2e9a0bea6c79f257e55b6424cf9271405d58f916a1017f3c14e232ad5d13b'
 c.NEW='207a78e27fe4b470ec5926ded186813543568683cf26d7d7487e6c185d8f3e8f'

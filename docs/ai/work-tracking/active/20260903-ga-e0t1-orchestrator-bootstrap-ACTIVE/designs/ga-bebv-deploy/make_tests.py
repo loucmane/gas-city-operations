@@ -98,18 +98,30 @@ ENVELOPE_PAIRS = [
 ENVELOPE_SOURCE_SHA = '3649de2960540cc72a6cb3f2c240b6915900efb4f52c23111524c9d1a125e755'
 
 
-def main():
+# S2 review should_fix: prove that the committed test_s2.py and make_envelope.py equal this generator's output.
+EXTRA_TESTS = '''
+
+def test_make_tests_reproduces_the_tests_and_the_envelope_wrapper(tmp_path):
+    subprocess.run([sys.executable, '-I', '-B', str(HERE/'make_tests.py'), str(tmp_path)], check=True,
+                   capture_output=True)
+    for name in ('test_s2.py', 'make_envelope.py'):
+        assert (tmp_path/name).read_bytes() == (HERE/name).read_bytes(), name
+'''
+
+
+def main(out):
     raw = (SRC/'test_s2.py').read_bytes()
     if sha(raw) != TEST_SHA:
         raise SystemExit('sequence 15 test source drift')
-    (HERE/'test_s2.py').write_text(apply(raw.decode(), TEST_PAIRS))
+    (out/'test_s2.py').write_text(apply(raw.decode(), TEST_PAIRS) + EXTRA_TESTS)
     raw = (SRC/'make_envelope.py').read_bytes()
     if sha(raw) != ENVELOPE_SOURCE_SHA:
         raise SystemExit('sequence 15 envelope source drift')
-    (HERE/'make_envelope.py').write_text(apply(raw.decode(), ENVELOPE_PAIRS))
-    print('test_s2.py', sha((HERE/'test_s2.py').read_bytes()))
-    print('make_envelope.py', sha((HERE/'make_envelope.py').read_bytes()))
+    (out/'make_envelope.py').write_text(apply(raw.decode(), ENVELOPE_PAIRS))
+    print('test_s2.py', sha((out/'test_s2.py').read_bytes()))
+    print('make_envelope.py', sha((out/'make_envelope.py').read_bytes()))
 
 
 if __name__ == '__main__':
-    main()
+    import sys
+    main(Path(sys.argv[1]) if len(sys.argv) == 2 else HERE)

@@ -145,6 +145,55 @@ identities, pins and roots rebound. They include the live check of the prior sta
   r6 rules unchanged. The recovery root is `/var/tmp/ga-bebv-seq16-recovery-20260927`.
 - From step 1 to step 5 the coordinator makes no Bead writes, runs no `gc`, and walks no directories.
 
+**S2 package review should-fix items (both SOURCE_PASS on `4ea3553a`), answered here:**
+- **Recovery.** After a post-submit stop with an exact broker success and the receipt present, the only recovery
+  command is:
+  `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-bebv-deploy/s2_transition.py recover <baseline_sha256> <binding_sha256>`.
+  Never use the sequence 15 path.
+- **Time limits** (unchanged from sequence 15). Submit must be launched by about 620 s into the prepare window
+  (`clock-0.json` mono) and by 330 s after the envelope's `issued_at`, so the fence finds more than 240 s left.
+  The in-window envelope review is time-boxed at about 4 minutes.
+- **Chain precondition.** `s2_transition.py` loads `/tmp/ga-mutg-adoption-20260920-r4/capture_transition.py`
+  (`4d373634`) and its r3 chain. Both were present on 2026-09-27. `/tmp` does not survive a reboot, so check them
+  before every phase.
+- **Retry naming.** Retry N gives ROOT `-tN` and attempt `r(17+N)`; with reaccept it also gives accept root
+  `-r(1+N)`. `make_s2.py` refuses an `accepted.json` that names anything but a sequence 16 accept root up to the
+  current one.
+- **Envelope bead.** It stays `ga-ecwh`, the broker-registered adoption Bead that sequence 15 also used. The
+  broker pin and envelope schema are unchanged, so ga-bebv reuses that identity; the deployment itself is
+  recorded on ga-e0t1.
+- **Config at start.** The new Core loads the current M9-era city configuration. The hotfix adds only the
+  optional `work_dir_roots` field, and its guards act at launch, not at config load. The city stays suspended
+  through S2, so no launch happens. Postflight1 proves the new Core initializes on the live config.
+- **Tests.** `test_s2.py` now also proves that the committed `test_s2.py` and `make_envelope.py` equal the
+  `make_tests.py` output.
+
+**Step 1 result.** The timer state was recorded (active, waiting, enabled; the reconcile service had failed
+earlier) and the timer was stopped at 2026-09-26 22:51Z. No oneshot was running.
+
+**Step 2 result.** The accept phase passed at 22:51Z:
+- two equal observations 23.9 s apart, `second.json` sha `dceae524`;
+- a delta against R7 byte-identical to sequence 15's (8 pins, 4 trees, host keys, suspension);
+- an independent review of the observations: SOURCE_PASS.
+
+Every change since sequence 15 is explained:
+- `gc` is now `fce2e9a0` (sequence 15);
+- the provisioning receipt is `c833908f` (P10);
+- `rig-permissions.json` and `.toml` are `1225b7c5` and `df688a29` (the lane activation and M8/M9);
+- the suspension pin is `6d89f537`, the ga-3oa7 R4 window rig-suspend endpoint;
+- the rig `.git/objects` is `aed766a6` after the PR 49 fetches.
+
+`accepted.json` binds it and the transition is regenerated (`af7e5d8b`); the only change is the two `ACCEPTED`
+constants.
+
+Until postflight2, recapture compares these trees exactly:
+- Template `.git` (`06ebb42b`);
+- rig `.git/objects` (`aed766a6`);
+- `reports/r5/r` (`8c064bd2`);
+- the cache (`4b284f67`).
+
+So there is no rig fetch, no Template git without `--no-optional-locks`, and no worker or lifecycle window.
+
 ### S3: metadata successor, receipt and inspector
 
 - **M10.** A metadata successor over M9. It pins the new Core file and adopts the city configuration change:
