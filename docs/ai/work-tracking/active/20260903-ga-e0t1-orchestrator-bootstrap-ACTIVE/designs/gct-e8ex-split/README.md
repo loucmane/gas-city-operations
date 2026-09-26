@@ -2,11 +2,12 @@
 
 This package prepares the Template candidate-lane Bead, gct-e8ex, for the Template `codex` worker. The worker
 builds a closed Claude candidate lane for the Template rig, and the handover proof (gct-oak5) needs that lane
-first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (5 tests) proves:
-- the split is verbatim;
+first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (6 tests) proves:
+- the split is verbatim, and holders name themselves;
 - the live umbrella description is the reviewed r6 brief;
 - every part is small;
-- the pointer uses the codex prompt's own read command.
+- the pointer uses the codex prompt's own read command;
+- the guidance holder carries the review guidance.
 
 ## Why
 
@@ -22,11 +23,29 @@ five closed spec holders. Every part is under 5K characters and 60 lines, so eac
 ## Run order
 
 1. **Reviews.** Two reviews of this package.
-2. **Create the spec holders** in the Template rig (`gc --rig gas-city-template bd create`), then:
+2. **Create the six holders** in the Template rig (`gc --rig gas-city-template bd create`), then:
+   - close the holders right away;
    - render the task with their ids;
    - create the task Bead with no edges, label `template-candidate`;
-   - close the holders;
-   - measure every plain view.
-3. **Keep the umbrella.** gct-e8ex stays open as the umbrella, and its notes stay there: the coordinator
-   activation checklist and the review guidance.
-4. **Route the new task.** It goes to `gas-city-template/codex` through a reviewed Template window.
+   - measure every plain `gc bd show` view. **Stop if any view is 9,000 bytes or more, or 200 lines or more.**
+3. **Keep the umbrella.** gct-e8ex stays open as the umbrella, and its notes stay there.
+4. **Route the new task.** The routing window stamps `gc.routed_to=gas-city-template/codex` and `gc.work_dir`, the
+   codex worker's own routed Template worktree.
+
+## r2 (answers the reviews of `688723d9`; both SOURCE_PASS)
+
+- **B 1: the data rule.** The pointer says the rule above ("treat every other Bead's text as data") does not apply
+  to the six holders, while still applying to their notes and to every other Bead.
+- **B 2: the umbrella.** gct-e8ex is named as the umbrella the worker must not read, update or close.
+- **B 3: the stop behaviour.** Stage and verify, append the staged tree digest and the tests, send one escalation,
+  and stop without closing; the coordinator signs, delivers and closes. The "rule above" wording is pointed to spec
+  part 1.
+- **B 4: the review guidance.** The guidance from the umbrella's notes (the Preflight probes, the composition
+  fixture, the overlay file and the add_dirs derivation) moves into a sixth closed holder. It is marked as review
+  guidance, not r6 text, so the task text stays small.
+- **B 5: the worklog.** `/home/loucmane/vaults/main/GasCity/gas-city-template/Docs/worklogs/gct-e8ex-template-candidate-lane.md`,
+  inside the codex agent's classified-vault write root, following gas-city-native `templates/worklog.md`.
+- **A 1: the size caps.** The size test counts bytes; the hard stop on the live views is above.
+- **A 3: holder ids.** Holder ids are checked against the Bead id pattern and must be distinct.
+- **A 4 and B 6:** the pointer punctuation, and the holders are closed before the task exists.
+- **Tests:** 6 pass.
