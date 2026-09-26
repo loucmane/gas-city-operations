@@ -1,7 +1,7 @@
 """The one ga-x7lx contract binding before the window: gc.work_dir and gc.check_path; never route or resume.
 
 ga-x7lx: bind-task-r5.py replaces the ga-sh3w bind-task-r4.py. The Bead description is the short task brief
-(sha256 acc57fd5fd1f095d8d6df6a4003313c7e53219e6cddde5dd1061ed8f7d36e610): the reviewed r12 R3 brief head and working rules, verbatim, and a pointer to the closed
+(sha256 b741402ba05b7e0adc65e4399719a81be1bc2031265893cd1f808f6d8feacd9b): the reviewed r12 R3 brief head and working rules, verbatim, and a pointer to the closed
 spec holders ga-lpo2 and ga-r2el; together they reassemble to the r12 brief. The task carries no dependency edge,
 so `bd show` prints no embedded record. The binding sets exactly two metadata keys:
 - gc.work_dir: the candidate worktree the WORKTREE job created;
@@ -22,12 +22,12 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-x7lx-window')
 ROOT=Path('/var/tmp/ga-x7lx-bind-20260926-r1')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='328004a1da28c3cba3c693facafc395a2656b6d92c39fc0ca7e3453f17b9e54f'
+HELPER_SHA='01c201f77a80c260d22c8562d65a9456c2772aa51892668dc05a50cde120f843'
 WORKTREE_RESULT=Path('/var/tmp/ga-x7lx-worktree-20260926-r1/result.json')
 WORKTREE_SHA='6b2255540aa95639a4c9311fe2c493f69daf5db7388c6123670cd43bf12a8a4a'
 EXCLUDE=Path('/home/loucmane/gas-city-ops/.git/info/exclude')
 EXCLUDE_AFTER='4ef8e39849f5cfe486486339b37f5947d2ff77786250eeeebb7be57170a05bbd'
-DESCRIPTION_SHA='acc57fd5fd1f095d8d6df6a4003313c7e53219e6cddde5dd1061ed8f7d36e610'
+DESCRIPTION_SHA='b741402ba05b7e0adc65e4399719a81be1bc2031265893cd1f808f6d8feacd9b'
 BEAD='ga-x7lx'
 TARGET='gascity/operations-candidate-worker'
 WORK='/home/loucmane/gas-city-ops-candidate-worktrees/ga-x7lx'
@@ -59,7 +59,8 @@ def main():
     before=bead('task-before-read');w.save('task-before.json',before)
     assert before['status']=='open' and not before.get('assignee') and not before.get('metadata')
     assert hashlib.sha256(before['description'].encode()).hexdigest()==DESCRIPTION_SHA,'description is not the reviewed brief'
-    assert not before.get('dependencies'),'unexpected Bead edge'
+    assert not before.get('dependencies') and not before.get('dependents'),'unexpected Bead edge'
+    assert before.get('dependency_count',0)==0 and before.get('dependent_count',0)==0 and before.get('comment_count',0)==0,'embedded records'
     metadata={'gc.work_dir':WORK,'gc.check_path':CHECK}
     argv=w.GC+['--rig','gascity','bd','update',BEAD]
     for key,value in metadata.items():argv+=['--set-metadata',key+'='+value]

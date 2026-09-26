@@ -4,7 +4,7 @@
   common-snapshot-r1.py after <before-json> <before-sha256> <out-json>
 
 The compared set is the common directory's control surface that a sandbox escape could use against the coordinator:
-config, every file under hooks/ and info/ (info/exclude as EXCLUDE left it), and the candidate branch, which must
+config, every file under hooks/ and info/ (info/exclude as the ga-sh3w EXCLUDE job left it), and the candidate branch, which must
 still point at BASE (the candidate delivers uncommitted work). Coordinator refs (main, the ga-e0t1 branch,
 remote-tracking refs) legitimately move after TERMINAL and are not compared. It writes only its own output file.
 """

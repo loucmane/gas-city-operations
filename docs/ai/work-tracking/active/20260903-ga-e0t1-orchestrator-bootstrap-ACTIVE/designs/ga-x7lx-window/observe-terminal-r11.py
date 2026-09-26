@@ -14,9 +14,9 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-x7lx-window')
 ROOT=Path('/var/tmp/ga-x7lx-terminal-20260926-r1')
 WINDOW=Path('/var/tmp/ga-x7lx-window-20260926-r1')
-WINDOW_SHA='d3459f98f26fa98d0158e80404b0b0bc049d196441790215745030e86eefa562'
+WINDOW_SHA='f41ca25a584492be7b695907bc9a47cae9ce637955135127e7057fc43294dbe6'
 BUILD=Path('/var/tmp/ga-e0t1.18-platform-inspector-m9-20260926')
-W_SHA='7ed7edc33aebf2cce31f2c589a0db14b02fd00e2b843102d194837d513d57569'
+W_SHA='5c8899074b108d80f8952320058726cc5ab2ed8589fcc50a32a591faeda57dbf'
 BINARY_SHA='9e29e45dd465dd0397525c5a2d8aa929e65a32bffa7a69787842a23c99a55549'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='5a29dc596af192e0f314391453d25d6be548695a0defd64bdfc2fa76554e4993'

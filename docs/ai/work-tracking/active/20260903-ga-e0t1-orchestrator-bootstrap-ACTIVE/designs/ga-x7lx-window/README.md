@@ -83,3 +83,51 @@ Unchanged, and so not re-reviewed as new behaviour:
    - ADMIT, RESTORE and TERMINAL.
 5. **After TERMINAL:** the Bead records, the `~/.claude.json` and common-directory comparisons, then INTAKE
    (export, two reviews, apply, tests, signed commit, delivery) and retire.
+
+## s2 (answers the s1 reviews of `89b8c913`; both SOURCE_PASS, filed)
+
+**Pre-window jobs at s1.**
+- WORKTREE passed at 10:46:13Z. It created the clean worktree on `codex/ga-x7lx-delivery-class` at `040139d8`.
+- PREP passed at 10:46:26Z (`/var/tmp/ga-x7lx-prep-20260926-r1`):
+  - overlay `45014c22`, as derived;
+  - receipt image `87f41c3f`;
+  - revision `37be13bc`;
+  - result `471266b9`;
+  - orders unchanged at `b57082cf`.
+- The s1 outcome is recorded on ga-e0t1.
+
+**Pins.**
+- window-base now pins the ga-x7lx PREP outputs in place of the ga-sh3w ones.
+- `CACHE_PINNED_NS` is `1790419645618740930`, the live value after the last coordinator note (the workflow.py
+  log at 10:47:25Z).
+- The s1 test that requires `None` to refuse becomes a live-value test.
+
+**Review B should_fix 1 and 2, the brief pointer.** The first ga-x7lx pointer had two problems:
+- it named a bare `bd show`, but the candidate policy exempts only `/home/loucmane/gascity/bin/bd show` from the
+  sandbox, and a sandboxed bd cannot reach Dolt (the ga-sh3w failure mode);
+- it called the spec holders "other Bead text you follow", which clashes with the prompt's data rule.
+
+Before the cache pin, the live description was replaced (`gc bd update --body-file`, with the lock variable set).
+The new description is `b741402b`, with a 2.9K `--json` view:
+- the pointer names `/home/loucmane/gascity/bin/bd show "<id>" --json`, one quoted id per separate command;
+- it calls the holders the rest of this description, incorporated by reference;
+- it sets `gc.failure_class spec_unreadable` if a read fails.
+
+The head, the tail and the spec holders are unchanged, so they still reassemble to `5cbf64f1`. BIND and ROUTE pin
+the new digest. The evidence is in `reports/r3-brief-split-20260926`: task-r2.md, live-ga-x7lx-r2.json and
+split.py.
+
+**Other should_fix items.**
+- A should_fix 1: a test ties window-base `CITY_SHA[1]` to the prep `OVERLAY_SHA`, and the PREP outputs to the
+  live PREP root.
+- A should_fix 3: the dead `keep` map is removed.
+- A 4 and B 4: the window-base docstring names the real generator, and the common-snapshot docstring names the
+  ga-sh3w EXCLUDE.
+- B should_fix 3: the observe-integrity docstring and comments name the ga-sh3w TERMINAL record, and its result
+  key, which window-r11 requires, is now `admitted_against_accepted_image`.
+- B should_fix 5: BIND also refuses dependents and nonzero dependency, dependent or comment counts.
+- A should_fix 2: **do not run `test_successor.py` between the s2 pin and TERMINAL.** Its bd reads go through gc
+  with the operator HOME. They set `GIT_OPTIONAL_LOCKS=0` and left the pinned cache value unchanged on their s2 run,
+  but they are not part of the window's reviewed job set.
+
+The tests pass: 19 passed, 1 skipped, because WORKTREE has run.

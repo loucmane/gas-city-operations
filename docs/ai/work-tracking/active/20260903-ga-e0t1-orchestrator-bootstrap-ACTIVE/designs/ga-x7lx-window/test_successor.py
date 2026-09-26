@@ -85,7 +85,8 @@ def test_no_leftovers():
         assert not re.search(r'(?<!gct-)claude-signing', text), name
         for line in text.splitlines():
             if 'ga-sh3w' in line:
-                assert name in ('window-base-r11.py', 'prep-r11.py', 'bind-task-r5.py'), (name, line)
+                assert name in ('window-base-r11.py', 'prep-r11.py', 'bind-task-r5.py', 'observe-integrity-r11.py',
+                                'common-snapshot-r1.py'), (name, line)
                 assert 'TERMINAL' in line or 'ga-sh3w-terminal-20260926-r1/observed-after.json' in line \
                     or 'r8 (ga-sh3w' in line or 'the ga-sh3w prep' in line \
                     or 'ga-sh3w EXCLUDE' in line or 'the ga-sh3w bind-task-r4.py' in line \
@@ -200,7 +201,8 @@ def test_bind_writes_only_the_launch_contract(g):
     code = bind.split('"""', 2)[2]
     assert "metadata={'gc.work_dir':WORK,'gc.check_path':CHECK}" in bind
     assert 'opt_' not in code and 'template_overrides' not in code and '--append-notes' not in code
-    assert "assert not before.get('dependencies'),'unexpected Bead edge'" in bind
+    assert "assert not before.get('dependencies') and not before.get('dependents'),'unexpected Bead edge'" in bind
+    assert "before.get('comment_count',0)==0,'embedded records'" in bind
     assert "DESCRIPTION_SHA='%s'" % g.DESCRIPTION_SHA in bind
     assert "EXCLUDE_AFTER='%s'" % g.EXCLUDE_AFTER in bind
     route = (HERE/'route-task-r5.py').read_text()
@@ -226,7 +228,8 @@ def test_brief_is_readable_and_reassembles_to_r12(g):
         spec, spec_raw = bead(name)
         assert spec['status'] == 'closed' and not spec.get('dependencies') and len(spec_raw) < 25000, name
         assert hashlib.sha256(spec['description'].encode()).hexdigest() == digest, name
-        assert '`bd show %s --json`' % name in task['description']
+        # The absolute path the candidate policy exempts from the sandbox, with one quoted id (s1 B should_fix 2).
+        assert '`/home/loucmane/gascity/bin/bd show "%s" --json`' % name in task['description']
         parts.append(spec['description'].split('\n\n', 1)[1])
     text = task['description']
     head = text[:text.index('## The full specification (read first)')]
@@ -264,6 +267,42 @@ def test_overlay_recomputes(g):
     assert hashlib.sha256(candidate).hexdigest() == g.OVERLAY_NEW == prep.OVERLAY_SHA
     assert [p for p in patches if not p['suspended']] == [dict(dir='gascity', name='operations-candidate-worker',
         suspended=False, work_dir=g.WORK, min_active_sessions=0, max_active_sessions=1)]
+
+
+PREP_ROOT = Path('/var/tmp/ga-x7lx-prep-20260926-r1')
+
+
+def test_prep_outputs_are_pinned(g):
+    """s2: window-base pins exactly the ga-x7lx PREP outputs (PREP PASS 2026-09-26 10:46:26Z), and its isolated
+    city pin is the overlay prep derives (s1 review A should_fix 1)."""
+    base = (HERE/'window-base-r11.py').read_text()
+    result = json.loads((PREP_ROOT/'result.json').read_bytes())
+    assert result['ok'] is True and result['installed'] is False and result['worker_launched'] is False
+    assert result['only_unsuspended_city_core_agent'] == 'gascity/operations-candidate-worker'
+    assert result['changed_receipt_fields'] == ['permission_revision', 'receipt_sha256']
+    for value in (sha(PREP_ROOT/'city.isolated.toml'), sha(PREP_ROOT/'receipt.final.json'), result['revision_after'],
+                  sha(PREP_ROOT/'result.json'), sha(PREP_ROOT/'orders.isolated.json')):
+        assert "'%s'" % value in base, value
+    assert result['city_after_sha256'] == sha(PREP_ROOT/'city.isolated.toml') == g.OVERLAY_NEW
+    assert result['revision_before'] == '83c41af65776eaa90f93b57158e8ad57141e19347a592ce509a19f56c2667add'
+    w = load(HERE/'window-base-r11.py', 'window_base_prep')
+    prep = load(HERE/'prep-r11.py', 'prep_pins')
+    assert w.CITY_SHA[1] == prep.OVERLAY_SHA == g.OVERLAY_NEW
+    for stale in ('8b039657', '3b4e022d', 'e0ed64ff', '2b1762c8'):
+        assert stale not in base, stale
+
+
+def test_window_base_pins_run_against_the_live_prep():
+    """pins() reads every PREP output and the nudge order script by digest, read-only."""
+    w = load(HERE/'window-base-r11.py', 'window_base_pins')
+    w.pins()
+
+
+def test_cache_value_is_pinned_to_the_live_value(g):
+    """s2: the pinned value is the live pack-cache .git time after the last coordinator note."""
+    live = os.lstat('/home/loucmane/gascity/home/cache/repos/' + CACHE_KEY)
+    assert live.st_mtime_ns == live.st_ctime_ns == g.CACHE_PINNED_NS == 1790419645618740930
+    assert 'CACHE_PINNED_NS = 1790419645618740930' in (HERE/'window-base-r11.py').read_text()
 
 
 def test_observers_pin_the_m9_providers():
