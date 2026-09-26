@@ -54,8 +54,9 @@ pins = dict(
 pins["prompt_source"] = str(HERE / "operations-candidate-prompt.template.md")
 live = activate.Live(pins)
 registry = activate.new_registry((CITY / "managed/rig-permissions.json").read_bytes(), record)
-city = activate.new_city((CITY / "city.toml").read_bytes(), live.prompt)
-pins["inputs"] = {"rig-permissions.json": activate.digest(registry), "city.toml": activate.digest(city),
+# r11: city.toml is never written; the candidate is the PackV2 agent directory agents/<agent>/.
+pins["inputs"] = {"rig-permissions.json": activate.digest(registry),
+                  activate.AGENT_TOML_NAME: activate.digest(activate.agent_toml()),
                   activate.PROMPT_NAME: activate.sha(Path(pins["prompt_source"]))}
 pins["executor"] = activate.executor_digests()
 Path(sys.argv[1]).write_text(json.dumps(pins, indent=1, sort_keys=True) + "\n")

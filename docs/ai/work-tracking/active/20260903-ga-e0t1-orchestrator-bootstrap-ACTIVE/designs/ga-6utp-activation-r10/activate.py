@@ -30,14 +30,18 @@ The steps, in order:
   - Every candidate PATH entry exists and passes on both its lexical and its resolved chain: nothing
     under the candidate root or a sandbox-writable location, every owner root or the operator,
     nothing group- or world-writable.
-- inputs: derives, writes and pins every new byte string (registry, city.toml, prompt).
+- inputs: derives, writes and pins every new byte string (registry, agent.toml, prompt). r11: city.toml is never
+  written; the deployed Core rejects PackV1 [[agent]] tables (the r10 city step failed on exactly that).
 - root: creates the candidate root, operator-owned, 0755, empty.
 - checkout: requires the canonical Template checkout to have its pinned status and the reviewed change
   set, with no filter attribute at either commit. It proves every lane file present at the base (bytes
   and executable bit) and the absence of the rest, moves it with hooks, fsmonitor and attributes off to
   the reviewed merge commit, and proves every lane file there.
 - registry: appends the candidate record.
-- city: installs the prompt and appends the gascity-bound agent: suspended, max_active_sessions = 1.
+- city: stages agents/.<agent>.tmp.gct-lagl.N (a dot name Core never discovers) holding agent.toml and the
+  prompt, proves in a throwaway shadow city that `gc config show --validate` accepts it and resolves exactly
+  one gascity-bound agent (suspended, max_active_sessions = 1), writes the intent, and renames it into
+  agents/<agent>. r11: this replaces the r10 city.toml append, which the deployed Core rejected.
 - render: renders into a package-local scratch city first and proves that fragment key by key before
   anything live is written. The live --check must predict exactly those bytes, against the reviewed
   registry and provider template. The intent records them, and --apply must produce exactly them, so
@@ -58,8 +62,10 @@ import os
 from pathlib import Path
 import re
 import stat
+import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -68,6 +74,9 @@ import preroute  # noqa: E402
 STEPS = ("host", "inputs", "root", "checkout", "registry", "city", "render", "reload")
 AGENT = "operations-candidate-worker"
 PROMPT_NAME = "operations-candidate-prompt.template.md"
+# r11: the PackV2 agent directory files. The prompt uses the convention name, so agent.toml names no path.
+AGENT_PROMPT = "prompt.template.md"
+AGENT_TOML_NAME = "agent.toml"
 EXECUTOR = Path(__file__).resolve()
 # The executor and every module it imports from this package; their digests are reviewed pins.
 EXECUTOR_FILES = ("activate.py", "preroute.py", "candidate_git.py", "intake.py")
@@ -118,7 +127,11 @@ class Live:
     registry = property(lambda self: self.city / "managed/rig-permissions.json")
     fragment = property(lambda self: self.city / "managed/rig-permissions.toml")
     city_toml = property(lambda self: self.city / "city.toml")
-    prompt = property(lambda self: self.city / "managed" / PROMPT_NAME)
+    # r11: the deployed Core rejects PackV1 [[agent]] tables in city.toml, so the candidate is a city-pack
+    # agent directory (PackV2); city.toml is never written.
+    agent_dir = property(lambda self: self.city / "agents" / AGENT)
+    agent_toml = property(lambda self: self.city / "agents" / AGENT / "agent.toml")
+    prompt = property(lambda self: self.city / "agents" / AGENT / AGENT_PROMPT)
     suspension = property(lambda self: self.city / ".gc/runtime/suspension-state.json")
 
 
@@ -202,7 +215,7 @@ class Package:
 
     def leftovers(self):
         found = []
-        for directory in (self.live.city, self.live.city / "managed"):
+        for directory in (self.live.city, self.live.city / "managed", self.live.city / "agents"):
             found += sorted(str(p) for p in directory.glob(".*.gct-lagl.*"))
         found += sorted(str(p) for p in (self.live.city / "managed").glob(".rig-permissions.toml.tmp.*"))
         found += sorted(str(p) for p in self.live.city.parent.glob("." + self.live.city.name + ".gct-validate.*"))
@@ -275,31 +288,28 @@ def new_registry(raw: bytes, record: dict) -> bytes:
     return (json.dumps(value, indent=2) + "\n").encode()
 
 
-def agent_block(prompt_path: Path) -> str:
-    return (
-        "\n# gct-lagl: Operations candidate worker, bound to the gascity rig only. The managed\n"
+def agent_toml() -> bytes:
+    """r11: the PackV2 city-pack agent definition (agents/<AGENT>/agent.toml).
+
+    `dir = "gascity"` keeps the identity gascity/operations-candidate-worker that the managed fragment's
+    [[patches.agent]] and the registry record name; `scope = "city"` keeps it a single city-level agent rather
+    than one per rig. The prompt is the directory's convention file, so no path is named.
+    """
+    raw = (
+        "# gct-lagl: Operations candidate worker, bound to the gascity rig only. The managed\n"
         "# fragment patches it onto the closed claude-candidate provider. It stays suspended\n"
         "# until the first candidate window's own reviewed package unsuspends it.\n"
-        "[[agent]]\n"
-        'dir = "gascity"\n'
-        f'name = "{AGENT}"\n'
         'description = "Operations candidate worker: delivers an uncommitted candidate (gct-lagl)"\n'
+        'dir = "gascity"\n'
+        'scope = "city"\n'
         'provider = "claude"\n'
-        f'prompt_template = "{prompt_path}"\n'
         "max_active_sessions = 1\n"
         "suspended = true\n"
-    )
-
-
-def new_city(raw: bytes, prompt_path: Path) -> bytes:
-    text = raw.decode()
-    require(AGENT not in text, "candidate agent already in city.toml")
-    require(text.endswith("\n"), "city.toml must end with a newline")
-    new = text + agent_block(prompt_path)
-    agents = [a for a in tomllib.loads(new).get("agent", []) if a.get("name") == AGENT]
-    require(len(agents) == 1 and agents[0]["dir"] == "gascity" and agents[0]["suspended"] is True
-            and agents[0]["max_active_sessions"] == 1 and "session" not in agents[0], "derived city agent")
-    return new.encode()
+    ).encode()
+    parsed = tomllib.loads(raw.decode())
+    require(parsed == dict(description=parsed["description"], dir="gascity", scope="city", provider="claude",
+                           max_active_sessions=1, suspended=True), "derived agent definition")
+    return raw
 
 
 # ---------------------------------------------------------------- steps
@@ -388,7 +398,7 @@ def step_inputs(p: Package):
                               "managed/profiles/gascity-operations-candidate-claude.json"))
     record = candidate_record(profile, p.pins["python_toolchain"])
     derived = {"rig-permissions.json": new_registry(live.registry.read_bytes(), record),
-               "city.toml": new_city(live.city_toml.read_bytes(), live.prompt),
+               AGENT_TOML_NAME: agent_toml(),
                PROMPT_NAME: prompt_raw}
     for name, raw in derived.items():
         require(digest(raw) == p.pins["inputs"][name], f"derived {name} differs from the reviewed pin")
@@ -411,14 +421,18 @@ def root_postcondition(p: Package) -> bool:
 def step_root(p: Package):
     before = p.begin("root")
     root = p.live.candidate_root
-    require(not os.path.lexists(root), "candidate root already exists")
     require(stat.S_ISDIR(root.parent.lstat().st_mode) and Path(os.path.realpath(root.parent)) == root.parent,
             "candidate root parent is not physical")
+    # r11: the stopped r10 run created the root. A root that is exactly the postcondition (an empty,
+    # operator-owned 0755 directory) is adopted without a write; anything else at that path refuses.
+    adopted = os.path.lexists(root)
+    require(not adopted or root_postcondition(p), "candidate root exists and is not an empty operator directory")
     p.intent("root", before)
-    os.mkdir(root, 0o755)
-    os.chmod(root, 0o755)
+    if not adopted:
+        os.mkdir(root, 0o755)
+        os.chmod(root, 0o755)
     require(root_postcondition(p), "candidate root postcondition")
-    p.finish("root", before, dict(root=str(root)))
+    p.finish("root", before, dict(root=str(root), adopted_existing=adopted))
 
 
 def checkout_state(p: Package):
@@ -513,21 +527,106 @@ def step_registry(p: Package):
     p.finish("registry", before, dict(after_sha256=digest(new)))
 
 
+def stage_agent_dir(p: Package, parent: Path, definition: bytes, prompt: bytes) -> Path:
+    """Build the complete agent directory under a fresh dot name in `parent`; it is never a discovered agent."""
+    staged = fresh_name(parent, AGENT + ".tmp")
+    os.mkdir(staged, 0o755)
+    for name, raw in ((AGENT_PROMPT, prompt), (AGENT_TOML_NAME, definition)):
+        fd = os.open(staged / name, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW | os.O_CLOEXEC, 0o644)
+        with os.fdopen(fd, "wb") as stream:
+            stream.write(raw); stream.flush(); os.fsync(stream.fileno())
+        os.chmod(staged / name, 0o644)
+    os.chmod(staged, 0o755)
+    fsync_dir(staged)
+    return staged
+
+
+def agent_dir_state(p: Package) -> dict | None:
+    """None when absent; otherwise the exact entry set and digests, refusing any foreign shape."""
+    if not os.path.lexists(p.live.agent_dir):
+        return None
+    info = p.live.agent_dir.lstat()
+    require(stat.S_ISDIR(info.st_mode) and info.st_uid == p.live.uid, "agent directory is not an operator directory")
+    names = sorted(os.listdir(p.live.agent_dir))
+    require(names == sorted((AGENT_PROMPT, AGENT_TOML_NAME)), f"agent directory entries: {names}")
+    return {name: identity(p.live.agent_dir / name) for name in names}
+
+
+def expected_agent_state(p: Package) -> dict:
+    return {AGENT_PROMPT: (stat.S_IFREG, 0o644, p.live.uid, 1, p.pins["inputs"][PROMPT_NAME]),
+            AGENT_TOML_NAME: (stat.S_IFREG, 0o644, p.live.uid, 1, p.pins["inputs"][AGENT_TOML_NAME])}
+
+
+def validate_with_agent(p: Package, staged: Path) -> None:
+    """Prove Core loads the city with the staged agent before anything live changes (the r10 failure mode).
+
+    A throwaway shadow beside the city symlinks every entry of the real city except agents/, which is a real
+    directory holding copies of every existing agent directory plus the staged one under its real name (Core's
+    discovery skips symlinked entries, so agents must be real directories). `gc config show --validate` must
+    accept it, and `--json` must resolve exactly one gascity-bound, suspended, capped agent.
+    """
+    # The name matches the leftover guard, so a shadow a crash left behind blocks the next step.
+    shadow = Path(tempfile_dir(p.live.city.parent, "." + p.live.city.name + ".gct-validate.lagl-"))
+    try:
+        for entry in sorted(os.listdir(p.live.city)):
+            if entry != "agents":
+                os.symlink(p.live.city / entry, shadow / entry)
+        (shadow / "agents").mkdir()
+        for entry in sorted(os.listdir(p.live.city / "agents")):
+            source = p.live.city / "agents" / entry
+            if source.is_dir() and not source.is_symlink():
+                shutil.copytree(source, shadow / "agents" / entry, symlinks=True)
+        shutil.copytree(staged, shadow / "agents" / AGENT, symlinks=True)
+        checked = run([p.live.gc, "--city", str(shadow), "config", "show", "--validate"], p.live.env, timeout=120)
+        require(checked["returncode"] == 0, "staged agent fails gc config validation: " + checked["stderr"][-400:])
+        shown = run([p.live.gc, "--city", str(shadow), "config", "show", "--json"], p.live.env, timeout=120)
+        require(shown["returncode"] == 0, "gc config show failed: " + shown["stderr"][-300:])
+        agents = [a for a in json.loads(shown["stdout"])["config"]["Agents"] if a.get("Name") == AGENT]
+        require(len(agents) == 1 and agents[0].get("Dir") == "gascity" and agents[0].get("Suspended") is True
+                and agents[0].get("MaxActiveSessions") == 1 and agents[0].get("Scope") == "city",
+                f"staged agent does not resolve as reviewed: {agents}")
+    finally:
+        # The shadow holds only symlinks plus one real agents/ directory of copies. rmtree removes only that
+        # copy tree (it never follows symlinks); every other entry is a symlink and is unlinked, not followed.
+        agents = shadow / "agents"
+        if os.path.isdir(agents) and not os.path.islink(agents):
+            shutil.rmtree(agents)
+        for entry in os.listdir(shadow):
+            os.unlink(shadow / entry)
+        os.rmdir(shadow)
+
+
+def tempfile_dir(parent: Path, prefix: str) -> str:
+    return tempfile.mkdtemp(prefix=prefix, dir=parent)
+
+
 def step_city(p: Package):
     before = p.begin("city")
-    new = p.pinned_input("city.toml")
+    definition = p.pinned_input(AGENT_TOML_NAME)
     prompt = p.pinned_input(PROMPT_NAME)
     require(identity(p.live.city_toml) == (stat.S_IFREG, 0o644, p.live.uid, 1, p.pins["city_before"]),
             "city predecessor identity")
-    require(not os.path.lexists(p.live.prompt), "prompt already exists")
-    backup(p, p.live.city_toml, "city.toml")
+    require(agent_dir_state(p) is None, "candidate agent directory already exists")
+    require(not os.path.lexists(p.live.city / "managed" / PROMPT_NAME), "r10 prompt path is occupied")
+    staged = stage_agent_dir(p, p.live.city / "agents", definition, prompt)
+    try:
+        validate_with_agent(p, staged)
+    except BaseException:
+        # Nothing live changed: the staged directory has a dot name and no intent exists yet.
+        for name in (AGENT_PROMPT, AGENT_TOML_NAME):
+            os.unlink(staged / name)
+        os.rmdir(staged)
+        raise
     p.intent("city", before)
-    replace_atomic(p.live.prompt, prompt, 0o644, p.live.uid)
-    replace_atomic(p.live.city_toml, new, 0o644, p.live.uid)
+    os.rename(staged, p.live.agent_dir)
+    fsync_dir(p.live.city / "agents")
+    require(agent_dir_state(p) == expected_agent_state(p), "agent directory postcondition")
+    require(sha(p.live.city_toml) == p.pins["city_before"], "city.toml changed")
     # Until render, the agent composes on the base provider; it must be suspended there.
     composed = listed_candidate(p)
     require(composed.get("suspended") is True, "candidate agent is not suspended after the city step")
-    p.finish("city", before, dict(city_sha256=digest(new), prompt_sha256=digest(prompt), composed=composed))
+    p.finish("city", before, dict(agent_toml_sha256=digest(definition), prompt_sha256=digest(prompt),
+                                  city_sha256=p.pins["city_before"], composed=composed))
 
 
 def backup(p: Package, live_path: Path, name: str):
@@ -587,9 +686,9 @@ def fragment_structure(p: Package, before_raw: bytes, after_raw: bytes) -> dict:
 def post_city_predecessors(p: Package) -> None:
     require(identity(p.live.registry) == (stat.S_IFREG, 0o644, p.live.uid, 1, p.pins["inputs"]["rig-permissions.json"]),
             "registry is not the reviewed postimage")
-    require(identity(p.live.city_toml) == (stat.S_IFREG, 0o644, p.live.uid, 1, p.pins["inputs"]["city.toml"]),
-            "city.toml is not the reviewed postimage")
-    require(sha(p.live.prompt) == p.pins["inputs"][PROMPT_NAME], "prompt is not the reviewed bytes")
+    require(identity(p.live.city_toml) == (stat.S_IFREG, 0o644, p.live.uid, 1, p.pins["city_before"]),
+            "city.toml changed; r11 never writes it")
+    require(agent_dir_state(p) == expected_agent_state(p), "agent directory is not the reviewed postimage")
 
 
 def prerender(p: Package, argv: list[str]) -> bytes:
@@ -716,7 +815,8 @@ def resume(p: Package, step: str):
         post_city_predecessors(p)
         composed = listed_candidate(p)
         require(composed.get("suspended") is True, "candidate agent is not suspended after the city step")
-        extra = dict(city_sha256=sha(p.live.city_toml), prompt_sha256=sha(p.live.prompt), composed=composed)
+        extra = dict(agent_toml_sha256=sha(p.live.agent_toml), prompt_sha256=sha(p.live.prompt),
+                     city_sha256=sha(p.live.city_toml), composed=composed)
     elif step == "render":
         post_city_predecessors(p)
         expected = recorded["before"].get("expected_fragment_sha256")
@@ -756,10 +856,13 @@ def rollback(p: Package):
                 "canonical Template checkout is neither the clean predecessor nor the reviewed target; "
                 "stop and inspect by hand")
         lane_files_match(p, p.pins["template_before"])
+    # r11 never writes city.toml; any other content is foreign state.
+    require(sha(p.live.city_toml) == p.pins["city_before"], "city.toml is not its predecessor; refusing")
+    agent_state = agent_dir_state(p)
+    require(agent_state in (None, expected_agent_state(p)), "agent directory is not the reviewed postimage; refusing")
     restores = []
     for name, live_path, pre, post in (
         ("rig-permissions.toml", p.live.fragment, p.pins["fragment_before"], None),
-        ("city.toml", p.live.city_toml, p.pins["city_before"], p.pins["inputs"]["city.toml"]),
         ("rig-permissions.json", p.live.registry, p.pins["registry_before"], p.pins["inputs"]["rig-permissions.json"]),
     ):
         current = sha(live_path)
@@ -777,18 +880,16 @@ def rollback(p: Package):
         raw = (p.root / "backups" / name).read_bytes()
         require(digest(raw) == pre, f"backup {name} differs from its pin")
         restores.append((name, live_path, raw))
-    # After the restores city.toml is always its predecessor, so a present prompt is always moved aside.
-    prompt = os.path.lexists(p.live.prompt)
-    if prompt:
-        require(sha(p.live.prompt) == p.pins["inputs"][PROMPT_NAME], "prompt is not the reviewed bytes; refusing")
     # Everything is validated; only now write.
     actions = []
     for name, live_path, raw in restores:
         replace_atomic(live_path, raw, 0o644, p.live.uid)
         actions.append(name)
-    if prompt:
-        os.rename(p.live.prompt, fresh_name(p.live.prompt.parent, PROMPT_NAME + ".rolled-back"))
-        actions.append("prompt")
+    if agent_state is not None:
+        # A dot name is never a discovered agent; the directory is kept, never deleted.
+        os.rename(p.live.agent_dir, fresh_name(p.live.agent_dir.parent, AGENT + ".rolled-back"))
+        fsync_dir(p.live.agent_dir.parent)
+        actions.append("agent-directory")
     if head != p.pins["template_before"]:
         moved = git(p.live.template, "checkout", "--detach", p.pins["template_before"])
         require(moved["returncode"] == 0, "checkout rollback failed: " + moved["stderr"])

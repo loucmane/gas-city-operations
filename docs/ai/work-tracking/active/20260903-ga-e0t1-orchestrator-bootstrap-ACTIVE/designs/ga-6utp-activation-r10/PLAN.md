@@ -49,6 +49,74 @@ r2 answers both reviews of r1 (`e945e30b`, both HOLD). The main changes:
     `init.scope` and `gpg-agent.service`.
   - It records the digest of the routed Bead's description.
 
+## r11 (2026-09-26): the candidate is a PackV2 agent directory; city.toml is never written
+
+**What happened to r10.** r10 `f850f035` had two SOURCE_PASS verdicts. Its live run, rooted in operator staging
+`~/.local/share/gas-city-staging/ga-6utp-activation-20260926` (review B should_fix 1), went as follows:
+- `host`, `inputs`, `root`, `checkout` (proof only) and `registry` passed.
+- `city` wrote its reviewed postimages. Its agent proof then refused with "gc agent list failed": the deployed
+  Core rejects PackV1 `[[agent]]` tables ("move each agent to agents/<name>/agent.toml").
+- `gc status` failed the same way, so the reviewed rollback could not pass its quiet check.
+- With operator approval, the rollback's exact writes were applied by hand from the digest-verified backups
+  (record `records/manual-restore.json`):
+  - `city.toml` back to `4f7e170f`;
+  - `rig-permissions.json` back to `d22cf4c1`;
+  - the prompt moved aside to `managed/operations-candidate-prompt.template.md.rolled-back.20260926T063519Z`;
+  - the fragment untouched at `cba75f87`.
+- Afterwards `gc status` works (controller 995924, suspended), and the M7 inspector reports ok with zero drifts.
+  The empty candidate root that `root` created remains.
+
+**Changes (`activate.py`):**
+- **The city step.**
+  - It writes the city-pack agent directory `agents/operations-candidate-worker/` with `agent.toml` and
+    `prompt.template.md`. The agent carries `dir = "gascity"` (the identity the fragment patch and the
+    registry record name), `scope = "city"`, `provider = "claude"`, `max_active_sessions = 1` and
+    `suspended = true`.
+  - It stages that directory under a dot name, `agents/.operations-candidate-worker.tmp.gct-lagl.N`, which
+    Core's discovery skips (agent_discovery.go: names starting `.` or `_`).
+  - It then proves Core accepts it. A throwaway shadow beside the city symlinks every city entry, and its
+    `agents/` holds real copies of the agent directories plus the staged one, because Core ignores symlinked
+    agent entries. `gc config show --validate` must pass, and `--json` must resolve exactly one gascity-bound,
+    suspended, cap-1, city-scope agent.
+  - Only then does it write the intent and rename the staged directory into place.
+  - A validation refusal removes the staged directory and leaves nothing live changed.
+  - A leftover staging directory or shadow matches the leftover guard and blocks the next step.
+- **`city.toml`** is required to stay `4f7e170f` in every step, in resume and in rollback.
+- **Rollback** refuses a foreign `city.toml` or a foreign agent directory. It moves the agent directory aside to
+  `agents/.operations-candidate-worker.rolled-back.gct-lagl.N`, a dot name, never deleted.
+- **`root`** adopts an existing candidate root only when it is exactly the postcondition (empty,
+  operator-owned, 0755). This covers the root the r10 run created.
+- **Pins.** `make_pins.py` pins `agent.toml` `cc7dc70d` instead of a new `city.toml`. `pins.json` is
+  `676bc1d8`.
+
+**Tests.** 209 pass. The fake gc now:
+- rejects a PackV1 `[[agent]]` table, as Core does (the r10 failure, reproduced);
+- discovers `agents/*/agent.toml`, skipping dot names;
+- answers `config show --validate` and `--json`.
+
+New tests cover:
+- `city.toml` untouched, the agent directory exact, and no leftovers;
+- a config gc rejects, refusing before any live write;
+- the staged directory being invisible, and a leftover blocking the next step;
+- rollback refusals on a foreign `city.toml` or agent directory, and the move-aside;
+- `root` adoption and its refusals.
+
+**Live dry runs (read-only).**
+- The first scratch prototype (`/var/tmp/ga-6utp-v2-proto-20260926`) resolved the agent as
+  `gascity/operations-candidate-worker`, Dir gascity, Scope city, Suspended, MaxActiveSessions 1.
+- The package's own validation against the real gc passed: `/var/tmp/ga-6utp-r11-dryrun-20260926`, with the
+  staged directory under `/var/tmp` and the shadow removed.
+- The first attempt, kept as `...r11-dryrun-20260926.refused-symlink-shadow`, showed why the shadow needs
+  copies: symlinked agent directories are invisible to Core.
+
+**M8 scope, updated.** `city.toml` no longer changes. M8 adopts the registry (`1225b7c5`) and the rendered
+fragment. It may also pin the new agent directory files and the candidate-lane Template files (review B of r10,
+should_fix 5). A P9 receipt refresh follows if the traced revision moves.
+
+**Run order.** A fresh operator-staging package root, `ga-6utp-activation-r11-20260926`, holding a copy of
+`pins.json`. The steps are `host`, `inputs`, `root` (adopts the empty root), `checkout` (proof only),
+`registry`, `city`, `render` and `reload`.
+
 ## r10 (2026-09-26, ga-e0t1.18): re-pinned to the deployed state
 
 r9 was accepted with the first-window package at `2067a406`, a double SOURCE_PASS, on the ga-6utp branch.

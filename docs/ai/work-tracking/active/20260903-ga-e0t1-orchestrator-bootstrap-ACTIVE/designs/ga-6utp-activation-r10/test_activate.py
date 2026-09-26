@@ -54,12 +54,34 @@ elif args[:2] == ["reload", "--json"]:
         open(os.environ["FAKE_GC_STATE"], "w").write(json.dumps(state))
     print(json.dumps({"schema_version": "1", "ok": True, "command": "reload", "action": "reload", "async": False,
                       "soft": False, "outcome": state.get("outcome", "applied"), "revision": "rev-2"}))
-elif args[:3] == ["agent", "list", "--json"]:
+elif args[:3] == ["agent", "list", "--json"] or args[:2] == ["config", "show"]:
+    # Like the deployed Core: a PackV1 [[agent]] table in city.toml fails every config load.
     cfg = tomllib.loads(open(os.path.join(city, "city.toml")).read())
+    if cfg.get("agent") or state.get("config_invalid"):
+        sys.stderr.write("PackV1 config surfaces are no longer supported: unsupported PackV1 [[agent]] tables\n")
+        sys.exit(1)
+    agents = []
+    agents_dir = os.path.join(city, "agents")
+    for entry in sorted(os.listdir(agents_dir)) if os.path.isdir(agents_dir) else []:
+        if entry.startswith((".", "_")) or not os.path.isdir(os.path.join(agents_dir, entry)):
+            continue
+        path = os.path.join(agents_dir, entry, "agent.toml")
+        a = tomllib.loads(open(path).read()) if os.path.exists(path) else {}
+        agents.append(dict(a, name=entry))
+    if args[:2] == ["config", "show"]:
+        if "--validate" in args:
+            sys.exit(0)
+        print(json.dumps({"config": {"Agents": [
+            {"Name": a["name"], "Dir": a.get("dir", ""), "Scope": a.get("scope", ""),
+             "Suspended": a.get("suspended", False), "MaxActiveSessions": a.get("max_active_sessions", 0),
+             "Provider": a.get("provider", "")} for a in agents]}}))
+        sys.exit(0)
     fragment = tomllib.loads(open(os.path.join(city, "managed/rig-permissions.toml")).read())
     patches = {(p["dir"], p["name"]): p for p in fragment.get("patches", {}).get("agent", [])}
     items = []
-    for a in cfg.get("agent", []):
+    for a in agents:
+        if not a.get("dir"):
+            continue
         provider = patches.get((a.get("dir"), a["name"]), {}).get("provider", a.get("provider"))
         items.append({"name": a["name"], "qualified_name": a["dir"] + "/" + a["name"], "dir": a["dir"],
                       "provider": provider, "suspended": state.get("agent_suspended", a.get("suspended", False)),
@@ -153,6 +175,8 @@ def world(tmp_path, monkeypatch):
     (city / ".gc/runtime").mkdir(parents=True)
     (city / ".gc/runtime/suspension-state.json").write_text('{"suspended": true}\n')
     (city / "city.toml").write_text('[workspace]\nprovider = "claude"\n')
+    (city / "agents/builder").mkdir(parents=True)
+    (city / "agents/builder/agent.toml").write_text('scope = "rig"\nprovider = "codex"\n')
     (city / "managed/rig-permissions.json").write_text(
         json.dumps({"schema": "gc.managed-rig-permissions.v2", "rigs": []}, indent=2) + "\n")
     (city / "managed/rig-permissions.toml").write_text(EXISTING_FRAGMENT)
@@ -208,8 +232,8 @@ def world(tmp_path, monkeypatch):
     live = activate.Live(pins)
     record = activate.candidate_record(profile(str(candidate_root)), PYTHON)
     registry = activate.new_registry((city / "managed/rig-permissions.json").read_bytes(), record)
-    new_city = activate.new_city((city / "city.toml").read_bytes(), live.prompt)
-    pins["inputs"] = {"rig-permissions.json": activate.digest(registry), "city.toml": activate.digest(new_city),
+    pins["inputs"] = {"rig-permissions.json": activate.digest(registry),
+                      activate.AGENT_TOML_NAME: activate.digest(activate.agent_toml()),
                       activate.PROMPT_NAME: activate.digest(prompt.read_bytes())}
     package = base / "package"
     (package / "records").mkdir(parents=True)
@@ -219,6 +243,13 @@ def world(tmp_path, monkeypatch):
 
 def pkg(world):
     return activate.Package(world["package"], activate.Live(world["pins"]), "p" * 64)
+
+
+def install_agent_dir(p):
+    """What an interrupted city step leaves after its rename: the reviewed agent directory."""
+    staged = activate.stage_agent_dir(p, p.live.city / "agents", p.pinned_input(activate.AGENT_TOML_NAME),
+                                      p.pinned_input(activate.PROMPT_NAME))
+    os.rename(staged, p.live.agent_dir)
 
 
 def run_all(world, upto=activate.STEPS):
@@ -424,12 +455,11 @@ def test_resume_render_then_reload_or_rollback(world, then):
 
 
 def test_resume_city_proves_the_suspended_composition(world):
-    """city.toml is the reviewed postimage, but Core composes the agent unsuspended."""
+    """The agent directory is the reviewed postimage, but Core composes the agent unsuspended."""
     run_all(world, activate.STEPS[:5])
     p = pkg(world)
     p.intent("city", p.quiet())
-    activate.write_exclusive(p.live.prompt, p.pinned_input(activate.PROMPT_NAME), 0o644)
-    activate.replace_atomic(p.live.city_toml, p.pinned_input("city.toml"), 0o644, p.live.uid)
+    install_agent_dir(p)
     gc_state(world, agent_suspended=False)
     with pytest.raises(activate.Refusal, match="not suspended"):
         activate.resume(pkg(world), "city")
@@ -501,8 +531,8 @@ def test_reload_refuses_a_foreign_fragment(world):
 
 def test_agent_proof_refuses_an_uncapped_agent(world):
     run_all(world, activate.STEPS[:7])
-    city_toml = world["city"] / "city.toml"
-    city_toml.write_text(city_toml.read_text().replace("max_active_sessions = 1", "max_active_sessions = 2"))
+    agent = world["city"] / "agents" / activate.AGENT / "agent.toml"
+    agent.write_text(agent.read_text().replace("max_active_sessions = 1", "max_active_sessions = 2"))
     with pytest.raises(activate.Refusal, match="cap"):
         activate.agent_proof(pkg(world))
 
@@ -525,6 +555,28 @@ def test_an_interrupted_step_can_only_resume(world):
         activate.resume(pkg(world), "registry")
 
 
+def test_r11_root_adopts_only_an_empty_operator_directory(world):
+    root = Path(world["pins"]["candidate_root"])
+    root.mkdir(mode=0o755)
+    os.chmod(root, 0o755)
+    run_all(world, ("host", "inputs", "root"))
+    assert json.loads((world["package"] / "records/root.json").read_text())["adopted_existing"] is True
+
+
+@pytest.mark.parametrize("problem", ["file", "mode"])
+def test_r11_root_refuses_a_foreign_existing_root(world, problem):
+    root = Path(world["pins"]["candidate_root"])
+    root.mkdir(mode=0o755)
+    os.chmod(root, 0o755)
+    if problem == "file":
+        (root / "x").write_text("x")
+    else:
+        os.chmod(root, 0o700)
+    run_all(world, ("host", "inputs"))
+    with pytest.raises(activate.Refusal, match="not an empty operator directory"):
+        activate.step_root(pkg(world))
+
+
 def test_resume_root_checks_mode_owner_and_emptiness(world):
     run_all(world, ("host", "inputs"))
     p = pkg(world)
@@ -537,10 +589,48 @@ def test_resume_root_checks_mode_owner_and_emptiness(world):
 
 
 def test_the_agent_is_gascity_bound_suspended_and_capped():
-    text = activate.new_city(b'[workspace]\nprovider = "claude"\n', Path("/x/prompt.md")).decode()
-    assert 'dir = "gascity"' in text and "suspended = true" in text and "max_active_sessions = 1" in text
-    with pytest.raises(activate.Refusal, match="already in city.toml"):
-        activate.new_city(text.encode(), Path("/x/prompt.md"))
+    import tomllib
+    parsed = tomllib.loads(activate.agent_toml().decode())
+    assert parsed["dir"] == "gascity" and parsed["scope"] == "city" and parsed["suspended"] is True
+    assert parsed["max_active_sessions"] == 1 and "session" not in parsed and "prompt_template" not in parsed
+
+
+def test_r11_the_city_step_never_writes_city_toml_and_installs_the_agent_directory(world):
+    before = activate.sha(world["city"] / "city.toml")
+    run_all(world, activate.STEPS[:6])
+    p = pkg(world)
+    assert activate.sha(p.live.city_toml) == before
+    assert activate.agent_dir_state(p) == activate.expected_agent_state(p)
+    assert not [e for e in os.listdir(world["city"] / "agents") if e.startswith(".")]
+    assert not list(world["base"].glob(".city.gct-validate.*"))
+
+
+def test_r11_a_city_config_gc_rejects_refuses_before_any_live_write(world):
+    run_all(world, activate.STEPS[:5])
+    gc_state(world, config_invalid=True)
+    with pytest.raises(activate.Refusal, match="fails gc config validation"):
+        activate.step_city(pkg(world))
+    p = pkg(world)
+    assert activate.agent_dir_state(p) is None and not p.record("city", ".intent").exists()
+    assert not [e for e in os.listdir(world["city"] / "agents") if e.startswith(".")]
+    assert not list(world["base"].glob(".city.gct-validate.*"))
+
+
+def test_r11_a_packv1_agent_table_is_what_the_fake_core_rejects(world):
+    """The r10 failure, reproduced: a city.toml [[agent]] table fails every config load."""
+    city_toml = world["city"] / "city.toml"
+    city_toml.write_text(city_toml.read_text() + '\n[[agent]]\nname = "x"\n')
+    with pytest.raises(activate.Refusal, match="gc agent list failed"):
+        activate.listed_agents(pkg(world))
+
+
+def test_r11_the_staged_directory_is_invisible_and_a_leftover_blocks_the_next_step(world):
+    run_all(world, activate.STEPS[:5])
+    p = pkg(world)
+    staged = activate.stage_agent_dir(p, p.live.city / "agents", b"x", b"y")
+    assert staged.name.startswith(".") and not [a for a in activate.listed_agents(p)]
+    with pytest.raises(activate.Refusal, match="leftover temporaries"):
+        activate.step_city(pkg(world))
 
 
 def test_only_the_candidate_record_is_merged_and_existing_bytes_are_kept():
@@ -582,10 +672,10 @@ def test_host_facts_refuse(world, problem):
 
 def test_a_drifted_input_refuses_before_any_write(world):
     run_all(world, ("host",))
-    world["pins"]["inputs"]["city.toml"] = "0" * 64
+    world["pins"]["inputs"][activate.AGENT_TOML_NAME] = "0" * 64
     with pytest.raises(activate.Refusal, match="differs from the reviewed pin"):
         activate.step_inputs(pkg(world))
-    assert not (world["package"] / "inputs" / "city.toml").exists()
+    assert not (world["package"] / "inputs" / activate.AGENT_TOML_NAME).exists()
 
 
 def test_rollback_restores_every_live_file_the_checkout_and_reloads(world):
@@ -595,7 +685,9 @@ def test_rollback_restores_every_live_file_the_checkout_and_reloads(world):
     assert activate.sha(city / "city.toml") == world["pins"]["city_before"]
     assert activate.sha(city / "managed/rig-permissions.json") == world["pins"]["registry_before"]
     assert activate.sha(city / "managed/rig-permissions.toml") == world["pins"]["fragment_before"]
-    assert head(world["template"]) == world["before"] and not (city / "managed" / activate.PROMPT_NAME).exists()
+    assert head(world["template"]) == world["before"] and not (city / "agents" / activate.AGENT).exists()
+    assert [e for e in os.listdir(city / "agents") if e.startswith(".")] == [
+        "." + activate.AGENT + ".rolled-back.gct-lagl.0"]
     assert json.loads((world["package"] / "records/rollback.json").read_text())["reload"]["outcome"] == "applied"
 
 
@@ -603,17 +695,30 @@ def test_rollback_after_an_interrupted_city_step(world):
     run_all(world, activate.STEPS[:5])
     p = pkg(world)
     p.intent("city", p.quiet())
-    activate.write_exclusive(p.live.prompt, p.pinned_input(activate.PROMPT_NAME), 0o644)
+    install_agent_dir(p)
     activate.rollback(pkg(world))
-    assert not p.live.prompt.exists() and activate.sha(p.live.city_toml) == world["pins"]["city_before"]
+    assert not p.live.agent_dir.exists() and activate.sha(p.live.city_toml) == world["pins"]["city_before"]
 
 
 def test_rollback_refuses_a_foreign_change_and_an_empty_package(world):
     with pytest.raises(activate.Refusal, match="nothing recorded"):
         activate.rollback(pkg(world))
     run_all(world)
-    (world["city"] / "city.toml").write_text("# foreign\n")
+    (world["city"] / "managed/rig-permissions.json").write_text("# foreign\n")
     with pytest.raises(activate.Refusal, match="neither its predecessor"):
+        activate.rollback(pkg(world))
+
+
+def test_r11_rollback_refuses_a_foreign_city_toml_or_agent_directory(world):
+    run_all(world)
+    agent = world["city"] / "agents" / activate.AGENT / "agent.toml"
+    original = agent.read_bytes()
+    agent.write_bytes(original + b"# foreign\n")
+    with pytest.raises(activate.Refusal, match="agent directory is not the reviewed postimage"):
+        activate.rollback(pkg(world))
+    agent.write_bytes(original)
+    (world["city"] / "city.toml").write_text("# foreign\n")
+    with pytest.raises(activate.Refusal, match="city.toml is not its predecessor"):
         activate.rollback(pkg(world))
 
 

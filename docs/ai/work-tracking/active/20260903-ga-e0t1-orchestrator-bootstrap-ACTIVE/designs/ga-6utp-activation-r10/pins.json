@@ -13,7 +13,7 @@
   "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
  },
  "executor": {
-  "activate.py": "1e949b90f86405ac1af44246ef2238a2de7c2fb65415d9c6e50a530c5610787c",
+  "activate.py": "ffca9875414a55ce0019577e9b8a015b4f5ec2a9a3b9c95b623f2b8c0099202c",
   "candidate_git.py": "d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe",
   "intake.py": "54b990ad612eb273a02b900f136b7818a558b799cfca4c1116049225812cc19f",
   "preroute.py": "d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6"
@@ -21,7 +21,7 @@
  "fragment_before": "cba75f87a373a078c11832609c274bd7eaa592b435545ef203ba6211f4f86725",
  "gc": "/home/loucmane/gascity/bin/gc",
  "inputs": {
-  "city.toml": "c07f2cad017e8d601f950767436e2731d887bbe2b943bd9feeeddd976910493c",
+  "agent.toml": "cc7dc70d10f2f33ce7e756c1b0bdbf5d6a494640ea3376d2fa01b5a234f9bc20",
   "operations-candidate-prompt.template.md": "9c27418c6354cb4e983ceaba6811a52bd03b8cc1b144da5fc157939616ffbcbf",
   "rig-permissions.json": "1225b7c57ae69fd068ea35117431ae05e09ee493c01bc11a46ac45b77b950c8e"
  },
