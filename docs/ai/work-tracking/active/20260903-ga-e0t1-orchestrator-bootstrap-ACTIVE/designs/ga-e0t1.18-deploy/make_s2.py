@@ -171,13 +171,18 @@ def overrides(r):
          "            last=str(exc);passes=0\n"
          "            if last not in errors:errors.append(last)\n"
          "        time.sleep(5)\n"
-         "    o.require(False,'supervisor scope not settled within bound: '+str(last))\n"),
+         "    o.require(False,'supervisor scope not settled within bound: '+json.dumps(dict(reads=reads,errors=errors)))\n"),
         ("    if after:\n        s14_wait_initialized()\n",
          "    if after:\n        s14_wait_initialized()\n"
          "        record(args.phase+'-scope-wait.json',s15_wait_scope_settled())\n"),
         ("        c.o.require(budget>31*d.SECOND,'insufficient one-shot submission budget')\n",
-         "        # sequence 15 (s2 r2): both postflights, with their bounded waits, must fit in what is left.\n"
-         "        c.o.require(budget>240*d.SECOND,'insufficient one-shot submission budget')\n"),
+         "        # sequence 15 (s2 r2): a normal postflight pair fits in 240 s; a slower one (the worst case of the\n"
+         "        # bounded waits is longer) ends in a postflight terminal that the recovery phase handles.\n"
+         "        c.o.require(budget>240*d.SECOND,'insufficient one-shot submission budget')\n"
+         "        # sequence 15 (s2 r3): a durable marker immediately before the one broker call. Any submit\n"
+         "        # terminal after it is post-submit, whether or not broker-result.json was written (a client\n"
+         "        # timeout kills only the unprivileged client, not the socket-activated broker service).\n"
+         "        record('broker-call.json',dict(envelope_sha256=binding['envelope_sha256'],clock=clocks()))\n"),
         ("    # reads as \"<path> (deleted)\". That is admitted only when the mapped image is exactly c.OLD.\n",
          "    # reads as \"<path> (deleted)\". Sequence 15 admits it only when the mapped image is exactly 69d00186 (the\n"
          "    # survivor of sequence 14) or c.OLD.\n"),
@@ -202,7 +207,11 @@ def overrides(r):
          "              UnitFileState='enabled',Result='success'),'accepted broker socket is not listening')\n"
          "    o.require(scope['dolt_members']['watchdog_image']=='live','accepted watchdog image is not live')\n",
          "    # sequence 15: the broker stayed active after sequence 14 (the accepted record pins its epoch), and the\n"
-         "    # watchdog may be the survivor mapping 69d00186.\n"
+         "    # watchdog may be the survivor mapping 69d00186 (s15_accept_rule, a function so it is testable).\n"
+         "    s15_accept_rule(host,scope)\n"),
+        ("def s14_observe_closure(template):\n",
+         "def s15_accept_rule(host,scope):\n"
+         "    o=c.o\n"
          "    broker=host['broker']\n"
          "    o.require(broker['ActiveState']=='active' and broker['SubState']=='running' and broker['NRestarts']=='0'\n"
          "              and broker['UnitFileState']=='disabled' and broker['Result']=='success' and int(broker['MainPID'])>1,\n"
@@ -210,7 +219,13 @@ def overrides(r):
          "    sock=host['broker_socket']\n"
          "    o.require(sock['ActiveState']=='active' and sock['UnitFileState']=='enabled' and sock['Result']=='success'\n"
          "              and sock['SubState'] in ('listening','running'),'accepted broker socket')\n"
-         "    o.require(scope['dolt_members']['watchdog_image'] in ('live','deleted-old'),'accepted watchdog image')\n"),
+         "    o.require(scope['dolt_members']['watchdog_image'] in ('live','deleted-old'),'accepted watchdog image')\n"
+         "\n"
+         "def s14_observe_closure(template):\n"),
+        ("                admitted=s14_admit_cache(expected['cache'],value)\n",
+         "                admitted=s14_admit_cache(expected['cache'],value)\n"
+         "                # sequence 15 (s2 r3): with no additions the tree summary is also unchanged.\n"
+         "                if not admitted:o.require(summary==wanted,'tree changed: '+path)\n"),
         ("S14_ACCEPT_ROOT=Path('/var/tmp/ga-e0t1.15-predecessor-20260925-r3')", 'S14_ACCEPT_ROOT=Path(%r)' % accept_root),
         # Recovery (s2 r2): kept and generalized, not removed.
         ("# --- 9. Recovery acceptance (sequence 13 precedent). The broker submission of 2026-09-25T17:34Z\n"
@@ -218,24 +233,36 @@ def overrides(r):
          "# scope membership', apparently a transient member seen at initialization. ROOT stays terminal and\n"
          "# preserved. This phase is read-only: no broker call, no timer change, no write outside\n",
          "# --- 9. Recovery acceptance (sequence 13 and 14 precedent). Sequence 15 keeps this phase for any\n"
-         "# postflight1 or postflight2 terminal after a completed broker call (submit-done.json and\n"
-         "# broker-result.json present), for example a transient scope member or an expired envelope deadline\n"
-         "# during the postflight waits. ROOT stays terminal and\n"
+         "# submit, postflight1 or postflight2 terminal after the broker call started (broker-call.json), unless\n"
+         "# the broker reported failure or postflight2 completed: for example a client timeout, the post-call\n"
+         "# fence, a transient scope member or an expired envelope deadline during the postflight waits. The\n"
+         "# receipt check below proves independently that the broker applied. ROOT stays terminal and\n"
          "# preserved. This phase is read-only: no broker call, no timer change, no write outside\n"),
+        ("# be equal. It does not use the elapsed-window fence: the adoption itself happened inside the window\n"
+         "# (submit-done.json), and this phase only reads.\n",
+         "# be equal. It does not use the elapsed-window fence: the broker call itself started inside the window\n"
+         "# (broker-call.json after the fenced budget check), and this phase only reads.\n"),
         ("S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.15-seq14-recovery-20260925')",
-         "S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.18-seq15-recovery-20260926')"),
-        ("    c.o.require(json.loads((ROOT/'terminal.json').read_text())=={'phase':'postflight1','error_type':'Refused',\n"
-         "                'reason':'supervisor scope membership','submission_started':True},'terminal disposition changed')\n",
-         "    # Sequence 15: any submit, postflight1 or postflight2 terminal after a broker call that returned\n"
-         "    # success (for example the post-call fence or a postflight wait hitting the envelope deadline).\n"
-         "    terminal=json.loads((ROOT/'terminal.json').read_text())\n"
+         "S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.18-seq15-recovery-20260926')\n"
+         "\n"
+         "def s15_recovery_gate(root):\n"
+         "    # A function so it is testable. It reads only, and returns the broker result if one was written.\n"
+         "    terminal=json.loads((root/'terminal.json').read_text())\n"
          "    c.o.require(terminal.get('phase') in ('submit','postflight1','postflight2') and terminal.get('submission_started') is True,\n"
          "                'recovery only follows a terminal after submission started')\n"
-         "    c.o.require(not os.path.lexists(ROOT/'postflight2.json'),'postflight2 already accepted; nothing to recover')\n"),
+         "    c.o.require(os.path.lexists(root/'broker-call.json'),'no broker call started; this is a pre-submit stop')\n"
+         "    c.o.require(not os.path.lexists(root/'postflight2-done.json'),'postflight2 completed; nothing to recover')\n"
+         "    result=None\n"
+         "    if os.path.lexists(root/'broker-result.json'):\n"
+         "        result=json.loads((root/'broker-result.json').read_text())\n"
+         "        c.o.require(result.get('returncode')==0 and c.o.decode(result.get('stdout','').encode()).get('ok') is True,\n"
+         "                    'the broker reported failure; hard stop, not recovery')\n"
+         "    return result"),
+        ("    c.o.require(json.loads((ROOT/'terminal.json').read_text())=={'phase':'postflight1','error_type':'Refused',\n"
+         "                'reason':'supervisor scope membership','submission_started':True},'terminal disposition changed')\n",
+         "    s15_recovery_gate(ROOT)\n"),
         ("    c.o.require(os.path.lexists(ROOT/'submit-done.json') and os.path.lexists(ROOT/'broker-result.json'),'submission record')\n",
-         "    broker_result=json.loads((ROOT/'broker-result.json').read_text())\n"
-         "    c.o.require(broker_result.get('returncode')==0 and c.o.decode(broker_result.get('stdout','').encode()).get('ok') is True,\n"
-         "                'recovery needs a broker call that returned exact success')\n"),
+         ""),
         ("        s14_wait_initialized()\n        c.timer_inactive()\n",
          "        s14_wait_initialized()\n"
          "        rec('scope-wait-%d.json'%n,s15_wait_scope_settled())\n"

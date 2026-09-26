@@ -102,33 +102,68 @@ rationale. In summary:
 | Cache (r2) | With no additions, the cache root metadata must also be exactly unchanged |
 | Accept (r2) | The broker socket must be active, enabled, Result success, and SubState listening or running |
 
-`test_s2.py` has 39 tests. They cover:
+`test_s2.py` has 64 tests at r3. They cover:
 - behavioural cases, ported from sequence 14 and extended to every sequence 15 rule:
   - fresh or survived dolt from a live or a deleted predecessor;
   - an unchanged or freshly started broker, and each broker refusal;
   - cache admission with no additions, and each cache refusal;
   - the settled-scope wait: reset, error record and timeout;
   - retry naming and window bounds;
-- the recovery gate;
+- behavioural tests of the recovery gate (`s15_recovery_gate`) and the accept rule (`s15_accept_rule`), both of
+  which r3 factored into functions;
+- the order of the broker-call marker relative to the budget check and the call;
 - a live check of the prior state.
 
 **s2 r2.** Both reviews of `08082d93` asked for these changes: B held on the unguarded post-submit budget with no
 recovery, and on the untested predicates; A passed with the same points as should-fix. The following
 procedure rules also answer their should-fix items.
-- **Timer.**
-  - A refusal before submit restores only the timer, after proving no broker call happened: no
-    `broker-result.json` and no `/var/lib/gas-city-provisioning/receipts/<envelope sha>.json`.
-  - After a post-submit terminal, the timer stays paused until the recovery phase has run and a readback review
-    has passed. Then it is restored. If recovery also refuses, it is a hard stop: the timer stays paused, the city
-    stays suspended, everything is preserved, and I report.
-- **When submit counts as started.** `submission_started` becomes true at `submit-start.json`, before the broker
-  call. A submit-phase terminal therefore counts as post-submit only if `broker-result.json` exists. Without it, no
-  broker call happened, and it is a pre-submit retry.
-- **Sequence reuse.** A pre-submit retry after an envelope was created reuses sequence 15, because the broker has not
-  recorded it; the broker allows this. It never reuses the envelope or the ROOT.
+**s2 r3.** Both reviews of `0f4b267f` held on the broker-call rule. The r2 plan counted a submit terminal
+without `broker-result.json` as "no broker call". That is false: the `apply` client can time out, be killed or
+fail to record after it has already handed the request to the socket-activated broker service, which keeps
+going. B also held again on text-only tests of the recovery gate and the accept rule. r3 replaces the rules
+below; the r2 wording is superseded.
+- **Broker-call marker.** `submit` writes `broker-call.json` right after the fenced 240 s budget check and immediately
+  before the one `apply` call.
+- **When submit counts as started.** `broker-call.json` decides.
+  - Without it, no broker call started. The terminal is pre-submit, whatever `submission_started` says.
+  - With it, the terminal is post-submit, whether or not `broker-result.json` exists.
+- **Timer and retry, before submit** (the ga-e0t1.15 rule, kept in full). Restore only the timer, and only when all
+  three hold:
+  - there is no `broker-call.json`;
+  - there is no `/var/lib/gas-city-provisioning/receipts/<envelope sha>.json`;
+  - the broker service epoch (MainPID, start) is unchanged from the accepted record.
+
+  Then retry through `retry.json` with a fresh ROOT and a new envelope.
+- **After submit** (`broker-call.json` present):
+  - Keep the timer paused.
+  - Run the recovery phase:
+    `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B .../ga-e0t1.18-deploy/s2_transition.py recover <baseline_sha256> <binding_sha256>`.
+  - Its gate (`s15_recovery_gate`) admits:
+    - a submit, postflight1 or postflight2 terminal with `submission_started` and the marker;
+    - no `postflight2-done.json`;
+    - and, if `broker-result.json` exists, exact success.
+
+    A missing broker result is admitted; the receipt verification then proves independently whether the broker
+    applied.
+  - After recovery passes and a readback review passes, restore the timer.
+- **Hard stops.** In every hard stop the timer stays paused, the city stays suspended, everything is preserved, and
+  I report. They are:
+  - a broker result that reports failure;
+  - a recovery refusal;
+  - process loss without `terminal.json`;
+  - a failed readback review after postflight2 or after recovery.
+- **Sequence reuse.** A sequence number is consumed only by a broker receipt. After a pre-submit stop that meets
+  the three conditions above, sequence 15 is unconsumed and is reused. Sequence 14 did the same: its t1 envelope
+  was sequence 14 again after the t0 refusal (`/var/tmp/ga-e0t1.15-seq14-20260925-t1/envelope.json`). A consumed
+  sequence, an envelope or a ROOT is never reused.
+- **Time limits** (`deadlines.py` `envelope_check`; broker envelope validity 605 s).
+  - Submit must start within 640 s of the prepare window start and within 350 s of the envelope's `issued_at`. That
+    leaves the 240 s budget.
+  - The in-window envelope review is therefore time-boxed at about 4 minutes, with a manifest extract.
+  - Sequence 14 submitted 566 s into the window and 191 s after issue.
 - **Signing.** A pre-window probe of the operator key succeeded non-interactively:
-  `gpg --batch --local-user FD5585…! --detach-sign` on a scratch file, 2026-09-26. The broker's `prepare` runs
-  directly from the operator shell, not through the python wrapper.
+  `gpg --batch --local-user FD5585…! --detach-sign` on a scratch file, 2026-09-26. The broker's `prepare` is a
+  separate CLI and runs directly from the operator shell. Every `s2_transition.py` phase runs through `systemd-run`.
 - **Reading the city rules.** `repointed_sinks` in the city-rules records now lists every sink, because the key is
   unchanged. It is not evidence of a repoint. The exact link and manifest checks are what matter.
 - **Accept review.** It must confirm that the worker receipt `/home/loucmane/gascity/city/.gc/runtime/provisioning/receipt.json`
@@ -138,8 +173,9 @@ procedure rules also answer their should-fix items.
   - a scope that never settles;
   - the envelope deadline expiring during the postflights.
 
-**Run order.** Everything runs through `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B`.
-It is atime-neutral, as ga-e0t1.15 S2 r4 was.
+**Run order.** Every `s2_transition.py` phase runs through
+`systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B`. The broker's `prepare` runs from the
+operator shell. The run is atime-neutral, as ga-e0t1.15 S2 r4 was.
 
 0. **Setup.** Create ROOT (0700) and stage `deadlines.py` byte-for-byte from the sequence 14 root (`1486dbbc`).
    The chain sources in `/tmp` (r4 `4d373634`, r3) are present.
@@ -159,9 +195,12 @@ It is atime-neutral, as ga-e0t1.15 S2 r4 was.
 4. **Submit.** `recheck`, then `submit` (one broker call), then `postflight1` and `postflight2`, at least 5 s apart.
 5. **Close.** An independent live readback review, then restore the timer to its recorded state.
 
-**Stops.** A refusal before submit preserves ROOT and follows the ga-e0t1.15 retry rule. A refusal after submit is
-a hard stop: preserve everything and report. From step 1 to step 5 the coordinator makes no Bead writes, runs no
-`gc`, and walks no directories.
+**Stops.** See the s2 r3 rules above:
+- before submit, the retry rule;
+- after submit, the recovery phase;
+- otherwise, the listed hard stops.
+
+From step 1 to step 5 the coordinator makes no Bead writes, runs no `gc`, and walks no directories.
 
 ### S3: metadata successor and receipt refresh
 

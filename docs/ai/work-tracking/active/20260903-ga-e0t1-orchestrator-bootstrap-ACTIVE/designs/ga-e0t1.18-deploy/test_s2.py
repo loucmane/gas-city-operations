@@ -236,7 +236,7 @@ def test_cache_with_no_additions_is_admitted_as_empty(s2):
 
 
 @pytest.mark.parametrize('case, message', [
-    ('required-key-now-unexpected', 'unexpected cache additions'),
+    ('old-key-directory-added', 'unexpected cache additions'),
     ('stranger', 'unexpected cache additions'),
     ('removed', 'cache entry removed'),
     ('changed', 'pre-existing cache entry changed'),
@@ -246,7 +246,7 @@ def test_cache_with_no_additions_is_admitted_as_empty(s2):
 def test_cache_admission_refusals(s2, case, message):
     before = inventory(**{'.': META, KEY: META})
     after = copy.deepcopy(before)
-    if case == 'required-key-now-unexpected':
+    if case == 'old-key-directory-added':
         after['inventory'][OLD_KEY] = META
     elif case == 'stranger':
         after['inventory']['stranger'] = META
@@ -296,14 +296,90 @@ def test_scope_wait_times_out_and_refuses(s2, monkeypatch):
 
 # --- recovery gate, retries and window ----------------------------------------------------------------------
 
-def test_recovery_gate_in_source():
+def gate_root(tmp_path, phase='postflight1', started=True, call=True, result='ok', done=False):
+    root = tmp_path/'root'
+    root.mkdir()
+    (root/'terminal.json').write_text(json.dumps(dict(phase=phase, error_type='Refused', reason='x',
+                                                      submission_started=started)))
+    if call:
+        (root/'broker-call.json').write_text('{}')
+    if result == 'ok':
+        (root/'broker-result.json').write_text(json.dumps(dict(returncode=0, stdout='{"ok": true}', stderr='')))
+    elif result == 'failed':
+        (root/'broker-result.json').write_text(json.dumps(dict(returncode=1, stdout='{"ok": false}', stderr='x')))
+    if done:
+        (root/'postflight2-done.json').write_text('{}')
+    return root
+
+
+@pytest.mark.parametrize('kw', [dict(), dict(phase='submit'), dict(phase='postflight2'),
+                                dict(phase='submit', result=None)])
+def test_recovery_gate_admits_post_call_terminals(s2, tmp_path, kw):
+    """A client timeout leaves no broker-result.json: the marker alone admits recovery; the receipt then decides."""
+    s2.s15_recovery_gate(gate_root(tmp_path, **kw))
+
+
+@pytest.mark.parametrize('kw, message', [
+    (dict(phase='prepare'), 'recovery only follows a terminal after submission started'),
+    (dict(phase='recheck'), 'recovery only follows a terminal after submission started'),
+    (dict(started=False), 'recovery only follows a terminal after submission started'),
+    (dict(phase='submit', call=False, result=None), 'no broker call started'),
+    (dict(result='failed'), 'the broker reported failure'),
+    (dict(phase='postflight2', done=True), 'postflight2 completed'),
+])
+def test_recovery_gate_refusals(s2, tmp_path, kw, message):
+    with pytest.raises(Exception, match=message):
+        s2.s15_recovery_gate(gate_root(tmp_path, **kw))
+
+
+def test_recovery_calls_the_gate_before_creating_its_root():
     text = (HERE/'s2_transition.py').read_text()
-    for needle in ("terminal.get('phase') in ('submit','postflight1','postflight2')",
-                   "'postflight2 already accepted; nothing to recover'",
-                   "broker_result.get('returncode')==0",
-                   "rec('scope-wait-%d.json'%n,s15_wait_scope_settled())",
-                   "if len(sys.argv)==4 and sys.argv[1]=='recover' and __name__=='__main__':"):
-        assert text.count(needle) == 1, needle
+    body = text.split('def s14_recover(baseline_sha,binding_sha):\n', 1)[1]
+    assert body.index('s15_recovery_gate(ROOT)') < body.index('S14_RECOVERY_ROOT.mkdir(mode=0o700)')
+    assert "rec('scope-wait-%d.json'%n,s15_wait_scope_settled())" in body
+    assert text.count("if len(sys.argv)==4 and sys.argv[1]=='recover' and __name__=='__main__':") == 1
+
+
+def test_broker_call_marker_precedes_the_one_call():
+    text = (HERE/'s2_transition.py').read_text()
+    body = text.split('def submit(args):\n', 1)[1]
+    assert (body.index("c.o.require(budget>240*d.SECOND,'insufficient one-shot submission budget')")
+            < body.index("record('broker-call.json'") < body.index("[str(BROKER),'apply'"))
+
+
+def accept_host(**changes):
+    host = dict(broker=dict(BROKER), broker_socket=dict(SOCKET))
+    for key, value in changes.items():
+        part, field = key.split('__')
+        host[part][field] = value
+    return host
+
+
+@pytest.mark.parametrize('socket_state', ['listening', 'running'])
+@pytest.mark.parametrize('image', ['live', 'deleted-old'])
+def test_accept_rule_admits_the_running_broker(s2, socket_state, image):
+    s2.s15_accept_rule(accept_host(broker_socket__SubState=socket_state), dict(dolt_members=dict(watchdog_image=image)))
+
+
+@pytest.mark.parametrize('change, message', [
+    (dict(broker__ActiveState='inactive'), 'accepted broker is not exactly active and running'),
+    (dict(broker__SubState='dead'), 'accepted broker is not exactly active and running'),
+    (dict(broker__NRestarts='1'), 'accepted broker is not exactly active and running'),
+    (dict(broker__UnitFileState='enabled'), 'accepted broker is not exactly active and running'),
+    (dict(broker__Result='exit-code'), 'accepted broker is not exactly active and running'),
+    (dict(broker__MainPID='0'), 'accepted broker is not exactly active and running'),
+    (dict(broker_socket__SubState='failed'), 'accepted broker socket'),
+    (dict(broker_socket__Result='exit-code'), 'accepted broker socket'),
+    (dict(broker_socket__UnitFileState='disabled'), 'accepted broker socket'),
+])
+def test_accept_rule_refusals(s2, change, message):
+    with pytest.raises(Exception, match=message):
+        s2.s15_accept_rule(accept_host(**change), dict(dolt_members=dict(watchdog_image='live')))
+
+
+def test_accept_rule_refuses_an_unknown_watchdog_image(s2):
+    with pytest.raises(Exception, match='accepted watchdog image'):
+        s2.s15_accept_rule(accept_host(), dict(dolt_members=dict(watchdog_image='deleted-other')))
 
 
 def test_main_refuses_placeholder_before_touching_root(s2):

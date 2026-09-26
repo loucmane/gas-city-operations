@@ -265,8 +265,13 @@ def submit(args):
         c.timer_inactive();checked_capture(b,binding,False)
         outputs_absent('submit')
         budget=fence(b,binding)
-        # sequence 15 (s2 r2): both postflights, with their bounded waits, must fit in what is left.
+        # sequence 15 (s2 r2): a normal postflight pair fits in 240 s; a slower one (the worst case of the
+        # bounded waits is longer) ends in a postflight terminal that the recovery phase handles.
         c.o.require(budget>240*d.SECOND,'insufficient one-shot submission budget')
+        # sequence 15 (s2 r3): a durable marker immediately before the one broker call. Any submit
+        # terminal after it is post-submit, whether or not broker-result.json was written (a client
+        # timeout kills only the unprivileged client, not the socket-activated broker service).
+        record('broker-call.json',dict(envelope_sha256=binding['envelope_sha256'],clock=clocks()))
         result=subprocess.run([str(BROKER),'apply','--envelope','/proc/self/fd/'+str(fd)],
                               pass_fds=(fd,),capture_output=True,text=True,timeout=30,check=False)
         record('broker-result.json',dict(returncode=result.returncode,stdout=result.stdout,stderr=result.stderr))
@@ -611,6 +616,8 @@ def s14_capture(candidate):
             cache=value
             if candidate:
                 admitted=s14_admit_cache(expected['cache'],value)
+                # sequence 15 (s2 r3): with no additions the tree summary is also unchanged.
+                if not admitted:o.require(summary==wanted,'tree changed: '+path)
                 # The admitted root atime is not recorded, so postflight1 and postflight2 still
                 # compare exactly. The tree summary hashes paths, modes, sizes and content, not times.
                 cache=copy.deepcopy(value)
@@ -816,7 +823,7 @@ def s15_wait_scope_settled():
             last=str(exc);passes=0
             if last not in errors:errors.append(last)
         time.sleep(5)
-    o.require(False,'supervisor scope not settled within bound: '+str(last))
+    o.require(False,'supervisor scope not settled within bound: '+json.dumps(dict(reads=reads,errors=errors)))
 
 # --- 8. The 'accept' phase: the fresh predecessor. It observes the current image over the exact
 # path sets of the accepted R7 closure, using the block 1 and block 2 primitives. It takes two
@@ -825,6 +832,17 @@ def s15_wait_scope_settled():
 S14_R7=Path('/home/loucmane/.local/share/gas-city-staging/ga-mutg-20260920/ga-mutg-adoption-20260920-r7/second.json')
 S14_R7_SHA='29c339b5ca9c4d6bcaf95dc306e55455877cfa0535851083d0d6cc1b1d212563'
 S14_ACCEPT_ROOT=Path('/var/tmp/ga-e0t1.18-predecessor-20260926-r1')
+
+def s15_accept_rule(host,scope):
+    o=c.o
+    broker=host['broker']
+    o.require(broker['ActiveState']=='active' and broker['SubState']=='running' and broker['NRestarts']=='0'
+              and broker['UnitFileState']=='disabled' and broker['Result']=='success' and int(broker['MainPID'])>1,
+              'accepted broker is not exactly active and running')
+    sock=host['broker_socket']
+    o.require(sock['ActiveState']=='active' and sock['UnitFileState']=='enabled' and sock['Result']=='success'
+              and sock['SubState'] in ('listening','running'),'accepted broker socket')
+    o.require(scope['dolt_members']['watchdog_image'] in ('live','deleted-old'),'accepted watchdog image')
 
 def s14_observe_closure(template):
     o,s=c.o,c.s
@@ -854,15 +872,8 @@ def s14_observe_closure(template):
     # submitted (review B r2 should_fix 1). Sequence 15: the broker is active and running with its socket
     # active, and the dolt watchdog is live or the survivor of a known prior image.
     # sequence 15: the broker stayed active after sequence 14 (the accepted record pins its epoch), and the
-    # watchdog may be the survivor mapping 69d00186.
-    broker=host['broker']
-    o.require(broker['ActiveState']=='active' and broker['SubState']=='running' and broker['NRestarts']=='0'
-              and broker['UnitFileState']=='disabled' and broker['Result']=='success' and int(broker['MainPID'])>1,
-              'accepted broker is not exactly active and running')
-    sock=host['broker_socket']
-    o.require(sock['ActiveState']=='active' and sock['UnitFileState']=='enabled' and sock['Result']=='success'
-              and sock['SubState'] in ('listening','running'),'accepted broker socket')
-    o.require(scope['dolt_members']['watchdog_image'] in ('live','deleted-old'),'accepted watchdog image')
+    # watchdog may be the survivor mapping 69d00186 (s15_accept_rule, a function so it is testable).
+    s15_accept_rule(host,scope)
     s14_preimages()
     parents=s14_parents()
     o.require(o.host_observation()==host,'host changed during observation')
@@ -947,27 +958,34 @@ def main():
     return _s13_main()
 
 # --- 9. Recovery acceptance (sequence 13 and 14 precedent). Sequence 15 keeps this phase for any
-# postflight1 or postflight2 terminal after a completed broker call (submit-done.json and
-# broker-result.json present), for example a transient scope member or an expired envelope deadline
-# during the postflight waits. ROOT stays terminal and
+# submit, postflight1 or postflight2 terminal after the broker call started (broker-call.json), unless
+# the broker reported failure or postflight2 completed: for example a client timeout, the post-call
+# fence, a transient scope member or an expired envelope deadline during the postflight waits. The
+# receipt check below proves independently that the broker applied. ROOT stays terminal and
 # preserved. This phase is read-only: no broker call, no timer change, no write outside
 # S14_RECOVERY_ROOT. It proves the adopted state with the same capture, transition, receipt and
 # city-rule checks as the postflights, over two complete observations at least 5 s apart, which must
-# be equal. It does not use the elapsed-window fence: the adoption itself happened inside the window
-# (submit-done.json), and this phase only reads.
+# be equal. It does not use the elapsed-window fence: the broker call itself started inside the window
+# (broker-call.json after the fenced budget check), and this phase only reads.
 S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.18-seq15-recovery-20260926')
+
+def s15_recovery_gate(root):
+    # A function so it is testable. It reads only, and returns the broker result if one was written.
+    terminal=json.loads((root/'terminal.json').read_text())
+    c.o.require(terminal.get('phase') in ('submit','postflight1','postflight2') and terminal.get('submission_started') is True,
+                'recovery only follows a terminal after submission started')
+    c.o.require(os.path.lexists(root/'broker-call.json'),'no broker call started; this is a pre-submit stop')
+    c.o.require(not os.path.lexists(root/'postflight2-done.json'),'postflight2 completed; nothing to recover')
+    result=None
+    if os.path.lexists(root/'broker-result.json'):
+        result=json.loads((root/'broker-result.json').read_text())
+        c.o.require(result.get('returncode')==0 and c.o.decode(result.get('stdout','').encode()).get('ok') is True,
+                    'the broker reported failure; hard stop, not recovery')
+    return result
 
 def s14_recover(baseline_sha,binding_sha):
     c.o.require(sys.flags.isolated and sys.flags.dont_write_bytecode and sys.flags.optimize==0,'use python3 -I -B')
-    # Sequence 15: any submit, postflight1 or postflight2 terminal after a broker call that returned
-    # success (for example the post-call fence or a postflight wait hitting the envelope deadline).
-    terminal=json.loads((ROOT/'terminal.json').read_text())
-    c.o.require(terminal.get('phase') in ('submit','postflight1','postflight2') and terminal.get('submission_started') is True,
-                'recovery only follows a terminal after submission started')
-    c.o.require(not os.path.lexists(ROOT/'postflight2.json'),'postflight2 already accepted; nothing to recover')
-    broker_result=json.loads((ROOT/'broker-result.json').read_text())
-    c.o.require(broker_result.get('returncode')==0 and c.o.decode(broker_result.get('stdout','').encode()).get('ok') is True,
-                'recovery needs a broker call that returned exact success')
+    s15_recovery_gate(ROOT)
     S14_RECOVERY_ROOT.mkdir(mode=0o700)
     def rec(name,value):
         data=json.dumps(value,indent=1,sort_keys=True).encode()
