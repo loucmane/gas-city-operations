@@ -10,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-sh3w-window
 COMMIT=${1:?usage: TERMINAL.sh <reviewed commit>}
-TERMINAL_SHA=564944b83af0fd79a05bf22cdb02df0e93b61698c4b15cb879318a951870ec65
+TERMINAL_SHA=a6bf73560c63bb286c09ae53b16858911bf9852ae1a3983f5734687652e7711a
 BUDGET_SHA=49ede5113936c8fc568756ad9308f06c2feeaabacf4818d94db7ad3ce861132c
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

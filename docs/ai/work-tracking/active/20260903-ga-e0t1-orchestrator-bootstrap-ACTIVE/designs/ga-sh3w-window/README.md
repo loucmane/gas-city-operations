@@ -117,7 +117,7 @@ In short:
   ROUTE, then WATCH-1, then RESUME. The check therefore runs immediately before routing, with every rig
   still suspended, which is a quieter city than the plan assumed. RESUME then brings the candidate up.
 
-### The coordinator-cache disposition (s2, operator approval requested)
+### The coordinator-cache disposition (operator-approved 2026-09-26)
 
 After the P10 snapshot, the coordinator recorded M9, P10 and the vault inventory on ga-e0t1 through the
 canonical `workflow.py`. Its Bead reads run bd without `GIT_OPTIONAL_LOCKS=0`, which advances only the pack
@@ -133,7 +133,7 @@ From the s2 pin until TERMINAL, no `workflow.py` call of any verb and no bd or g
 
 ## Phases
 
-1. **s1 (this commit).**
+1. **s1.**
    - Two SOURCE_PASS reviews naming the wrappers `operator/WORKTREE.sh` and `operator/PREP.sh`.
    - Then the WORKTREE job, then the PREP job.
 2. **s2.** Pin the PREP outputs (overlay, receipt image, isolated revision, result and order list) and
@@ -143,7 +143,9 @@ From the s2 pin until TERMINAL, no `workflow.py` call of any verb and no bd or g
 3. **Window.**
    - BIND, the read-only start gates, OBSERVE, PREFLIGHT and STAGE.
    - ROUTE, with PRE-ROUTE as its first step and then the queue audit.
-   - WATCH-1, then RESUME only if WATCH-1 records `routes_unchanged_since_stage` true.
+   - WATCH-1, then RESUME only if WATCH-1 records `routes_unchanged_since_stage` true. The coordinator
+     checks this in the WATCH-1 result before queuing RESUME; RESUME.sh itself requires only the ROUTE
+     and audit results, as in ga-qcwl.
    - The WATCH captures, which must show Core's nudge, then the candidate's own claim, then its
      uncommitted work in the worktree.
    - CONTAIN and CLOSE (HOLD only for a stranded lifecycle), then ADMIT, RESTORE and TERMINAL.
@@ -254,3 +256,43 @@ TERMINAL.
 10. ADMIT.
 11. RESTORE.
 12. TERMINAL.
+
+## s2 r2 (answers the s2 reviews of `e9567ebb`)
+
+Review A gave SOURCE_PASS. Review B held on two must_fix items, and both transcripts are filed under `e9567ebb`.
+
+- **B must_fix 1: OBSERVE would refuse.** Both observers required the pre-M9 provider list. The live M9
+  manifest has four entries: claude-native, codex, the signing `claude` and the candidate `claude`. Both
+  observers now require exactly that list, with the two `claude` paths and the candidate digest `e4442971`.
+  Their per-provider checks of bytes, owner and mode 0755 are unchanged. Test:
+  `test_observers_pin_the_m9_providers`, against the live manifest.
+- **B must_fix 2: INTAKE would refuse Core skill links.**
+  - The problem: when the session work dir is not the scope root, Core materializes the pack skill catalog
+    into it. That means `.gc/tmp/skill-catalog-*.b64` (already ignored by `/.gc/`) plus symlinks under
+    `.claude/skills/`. `intake.py export` refuses untracked symlinks.
+  - The new **EXCLUDE** job (`exclude-task-r1.py`) runs before BIND. It appends exactly
+    `**/.claude/skills/` to the Operations common `info/exclude`, preimage `321dffcb`, postimage `4ef8e398`.
+    That file already lists the other Claude runtime paths, and `.gitignore` already ignores the Codex
+    equivalent `.codex/skills/`.
+  - How it writes: atomically, keeping mode and owner.
+  - Its post-check: the hardened git in the candidate worktree must report the probe path as ignored by
+    exactly that line. This was checked on a scratch linked worktree on 2026-09-26.
+  - The effect: the links land in intake's recorded ignored listing and are never imported. BIND now also
+    requires the exact EXCLUDE result.
+  - The window job order is: EXCLUDE, BIND, OBSERVE, PREFLIGHT, STAGE, ROUTE, WATCH-1, RESUME, and so on.
+- **The common-directory proof is a package tool** (`common-snapshot-r1.py`; s1 A 7, s2 A 3, s2 B 3).
+  - Compared set: `config`, every file under `hooks/` and `info/`, and the candidate branch, which must still
+    point at BASE.
+  - Coordinator refs move after TERMINAL, so they are not compared.
+  - The coordinator runs `before` after EXCLUDE and before BIND, and `after` at INTAKE; any change stops
+    intake.
+  - The scratch snapshot `6c2fdb6e` taken at s2 is superseded.
+- **Worktree files written by Core, not the candidate** (s2 B 4): `.gc/tmp/skill-catalog-*.b64` and
+  `.claude/skills/*`. Both are ignored, WATCH records them, and they are not a stop.
+- **Skill instructions** (s2 B 5): the materialized core skills (gc-dispatch, gc-mail and others) are
+  instructions only. The candidate control policy still allows only `gc hook --claim`,
+  `gc runtime drain-ack` and `bd show/update/close` unsandboxed, so no skill grants a capability.
+- **CLOSE** (s2 B should_fix 1): its docstring describes the signing lane. For the candidate, the worker
+  closes ga-sh3w itself when it hands off (see the candidate prompt). The CLOSE code handles both states.
+- **Wording:** the approved disposition label; the RESUME gate, which the coordinator checks in WATCH-1;
+  the generator names in docstrings are unchanged (s2 A 4).

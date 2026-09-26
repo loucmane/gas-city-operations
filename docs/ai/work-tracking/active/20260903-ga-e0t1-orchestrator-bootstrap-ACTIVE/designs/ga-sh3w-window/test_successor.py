@@ -67,9 +67,11 @@ def test_scripts_compile_and_shell_parses():
 def test_no_signing_lane_leftovers():
     for name, raw in package_files().items():
         text = raw.decode()
-        for token in ('implementation-worker', 'claude-signing', 'gascity-core-worktrees', '2940569', 'release-r11.py',
+        for token in ('implementation-worker', 'gascity-core-worktrees', '2940569', 'release-r11.py',
                       'SIGNING-RELEASE', 'SOURCE-RELEASE', '7e008d9b', '334cc3c9', '7f335ad8', 'Core worktree'):
             assert token not in text, (name, token)
+        # The signing provider name; the M9 signing wrapper path gct-claude-signing-worker is legitimate.
+        assert not re.search(r'(?<!gct-)claude-signing', text), name
     assert not (HERE/'release-r11.py').exists() and not list((HERE/'operator').glob('*RELEASE*'))
 
 
@@ -244,3 +246,37 @@ def test_cache_disposition_pins_the_live_value(g):
     changed['cache']['inventory'][key]['mtime_ns'] += 1
     with pytest.raises(RuntimeError, match='preimage'):
         w.approved_candidate_cache_image(changed)
+
+
+def test_observers_pin_the_m9_providers():
+    """s2 review B must_fix 1: both observers accept exactly the live M9 provider list."""
+    manifest = json.loads(Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json').read_bytes())
+    providers = manifest['integrity']['providers']
+    assert [p['name'] for p in providers] == ['claude-native', 'codex', 'claude', 'claude']
+    assert [p['path'] for p in providers[2:]] == ['/home/loucmane/gas-city-template/bin/gct-claude-signing-worker',
+                                                  '/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker']
+    assert providers[3]['sha256'] == 'e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3'
+    for name in ('observe-integrity-r11.py', 'observe-terminal-r11.py'):
+        text = (HERE/name).read_text()
+        assert "==['claude-native','codex','claude','claude'],'provider inventory'" in text, name
+        assert "'M9 provider pins'" in text and "==['claude-native','codex','claude'],'provider" not in text, name
+
+
+def test_exclude_job_pins_the_live_preimage(g):
+    """s2 review B must_fix 2: EXCLUDE appends exactly one line to the live common info/exclude."""
+    before = Path('/home/loucmane/gas-city-ops/.git/info/exclude').read_bytes()
+    task = (HERE/'exclude-task-r1.py').read_text()
+    if hashlib.sha256(before).hexdigest() == g.EXCLUDE_AFTER:
+        pytest.skip('EXCLUDE has run')
+    assert hashlib.sha256(before).hexdigest() == g.EXCLUDE_BEFORE and before.endswith(b'\n')
+    assert b'.claude/skills' not in before
+    assert hashlib.sha256(before + b'**/.claude/skills/\n').hexdigest() == g.EXCLUDE_AFTER
+    assert "BEFORE_SHA='%s'" % g.EXCLUDE_BEFORE in task and "AFTER_SHA='%s'" % g.EXCLUDE_AFTER in task
+    bind = (HERE/'bind-task-r4.py').read_text()
+    assert "EXCLUDE_SHA='%s'" % sha(HERE/'exclude-task-r1.py') in bind and 'exclude job result' in bind
+
+
+def test_common_snapshot_tool_compares_the_control_surface(g):
+    tool = (HERE/'common-snapshot-r1.py').read_text()
+    assert "BASE='%s'" % g.BASE_NEW in tool and "BRANCH='refs/heads/%s'" % g.BRANCH in tool
+    assert "for sub in ('hooks','info')" in tool and "entry(COMMON/'config')" in tool

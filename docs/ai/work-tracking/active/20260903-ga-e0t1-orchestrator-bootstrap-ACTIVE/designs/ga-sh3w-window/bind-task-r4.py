@@ -20,9 +20,11 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-sh3w-window')
 ROOT=Path('/var/tmp/ga-sh3w-bind-20260926-r1')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='a0d176f48a6818d8243cbd19116b50ac04399d1e7b0cfe93de77d8fb5b5d038f'
+HELPER_SHA='8fa60eea8a8f8cdd17192107df8c93a272648c060790aaf7269da38c7fa10c6b'
 WORKTREE_RESULT=Path('/var/tmp/ga-sh3w-worktree-20260926-r1/result.json')
 WORKTREE_SHA='b993cdfdd7b6530e8b9ba4528834a7cf2e7dbc807b8d13a267fc6735d16c4b53'
+EXCLUDE_RESULT=Path('/var/tmp/ga-sh3w-exclude-20260926-r1/result.json')
+EXCLUDE_SHA='e66ce751726a371cf144c4862bf7a7240987a77e83db7bff93e5bb6faf682ab9'
 DESCRIPTION_SHA='5cbf64f179cca878e2ecfc2898c44a6b465ffa84cfaae558b2fcb0377b65c942'
 BEAD='ga-sh3w'
 TARGET='gascity/operations-candidate-worker'
@@ -40,6 +42,8 @@ def main():
     made=json.loads(w.read(WORKTREE_RESULT))
     assert made==dict(ok=True,worktree=WORK,admin=str(w.ADMIN),base=w.BASE,branch='codex/ga-sh3w-delivery-class',clean=True,
         executor_sha256=WORKTREE_SHA),'worktree job result'
+    ignored=json.loads(w.read(EXCLUDE_RESULT))
+    assert ignored['ok'] is True and ignored['executor_sha256']==EXCLUDE_SHA,'exclude job result'
     assert not os.path.lexists(w.ROOT), 'binding must precede the window'
     w.read(w.CITY/'city.toml',w.CITY_SHA[0]);w.read(w.RECEIPT,w.RECEIPT_SHA[0])
     ROOT.mkdir(mode=0o700);w.ROOT=ROOT

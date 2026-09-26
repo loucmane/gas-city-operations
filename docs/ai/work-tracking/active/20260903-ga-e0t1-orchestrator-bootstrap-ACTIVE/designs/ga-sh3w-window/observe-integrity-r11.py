@@ -14,7 +14,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-sh3w-window')
 ROOT=Path('/var/tmp/ga-sh3w-integrity-20260926-r1')
 BUILD=Path('/var/tmp/ga-e0t1.18-platform-inspector-m9-20260926')
-W_SHA='677f12a2718cffdab8656d0c5104eab434de50dbe9334b2d34d863ae3c402f52'
+W_SHA='47d0f2bf92f6e1622ca27d818ee8c73d1d89f1c025f2464813f352dab2c8b40a'
 BINARY_SHA='9e29e45dd465dd0397525c5a2d8aa929e65a32bffa7a69787842a23c99a55549'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='5a29dc596af192e0f314391453d25d6be548695a0defd64bdfc2fa76554e4993'
@@ -37,7 +37,12 @@ def verify_preservation(r,before,after):
 def provider_pins(w,o):
     m=json.loads(w.read(MANIFEST,MANIFEST_SHA))
     providers=m['integrity']['providers']
-    w.require([p['name'] for p in providers]==['claude-native','codex','claude'],'provider inventory')
+    # M9 (manifest file 5a29dc59) pins the candidate wrapper as a second claude provider, keyed by path.
+    w.require([p['name'] for p in providers]==['claude-native','codex','claude','claude'],'provider inventory')
+    w.require([p['path'] for p in providers[2:]]==['/home/loucmane/gas-city-template/bin/gct-claude-signing-worker',
+        '/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker']
+        and providers[3]['sha256']=='e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3',
+        'M9 provider pins')
     for p in providers:
         w.require(p['version_args']==['--version'],'only version probes')
         w.require(str(Path(p['path']).resolve(strict=True))==p['resolved_path'],'provider resolution')

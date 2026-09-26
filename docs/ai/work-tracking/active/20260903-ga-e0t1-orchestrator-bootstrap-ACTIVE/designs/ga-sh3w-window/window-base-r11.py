@@ -237,7 +237,7 @@ CACHE_P10_NS = 1790411960644198389
 CACHE_PINNED_NS = 1790415062719606803
 
 def approved_candidate_cache_image(prior):
-    # ga-sh3w disposition, for operator approval and independent review: after the P10 adoption
+    # ga-sh3w disposition, operator-approved 2026-09-26, for independent review: after the P10 adoption
     # snapshot, the coordinator recorded M9, P10 and the vault inventory on ga-e0t1 through the canonical
     # workflow.py, whose Bead reads run bd without GIT_OPTIONAL_LOCKS=0. That advances only the pack
     # cache repository's .git directory mtime and ctime. s2 pins the value after the last such note;

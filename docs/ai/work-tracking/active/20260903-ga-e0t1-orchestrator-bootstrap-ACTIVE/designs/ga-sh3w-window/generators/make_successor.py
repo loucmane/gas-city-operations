@@ -134,6 +134,9 @@ FINALIZE_NEW = ('/var/tmp/ga-e0t1.18-p10-preflight-diagnostic-20260926',
 OVERLAY_OLD = '449346e33f73c1882dfd52e3caa0dfc8066ddfdb6eb4ef6c422603be60e817ac'
 OVERLAY_NEW = '8b039657aa28ab5edc10ab50fcd26cea1a3ed15abf65ddae69fdca3c568ca50f'
 CACHE_P10_NS = 1790411960644198389
+# EXCLUDE (s2 r2): the Operations common info/exclude before, and after appending exactly '**/.claude/skills/'.
+EXCLUDE_BEFORE = '321dffcb77a68a6c079d35da12944866b895b4cc9fb3b1fae72fe9468c7eafeb'
+EXCLUDE_AFTER = '4ef8e39849f5cfe486486339b37f5947d2ff77786250eeeebb7be57170a05bbd'
 # s2: pinned after the last coordinator note (the s1 outcome workflow.py log, 2026-09-26 09:31:02Z); the
 # operator approved this disposition on 2026-09-26. No workflow.py and no unguarded gc until TERMINAL.
 CACHE_PINNED_NS = 1790415062719606803
@@ -226,7 +229,7 @@ def window_base(text):
                "CACHE_P10_NS = %d\n"
                "CACHE_PINNED_NS = %s\n\n"
                "def approved_candidate_cache_image(prior):\n"
-               "    # ga-sh3w disposition, for operator approval and independent review: after the P10 adoption\n"
+               "    # ga-sh3w disposition, operator-approved 2026-09-26, for independent review: after the P10 adoption\n"
                "    # snapshot, the coordinator recorded M9, P10 and the vault inventory on ga-e0t1 through the canonical\n"
                "    # workflow.py, whose Bead reads run bd without GIT_OPTIONAL_LOCKS=0. That advances only the pack\n"
                "    # cache repository's .git directory mtime and ctime. s2 pins the value after the last such note;\n"
@@ -308,6 +311,13 @@ def observer(text, name):
     text = sub(text, "result['core_commit']=='%s'" % CORE_OLD, "result['core_commit']=='%s'" % CORE_NEW)
     text = sub(text, "result['core_tree']=='%s'" % TREE_OLD, "result['core_tree']=='%s'" % TREE_NEW)
     text = sub(text, "result['entrypoint_sha256']=='%s'" % INSPECTOR_OLD[3], "result['entrypoint_sha256']=='%s'" % entry)
+    text = sub(text, "    w.require([p['name'] for p in providers]==['claude-native','codex','claude'],'provider inventory')\n",
+               "    # M9 (manifest file 5a29dc59) pins the candidate wrapper as a second claude provider, keyed by path.\n"
+               "    w.require([p['name'] for p in providers]==['claude-native','codex','claude','claude'],'provider inventory')\n"
+               "    w.require([p['path'] for p in providers[2:]]==['/home/loucmane/gas-city-template/bin/gct-claude-signing-worker',\n"
+               "        '/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker']\n"
+               "        and providers[3]['sha256']=='e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3',\n"
+               "        'M9 provider pins')\n")
     if name == 'observe-integrity-r11.py':
         text = sub(text, 'admitted_against_p7_snapshot=True', 'admitted_against_p10_snapshot=True')
         text = sub(text, 'post-S3 baseline (M6). It admits the live state against the P7 adoption snapshot (ga-e0t1.15 S4),\n',
@@ -349,6 +359,134 @@ def watch(text):
     return text
 
 
+EXCLUDE_TASK = '''"""EXCLUDE: ignore Core's materialized Claude skill links in Operations worktrees; before the window.
+
+ga-sh3w s2 r2 (review B must_fix 2). For a tmux session whose work_dir is not its scope root, Core writes a skill
+catalog under <worktree>/.gc/tmp (already ignored by /.gc/) and runs `gc internal materialize-skills`, which
+creates symlinks under <worktree>/.claude/skills. Unignored, they would be untracked symlinks, and intake.py export
+refuses those. The Operations repository already ignores the Codex equivalent (.codex/skills/ in .gitignore) and
+Claude runtime paths in its common info/exclude. This job appends exactly one line, `**/.claude/skills/`, to that
+info/exclude, so the links land in intake's recorded ignored listing and are never imported. Nothing else changes:
+- the file must hold the pinned preimage and end with a newline; mode and owner are kept;
+- the write is atomic (temporary file in the same directory, fsync, rename);
+- the postimage digest is pinned, and the hardened git in the candidate worktree must report
+  `.claude/skills/core.gc-probe` as ignored by exactly that line.
+"""
+import hashlib
+import json
+import os
+from pathlib import Path
+import stat
+import subprocess
+
+ROOT=Path('/var/tmp/ga-sh3w-exclude-20260926-r1')
+EXCLUDE=Path('%(ops)s/.git/info/exclude')
+BEFORE_SHA='%(before)s'
+AFTER_SHA='%(after)s'
+LINE=b'**/.claude/skills/\\n'
+WORK='%(work)s'
+ADMIN='%(admin)s'
+ENV=dict(HOME='/nonexistent',LANG='C.UTF-8',PATH='/usr/bin:/bin',GIT_CONFIG_NOSYSTEM='1',
+         GIT_CONFIG_GLOBAL='/dev/null',GIT_ATTR_NOSYSTEM='1',GIT_OPTIONAL_LOCKS='0')
+
+def main():
+    assert os.getuid()==os.geteuid()==1000 and globals().get('_SOURCE_SHA')
+    assert hashlib.sha256(Path(__file__).read_bytes()).hexdigest()==_SOURCE_SHA
+    assert not os.path.lexists(ROOT),'exclude root consumed'
+    s=EXCLUDE.lstat()
+    assert stat.S_ISREG(s.st_mode) and s.st_uid==1000 and s.st_nlink==1,'exclude authority'
+    before=EXCLUDE.read_bytes()
+    assert hashlib.sha256(before).hexdigest()==BEFORE_SHA and before.endswith(b'\\n'),'exclude preimage'
+    after=before+LINE
+    assert hashlib.sha256(after).hexdigest()==AFTER_SHA,'exclude postimage'
+    ROOT.mkdir(mode=0o700)
+    (ROOT/'intent.json').write_text(json.dumps(dict(before=BEFORE_SHA,after=AFTER_SHA,executor_sha256=_SOURCE_SHA),
+        sort_keys=True)+'\\n')
+    tmp=EXCLUDE.with_name('.exclude.ga-sh3w.tmp')
+    fd=os.open(tmp,os.O_WRONLY|os.O_CREAT|os.O_EXCL,stat.S_IMODE(s.st_mode))
+    with os.fdopen(fd,'wb') as out:
+        out.write(after);out.flush();os.fsync(out.fileno())
+    os.rename(tmp,EXCLUDE)
+    assert hashlib.sha256(EXCLUDE.read_bytes()).hexdigest()==AFTER_SHA and stat.S_IMODE(EXCLUDE.lstat().st_mode)==stat.S_IMODE(s.st_mode)
+    r=subprocess.run(['/usr/bin/git','--no-optional-locks','--git-dir='+ADMIN,'--work-tree='+WORK,'-c','core.hooksPath=/dev/null',
+        '-c','core.fsmonitor=false','-c','core.attributesFile=/dev/null','check-ignore','-v','--no-index',
+        '.claude/skills/core.gc-probe'],cwd=WORK,env=ENV,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=60)
+    assert r.returncode==0 and r.stdout.strip().endswith('**/.claude/skills/\\t.claude/skills/core.gc-probe'),r.stdout+r.stderr
+    result=dict(ok=True,exclude_before=BEFORE_SHA,exclude_after=AFTER_SHA,ignored_by=r.stdout.strip(),executor_sha256=_SOURCE_SHA)
+    (ROOT/'result.json').write_text(json.dumps(result,sort_keys=True)+'\\n')
+    print(json.dumps(result,sort_keys=True))
+
+if __name__=='__main__':main()
+'''
+
+
+COMMON_TOOL = '''"""Read-only proof that the candidate left the Operations common git directory unchanged (s1 review A 7).
+
+  common-snapshot-r1.py before <out-json>
+  common-snapshot-r1.py after <before-json> <before-sha256> <out-json>
+
+The compared set is the common directory's control surface that a sandbox escape could use against the coordinator:
+config, every file under hooks/ and info/ (info/exclude as EXCLUDE left it), and the candidate branch, which must
+still point at BASE (the candidate delivers uncommitted work). Coordinator refs (main, the ga-e0t1 branch,
+remote-tracking refs) legitimately move after TERMINAL and are not compared. It writes only its own output file.
+"""
+import hashlib
+import json
+import os
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+COMMON=Path('%(ops)s/.git')
+BASE='%(base)s'
+BRANCH='refs/heads/%(branch)s'
+ENV=dict(HOME='/nonexistent',LANG='C.UTF-8',PATH='/usr/bin:/bin',GIT_CONFIG_NOSYSTEM='1',
+         GIT_CONFIG_GLOBAL='/dev/null',GIT_OPTIONAL_LOCKS='0')
+
+def entry(path):
+    s=os.lstat(path)
+    value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid,size=s.st_size)
+    if stat.S_ISREG(s.st_mode):value['sha256']=hashlib.sha256(path.read_bytes()).hexdigest()
+    elif stat.S_ISLNK(s.st_mode):value['target']=os.readlink(path)
+    return value
+
+def observe():
+    out={'config':entry(COMMON/'config')}
+    for sub in ('hooks','info'):
+        for directory,dirs,files in os.walk(COMMON/sub):
+            dirs.sort()
+            for name in sorted(files):
+                path=Path(directory)/name
+                out[str(path.relative_to(COMMON))]=entry(path)
+    r=subprocess.run(['/usr/bin/git','--no-optional-locks','--git-dir='+str(COMMON),'rev-parse','--verify',BRANCH+'^{commit}'],
+        env=ENV,stdin=subprocess.DEVNULL,capture_output=True,text=True,timeout=60)
+    assert r.returncode==0,r.stderr
+    out['candidate_branch']=r.stdout.strip()
+    return out
+
+def write(path,value):
+    raw=(json.dumps(value,sort_keys=True,indent=1)+'\\n').encode()
+    fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,'wb') as out:out.write(raw)
+    return hashlib.sha256(raw).hexdigest()
+
+def main(argv):
+    if len(argv)==2 and argv[0]=='before':
+        value=observe();assert value['candidate_branch']==BASE,'candidate branch is not BASE'
+        print(json.dumps(dict(ok=True,entries=len(value),sha256=write(argv[1],value))));return 0
+    assert len(argv)==4 and argv[0]=='after','usage: see docstring'
+    raw=Path(argv[1]).read_bytes();assert hashlib.sha256(raw).hexdigest()==argv[2],'before record digest'
+    before=json.loads(raw);after=observe()
+    changed=sorted(k for k in set(before)|set(after) if before.get(k)!=after.get(k))
+    result=dict(ok=not changed,changed=changed,candidate_branch=after['candidate_branch'])
+    print(json.dumps(dict(result,sha256=write(argv[3],dict(result,after=after)))))
+    return 0 if not changed else 1
+
+if __name__=='__main__':raise SystemExit(main(sys.argv[1:]))
+'''
+
+
 BIND_TASK = '''"""The one ga-sh3w contract binding before the window: gc.work_dir and gc.check_path; never route or resume.
 
 ga-sh3w: replaces the ga-qcwl bind-task-r3.py. The Bead description already is the reviewed R3 brief
@@ -374,6 +512,8 @@ HELPER=HERE/'window-base-r11.py'
 HELPER_SHA='%(helper)s'
 WORKTREE_RESULT=Path('/var/tmp/ga-sh3w-worktree-20260926-r1/result.json')
 WORKTREE_SHA='%(worktree)s'
+EXCLUDE_RESULT=Path('/var/tmp/ga-sh3w-exclude-20260926-r1/result.json')
+EXCLUDE_SHA='%(exclude)s'
 DESCRIPTION_SHA='%(description)s'
 BEAD='ga-sh3w'
 TARGET='%(target)s'
@@ -391,6 +531,8 @@ def main():
     made=json.loads(w.read(WORKTREE_RESULT))
     assert made==dict(ok=True,worktree=WORK,admin=str(w.ADMIN),base=w.BASE,branch='%(branch)s',clean=True,
         executor_sha256=WORKTREE_SHA),'worktree job result'
+    ignored=json.loads(w.read(EXCLUDE_RESULT))
+    assert ignored['ok'] is True and ignored['executor_sha256']==EXCLUDE_SHA,'exclude job result'
     assert not os.path.lexists(w.ROOT), 'binding must precede the window'
     w.read(w.CITY/'city.toml',w.CITY_SHA[0]);w.read(w.RECEIPT,w.RECEIPT_SHA[0])
     ROOT.mkdir(mode=0o700);w.ROOT=ROOT
@@ -643,7 +785,14 @@ def rebind(files):
     out['worktree-task-r1.py'] = (WORKTREE_TASK % dict(ops=OPS, root=CANDIDATE_ROOT, work=WORK, admin=ADMIN,
                                                        base=BASE_NEW, branch=BRANCH, tools=CANDIDATE_GIT[0],
                                                        tools_sha=CANDIDATE_GIT[1])).encode()
+    out['exclude-task-r1.py'] = (EXCLUDE_TASK % dict(ops=OPS, before=EXCLUDE_BEFORE, after=EXCLUDE_AFTER, work=WORK,
+                                                     admin=ADMIN)).encode()
+    out['common-snapshot-r1.py'] = (COMMON_TOOL % dict(ops=OPS, base=BASE_NEW, branch=BRANCH)).encode()
+    out['operator/EXCLUDE.sh'] = job('exclude', 'ignore Core-materialized Claude skill links in Operations worktrees.',
+                                     'exclude', 'EXCLUDE.sh', 'exclude-task-r1.py', '/var/tmp/ga-sh3w-exclude-20260926-r1',
+                                     sha(out['exclude-task-r1.py'])).encode()
     out['bind-task-r4.py'] = (BIND_TASK % dict(here=here, helper=sha(out['window-base-r11.py']),
+                                               exclude=sha(out['exclude-task-r1.py']),
                                                worktree=sha(out['worktree-task-r1.py']), description=DESCRIPTION_SHA,
                                                target=TARGET_NEW, work=WORK, check=CHECK_PATH,
                                                branch=BRANCH)).encode()
