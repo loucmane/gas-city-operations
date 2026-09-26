@@ -92,25 +92,33 @@ def notes_holder(task_id):
             '  escalate. "The uncommitted-delivery rule above" in the acceptance text is in spec part 1. "The worker\n'
             '  report" means your notes on the task Bead plus the worklog; a named difference you report there (for\n'
             '  example a Core symbol that is missing) is not a reason to stop.\n'
-            '- When every test you can run passes (list by name any Core-build test the sandbox cannot run): `git add`\n'
+            '- When every test you can run passes (list by name any Core-build test the sandbox cannot run): first run\n'
+            '  `git diff --cached --name-only` as its own command and unstage, with `git restore --staged <file>`, any\n'
+            '  staged path you did not create or change for this task. Then `git add`\n'
             '  explicit file paths, never a directory, of only the files you created or changed for this task. Never\n'
             '  use `-A`, `.` or `-f`, and never stage anything under `.agents/`, `.claude/skills/` or `.gc/` (Core\n'
             '  writes those); a path refused as ignored is reported in your notes, not forced. Then\n'
             '  run `git write-tree` as its own command (its output is the staged tree digest), and run\n'
-            '  `git status --porcelain` as another. Append that status and the test results to the task Bead and the\n'
+            '  `git status --porcelain` as another. Append that status and a bounded test summary (counts, plus the\n'
+            '  names of failing or skipped tests; never full output) to the task Bead, and the full results to the\n'
             '  worklog. As the last note, append exactly this line with the digest filled in:\n'
             f'  `READY FOR SIGNING: {task_id} tree <digest>`\n'
             '  Then send one escalation to the mayor with that same line as its subject, and stop: do not close the\n'
             '  task Bead and do not run `gc runtime drain-ack`. The coordinator reads the task notes, reviews, signs,\n'
             '  delivers and closes it.\n'
-            '- Before any work, read the task notes. If they already hold that READY FOR SIGNING line, or record an\n'
-            '  escalation you or an earlier session sent, send nothing more and stop: the coordinator reads the notes\n'
-            '  even if a mail was not sent. Record every escalation you send in the task notes.\n\n'
+            '- The stop check at the top of the task description applies throughout: a task whose notes hold that\n'
+            '  READY FOR SIGNING line or a recorded escalation is finished for you. Record every escalation in the\n'
+            '  task notes before you send it, never after.\n\n'
             '## B. Review hints for building the tests (not new requirements)\n\n' + GUIDANCE)
 
 
 def pointer(ids):
-    lines = ['## The full specification (read first)\n\n',
+    lines = ['## Stop check (before anything else)\n\n',
+             'The claimed task is "this Bead" throughout; the heading keeps the source id of the umbrella. Before any\n',
+             'other read, read this Bead\'s notes (in the task view you already have). If they hold a line starting\n',
+             '`READY FOR SIGNING:` or record an escalation, send nothing and stop: the coordinator reads the notes. If the\n',
+             'task view itself is truncated and you cannot see the notes, stop the same way.\n\n',
+             '## The full specification (read first)\n\n',
              'This description continues in six closed holder Beads. Parts 1 to 5 are the rest of this description,\n',
              'verbatim from the reviewed r6 brief and split only because of its length: the requirements this task must\n',
              'satisfy, incorporated here by reference. Holder 6 holds the coordinator notes, binding for this task (who\n',
@@ -120,8 +128,8 @@ def pointer(ids):
     for n, sid in enumerate(ids, 1):
         what = TITLES[n - 1] if n <= 5 else 'coordinator notes and review hints'
         lines.append(f'{n}. `{GC_SHOW} {sid}` ({"part %d: " % n if n <= 5 else ""}{what}).\n')
-    lines.append('If any read is truncated or fails, stop: escalate to the mayor as your prompt describes, record which read\n'
-                 'failed on this Bead, and do not guess the missing text.\n\n')
+    lines.append('If any read is truncated or fails, stop: record which read failed on this Bead first, then escalate to\n'
+                 'the mayor as your prompt describes, and do not guess the missing text.\n\n')
     return ''.join(lines)
 
 
@@ -137,7 +145,7 @@ def write(out, files):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     for name, text in sorted(files.items()):
-        (out / name).write_text(text)
+        (out / name).write_text(text, encoding='utf-8')
         print(name, len(text.encode()), text.count('\n'), hashlib.sha256(text.encode()).hexdigest())
     return files
 

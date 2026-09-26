@@ -34,7 +34,7 @@ def rendered(s):
 def test_reassembles_to_the_reviewed_r6_brief(s, rendered):
     full = s.r6()
     task = rendered['task.md']
-    head = task[:task.index('## The full specification (read first)')]
+    head = task[:task.index('## Stop check (before anything else)')]
     tail = task[task.index('## Out of scope'):]
     bodies = [rendered['spec-%d.md' % n].split('\n\n', 1)[1] for n in range(1, 6)]
     assert head + ''.join(bodies) + tail == full
@@ -60,7 +60,7 @@ def test_pointer_uses_the_codex_prompt_read_command(rendered):
     task = rendered['task.md']
     for n, sid in enumerate(('gct-aaaa', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee', 'gct-ffff'), 1):
         assert '%d. `/home/loucmane/gascity/bin/gc bd show %s`' % (n, sid) in task
-    assert 'escalate to the mayor as your prompt describes' in task
+    assert 'the mayor as your prompt describes' in task
     assert task.index('## The full specification') < task.index('## Out of scope') < task.index('## Acceptance')
     assert "does not apply to these six holders" in task and 'Holder 6 holds the coordinator notes, binding' in task
 
@@ -73,7 +73,8 @@ def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
     for needle in ('"this Bead" means the claimed task, gct-tttt', 'do not read, update or close it',
                    '/Docs/worklogs/gct-tttt.md` (one note per Bead)', 'run `git write-tree` as its own',
                    '`READY FOR SIGNING: gct-tttt tree <digest>`', 'do not run `gc runtime drain-ack`',
-                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', 'or record an\n  escalation you or an earlier session sent', 'Record every escalation',
+                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', 'Record every escalation in the\n  task notes before you send it', 'a bounded test summary',
+                   '`git diff --cached --name-only`', '`git restore --staged <file>`',
                    'explicit file paths, never a directory', 'refused as ignored is reported',
                    'every test you can run passes', '"The worker\n  report" means',
                    "are the\n  coordinator's"):
@@ -105,7 +106,7 @@ def test_holders_depend_only_on_the_task_id(s, tmp_path, rendered):
     for name, text in alone.items():
         assert text == rendered[name], name
     # Only the two intended angle-bracket tokens remain: the digest to fill in and Core's quoted error text.
-    assert '<' not in alone['spec-6.md'].replace('<digest>', '').replace('<name>', '')
+    assert '<' not in alone['spec-6.md'].replace('<digest>', '').replace('<name>', '').replace('<file>', '')
     other = s.holders('gct-tttt')
     assert other == alone
     task_only = s.render_task(tmp_path / 't', 'gct-tttt', 'gct-aaaa', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee',
@@ -116,3 +117,13 @@ def test_holders_depend_only_on_the_task_id(s, tmp_path, rendered):
     for bad in ('<task>', 'gct-e8ex', 'gct-e8ex.3'):
         with pytest.raises(ValueError):
             s.render_holders(tmp_path / 'x', bad)
+
+
+def test_stop_check_comes_before_every_read(rendered):
+    """r7 (r6 review B must_fix 1): the stop check is in the task description itself, before the numbered reads,
+    so a restarted session stops before any holder read can fail again."""
+    task = rendered['task.md']
+    stop = task.index('## Stop check (before anything else)')
+    assert stop < task.index('## The full specification (read first)') < task.index('1. `/home/loucmane/gascity/bin/gc bd show')
+    assert '`READY FOR SIGNING:` or record an escalation, send nothing and stop' in task
+    assert 'record which read failed on this Bead first, then escalate' in task
