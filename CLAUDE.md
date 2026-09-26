@@ -56,12 +56,14 @@ ledger; raw commands/content and free-form readiness output are not copied into 
 new denial records. Failure to record a denial never makes the operation permissible.
 
 Hook success alone is not Claude-native command approval. Operations explicitly
-opts into the four-class command profile documented in
-`docs/aegis/claude-orchestrator-permissions.md`. Only the exact scoped context,
-Beads reads, canonical `workflow.py begin` and, with the `workflow-coordinate` opt-in
-below, the stationary coordination verbs receive audited native approvals after all
-applicable strict checks. No broad Bash allowlist, file-write grant,
-plan-mode mutation, signing or lifecycle authority follows from this profile.
+opts into the command profile documented in
+`docs/aegis/claude-orchestrator-permissions.md`, which knows five classes. Only the
+exact scoped context, Beads reads, canonical `workflow.py begin`, with the
+`workflow-coordinate` opt-in below the stationary coordination verbs, and with the
+separate `delivery` opt-in the closed push, pull-request and merge forms receive
+audited native approvals after all applicable strict checks. No broad Bash allowlist,
+file-write grant, plan-mode mutation, signing or lifecycle authority follows from this
+profile.
 
 ### Stationary canonical-root orchestration
 
@@ -124,6 +126,53 @@ receive automatic approval to execute themselves. Such a runtime repair stays in
 the explicit implementation/review lane until merge-bound activation; do not work
 around the refusal. Gate approval validates local bindings, while execution still
 rechecks **live** Bead ownership under the repository lock. A journal is not authority.
+
+### Stationary delivery (ga-fsfg R3)
+
+With the explicit `delivery` opt-in (the profile lists `delivery` in `commands` with
+its fields `repository`, `default_branch`, `remote_url`, `signing_key`,
+`required_checks`, `delivery_path`, `delivery_home` and `credential_helpers`), the
+canonical seat can deliver a signed branch of an Operations worktree `<W>`. Stay at
+the canonical project and use exactly these forms, written as Python's `shlex.join`
+would write them (single spaces, single quotes only where needed), one per call and
+never in the background:
+
+```bash
+/usr/bin/env -i HOME=/home/loucmane PATH=/usr/local/bin:/usr/bin:/bin /usr/bin/git -C /home/loucmane/gas-city-ops-worktrees/ga-x-slug push origin codex/ga-x-slug
+/usr/bin/env -i HOME=/home/loucmane PATH=/usr/local/bin:/usr/bin:/bin /usr/bin/gh pr create --repo github.com/loucmane/gas-city-operations --base main --head codex/ga-x-slug --title 'feat(ga-x): the change' --body-file /home/loucmane/gas-city-ops-worktrees/ga-x-slug/docs/pr-body.md
+/usr/bin/env -i HOME=/home/loucmane PATH=/usr/local/bin:/usr/bin:/bin /usr/bin/gh pr merge 123 --repo github.com/loucmane/gas-city-operations --merge --match-head-commit 0123456789abcdef0123456789abcdef01234567
+```
+
+`<W>` is the push's `-C` directory, the worktree whose branch is `--head`, or the
+worktree whose `HEAD` is the merged commit. It must be a direct child of the
+Operations worktree root, a verified linked worktree that passes the same target
+validation as `coordinate` (ready journal, verified ownership, `codex/<bead>-<slug>`
+branch), not advisory, with a clean tracked tree, and every commit since the remote
+`main` good-signed by exactly `signing_key` (OpenPGP only). Core and review-project
+worktrees refuse. The configuration of `<W>` and of the canonical root may carry only
+the allowlisted `remote.origin`, credential, `push.autoSetupRemote`, `gpg.program` and
+git-lfs entries; no hook, attribute driver or gitlink may exist. The pull request's
+body file must be tracked and equal to its `HEAD` blob; the merge needs an `OPEN`,
+same-repository pull request on exactly that head with every check green and every
+required check present. Any other prefix, option, remote, refspec or shell syntax
+refuses; plan mode, observation, pending events, protected paths, native delegation and
+hard policy keep their precedence. An advisory seat is validated and audited but gets no
+native approval.
+
+Each approved call leaves one delivery-class pending event on `<W>` (found through a
+per-call binding), and the next delivery step refuses until it is discharged, so the
+order is push, `discharge`, `pr create`, `discharge`, merge, `discharge`. A failed call
+removes its binding; retry the same command. Known limits, documented in full in the
+permissions reference: the push is not pinned to the verified commit (the merge
+re-verifies every commit and `--match-head-commit` pins the head); the base can still
+change between the check and the merge, an accepted race; a merge refuses whenever
+`main` has moved, so bring the branch up to date, re-sign and push first; the shell's
+startup files are trusted, since a function or alias there could shadow the command;
+and the signing key is the only review boundary on what reaches `main` through this
+class, including changes to the gate and the profile, which is acceptable because only
+the host signer holds it and the coordinator signs only changes that passed two
+independent reviews. Run the read-only live preflight in the permissions reference
+before the first real delivery.
 
 The PreToolUse dispatcher in `.claude/scripts/pretooluse-gate.sh` enforces this for hookable Claude file tools and tested Bash mutation patterns. After a successful mutation, `.claude/scripts/posttooluse-tracking.sh` records pending S:W:H:E tracking and `.claude/scripts/tracking-stop-gate.sh` blocks session stop until `aegis log` has updated the session, tracker, implementation log, changelog, handoff, and plan evidence.
 

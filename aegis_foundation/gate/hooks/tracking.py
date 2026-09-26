@@ -61,7 +61,14 @@ def posttooluse_tracking() -> int:
     try:
         target = target_for(root, payload, post_success=True)
         if target is not None:
-            if coordination_request(root, payload)[0] in {"log", "discharge"}:
+            parsed = coordination_request(root, payload)
+            if parsed is None:
+                # ga-fsfg R3: a target without a workflow request came from the call's
+                # delivery binding; record the delivery event on <W> and consume it.
+                from .delivery import record_delivery_event
+
+                return record_delivery_event(root, target, payload)
+            if parsed[0] in {"log", "discharge"}:
                 return 0  # The supported command already reconciled target evidence.
             root = target
     except Exception:
@@ -408,11 +415,25 @@ def _record_handler(data: dict[str, Any], payload: Payload | None) -> str:
     return handler
 
 
+def _ledger_delivery_command(root: Path | None, command: str) -> bool:
+    """ga-fsfg R3: the delivery parser, not a widened pattern, classifies its own forms."""
+
+    if root is None:
+        return False
+    try:
+        from .delivery import delivery_operation
+
+        return delivery_operation(root, command) is not None
+    except Exception:  # noqa: BLE001 - the passive recorder never fails on a classifier.
+        return False
+
+
 def _classify_record_event(
     data: dict[str, Any],
     payload: Payload | None,
     paths: list[str],
     outcome: str,
+    root: Path | None = None,
 ) -> str:
     hook_event = str(data.get("hook_event_name") or "")
     if hook_event == "PostToolUseFailure":
@@ -427,7 +448,7 @@ def _classify_record_event(
         return "subagent_end"
     if payload is not None and payload.tool_name == "Bash":
         command = bash_command(payload)
-        if DELIVERY_COMMAND_RE.search(command):
+        if DELIVERY_COMMAND_RE.search(command) or _ledger_delivery_command(root, command):
             return "delivery"
         if MUTATING_TASKMASTER_RE.search(command):
             return "task_truth"
@@ -553,7 +574,7 @@ def ledger_record() -> int:
         )
         cwd_value = data.get("cwd") if isinstance(data.get("cwd"), str) else None
         branch = _record_branch(cwd_value)
-        event_type = _classify_record_event(data, payload, paths, outcome)
+        event_type = _classify_record_event(data, payload, paths, outcome, root)
         if (
             payload is not None
             and payload.tool_name == "Bash"

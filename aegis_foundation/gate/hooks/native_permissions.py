@@ -14,6 +14,7 @@ from typing import Any
 
 from .contracts import Payload
 from .delegation import DESCRIPTOR_NAME, _head_bound_bytes, resolve_managed_project
+from .delivery_grammar import COMMAND as DELIVERY, DELIVERY_KEYS, validate_delivery_profile
 from .orchestrator import (
     CITY,
     CONTEXT_REL,
@@ -29,7 +30,11 @@ from .runtime_state import hook_invoking_agent
 
 PROFILE = Path(".claude/orchestrator-command-profile.json")
 SCHEMA = "aegis.claude-orchestrator-command-profile.v1"
-COMMANDS = frozenset({"project-context", "beads-read", "workflow-begin", "workflow-coordinate"})
+# ga-fsfg R3: `delivery` is the fifth class; a profile opts in by listing it together
+# with every field in DELIVERY_KEYS.
+COMMANDS = frozenset(
+    {"project-context", "beads-read", "workflow-begin", "workflow-coordinate", DELIVERY}
+)
 KEYS = {"schema", "project_id", "canonical_root", "worktree_root", "city", "rig", "commands"}
 # ga-fsfg R2: optional registered projects whose direct-child worktrees the seat may
 # coordinate. ga-4p6f: optional review projects whose direct-child worktrees may only
@@ -126,7 +131,7 @@ def _profile(root: Path) -> dict[str, Any] | None:
     value = json.loads(raw, object_pairs_hook=_unique_object)
     if (
         not isinstance(value, dict)
-        or set(value) - OPTIONAL_KEYS != KEYS
+        or set(value) - OPTIONAL_KEYS - DELIVERY_KEYS != KEYS
         or value["schema"] != SCHEMA
     ):
         raise ValueError("invalid command-profile schema")
@@ -141,6 +146,12 @@ def _profile(root: Path) -> dict[str, Any] | None:
         or not set(commands) <= COMMANDS
     ):
         raise ValueError("invalid command-profile command set")
+    validate_delivery_profile(value)
+    if "default_branch" in value:
+        from .delivery_checks import branch_format_accepted
+
+        if not branch_format_accepted(value["default_branch"], root):
+            raise ValueError("delivery default_branch is not a valid branch name")
     project = resolve_managed_project(root)
     if project is None or project.project_id != value["project_id"]:
         raise ValueError("command profile does not bind a managed project")
@@ -188,8 +199,18 @@ def _canonical_runtime(tokens: list[str], root: Path, canonical: Path, relative:
     if script != canonical / relative:
         return False
     _bound_bytes(canonical, relative, limit=1024 * 1024)
-    # Approval never blesses an uncommitted replacement for an internal check or
-    # an untracked Python module injected into the shared import path.
+    canonical_runtime_tree(canonical)
+    return True
+
+
+def canonical_runtime_tree(canonical: Path, *, timeout: float | None = None) -> None:
+    """Refuse unreviewed changes under the canonical runtime trees.
+
+    Approval never blesses an uncommitted replacement for an internal check or an
+    untracked Python module injected into the shared import path. The delivery class
+    (ga-fsfg R3) runs this tree check alone, bounded by its deadline.
+    """
+
     state = subprocess.run(
         [
             "/usr/bin/git",
@@ -206,10 +227,10 @@ def _canonical_runtime(tokens: list[str], root: Path, canonical: Path, relative:
         capture_output=True,
         text=True,
         check=False,
+        timeout=timeout,
     )
     if state.returncode != 0 or state.stdout.strip():
         raise ValueError("canonical command runtime has unreviewed changes")
-    return True
 
 
 def native_permission(root: Path, payload: Payload) -> str | None:
@@ -226,20 +247,34 @@ def native_permission(root: Path, payload: Payload) -> str | None:
     if payload.cwd and Path(payload.cwd) != root:
         from .coordination import KIND, target_for
         from .decisions import advisory_enabled, append_gate_decision
+        from .delivery import ADVISORY_DELIVERY_REASON, bind, delivery_evaluation
 
         seat = Path(payload.cwd)
         if target_for(seat, payload) == root:
+            # ga-fsfg R3: the only two binding write points are the advisory audit
+            # return and the approval return below, never target_for.
+            delivery = delivery_evaluation(payload, root)
             if advisory_enabled(seat):
                 # An advisory seat is validated and audited on the target but never
-                # handed a native approval; Claude's ordinary permissions decide.
+                # handed a native approval; Claude's ordinary permissions decide. A
+                # delivery the operator approves by hand is still tracked on <W>.
+                if delivery is not None:
+                    bind(delivery, payload, approving=False)
                 append_gate_decision(
                     root,
                     hook="pretooluse",
                     payload=payload,
                     verdict="allow",
-                    reason=ADVISORY_COORDINATION_REASON,
+                    reason=(
+                        ADVISORY_DELIVERY_REASON
+                        if delivery is not None
+                        else ADVISORY_COORDINATION_REASON
+                    ),
                 )
                 return None
+            if delivery is not None:
+                bind(delivery, payload, approving=True)
+                return DELIVERY
             return KIND
         return None
     profile_path = root / PROFILE

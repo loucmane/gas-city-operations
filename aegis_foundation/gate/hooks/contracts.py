@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 CODEX_APPLY_PATCH_TOOL = "apply_patch"
@@ -545,6 +545,12 @@ class Payload:
     cwd: str | None = None
     parsed_apply_patch: ParsedApplyPatch | None = None
     permission_mode: str | None = None
+    # ga-fsfg R3: the hook's call identity keys a delivery binding.
+    tool_use_id: str | None = None
+    # Per-invocation state, never part of a payload's identity: the PreToolUse entry
+    # time (the delivery deadline's origin) and the cached delivery evaluation.
+    hook_started: float | None = field(default=None, compare=False, repr=False)
+    delivery_evaluation: Any = field(default=None, compare=False, repr=False)
 
 
 @dataclass

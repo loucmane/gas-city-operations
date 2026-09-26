@@ -606,14 +606,22 @@ def pending_event_kind(payload: Payload) -> str:
     return "mutation"
 
 
-def record_pending_tracking_event(root: Path, payload: Payload) -> None:
+def record_pending_tracking_event(
+    root: Path, payload: Payload, *, kind: str | None = None
+) -> dict[str, Any] | None:
+    """Queue (or refresh) the payload's pending event; return it, or None when none applies.
+
+    ga-fsfg R3: an approved delivery call passes kind "delivery" from its binding's
+    operation, because the shared classifiers treat its `env -i` prefix as untrusted.
+    """
+
     work = current_work(root)
     if not work:
-        return
+        return None
     if work.get("status") != "in-progress":
-        return
+        return None
     if work.get("mode") == "observation":
-        return
+        return None
     if (
         not payload_is_mutation(payload)
         or payload_is_aegis_bootstrap(payload)
@@ -623,8 +631,8 @@ def record_pending_tracking_event(root: Path, payload: Payload) -> None:
         or payload_is_codex_task_logging(payload)
         or payload_is_workflow_discharge(payload)
     ):
-        return
-    kind = pending_event_kind(payload)
+        return None
+    kind = kind or pending_event_kind(payload)
     handler = payload_handler(payload)
     patch_metadata: dict[str, Any] | None = None
     patch_parse_error: str | None = None
@@ -669,7 +677,7 @@ def record_pending_tracking_event(root: Path, payload: Payload) -> None:
             if evidence_location:
                 event["evidence_location"] = evidence_location
             write_pending_tracking_events(root, events)
-            return
+            return event
     event = {
         "id": event_id,
         "created_at": now,
@@ -693,6 +701,7 @@ def record_pending_tracking_event(root: Path, payload: Payload) -> None:
         event["parse_error"] = patch_parse_error
     events.append(event)
     write_pending_tracking_events(root, events)
+    return event
 
 
 def format_pending_tracking(events: list[dict[str, Any]]) -> str:

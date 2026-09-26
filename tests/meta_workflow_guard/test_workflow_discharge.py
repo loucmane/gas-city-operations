@@ -51,6 +51,33 @@ def test_discharge_records_delivery_event_in_journal_and_clears_queue(lane):  # 
     assert [event["id"] for event in json.loads(queue.read_text())["events"]] == ["abcdef012345"]
 
 
+def test_discharge_resolves_an_event_the_delivery_class_recorded(lane):  # noqa: F811
+    """ga-fsfg R3: the gate records an approved delivery call as kind "delivery"."""
+
+    from aegis_foundation.gate.hooks.contracts import Payload
+    from aegis_foundation.gate.hooks.evidence import record_pending_tracking_event
+
+    root, registry, runner, path = lane
+    work = root / ".aegis/state/current-work.json"
+    work.parent.mkdir(parents=True, exist_ok=True)
+    work.write_text(
+        json.dumps({"status": "in-progress", "mode": "bead", "task": {"id": "ga-test", "slug": "fixture"}})
+    )
+    command = (
+        "/usr/bin/env -i HOME=/home/operator PATH=/usr/local/bin:/usr/bin:/bin "
+        f"/usr/bin/git -C {root} push origin codex/ga-test-fixture"
+    )
+    event = record_pending_tracking_event(root, Payload("Bash", {"command": command}), kind="delivery")
+    assert event is not None and event["kind"] == "delivery"
+
+    result = discharge(root, event["id"], "Recorded the push", runner, registry=registry)
+
+    assert result["status"] == "recorded" and result["pending_id"] == event["id"]
+    journal = json.loads(path.read_text())["events"][-1]
+    assert journal["action"] == "discharge" and journal["evidence"] == f"cmd`{command}`"
+    assert not (root / ".aegis/state/pending-tracking.json").exists()
+
+
 def test_discharge_refuses_missing_duplicate_or_non_delivery_events(lane):  # noqa: F811
     root, registry, runner, path = lane
     _queue(
