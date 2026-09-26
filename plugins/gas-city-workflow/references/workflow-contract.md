@@ -77,6 +77,12 @@ ownership binding, never creates a replacement worktree or repeats ownership.
   task worktree: append a note, create an unassigned/unrouted P2 child, or add one blocking
   dependency and transactionally attach it. It persists intent before the supported API
   mutation; ambiguous results stop without replay. `log` records target-local evidence.
+  A fourth action, `dispatch` (ga-fsfg R4, `workflow_dispatch.py`), routes a child that a
+  verified `create` produced, never an owned Bead, with the reviewed `gc sling` form to a
+  target the Operations orchestrator profile lists; it reads the profile through the
+  gate's own loader, runs its gc reads with a fixed environment and 30 s timeouts, stamps
+  `last_sling_at` before every sling, and completes a pending intent only through its
+  exact request (see `docs/aegis/claude-orchestrator-permissions.md`).
   Coordination records keep Bead snapshots as content-addressed references beside the
   journal (`workflow_snapshots.py`); `compact-journal` moves verified inline legacy
   snapshots out-of-line once and records a lifecycle event. `discharge` resolves one
@@ -84,7 +90,9 @@ ownership binding, never creates a replacement worktree or repeats ownership.
   handler and evidence, leaving tracked S:W:H:E files untouched.
   The Operations-only Claude command profile can approve these explicit worktree targets
   from a stationary canonical conversation. It does not approve raw Beads commands, source
-  writes, cross-rig access, worker dispatch, signing, or lifecycle changes. Both policy copies
+  writes, cross-rig access, signing, or lifecycle changes; worker dispatch only through the
+  opted-in `dispatch` action, and one create-only reports write only through the opted-in
+  `evidence-write` class. Both policy copies
   and executable helpers must match reviewed canonical source before automatic approval;
   changing workflow-runtime code remains in the explicit implementation/review lane.
 

@@ -55,6 +55,8 @@ def test_modular_gate_inventory_and_size_budget() -> None:
         "delivery_worktree.py",
         "entrypoint.py",
         "evidence.py",
+        # ga-fsfg R4: the evidence-write class.
+        "evidence_write.py",
         "hard_policy.py",
         "lifecycle.py",
         "loaders.py",
