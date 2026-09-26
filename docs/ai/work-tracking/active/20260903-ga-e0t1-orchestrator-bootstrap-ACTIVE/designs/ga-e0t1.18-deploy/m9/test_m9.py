@@ -85,11 +85,51 @@ def test_predecessor_and_live_bytes(m):
 
 
 def test_the_wrapper_reports_the_pinned_version(m):
-    """Core's provider inspection runs `<path> --version` and compares the whole line."""
-    run = subprocess.run([m.WRAPPER, '--version'], capture_output=True, text=True, timeout=30,
-                         env=dict(PATH='/usr/bin:/bin', HOME=os.environ['HOME']))
-    assert run.returncode == 0 and run.stdout.strip() == m.WRAPPER_VERSION
+    """Core's provider inspection runs `<path> --version`, compares the whole line and allows 5 s.
+
+    The metadata writer runs it after --clearenv, so it must also hold with an empty environment.
+    """
+    import time
+    for env in (dict(PATH='/usr/bin:/bin', HOME=os.environ['HOME']), {}):
+        started = time.monotonic()
+        run = subprocess.run([m.WRAPPER, '--version'], capture_output=True, text=True, timeout=30, env=env, cwd='/')
+        elapsed = time.monotonic() - started
+        assert run.returncode == 0 and run.stdout.strip() == m.WRAPPER_VERSION, run.stderr
+        assert elapsed < 2.5, elapsed
     assert m.PROVIDER['version'] == m.WRAPPER_VERSION and m.PROVIDER['sha256'] == sha(m.WRAPPER)
+
+
+# The candidate wrapper's version dependency record, read from its own launch configuration.
+DEPENDENCIES = r'''
+import json, runpy, sys
+module = runpy.run_path(sys.argv[1], run_name='gct_candidate_dependencies')
+config = module['default_config']()
+paths = [config.claude, config.control_policy, *config.source_dependencies]
+print(json.dumps([str(p) for p in paths]))
+'''
+
+
+def test_every_version_dependency_is_visible_in_the_confined_writer(m, old, m8):
+    """Core runs --version in the metadata writer, which mounts only exact inputs and trees (M9 r1 B must_fix 1).
+
+    Every file the wrapper hashes for its version line, and the interpreter it execs, must be an input of the
+    built M9 manifest or lie under one of its trees.
+    """
+    run = subprocess.run(['/usr/bin/python3.12', '-I', '-S', '-B', '-c', DEPENDENCIES, m.WRAPPER_LIB],
+                         capture_output=True, text=True, timeout=30, env={}, cwd='/')
+    assert run.returncode == 0, run.stderr
+    dependencies = json.loads(run.stdout)
+    assert len(dependencies) == len(set(dependencies)) == 7 and m.WRAPPER in dependencies
+    out, _ = build(m, old, synthetic(m, old, m8))
+    inputs = {p['path']: p for p in out['metadata']['inputs']}
+    trees = [p['path'] for p in out['metadata']['trees']]
+    for path in dependencies + ['/usr/bin/python3.12']:
+        covered = path in inputs or any(path.startswith(tree.rstrip('/') + '/') for tree in trees)
+        assert covered, path
+        if path in inputs:
+            assert inputs[path]['sha256'] == sha(path), path
+    before = {p['path'] for p in old['metadata']['inputs']}
+    assert sorted(set(dependencies) - before) == sorted(p for p, _, _ in m.NEW_INPUTS)
 
 
 def test_the_wrapper_is_the_rendered_candidate_provider(m):
@@ -132,7 +172,7 @@ def test_native_successor_rules(m, old, m8):
 def test_build_counts_frame_and_identity(m, old, m8):
     out, report = build(m, old, synthetic(m, old, m8))
     md = out['metadata']
-    assert (len(md['inputs']), len(md['trees']), len(md['links'])) == (694, 49, 23)
+    assert (len(md['inputs']), len(md['trees']), len(md['links'])) == (696, 49, 23)
     assert report['frame']['remaining_bytes'] > m.FRAME_FLOOR and report['frame']['upper_bound_bytes'] <= 131072
     assert out['release_id'] == m.RELEASE_ID
     assert out['core'] == old['core'] and out['activation'] == old['activation']
@@ -198,6 +238,10 @@ def _signing(o):
     (lambda o, m: _signing(o).__setitem__('sha256', '0' * 64), 'signing provider'),
     (lambda o, m: o['metadata']['inputs'].append(dict(name='', path=m.WRAPPER, sha256=m.WRAPPER_SHA, mode=0o755)),
      'wrapper input already pinned'),
+    (lambda o, m: o['metadata']['inputs'].append(dict(name='', path=m.WRAPPER_POLICY, sha256=m.WRAPPER_POLICY_SHA,
+                                                      mode=0o644)), 'wrapper input already pinned'),
+    (lambda o, m: [p for p in o['integrity']['providers'] if p['name'] == 'codex'][0].update(
+        path=m.WRAPPER, resolved_path=m.WRAPPER), 'candidate provider already pinned'),
 ])
 def test_build_refuses_wrong_predecessor(m, old, m8, mutate, reason):
     changed = copy.deepcopy(old)
@@ -217,7 +261,7 @@ def test_build_against_frozen_baseline(m, old):
     assert record['drifts'] == [] and record['m8_baseline_sha256'] == load('capture_m9.py', 'cap').M8_BASELINE_SHA
     closure = record['closure']
     out, report = m.build(INSTALLED.read_bytes(), raw, closure['host'], parents(m, old), 'a' * 64, 'b' * 64)
-    assert (len(out['metadata']['inputs']), len(out['metadata']['trees'])) == (694, 49)
+    assert (len(out['metadata']['inputs']), len(out['metadata']['trees'])) == (696, 49)
     assert report['frame']['remaining_bytes'] > m.FRAME_FLOOR
 
 
@@ -286,6 +330,14 @@ def test_capture_differs_from_m8_only_in_reviewed_places():
     for name in ('pin_changes', 'cache_drift', 'tree_drift'):
         body = lambda text: text.split('\ndef %s(' % name)[1].split('\ndef ')[0].split('"""')[2]
         assert body(ours) == body(theirs), name
+    # The rename check above cannot see a stale M8 name, so name every M9 binding explicitly (r1 A should_fix 2).
+    main = ours.split('\ndef main():')[1]
+    for fresh in ("'usage: capture_m9.py <candidate sha256>'", "sys.argv[1], 'm9_candidate')",
+                  "CLOSURE_SHA, 'm9_closure')", "Path(m.O + '/reports/m9-capture')",
+                  "schema='ga-e0t1.18.m9-baseline.v1'", 'm8_baseline_sha256=M8_BASELINE_SHA',
+                  'raw = M8_BASELINE.read_bytes()'):
+        assert main.count(fresh) == 1, fresh
+    assert 'm8-capture' not in main and 'm8_candidate' not in main and 'M7' not in main and 'm7' not in main
 
 
 def test_executor_source_inventory():

@@ -14,12 +14,18 @@ So a receipt that carries the candidate profile before its wrapper is pinned wou
 observation at risk too. M8 review A (should_fix 1) required this pin first. The dispatch gate is not active
 for the `gascity` rig today, because no `managed_product` is set, so M9 is ordering discipline, not an unblock.
 
+**Wider blast radius once pinned (r1 review B should_fix 3).** After M9, any drift in the four candidate files
+or the wrapper's version line makes `InspectIntegrity` report drift for the whole manifest. That blocks the
+dispatch gate's live observation for every profile, the signing lane included, as any pinned file already
+does. It also blocks the next metadata successor's writer. Drift labels are `providers[claude].*` for both
+`claude` pins, so tell the two apart by the Expected value (sha256 or version line) (r1 review B should_fix 1).
+
 ## The complete delta (M8 → M9)
 
 | Field | M8 | M9 | Why |
 | --- | --- | --- | --- |
 | `integrity.providers`, appended | claude-native, codex, `claude` (signing wrapper `9df9ea34`) | plus `claude` at `bin/gct-claude-candidate-worker` `e4442971`, `version_args ["--version"]`, version `gct-claude-candidate-worker 1 dependencies_sha256=a35dd413…` | P10 needs the candidate profile's provider pinned. Core keys pins by (name, path), so the two `claude` wrappers coexist (the f3856bd1 provider-pin fix). |
-| `metadata.inputs`, appended | none | `bin/gct-claude-candidate-worker` `e4442971` (0755) and `lib/gct_claude_candidate_worker.py` `97554586` (0644) | the signing wrapper's bin and lib are pinned the same way |
+| `metadata.inputs`, appended | none | `bin/gct-claude-candidate-worker` `e4442971` (0755), `lib/gct_claude_candidate_worker.py` `97554586`, `templates/claude/candidate-control-policy.json` `a3eda916` and `templates/claude/candidate-provider.toml` `dea301a4` (0644) | the signing wrapper's bin, lib, control policy and provider.toml are pinned the same way, and the confined writer can only read inputs (below) |
 | release, transaction, attempt, parents, evidence, host, namespaces, previous metadata | M8 | fresh, `reports/m9` | the M6 to M8 pattern |
 
 Everything else is unchanged:
@@ -28,14 +34,28 @@ Everything else is unchanged:
 - every integrity file, repository, tree and link, and the managed files;
 - the cache.
 
-**Why the version pin covers more than the wrapper.** The wrapper's version line is the digest of its launch
-dependencies: the pinned claude CLI, the candidate control policy (`a3eda916`) and the executed launch
-sources. Core's provider inspection runs `--version` and compares the whole line, so those bytes are
-covered transitively.
+**Every version dependency is an input (r2, answering r1 review B must_fix 1).** The wrapper's version line is
+the digest of seven files:
+- the claude CLI;
+- the candidate control policy;
+- the candidate bin and lib;
+- the signing boundary lib;
+- the subscription lib;
+- `candidate-provider.toml`.
 
-**Counts and frame.** 694 inputs, 49 trees, 23 links and 4 providers. The frame is 130,069 of 131,072 bytes,
-with 1,003 spare (M8 left 1,763, and M9's additions cost 760). `FRAME_FLOOR` is 512. There is no new broker
-receipt: the Core image did not change, so the sequence 15 receipt `1cca491d` still binds it.
+Core runs each provider's `--version` inside the confined metadata writer, after `--clearenv`, and the writer
+mounts only the exact inputs and trees. r1 pinned only the bin and lib. The policy and `candidate-provider.toml`
+would then have been unreadable in the writer, which would have refused at PREPARE with provider version drift.
+r2 pins all four candidate files. The other three dependencies and `/usr/bin/python3.12` are already M8 inputs.
+`test_every_version_dependency_is_visible_in_the_confined_writer` reads the dependency set from the wrapper's own
+launch configuration and checks it against the built inputs. The `--version` test also runs with an empty
+environment and must finish in under 2.5 s; Core allows 5 s.
+
+**Counts and frame.** 696 inputs, 49 trees, 23 links and 4 providers. The frame is 130,439 of 131,072 bytes,
+with 633 spare: M8 left 1,763, and M9's additions cost 1,130. `FRAME_FLOOR` is 512; M8's floor was 1,024.
+Relaxing the local floor is recorded for review (r1 review A should_fix 6). Core's 131,072 limit is
+unchanged. The capture fixes the host fields to the M8 epoch, so their width cannot grow at prepare. There is no
+new broker receipt: the Core image did not change, so the sequence 15 receipt `1cca491d` still binds it.
 
 ## The capture
 
@@ -44,10 +64,10 @@ baseline (`reports/m8-capture/baseline.json` `36ec0b4e`, 763 pins, 49 trees), wh
 
 `pin_changes` admits exactly one reviewed pair since that baseline: the P9 worker receipt
 `.gc/runtime/provisioning/receipt.json`, `23eeb222` to `6bf20a71`. Its mode, uid and gid must be unchanged.
-`target()` adds the two wrapper inputs. The bodies of `pin_changes`, `cache_drift` and `tree_drift` are M8's,
+`target()` adds the four wrapper inputs. The bodies of `pin_changes`, `cache_drift` and `tree_drift` are M8's,
 and a test checks that.
 
-The executor sources are byte-identical to M7 and M8. The recorder, the gate extract and the gate prompts are
+The executor sources are byte-identical to M7 (`../s3`) and M8 (`../m8`). The recorder, the gate extract and the gate prompts are
 rebound to `reports/m9`. The SOURCE_PASS extract also reports the providers and whether the candidate pin is
 exact.
 
@@ -58,18 +78,22 @@ exact.
 - The protected trees and the suspension are equal.
 - The cache shows only the known `954ed149…/.git` bookkeeping entry.
 
-**Tests.** `test_m9.py` has 29 tests, 27 of which run before the capture. They cover:
+**Tests.** `test_m9.py` has 32 tests, 30 of which run before the capture. They cover:
 - the live bytes and modes;
-- the wrapper's live `--version` line;
+- the wrapper's live `--version` line, in an empty environment too, and its timing;
+- every version dependency being an exact input;
 - the rendered `claude-candidate` provider naming this wrapper;
 - Core's (name, path) keying;
 - the successor rules;
 - the exact delta;
 - the counts and frame;
-- the drift refusals and predecessor refusals, including a second candidate pin, a changed signing pin and
-  a pre-pinned wrapper input;
+- the drift refusals and predecessor refusals, including:
+  - a second candidate pin;
+  - a changed signing pin;
+  - a pre-pinned wrapper input or policy;
+  - a codex pin repointed at the wrapper;
 - the pin-change and cache rules;
-- source identity with M8.
+- source identity with M8, and every M9 name in the capture's `main()`.
 
 ## Run order and quiescence
 
@@ -89,6 +113,21 @@ From the capture until `restore-accepted`:
 
 **Then P10.** This is the typed candidate receipt profile under the resolved identity
 `gascity/operations-candidate-worker`, as a separate reviewed package over P9's receipt.
+
+## Review history
+
+- **r1 `95b73ca1`.** Review A gave SOURCE_PASS with should_fix items. Review B held on must_fix 1: two version
+  dependencies were not visible to the confined writer.
+- **r2** answers both reviews:
+  - B must_fix 1: the two added inputs and the dependency-visibility test;
+  - A should_fix 1: the unreachable key-collision check is removed, and the remaining check is tested;
+  - A should_fix 2: explicit M9 names in `main()`;
+  - A should_fix 3 and 5: wording;
+  - A should_fix 4: timing;
+  - B should_fix 1 and 3: drift labels and blast radius;
+  - B should_fix 2: the frame is recomputed.
+- **B should_fix 4.** The reviewers cite Core from `/var/tmp/ga-e0t1.18-build-20260926/repro-source` at
+  `deefb98b`. The rig checkout is not at that commit, and its tree is not evidence for the deployed Core.
 
 ## Stop conditions
 

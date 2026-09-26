@@ -52,8 +52,9 @@ Coordinator extract (a claim): {EXTRACT}
    - previous_manifest 63820eac...;
    - last_repository template-pr71-authority at cfd353f30f465cdf67bbd41fab48812fe5b9617e;
    - previous_image previous_sha256 fce2e9a0... with backup_path /var/tmp/ga-e0t1.18-build-20260926/gc-b;
-   - counts 694/49/23;
-   - every changed_inputs value true (the candidate wrapper e4442971 and its launch module 97554586);
+   - counts 696/49/23;
+   - every changed_inputs value true (the candidate wrapper e4442971, its launch module 97554586, the candidate control policy
+     a3eda916 and candidate-provider.toml dea301a4);
    - candidate_provider_exact true, and providers listing claude-native, codex, the signing "claude" at
      gct-claude-signing-worker 9df9ea34... and the candidate "claude" at gct-claude-candidate-worker
      e4442971... with version dependencies_sha256=a35dd413...;

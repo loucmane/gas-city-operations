@@ -6,10 +6,13 @@ dispatch gate and its live-environment observer key every provisioning-receipt p
 needs its wrapper pinned first (M8 review A should_fix 1). M9 changes exactly that:
 - integrity.providers gains one pin, name "claude" at bin/gct-claude-candidate-worker (e4442971), beside the
   signing wrapper's "claude" pin. Core deefb98b keys provider pins by (name, path), so both coexist. Its
-  version string carries dependencies_sha256 over the pinned claude CLI, the candidate control policy and
-  the executed launch sources, so Core's version probe covers those bytes transitively;
-- metadata.inputs gains the wrapper and its launch module, as the signing wrapper's are pinned
-  (bin 0755, lib 0644). An edit to either is then drift in both places.
+  version string is dependencies_sha256 over the claude CLI, the candidate control policy, the candidate
+  bin and lib, the signing boundary lib, the subscription lib and candidate-provider.toml;
+- metadata.inputs gains the four candidate files among those, exactly as the signing wrapper's bin, lib,
+  control policy and provider.toml are pinned (bin 0755, the rest 0644). Core runs every provider's
+  --version inside the confined metadata writer, which mounts only exact inputs and trees, so each version
+  dependency must be an input or the writer refuses with provider version drift (M9 r1 review B must_fix 1).
+  test_m9 checks the whole dependency set against the built inputs.
 
 Nothing else changes. The Core image is unchanged (fce2e9a0); previous_sha256, backup_path and
 activation.previous_commit already carry the M8 values that Core's validateSuccessor requires, and stay.
@@ -67,7 +70,12 @@ WRAPPER = TEMPLATE + '/bin/gct-claude-candidate-worker'
 WRAPPER_SHA = 'e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3'
 WRAPPER_LIB = TEMPLATE + '/lib/gct_claude_candidate_worker.py'
 WRAPPER_LIB_SHA = '975545865be0314d284ebe28883067157aa4416f45f5b1231fbb9ac4882fa2a8'
-NEW_INPUTS = ((WRAPPER, WRAPPER_SHA, 0o755), (WRAPPER_LIB, WRAPPER_LIB_SHA, 0o644))
+WRAPPER_POLICY = TEMPLATE + '/templates/claude/candidate-control-policy.json'
+WRAPPER_POLICY_SHA = 'a3eda9160871c0f25bbd5f1b6680fbc932692d6cee2c4f7dc702ad355954ae49'
+WRAPPER_PROVIDER_TOML = TEMPLATE + '/templates/claude/candidate-provider.toml'
+WRAPPER_PROVIDER_TOML_SHA = 'dea301a4cc3058156c8cb2673c53dbfbe4e695a78d8c1aa2dc4b179e2a1fd06a'
+NEW_INPUTS = ((WRAPPER, WRAPPER_SHA, 0o755), (WRAPPER_LIB, WRAPPER_LIB_SHA, 0o644),
+              (WRAPPER_POLICY, WRAPPER_POLICY_SHA, 0o644), (WRAPPER_PROVIDER_TOML, WRAPPER_PROVIDER_TOML_SHA, 0o644))
 # The exact version the wrapper reports under --version at this Template commit (observed 2026-09-26).
 WRAPPER_VERSION = ('gct-claude-candidate-worker 1 '
                    'dependencies_sha256=a35dd4131ed3baa3875b9866aa86e39192d1f96f3f4dd55d8a10d12921eea446')
@@ -80,8 +88,8 @@ CACHE = '/home/loucmane/gascity/home/cache/repos'
 CACHE_SHA = '4b284f6741eb8a4e2273fe94bd7e5d24b8ae318ca862170b80c6fd75f37f72be'
 CITY_CONFIG_SHA = '4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591'
 CITY_CONFIG_BACKUP = O + '/reports/m6-inputs/city.toml.before'
-# M8 counts 692 inputs, 49 trees, 23 links. M9 adds the wrapper and its launch module.
-INPUT_COUNT = 692 + 2
+# M8 counts 692 inputs, 49 trees, 23 links. M9 adds the four candidate wrapper files.
+INPUT_COUNT = 692 + 4
 TREE_COUNT = 49
 LINK_COUNT = 23
 PROVIDER_COUNT = 4
@@ -155,7 +163,7 @@ def assemble(old, closure, host, parents, transaction, attempt):
         require(_one(out['integrity']['files'], 'path', path, 'M8 integrity file: ' + path)['sha256'] == digest,
                 'exact M8 integrity file: ' + path)
 
-    # The candidate wrapper: two inputs and one provider pin.
+    # The candidate wrapper: four inputs and one provider pin.
     for path, digest, mode in NEW_INPUTS:
         require(not any(p['path'] == path for p in md['inputs']), 'wrapper input already pinned: ' + path)
         require(pins[path]['sha256'] == digest and pins[path]['mode'] == mode, 'wrapper bytes: ' + path)
@@ -165,10 +173,9 @@ def assemble(old, closure, host, parents, transaction, attempt):
     signing = _one(providers, 'path', SIGNING_WRAPPER, 'signing provider')
     require(signing['name'] == 'claude' and signing['resolved_path'] == SIGNING_WRAPPER
             and signing['sha256'] == SIGNING_WRAPPER_SHA, 'exact M8 signing provider')
+    # With the exact name list above, this fires only if claude-native or codex points at the wrapper.
     require(not any(p['path'] == WRAPPER or p['resolved_path'] == WRAPPER for p in providers),
             'candidate provider already pinned')
-    require((PROVIDER['name'], PROVIDER['path']) not in {(p['name'], p['path']) for p in providers},
-            'provider key collision')
     providers.append(copy.deepcopy(PROVIDER))
     require(len(providers) == PROVIDER_COUNT, 'provider count')
 
