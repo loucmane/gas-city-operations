@@ -71,11 +71,61 @@ runs offline, with no gc execution.
   directive, so the embedded content, and with it the synthetic cache keys, is unchanged. This replaces
   re-running the S1b cache expectation.
 
-### S2: broker sequence 15
+### S1b result
 
-The ga-e0t1.15 S2 transition (`make_s2.py`), rebound:
-- the predecessor is sequence 14 (receipt `f04c1240`), and the new artifact replaces `b2760ea4`;
-- the same freshness, cache and shim postflights apply.
+Ran on 2026-09-26 on ops `26290070`, after two SOURCE_PASS reviews:
+- The validator accepts the live `b2760ea4` and both `fce2e9a0` artifacts, and refuses `83d098fc`.
+- `artifact-verification.json` has sha `d1fea7a5`.
+- `provenance.json` records:
+  - the signer and parents;
+  - the seven changed paths;
+  - no embedded pack path changed.
+
+### S2: broker sequence 15 (this commit)
+
+**Generation.** `make_s2.py` generates `s2_transition.py` from the executed sequence 14 transition
+(ga-e0t1.15 `s2_transition.py`, `9ce041ec`), by count-checked substitutions only. Its docstring gives the full
+rationale. In summary:
+
+| Area | Sequence 15 rule |
+| --- | --- |
+| Identity | Core `b2760ea4` → `fce2e9a0`; source `deefb98b` / tree `af5c3f04`; artifact blob `e6e9ac57`; broker sequence 15; ROOT `/var/tmp/ga-e0t1.18-seq15-20260926`; attempt `r16`; accept root `/var/tmp/ga-e0t1.18-predecessor-20260926-r1` |
+| Preimages | The M6 pair: manifest `7f335ad8`, 127719 bytes; receipt `123a0181`, 2552 bytes |
+| Cache | Nothing may be added except the optional `9c8c14fc`, under the exact-content rule. `69fe9a2e` stays exact |
+| City | The shim stays `a7bcaa7c`. All 143 live-key links and 9 manifests stay exactly on `69fe9a2e` (`f51ef649`) |
+| Inventory | `live_key_inventory.py`, derived with both keys set to `69fe9a2e`, writes the TSVs (`25735dc8`, `1ee92cb5`). A read-only check found no link or manifest still naming `a21cc0a2` |
+| Dolt | The watchdog that survived sequence 14 maps the deleted `69d00186`. The predecessor may be live, or deleted with image `69d00186` or OLD. The transition still admits exactly fresh or exactly survived |
+| Broker | It stayed active after sequence 14. Accept requires it active and running with NRestarts 0; the precondition then pins the accepted record exactly. The transition admits the unchanged record, or a fresh activation epoch as before |
+| Postflight | Before each capture, a bounded wait of 180 s requires the quiet scope to pass on two consecutive reads 5 s apart. This addresses the transient member that refused sequence 14's postflight 1 |
+| Recovery | The sequence 14 recovery phase is removed |
+
+`test_s2.py` has 7 tests, including a live check of the prior state: the live Core is OLD, the shim is `a7bcaa7c`,
+and the surviving watchdog maps `69d00186`.
+
+**Run order.** Everything runs through `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B`.
+It is atime-neutral, as ga-e0t1.15 S2 r4 was.
+
+0. **Setup.** Create ROOT (0700) and stage `deadlines.py` byte-for-byte from the sequence 14 root (`1486dbbc`).
+   The chain sources in `/tmp` (r4 `4d373634`, r3) are present.
+1. **Timer.** Record the state of `aegis-obsidian-reconcile.timer`, stop it, and let any oneshot drain.
+2. **Accept.**
+   - Run `s2_transition.py accept`.
+   - An independent review of `delta-vs-r7.json` and the two observations.
+   - Write `accepted.json`, regenerate, run the tests and commit.
+   - A constants-only diff review.
+3. **Envelope.**
+   - Run `prepare` and note the baseline digest.
+   - Create the envelope with the installed broker's prepare:
+     `--operation replace-gas-city-control-plane.v1 --artifact /var/tmp/ga-e0t1.18-build-20260926/gc-a --bead ga-ecwh --commit deefb98b… --tree af5c3f04… --sequence 15 --output ROOT/envelope.json`.
+     It is signed with FD5585… and must not prompt.
+   - Run `bind-envelope`, then an independent full-envelope review.
+   - All of this happens inside the fixed 900 s window.
+4. **Submit.** `recheck`, then `submit` (one broker call), then `postflight1` and `postflight2`, at least 5 s apart.
+5. **Close.** An independent live readback review, then restore the timer to its recorded state.
+
+**Stops.** A refusal before submit preserves ROOT and follows the ga-e0t1.15 retry rule. A refusal after submit is
+a hard stop: preserve everything and report. From step 1 to step 5 the coordinator makes no Bead writes, runs no
+`gc`, and walks no directories.
 
 ### S3: metadata successor and receipt refresh
 
