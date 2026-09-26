@@ -155,6 +155,28 @@ quiescence:
 - the candidate composition `53450168`, reproduced exactly;
 - the preflight `c6dd9ebb`, with extraction `a30af307`.
 
+## Accepted (2026-09-26)
+
+The executor ran from `a53dc219`, with two independent reviews at each gate:
+- **prepare.** Package `808c7fe5`, with 619 spare frame bytes.
+- **SOURCE_PASS.**
+- **pause.** Window `7af77a6c`.
+- **observe.** The dry run passed, including the candidate wrapper's version check inside the confined writer.
+- **PAIRING_PASS.**
+- **paired.** `result=installed`, manifest self digest `7f7c5dbe`.
+- **verify.**
+- **COMMIT_PASS.**
+- **restore-accepted.** The timer was restored.
+
+The accepted pair is:
+- the live manifest file `5a29dc59`;
+- the receipt file `4c19802f`, self `5ad49de0`;
+- the acceptance `959e3137`.
+
+`inspector/make_inspector_m9.py` rebinds the M8 inspector: the manifest pin moves from `63820eac` to `5a29dc59`,
+and the root is fresh. It was built offline as `9e29e45d`, and one read-only live run returned ok with zero
+drifts.
+
 ## Stop conditions
 
 Stop on any of these:
