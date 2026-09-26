@@ -301,7 +301,7 @@ def main():
                     locks = b'GIT_OPTIONAL_LOCKS=0' in (proc/'environ').read_bytes().split(b'\0')
                 except OSError:
                     locks = None
-                roots = [arg.split(b'=', 1)[1].decode(errors='replace')[:2000] for arg in argv
+                roots = [arg.split(b'=', 1)[1].decode(errors='replace') for arg in argv
                          if arg.startswith(b'sandbox_workspace_write.writable_roots=')]
                 processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks, writable_roots=roots,
                                       argv=redacted([arg.decode(errors='replace') for arg in argv if arg])))
@@ -327,12 +327,16 @@ def main():
                or (v.get('metadata') or {}).get('gc.trigger_bead_id') == TASK
                or (v.get('metadata') or {}).get('gc.work_dir') == str(w.WORK)]
     [bead] = task
+    def meta(v):
+        return v.get('metadata') if isinstance(v.get('metadata'), dict) else {}
     def overrides(metadata):
-        return sorted(k for k in (metadata or {}) if k.startswith('opt_') or k.startswith('template_override'))
+        if not isinstance(metadata, dict):
+            return ['<metadata is not an object>']
+        return sorted(k for k in metadata if k.startswith('opt_') or k.startswith('template_override'))
     override_keys = dict(task=overrides(bead.get('metadata')),
-                         sessions={v['id']: overrides(v.get('metadata')) for v in census
-                                   if overrides(v.get('metadata')) and ((v.get('metadata') or {}).get('template') == TEMPLATE
-                                   or (v.get('metadata') or {}).get('gc.work_dir') == str(w.WORK))})
+                         sessions={str(v.get('id')): overrides(v.get('metadata')) for v in census if isinstance(v, dict)
+                                   if overrides(v.get('metadata')) and (meta(v).get('template') == TEMPLATE
+                                   or meta(v).get('gc.work_dir') == str(w.WORK))})
     process_roots = sorted({root for p in processes for root in p['writable_roots']})
     notes = bead.get('notes') or ''
     markers = [line[:300] for line in notes.splitlines()

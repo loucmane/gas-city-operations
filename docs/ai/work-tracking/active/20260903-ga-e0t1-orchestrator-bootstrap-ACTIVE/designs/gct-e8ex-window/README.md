@@ -58,7 +58,7 @@ lines. The evidence is in `reports/gct-e8ex-split-20260926/live-check-r10`. The 
    preflight does not gate it and no `gc.check_path` stamp is written. There is no info/exclude check and no
    intake export: the worker leaves its changes uncommitted in the worktree (since s1 r5 it cannot stage). BIND
    also refuses a task with notes.
-6. **PREP r11.** The overlay `7c3cfc4d` has 42 agent patches: every city and Template agent is suspended except
+6. **PREP r11.** The overlay `6ab01308` (s1 r7) removes the four wider codex choices (Known scope) and has 42 agent patches: every city and Template agent is suspended except
    `gas-city-template/codex`, which is bound to the worktree with sessions 0..1 and, since s1 r5, the narrower
    `worklog_access` choice. The codex singleton warning is already in the baseline. PREP asserts the codex
    provider, that it is not suspended at the agent level and its deployed default, and its live `gc config show`
@@ -82,7 +82,7 @@ lines. The evidence is in `reports/gct-e8ex-split-20260926/live-check-r10`. The 
     index included), with owner and group. Any change refuses, any walk error raises, every read is bounded, and
     the candidate branch, read from the ref bytes, must still point at BASE.
 11. **No coordinator git while the worker is live** (s1 r2). The codex sandbox can write the worktree root, and a
-    relaunch through an `opt_` override could even restore the Template `.git` (Known scope), so a coordinator
+    relaunch through an `opt_` override could have restored the Template `.git` before s1 r7 (Known scope), so a coordinator
     git call against the worktree could run a driver or command the worker chose. WATCH therefore runs no git
     and records HEAD, branch, status and diffs as empty. The worker's signal is its task notes:
     `READY FOR SIGNING: gct-mbg6 worktree`, `ESCALATED:` or `STOPPED:`. PREFLIGHT's git reads run before ROUTE,
@@ -106,12 +106,28 @@ Unchanged from ga-3oa7:
   `.git` gitfile can be changed by the worker or by a process that survived containment (CLOSE's residue check
   scans argv and cwd only, and the codex sandbox was never proven against the user bus). The intake below
   therefore never runs git in, or signs from, any path under that root or under the Template `.git`.
-- **A relaunch with a wider choice (s1 r6, r5 review B must_fix 1).** Core applies an `opt_worklog_access`
-  override from the task on every session start, and the worker can write its own task. A relaunch could so
-  regain the Template `.git` write root. Every WATCH records each `opt_*`/`template_override*` key on the task
-  and on the template's session Beads, and each worktree process's sandbox write roots, unredacted for that one
-  key. The intake refuses if any WATCH or the task after TERMINAL shows such a key, or a process root naming the
-  Template `.git`, and the snapshot refuses any change to the `.git`.
+- **A relaunch with a wider choice is blocked (s1 r7, r6 review B must_fix 1).**
+  - Core f3856bd1 applies an `opt_<key>` choice from the newest in-progress Bead assigned to the session's
+    identities on every session start. It validates each value against the resolved provider schema and skips
+    invalid ones (`cmd/gc/session_reconciler.go` `workBeadOptionOverrides`).
+  - The PREP overlay therefore removes every codex choice wider than the window's, byte-exact from the pinned
+    `city.toml`: the attended approval policy, the Blog worktrees, and the Template and HPFetcher `.git` roots.
+  - What remains is `worklog_access` ∈ {`classified-vault`, `classified-vault-and-template-worktrees`},
+    `permission_mode` = `fail-fast`, and model and effort, which carry no write roots. No override on any Bead can
+    widen the session.
+  - The overlay validates under a confined `gc config show`, whose output is identical to the r5 overlay's. The
+    narrowing is therefore proven by the pinned overlay bytes and that Core check, not by `config show`.
+  - As evidence, every WATCH still records each `opt_*`/`template_override*` key on the task and the template's
+    session Beads, and each worktree process's full sandbox write roots. The intake requires exactly the narrow
+    roots on every recorded codex process, and at least one WATCH that saw them.
+- **Core's own git in the worktree (r6 review B should_fix 1).** Core runs plain git in work directories, for
+  example the claim and work-record gates and import trust. The worker can write the worktree's `.git` gitfile and
+  point it at a git directory and config under the worktree root. Whether those Core calls can run a program from
+  such a config is not proven here: they run as the coordinator user, so this is a stated residual risk. The
+  snapshot does not cover a redirected gitdir.
+- **Codex undo snapshots (r6 review B should_fix 2).** If the codex harness writes undo ("ghost") snapshot objects
+  into the repository object store from outside its sandbox, the exact snapshot refuses. That is a fail-closed
+  case, investigated like the others.
 - **Core's in-window gc calls** (the WATCH task read, the audit, the CONTAIN and HOLD rig suspension) are not
   proven to run no git in the Template repository. Every WATCH records the Template `.git/config` digest, read
   without git, and the snapshot compares it exactly.
@@ -144,8 +160,13 @@ Unchanged from ga-3oa7:
    an `ESCALATED:`/`STOPPED:` note.
 6. **After TERMINAL** (the Template intake, its own reviewed package):
    - `common-snapshot-r1.py after`; any change to the Template `.git` refuses;
-   - the WATCH records and the task are checked: no `opt_*`/`template_override*` key, and no process root naming
-     the Template `.git`;
+   - the WATCH records and the task are checked: no `opt_*`/`template_override*` key; every recorded codex
+     process carries exactly the roots [GasCity vault, `gas-city-template-worktrees`]; and at least one WATCH saw
+     such a process;
+   - no path is followed through a symlink: the export takes regular files only, bounded, and records exec bits
+     and deletions. It refuses hard links, FIFOs, devices and any link. BASE objects for the scratch index and the
+     signing clone come from GitHub only, with no alternates or `--reference` to the Template `.git`. No intake
+     artifact is written under `/tmp` or the coordinator's scratchpad (s1 r6 review A should_fix 2-4);
    - the worker's files are exported without running git anywhere under the Template worktree root or `.git`: a
      read-only manifest of every changed and new path, with bytes and digests;
    - the exported bytes and their tree id (computed in a scratch index outside every codex write root) are
@@ -156,7 +177,8 @@ Unchanged from ga-3oa7:
      commit; then the push, the Template PR, CI and merge, and gct-mbg6 is closed.
 
    The worker's worktree is never signed in place, and nothing reviewed or signed passes through a path a codex
-   session or a surviving process can write.
+   session or a surviving process can write. That assumes the codex sandbox holds; its user-bus escape is not
+   proven either way (Known scope).
 
 ## s1 r2 (answers the s1 reviews of `fd1f5d8c`: A and B HOLD)
 
@@ -263,6 +285,25 @@ Unchanged from ga-3oa7:
 - **Stale staging text** is fixed across the README, the snapshot docstring, the WATCH comment and the tests
   (A should_fix 1, B should_fix 1 and 3). `/tmp` and the gitfiles of other worktrees are stated as known scope
   (A should_fix 5).
+
+## s1 r7 (answers the s1 r6 reviews of `c17b79f5`: A SOURCE_PASS, B HOLD)
+
+- **B must_fix 1: a wider choice through an `opt_` override was only sampled.** Core accepts such an override
+  from any in-progress Bead assigned to the template, not only the task. The overlay now removes every codex
+  choice wider than the window's from the provider schema. Core f3856bd1 skips override values outside the
+  schema, so the path is blocked, not merely detected (Known scope). `test_overlay_recomputes` pins the narrowed
+  schema: no remaining codex choice names a `.git`.
+- **WATCH (B should_fix 3-4):**
+  - process roots are recorded in full, not cut at 2000 characters;
+  - the override scan tolerates non-object metadata and missing ids, so a slot's evidence is saved.
+- **Stated in Known scope:** Core's own git in a worktree whose gitfile the worker can redirect (B should_fix 1)
+  and codex undo snapshots as a fail-closed case (B should_fix 2).
+- **Intake requirements from r6 review A (should_fix 1-5)** are written into run order step 6:
+  - exactly the narrow roots, with positive WATCH evidence;
+  - a no-follow, regular-files export that records exec bits and deletions;
+  - GitHub-only BASE objects;
+  - no `/tmp` or scratchpad artifacts;
+  - the sandbox assumption named.
 
 ## Tests
 

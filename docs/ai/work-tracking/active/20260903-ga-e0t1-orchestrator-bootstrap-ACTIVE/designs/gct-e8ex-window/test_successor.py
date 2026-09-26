@@ -272,6 +272,7 @@ def test_watch_runs_no_git_while_the_worker_is_live():
     assert 'override_keys=override_keys' in code and 'process_writable_roots=process_roots' in code
     assert "arg.startswith(b'sandbox_workspace_write.writable_roots=')" in code
     assert "k.startswith('opt_') or k.startswith('template_override')" in code
+    assert "decode(errors='replace')[:2000]" not in code and 'def meta(v):' in code
 
 
 def test_watch_config_read_cannot_block(tmp_path):
@@ -468,6 +469,17 @@ def test_overlay_recomputes(g):
     [codex] = [a for a in parsed['patches']['agent'] if a.get('dir') == 'gas-city-template' and a.get('name') == 'codex'
                and 'work_dir' in a]
     assert codex['option_defaults'] == {'worklog_access': 'classified-vault-and-template-worktrees'}
+    # s1 r7 (r6 review B must_fix 1): the overlay's codex schema offers nothing wider than the window's choice, so
+    # an opt_ override on any Bead (which Core f3856bd1 validates against this schema) cannot widen the session.
+    schema = {s['key']: [c['value'] for c in s.get('choices', [])] for s in parsed['providers']['codex']['options_schema']}
+    assert schema['worklog_access'] == ['classified-vault', 'classified-vault-and-template-worktrees']
+    assert schema['permission_mode'] == ['fail-fast']
+    assert set(schema) == {'permission_mode', 'worklog_access', 'model', 'effort'}
+    for choice in parsed['providers']['codex']['options_schema']:
+        for c in choice.get('choices', []):
+            assert '.git' not in json.dumps(c.get('flag_args', [])), c['value']
+    assert candidate.count(b'value = "classified-vault-template-worktrees-and-git-metadata"') == 0
+    assert all(city.count(block) == 1 for block in prep.REMOVED_CHOICES)
     expected = prep.expected_config(baseline, selected, target, names)
     assert expected['config']['Agents'][target]['OptionDefaults'] == {
         'worklog_access': 'classified-vault-and-template-worktrees'}

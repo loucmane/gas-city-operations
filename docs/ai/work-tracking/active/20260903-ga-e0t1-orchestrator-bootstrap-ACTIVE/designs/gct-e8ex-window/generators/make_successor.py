@@ -234,7 +234,10 @@ OVERLAY_OLD = '0e583359552b9c765ae0da5cf971397d6cf0e96b03613238721cc797aad64940'
 # sessions 0..1), 33 order skips. s1 r5: the codex patch also sets option_defaults worklog_access to the narrower
 # classified-vault-and-template-worktrees choice (no Template .git); a confined `gc config show` on this overlay
 # reports exactly that OptionDefaults for gas-city-template/codex.
-OVERLAY_NEW = '7c3cfc4d5ae185cdc863860c17433cd6d802d916e150fd9b6102cccec7a0cdf8'
+# s1 r7: the overlay also removes the four wider codex choices (REMOVED_CHOICES); a confined `gc config show` on it
+# validates and is identical to the r5 overlay's, so the narrowing is proven by these bytes and Core f3856bd1's
+# schema check on opt_ values, not by config show.
+OVERLAY_NEW = '6ab01308fcd4eb4caf2aa601b2c82d52013d111197bd364f41e4d5a5610922d8'
 # The P10 provider pins the observers compare (unchanged from ga-3oa7).
 PROVIDER = ('/var/tmp/ga-e0t1.18-p10-adoption-20260926/after.json.provider-pins',
             '82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b')
@@ -243,6 +246,17 @@ SPLIT_COMMIT = '0e4b67080b7816d703f81d9559124b256f22fe1f'
 HOLDERS = ('gct-v1nl', 'gct-q6a4', 'gct-t54b', 'gct-2fax', 'gct-ilmv', 'gct-i852')
 # s2: the gct-mbg6 PREP outputs replace the ga-3oa7 ones in window-base (empty until PREP has run).
 PREP_PINS = []
+
+
+# s1 r7: the four codex choice blocks (TOML bytes of the pinned city.toml 4f7e170f) that grant more than the window's
+# choice: the attended approval policy, the Blog worktrees and the Template and HPFetcher .git roots.
+REMOVED_CHOICES = (
+    b'[[providers.codex.options_schema.choices]]\nvalue = "attended"\nlabel = "Attended approvals"\nflag_args = ["--ask-for-approval", "on-request"]\n\n',
+    b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-and-blog-worktrees"\nlabel = "Classified GasCity vault and Blog worktrees"\nflag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\\"/home/loucmane/vaults/main/GasCity\\",\\"/home/loucmane/dev/blog-worktrees\\"]"]\n\n',
+    b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-template-worktrees-and-git-metadata"\nlabel = "Classified vault, template worktrees, and template Git metadata"\nflag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\\"/home/loucmane/vaults/main/GasCity\\",\\"/home/loucmane/gas-city-template-worktrees\\",\\"/home/loucmane/gas-city-template/.git\\"]"]\n\n',
+    b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-hpfetcher-worktrees-and-git-metadata"\nlabel = "Classified vault, HPFetcher worktrees, and HPFetcher Git metadata"\nflag_args = ["--sandbox", "workspace-write", "-c", \'sandbox_workspace_write.writable_roots=["/home/loucmane/vaults/main/GasCity","/home/loucmane/dev/hpfetcher-worktrees","/home/loucmane/dev/hpfetcher/.git"]\']\n\n',
+)
+REMOVED_CHOICES_SRC = repr(REMOVED_CHOICES)
 
 
 def prep(text):
@@ -274,6 +288,21 @@ def prep(text):
                "                parts.append('[patches.agent.' + key + ']\\n')\n"
                "                for inner, item in value.items():\n"
                "                    parts.append(inner + ' = ' + json.dumps(item) + '\\n')\n")
+    # s1 r7 (r6 review B must_fix 1): Core f3856bd1 applies an opt_<key> choice from any in-progress Bead assigned
+    # to the session and skips values not in the resolved provider schema (session_reconciler.go
+    # workBeadOptionOverrides). The overlay therefore removes every codex choice wider than the window's: the
+    # Template and HPFetcher .git choices, the Blog worktrees choice and the attended approval policy. Each block
+    # must exist exactly once in the pinned city.toml.
+    text = sub(text, "    candidate = city.replace(b'max_active_sessions = 16\\n', b'max_active_sessions = 1\\n', 1) + ''.join(parts).encode()\n",
+               "    narrowed = city.replace(b'max_active_sessions = 16\\n', b'max_active_sessions = 1\\n', 1)\n"
+               "    for block in REMOVED_CHOICES:\n"
+               "        assert narrowed.count(block) == 1, ('codex choice block', block[:120])\n"
+               "        narrowed = narrowed.replace(block, b'')\n"
+               "    candidate = narrowed + ''.join(parts).encode()\n")
+    text = sub(text, "OVERLAY_SHA = '%s'" % OVERLAY_NEW,
+               "# s1 r7: the codex option choices the overlay removes from providers.codex.options_schema, byte-exact.\n"
+               "REMOVED_CHOICES = " + REMOVED_CHOICES_SRC + "\n"
+               "OVERLAY_SHA = '%s'" % OVERLAY_NEW)
     text = sub(text, "            expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1)\n",
                "            expected['config']['Agents'][i].update(WorkDir=WORK, MinActiveSessions=0, MaxActiveSessions=1,\n"
                "                                                   OptionDefaults=dict(worklog_access=NARROW_ACCESS))\n")
@@ -394,7 +423,7 @@ def watch(text):
     # worktree process carries, and every opt_/template_override key on the task and on the template's session
     # Beads, so a relaunch that restored the Template .git write root is visible.
     text = sub(text, "                processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks,\n",
-               "                roots = [arg.split(b'=', 1)[1].decode(errors='replace')[:2000] for arg in argv\n"
+               "                roots = [arg.split(b'=', 1)[1].decode(errors='replace') for arg in argv\n"
                "                         if arg.startswith(b'sandbox_workspace_write.writable_roots=')]\n"
                "                processes.append(dict(pid=int(proc.name), cwd=cwd, git_optional_locks_zero=locks, writable_roots=roots,\n")
     text = sub(text, WATCH_GIT,
@@ -440,12 +469,16 @@ def watch(text):
                "    result = dict(ok=True, mutation=False, head=head, branch=branch, note_markers=markers,\n"
                "                  template_git_config_sha256=template_config,\n")
     text = sub(text, "    notes = bead.get('notes') or ''\n",
+               "    def meta(v):\n"
+               "        return v.get('metadata') if isinstance(v.get('metadata'), dict) else {}\n"
                "    def overrides(metadata):\n"
-               "        return sorted(k for k in (metadata or {}) if k.startswith('opt_') or k.startswith('template_override'))\n"
+               "        if not isinstance(metadata, dict):\n"
+               "            return ['<metadata is not an object>']\n"
+               "        return sorted(k for k in metadata if k.startswith('opt_') or k.startswith('template_override'))\n"
                "    override_keys = dict(task=overrides(bead.get('metadata')),\n"
-               "                         sessions={v['id']: overrides(v.get('metadata')) for v in census\n"
-               "                                   if overrides(v.get('metadata')) and ((v.get('metadata') or {}).get('template') == TEMPLATE\n"
-               "                                   or (v.get('metadata') or {}).get('gc.work_dir') == str(w.WORK))})\n"
+               "                         sessions={str(v.get('id')): overrides(v.get('metadata')) for v in census if isinstance(v, dict)\n"
+               "                                   if overrides(v.get('metadata')) and (meta(v).get('template') == TEMPLATE\n"
+               "                                   or meta(v).get('gc.work_dir') == str(w.WORK))})\n"
                "    process_roots = sorted({root for p in processes for root in p['writable_roots']})\n"
                "    notes = bead.get('notes') or ''\n")
     text = sub(text, "                  template_git_config_sha256=template_config,\n",

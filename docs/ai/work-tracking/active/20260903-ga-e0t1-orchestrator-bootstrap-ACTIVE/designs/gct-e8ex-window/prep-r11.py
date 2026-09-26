@@ -121,7 +121,9 @@ RECEIPT_SHA = 'c833908fe89ab180e57ef7164d687f01ae2052f8667360f04b73c5423902f0a4'
 REVISION = '83c41af65776eaa90f93b57158e8ad57141e19347a592ce509a19f56c2667add'
 ORDER_COUNT = 34
 HEADER = '\n# gct-mbg6 bounded one-worker window; restore exact preserved baseline.\n'
-OVERLAY_SHA = '7c3cfc4d5ae185cdc863860c17433cd6d802d916e150fd9b6102cccec7a0cdf8'
+# s1 r7: the codex option choices the overlay removes from providers.codex.options_schema, byte-exact.
+REMOVED_CHOICES = (b'[[providers.codex.options_schema.choices]]\nvalue = "attended"\nlabel = "Attended approvals"\nflag_args = ["--ask-for-approval", "on-request"]\n\n', b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-and-blog-worktrees"\nlabel = "Classified GasCity vault and Blog worktrees"\nflag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\\"/home/loucmane/vaults/main/GasCity\\",\\"/home/loucmane/dev/blog-worktrees\\"]"]\n\n', b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-template-worktrees-and-git-metadata"\nlabel = "Classified vault, template worktrees, and template Git metadata"\nflag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\\"/home/loucmane/vaults/main/GasCity\\",\\"/home/loucmane/gas-city-template-worktrees\\",\\"/home/loucmane/gas-city-template/.git\\"]"]\n\n', b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-hpfetcher-worktrees-and-git-metadata"\nlabel = "Classified vault, HPFetcher worktrees, and HPFetcher Git metadata"\nflag_args = ["--sandbox", "workspace-write", "-c", \'sandbox_workspace_write.writable_roots=["/home/loucmane/vaults/main/GasCity","/home/loucmane/dev/hpfetcher-worktrees","/home/loucmane/dev/hpfetcher/.git"]\']\n\n')
+OVERLAY_SHA = '6ab01308fcd4eb4caf2aa601b2c82d52013d111197bd364f41e4d5a5610922d8'
 # s1 r5: the codex choice without the Template .git (vault and Template worktrees only).
 NARROW_ACCESS = 'classified-vault-and-template-worktrees'
 LAUNCH = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
@@ -292,7 +294,11 @@ def build_overlay(city, baseline, orders):
                 parts.append('[patches.agent.' + key + ']\n')
                 for inner, item in value.items():
                     parts.append(inner + ' = ' + json.dumps(item) + '\n')
-    candidate = city.replace(b'max_active_sessions = 16\n', b'max_active_sessions = 1\n', 1) + ''.join(parts).encode()
+    narrowed = city.replace(b'max_active_sessions = 16\n', b'max_active_sessions = 1\n', 1)
+    for block in REMOVED_CHOICES:
+        assert narrowed.count(block) == 1, ('codex choice block', block[:120])
+        narrowed = narrowed.replace(block, b'')
+    candidate = narrowed + ''.join(parts).encode()
     tomllib.loads(candidate.decode())
     return candidate, patches, names, target, selected
 
@@ -315,7 +321,7 @@ def main():
     write('config.baseline.json', baseline)
     write('orders.baseline.json', orders)
     candidate, patches, names, target, selected = build_overlay(city, baseline, orders)
-    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the derived 7c3cfc4d'
+    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the derived 6ab01308'
     write('city.baseline.toml', city)
     write('city.isolated.toml', candidate)
     write('declared-delta.json', dict(patches=patches, order_skip=names, workspace_cap=1))
