@@ -296,13 +296,20 @@ def test_scope_wait_times_out_and_refuses(s2, monkeypatch):
 
 # --- recovery gate, retries and window ----------------------------------------------------------------------
 
-def gate_root(tmp_path, phase='postflight1', started=True, call=True, result='ok', done=False):
+ENVELOPE = 'e' * 64
+
+
+def gate_root(tmp_path, phase='postflight1', started=True, call=True, result='ok', done=False, receipt=True):
     root = tmp_path/'root'
     root.mkdir()
+    receipts = tmp_path/'receipts'
+    receipts.mkdir()
+    if receipt:
+        (receipts/(ENVELOPE + '.json')).write_text('{}')
     (root/'terminal.json').write_text(json.dumps(dict(phase=phase, error_type='Refused', reason='x',
                                                       submission_started=started)))
     if call:
-        (root/'broker-call.json').write_text('{}')
+        (root/'broker-call.json').write_text(json.dumps(dict(envelope_sha256=ENVELOPE)))
     if result == 'ok':
         (root/'broker-result.json').write_text(json.dumps(dict(returncode=0, stdout='{"ok": true}', stderr='')))
     elif result == 'failed':
@@ -312,11 +319,11 @@ def gate_root(tmp_path, phase='postflight1', started=True, call=True, result='ok
     return root
 
 
-@pytest.mark.parametrize('kw', [dict(), dict(phase='submit'), dict(phase='postflight2'),
-                                dict(phase='submit', result=None)])
-def test_recovery_gate_admits_post_call_terminals(s2, tmp_path, kw):
-    """A client timeout leaves no broker-result.json: the marker alone admits recovery; the receipt then decides."""
-    s2.s15_recovery_gate(gate_root(tmp_path, **kw))
+@pytest.mark.parametrize('kw', [dict(), dict(phase='submit'), dict(phase='postflight2')])
+def test_recovery_gate_admits_post_call_terminals_with_success_and_receipt(s2, tmp_path, monkeypatch, kw):
+    root = gate_root(tmp_path, **kw)
+    monkeypatch.setattr(s2, 'S15_RECEIPTS', tmp_path/'receipts')
+    assert s2.s15_recovery_gate(root) == dict(envelope_sha256=ENVELOPE)
 
 
 @pytest.mark.parametrize('kw, message', [
@@ -324,18 +331,29 @@ def test_recovery_gate_admits_post_call_terminals(s2, tmp_path, kw):
     (dict(phase='recheck'), 'recovery only follows a terminal after submission started'),
     (dict(started=False), 'recovery only follows a terminal after submission started'),
     (dict(phase='submit', call=False, result=None), 'no broker call started'),
+    (dict(phase='submit', result=None), 'broker client lost after the call'),
+    (dict(result=None), 'broker client lost after the call'),
     (dict(result='failed'), 'the broker reported failure'),
     (dict(phase='postflight2', done=True), 'postflight2 completed'),
+    (dict(receipt=False), 'no broker receipt for the marked envelope'),
 ])
-def test_recovery_gate_refusals(s2, tmp_path, kw, message):
+def test_recovery_gate_refusals(s2, tmp_path, monkeypatch, kw, message):
+    root = gate_root(tmp_path, **kw)
+    monkeypatch.setattr(s2, 'S15_RECEIPTS', tmp_path/'receipts')
     with pytest.raises(Exception, match=message):
-        s2.s15_recovery_gate(gate_root(tmp_path, **kw))
+        s2.s15_recovery_gate(root)
+
+
+def test_recovery_binds_the_marker_to_the_binding():
+    body = (HERE/'s2_transition.py').read_text().split('def s14_recover(baseline_sha,binding_sha):\n', 1)[1]
+    assert body.index('call=s15_recovery_gate(ROOT)') < body.index('S14_RECOVERY_ROOT.mkdir(mode=0o700)')
+    assert "c.o.require(call['envelope_sha256']==binding['envelope_sha256'],'broker-call marker names another envelope')" in body
 
 
 def test_recovery_calls_the_gate_before_creating_its_root():
     text = (HERE/'s2_transition.py').read_text()
     body = text.split('def s14_recover(baseline_sha,binding_sha):\n', 1)[1]
-    assert body.index('s15_recovery_gate(ROOT)') < body.index('S14_RECOVERY_ROOT.mkdir(mode=0o700)')
+    assert body.index('call=s15_recovery_gate(ROOT)') < body.index('S14_RECOVERY_ROOT.mkdir(mode=0o700)')
     assert "rec('scope-wait-%d.json'%n,s15_wait_scope_settled())" in body
     assert text.count("if len(sys.argv)==4 and sys.argv[1]=='recover' and __name__=='__main__':") == 1
 

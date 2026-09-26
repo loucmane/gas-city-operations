@@ -98,11 +98,11 @@ rationale. In summary:
 | Broker | It stayed active after sequence 14. Accept requires it active and running with NRestarts 0; the precondition then pins the accepted record exactly. The transition admits the unchanged record, or a fresh activation epoch as before |
 | Postflight | Before each capture, a bounded wait of 180 s requires the quiet scope to pass on two consecutive reads 5 s apart. This addresses the transient member that refused sequence 14's postflight 1. The result is recorded as `<phase>-scope-wait.json` |
 | Budget | Submit requires at least 240 s of remaining window and envelope budget, up from 31 s |
-| Recovery | The read-only, deadline-free recovery phase is kept, generalized to any `submit`, `postflight1` or `postflight2` terminal after a broker call that returned exact success. Root: `/var/tmp/ga-e0t1.18-seq15-recovery-20260926` |
+| Recovery | The read-only, deadline-free recovery phase is kept, generalized to any `submit`, `postflight1` or `postflight2` terminal after a broker call that returned exact success, once the receipt exists. A lost client, with a marker but no result, is a hard stop (s2 r4). Root: `/var/tmp/ga-e0t1.18-seq15-recovery-20260926` |
 | Cache (r2) | With no additions, the cache root metadata must also be exactly unchanged |
 | Accept (r2) | The broker socket must be active, enabled, Result success, and SubState listening or running |
 
-`test_s2.py` has 64 tests at r3. They cover:
+`test_s2.py` has 67 tests at r4. They cover:
 - behavioural cases, ported from sequence 14 and extended to every sequence 15 rule:
   - fresh or survived dolt from a live or a deleted predecessor;
   - an unchanged or freshly started broker, and each broker refusal;
@@ -133,34 +133,55 @@ below; the r2 wording is superseded.
   - there is no `/var/lib/gas-city-provisioning/receipts/<envelope sha>.json`;
   - the broker service epoch (MainPID, start) is unchanged from the accepted record.
 
-  Then retry through `retry.json` with a fresh ROOT and a new envelope.
+  The marker is what decides whether a call happened. A normal apply keeps the long-running broker's epoch, so the
+  epoch is only a consistency check.
+- **Retry steps** (as ga-e0t1.15 PLAN):
+  1. Write `retry.json` `{"retry": N, "reaccept": <true if the closure drifted>}` and regenerate. This gives a
+     fresh ROOT `-tN` and attempt `r(16+N)`; with reaccept it also gives a fresh accept root `-r(1+N)`.
+  2. Stage `deadlines.py` (`1486dbbc`) into the new ROOT.
+  3. Get a constants-only diff review, then rerun from `prepare`, or from `accept` when reaccepting.
+  4. Create the new envelope only after the previous one's `expires_at` has passed.
 - **After submit** (`broker-call.json` present):
   - Keep the timer paused.
-  - Run the recovery phase:
-    `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B .../ga-e0t1.18-deploy/s2_transition.py recover <baseline_sha256> <binding_sha256>`.
-  - Its gate (`s15_recovery_gate`) admits:
-    - a submit, postflight1 or postflight2 terminal with `submission_started` and the marker;
-    - no `postflight2-done.json`;
-    - and, if `broker-result.json` exists, exact success.
-
-    A missing broker result is admitted; the receipt verification then proves independently whether the broker
-    applied.
-  - After recovery passes and a readback review passes, restore the timer.
+  - **With `broker-result.json` showing exact success**, wait until the receipt
+    `/var/lib/gas-city-provisioning/receipts/<envelope sha>.json` exists, then run the recovery phase:
+    `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1.18-deploy/s2_transition.py recover <baseline_sha256> <binding_sha256>`.
+    - Its gate (`s15_recovery_gate`) refuses, before creating the one-shot recovery root, unless all of these hold:
+      - a submit, postflight1 or postflight2 terminal;
+      - `submission_started`;
+      - the marker;
+      - `broker-result.json` with exact success;
+      - no `postflight2-done.json`;
+      - the receipt present.
+    - Recovery also binds the marker's envelope to the envelope binding.
+    - After recovery passes and a readback review passes, restore the timer.
+  - **Without `broker-result.json`, a lost client, it is a hard stop (s2 r4).** The installed broker
+    (`gct-privileged-provision` `_serve`) keeps applying after the client is gone. It writes its receipt, then fails
+    the reply with EPIPE and exits with code 3. Its unit has no `Restart=`, so it is left failed with
+    Result=exit-code. The capture requires a healthy broker, so recovery cannot pass. Expected end state: the Core
+    is either adopted or rolled back, as the receipt says; the broker unit is failed; the timer is paused; the city is
+    suspended. Next step: report. Resetting the broker unit and verifying the adoption needs its own reviewed change.
 - **Hard stops.** In every hard stop the timer stays paused, the city stays suspended, everything is preserved, and
   I report. They are:
+  - a lost broker client (above);
   - a broker result that reports failure;
   - a recovery refusal;
   - process loss without `terminal.json`;
   - a failed readback review after postflight2 or after recovery.
-- **Sequence reuse.** A sequence number is consumed only by a broker receipt. After a pre-submit stop that meets
-  the three conditions above, sequence 15 is unconsumed and is reused. Sequence 14 did the same: its t1 envelope
-  was sequence 14 again after the t0 refusal (`/var/tmp/ga-e0t1.15-seq14-20260925-t1/envelope.json`). A consumed
-  sequence, an envelope or a ROOT is never reused.
+
+  Postflight2 is always run after postflight1 passes, so a terminal or `postflight2-done.json` always exists.
+- **Sequence reuse.** The broker advances `last_sequence` only while holding its lock, together with a pass or fail
+  receipt. Pre-lock refusals write nothing. After a pre-submit stop that meets the three conditions above, sequence
+  15 is therefore still unconsumed and is reused. The sequence 14 roots do not show a signed sequence being reused:
+  its t0 root holds only `deadlines.py`, so the earlier citation of it was wrong. A consumed sequence, an envelope
+  or a ROOT is never reused.
 - **Time limits** (`deadlines.py` `envelope_check`; broker envelope validity 605 s).
-  - Submit must start within 640 s of the prepare window start and within 350 s of the envelope's `issued_at`. That
-    leaves the 240 s budget.
-  - The in-window envelope review is therefore time-boxed at about 4 minutes, with a manifest extract.
-  - Sequence 14 submitted 566 s into the window and 191 s after issue.
+  - The budget fence runs about 20 s after the submit phase starts: sequence 14 started submit at mono 123456.763
+    and fenced at 123476.391.
+  - So submit must be *launched* by 620 s into the prepare window and by 330 s after the envelope's `issued_at`,
+    for the fence to find more than 240 s left.
+  - Sequence 14 launched its submit about 546 s into the window and 172 s after issue.
+  - The in-window envelope review is time-boxed at about 4 minutes, with a manifest extract.
 - **Signing.** A pre-window probe of the operator key succeeded non-interactively:
   `gpg --batch --local-user FD5585…! --detach-sign` on a scratch file, 2026-09-26. The broker's `prepare` is a
   separate CLI and runs directly from the operator shell. Every `s2_transition.py` phase runs through `systemd-run`.

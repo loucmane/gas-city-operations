@@ -26,9 +26,10 @@ What sequence 15 changes, and why:
   exactly. The wait uses the same observation calls as the capture (host_observation runs gc status and session
   list with the new binary), no other access.
 - Budget (s2 r2, both reviews): submit now requires at least 240 s of window and envelope budget left, not 31 s.
-- Recovery (s2 r2, review B must_fix 1): the read-only, deadline-free recovery phase is kept and generalized to
-  any postflight1 or postflight2 terminal after a completed broker call, so a post-submit deadline or transient
-  refusal is recoverable by reviewed code, not a dead end.
+- Recovery (s2 r2 to r4): the read-only, deadline-free recovery phase is kept and generalized to any submit,
+  postflight1 or postflight2 terminal after a broker call that returned exact success (broker-call.json and
+  broker-result.json), once the receipt exists, so a post-submit deadline or transient refusal is recoverable by
+  reviewed code. A lost client (marker without broker-result) is an explicit hard stop (s2 r4).
 - Cache (s2 r2): with no additions, the cache root metadata must also be exactly unchanged.
 - Accept (s2 r2): the broker socket must be active, enabled, Result success and SubState listening or running.
 """
@@ -181,7 +182,8 @@ def overrides(r):
          "        c.o.require(budget>240*d.SECOND,'insufficient one-shot submission budget')\n"
          "        # sequence 15 (s2 r3): a durable marker immediately before the one broker call. Any submit\n"
          "        # terminal after it is post-submit, whether or not broker-result.json was written (a client\n"
-         "        # timeout kills only the unprivileged client, not the socket-activated broker service).\n"
+         "        # timeout kills only the unprivileged client, not the broker service). Without broker-result.json\n"
+         "        # it is a hard stop (s2 r4); with an exact success result it goes to recovery.\n"
          "        record('broker-call.json',dict(envelope_sha256=binding['envelope_sha256'],clock=clocks()))\n"),
         ("    # reads as \"<path> (deleted)\". That is admitted only when the mapped image is exactly c.OLD.\n",
          "    # reads as \"<path> (deleted)\". Sequence 15 admits it only when the mapped image is exactly 69d00186 (the\n"
@@ -233,10 +235,11 @@ def overrides(r):
          "# scope membership', apparently a transient member seen at initialization. ROOT stays terminal and\n"
          "# preserved. This phase is read-only: no broker call, no timer change, no write outside\n",
          "# --- 9. Recovery acceptance (sequence 13 and 14 precedent). Sequence 15 keeps this phase for any\n"
-         "# submit, postflight1 or postflight2 terminal after the broker call started (broker-call.json), unless\n"
-         "# the broker reported failure or postflight2 completed: for example a client timeout, the post-call\n"
-         "# fence, a transient scope member or an expired envelope deadline during the postflight waits. The\n"
-         "# receipt check below proves independently that the broker applied. ROOT stays terminal and\n"
+         "# submit, postflight1 or postflight2 terminal after a broker call that returned exact success\n"
+         "# (broker-call.json and broker-result.json), unless postflight2 completed and once the receipt exists:\n"
+         "# for example the post-call fence, a transient scope member or an expired envelope deadline during the\n"
+         "# postflight waits. A lost client (marker, no result) is a hard stop (s15_recovery_gate). The receipt\n"
+         "# verification below proves the adoption. ROOT stays terminal and\n"
          "# preserved. This phase is read-only: no broker call, no timer change, no write outside\n"),
         ("# be equal. It does not use the elapsed-window fence: the adoption itself happened inside the window\n"
          "# (submit-done.json), and this phase only reads.\n",
@@ -244,23 +247,35 @@ def overrides(r):
          "# (broker-call.json after the fenced budget check), and this phase only reads.\n"),
         ("S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.15-seq14-recovery-20260925')",
          "S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.18-seq15-recovery-20260926')\n"
+         "S15_RECEIPTS=Path('/var/lib/gas-city-provisioning/receipts')\n"
          "\n"
          "def s15_recovery_gate(root):\n"
-         "    # A function so it is testable. It reads only, and returns the broker result if one was written.\n"
+         "    # A function so it is testable. It reads only; every refusal happens before the recovery root exists.\n"
          "    terminal=json.loads((root/'terminal.json').read_text())\n"
          "    c.o.require(terminal.get('phase') in ('submit','postflight1','postflight2') and terminal.get('submission_started') is True,\n"
          "                'recovery only follows a terminal after submission started')\n"
          "    c.o.require(os.path.lexists(root/'broker-call.json'),'no broker call started; this is a pre-submit stop')\n"
          "    c.o.require(not os.path.lexists(root/'postflight2-done.json'),'postflight2 completed; nothing to recover')\n"
-         "    result=None\n"
-         "    if os.path.lexists(root/'broker-result.json'):\n"
-         "        result=json.loads((root/'broker-result.json').read_text())\n"
-         "        c.o.require(result.get('returncode')==0 and c.o.decode(result.get('stdout','').encode()).get('ok') is True,\n"
-         "                    'the broker reported failure; hard stop, not recovery')\n"
-         "    return result"),
+         "    # s2 r4: a marker without broker-result.json means the client was lost after handing over the request.\n"
+         "    # The broker then applies, fails its reply with EPIPE and exits into a failed unit (no Restart=); the\n"
+         "    # capture requires a healthy broker, so this state is an explicit hard stop, never recovery.\n"
+         "    c.o.require(os.path.lexists(root/'broker-result.json'),\n"
+         "                'broker client lost after the call (marker without broker-result); hard stop, not recovery')\n"
+         "    result=json.loads((root/'broker-result.json').read_text())\n"
+         "    c.o.require(result.get('returncode')==0 and c.o.decode(result.get('stdout','').encode()).get('ok') is True,\n"
+         "                'the broker reported failure; hard stop, not recovery')\n"
+         "    call=json.loads((root/'broker-call.json').read_text())\n"
+         "    c.o.require(os.path.lexists(S15_RECEIPTS/(call['envelope_sha256']+'.json')),\n"
+         "                'no broker receipt for the marked envelope; do not start recovery yet')\n"
+         "    return call"),
+        ("    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)\n"
+         "    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')\n",
+         "    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)\n"
+         "    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')\n"
+         "    c.o.require(call['envelope_sha256']==binding['envelope_sha256'],'broker-call marker names another envelope')\n"),
         ("    c.o.require(json.loads((ROOT/'terminal.json').read_text())=={'phase':'postflight1','error_type':'Refused',\n"
          "                'reason':'supervisor scope membership','submission_started':True},'terminal disposition changed')\n",
-         "    s15_recovery_gate(ROOT)\n"),
+         "    call=s15_recovery_gate(ROOT)\n"),
         ("    c.o.require(os.path.lexists(ROOT/'submit-done.json') and os.path.lexists(ROOT/'broker-result.json'),'submission record')\n",
          ""),
         ("        s14_wait_initialized()\n        c.timer_inactive()\n",
