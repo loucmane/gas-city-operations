@@ -40,6 +40,27 @@ The Core image is unchanged, so P9 reuses P8's reviewed diagnostic builds (compo
 - the reused builds;
 - the adoption constants, which run once they are filled.
 
+## Read-only run and adoption binding (r2, 2026-09-26)
+
+r1 `02bafd57` received two SOURCE_PASS verdicts with no must_fix. Both suggested binding the new revision to
+the one the activation recorded, and the operator enforced that by hand:
+- **Before step 1.** The candidate `agent.toml` was `ba01f223` (suspended), and the receipt was `23eeb222`.
+- **After step 1.** The traced revision was exactly `83c41af6`. Any other value would have been a stop.
+
+Steps 1 to 3 then ran once each, all passing, at the reviewed commit:
+- **input:** result `e2e208a1`, draft `1d53390e`, revision `83c41af6`.
+- **compose:** ok and unchanged.
+- **readiness:** ok and unchanged, with no inference, signing or worker.
+  - The finalized receipt `6bf20a71` has self digest `781dd46d`.
+  - It names core `deefb98b`, Template `cfd353f3` and revision `83c41af6`.
+
+r2 fills the five adoption constants:
+- `NEW_SHA` `6bf20a71` and `NEW_SELF` `781dd46d`;
+- `READY_RESULT_SHA` `a6cac0b9`, `READY_BEFORE_SHA` `2840a80e` and `READY_PINS_SHA` `82a4a70c`.
+
+Review follow-ups: a runtime pin of the expected revision, an offline provisioner check test, a
+constants-None refusal test, and negative `m8_acceptance` tests.
+
 ## Run order
 
 This is P8's order, with absolute paths and one invocation each, as

@@ -22,11 +22,11 @@ READY_SOURCE=HERE/'p9-readiness.py'
 READY_SHA='3ef9d90d2a850fec561241551efb743f17e7e4e0a17a5fb4e2c6dcf6bf762bcd'
 OLD_SHA='23eeb222d6d5c0afcf8dc8c01a99dfc7b57fbecfdbc0a1f7ca83d3319181d78e'
 # Filled from the passed P9 readiness evidence before the adoption reviews.
-NEW_SHA=None
-NEW_SELF=None
-READY_RESULT_SHA=None
-READY_BEFORE_SHA=None
-READY_PINS_SHA=None
+NEW_SHA='6bf20a712ef78be16a0e4e79bd495da12e573fdbd9637508803997ebd23e6bc0'
+NEW_SELF='781dd46da7dc0ccf484be134edeb53040b46747fc3cfb4ac3362a91b4f4cdeb6'
+READY_RESULT_SHA='a6cac0b99822e8432fa8b01b2a0c87bb212ff141c165d13d4921b2b75f8c8ee7'
+READY_BEFORE_SHA='2840a80e8e14f2f39d5ca533c99100523a846a9d0e2c7f13cdd0c1be5f8e9ad0'
+READY_PINS_SHA='82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b'
 CORE='deefb98b2aed07875df31351d081fbac195cb1cd'
 EVIDENCE=[
  ('reviewed-build','/var/tmp/ga-e0t1.18-build-20260926/artifact-verification.json','d1fea7a531aedf7bc50fbe08b800f8cb3436ba4f2c633471b9eb34c4a51554de'),
