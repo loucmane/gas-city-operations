@@ -8,8 +8,9 @@ refused `project_context.py --check` before the shell executed it.
 ## Opt-in profile, not a wildcard Bash grant
 
 `.claude/orchestrator-command-profile.json` is a project-local, protected opt-in.
-The profile knows five command classes, each a closed grammar. Operations enables the
-first four; the fifth, `delivery` (ga-fsfg R3, below), needs its own explicit opt-in:
+The profile knows seven command classes, each a closed grammar. Operations enables the
+first four; the fifth, `delivery` (ga-fsfg R3), and the sixth and seventh, `dispatch`
+and `evidence-write` (ga-fsfg R4), each need their own explicit opt-in (sections below):
 
 - `project-context`: the unchanged canonical `project_context.py`, current root,
   and `--check` only.
@@ -27,6 +28,11 @@ first four; the fifth, `delivery` (ga-fsfg R3, below), needs its own explicit op
 - `delivery`: push a signed Operations branch, open its pull request into `main` and
   merge that pull request, one fixed-environment `/usr/bin/git` or `/usr/bin/gh` command
   per call. See "Delivery (ga-fsfg R3)".
+- `dispatch`: a fourth `coordinate` action that routes, with `gc sling`, a child Bead
+  the worktree created and does not own, to a target listed in the profile. It is
+  approved as `workflow-coordinate`. See "Dispatch (ga-fsfg R4)".
+- `evidence-write`: a native `Write` that creates one new file under a worktree's
+  ACTIVE work-tracking `reports/` directory. See "Evidence write (ga-fsfg R4)".
 
 ## Remote observation and journal-bound discharge (ga-fsfg R1)
 
@@ -230,8 +236,10 @@ they do not permit the requested command to run.
 
 The profile is permission policy, not operator task authorization. A supported
 command remains subject to the operator's stated scope. It grants no signing,
-arbitrary Bead mutation CLI, dispatch, lifecycle, file-write or privileged access. Push
-and merge are granted only through the `delivery` class's closed grammar below.
+arbitrary Bead mutation CLI, lifecycle, general file-write or privileged access. Push
+and merge are granted only through the `delivery` class's closed grammar below;
+routing only through the `dispatch` action, and one create-only file write only
+through the `evidence-write` class.
 It does not prove Claude implementation-worker capabilities.
 
 ## Delivery (ga-fsfg R3)
@@ -549,10 +557,299 @@ preflight first:
 - The session runs with the PreToolUse `timeout` of 120 and the synchronous
   `PostToolUseFailure` `deliveryfailure` entry in `.claude/settings.json`.
 
+## Dispatch (ga-fsfg R4)
+
+`dispatch` routes a child Bead that an Operations worktree `<W>` created to a pool
+agent listed in the profile, with `gc sling`. It is stationary, like the coordination
+verbs: the canonical seat stays on `main`, where readiness is BLOCKED by design, and no
+readiness exemption is added. It is approved natively exactly as the other `coordinate`
+actions are, through the `workflow-coordinate` class, with `<W>`'s readiness, the
+canonical runtime check and advisory handling unchanged, and audited on `<W>` as
+`native_permission:workflow-coordinate`.
+
+**Why a child, never an owned Bead.** Every Bead `<W>` owns (the primary and each
+attached Bead) is `in_progress` with `workflow.external_owner` metadata, and
+`require_external_candidate` rejects any `gc.*` metadata or assignee on it. Routing an
+owned Bead would fail every later ownership check at `<W>` and give one Bead two
+owners. So `dispatch` routes only a child produced by a verified `create` record in
+`<W>`'s journal, which `<W>` does not own.
+
+### Opt-in and profile fields
+
+The profile lists `dispatch` in `commands`, in addition to `workflow-coordinate`, and
+carries two top-level lists:
+
+| Field | Value |
+| --- | --- |
+| `dispatch_targets` | the closed list of targets: unique qualified agent names `<rig>/<agent>` (lowercase `a-z0-9._-`), at most 16, each starting with `<profile rig>/` |
+| `preroute_targets` | non-empty, same form, at most 16: the lanes that only their reviewed window packages route, today `gascity/operations-candidate-worker`. A dispatch to one of them refuses |
+
+Both lists are required when `dispatch` is listed and refused when it is not. A missing
+or invalid list, or `dispatch` without `workflow-coordinate`, refuses the whole profile,
+the same fail-closed rule as a drifted `review_projects` record. The tracked Operations
+profile does not opt in yet; the class is off until it does.
+
+**What a target must be.** Every `dispatch_targets` entry is a pool agent whose sessions
+work in their own isolated worktree, never an agent whose working directory is a
+canonical checkout such as the Core rig root. Where `gc agent list --json` exposes the
+agent's working directory (a `work_dir`, `workdir`, `working_dir` or `cwd` field, in
+any case), the executor refuses one equal to or inside a canonical root the profile
+names: the seat's, and each registered and review project's. Otherwise this is a review
+requirement on every entry.
+
+### Form
+
+The only form, with literal arguments and nothing else:
+
+```bash
+python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py coordinate --root /home/loucmane/gas-city-ops-worktrees/ga-x-slug --bead ga-x.1 --action dispatch --target gascity/worker
+```
+
+`--target` exists only in the dispatch shape. Any other argument, a repeated one, shell
+syntax, or inline text in place of a Bead id refuses. Pass the Bash tool a timeout of
+300000 ms for this command: each executor gc call is bounded at 30 s, but together, and
+with the inherited ownership reads that have no timeout of their own, they can exceed
+the Bash default. A call the Bash tool kills is safe because of the `last_sling_at` 60 s
+guard below, except for the residual under Limits.
+
+### What the gate checks
+
+The gate reads only local state: the form, the profile and `<W>`'s target validation.
+The profile check is `dispatch` in `commands`, `<target>` in `dispatch_targets` and not
+in `preroute_targets`, and `<W>` an Operations worktree: a registered-project (Core)
+`<W>` refuses, and a review-project `<W>` is no coordination target at all. Target
+validation is `coordinate`'s (canonical seat, known non-plan mode, direct registered
+linked worktree, reviewed runtime, ready journal, verified ownership, branch form),
+with one exemption from its ownership refusal. The `--bead` must match the Bead grammar,
+be a dotted child (`<parent>.<n>`) of the primary or an attached Bead and not one of
+them, and be the `result_bead` of a `verified` record in `<W>`'s journal whose
+`request.action` is `create`. Verified `note` and `depend` records also carry a
+`result_bead`, always an owned Bead, and never qualify. Every other action keeps
+refusing an unowned Bead.
+
+No gc read runs in the gate, so the PreToolUse check and the PostToolUse `post_success`
+recheck never see the child's live state, which the sling changes. A routed or claimed
+child never fails the recheck, and a pending dispatch's exact request always reaches the
+executor. The call's PostToolUse records one ordinary pending event on `<W>`; log it with
+`workflow.py log --root <W> --pending-id <id>` before the next coordination.
+
+### What the executor checks
+
+Under the repository lock, `workflow.py` refuses unless all of these hold:
+
+- The profile loads through the gate's own `_profile()` loader at the canonical root of
+  the runtime the executor runs from, its Git common directory's parent
+  (`/home/loucmane/gas-city-ops` for Operations), which must equal the profile's
+  `canonical_root`. Any loader exception or a missing profile refuses. The profile's
+  `city` and `rig` are authoritative for every gc argv the action builds and must equal
+  the workflow context's.
+- `<W>` is an Operations worktree: its project id, canonical root and worktree root are
+  the profile's.
+- `<W>`'s own ownership check passes, as for every other action.
+- The journal checks above: the Bead grammar, the verified `create` record, the dotted
+  child.
+- `<target>` is in `dispatch_targets`; `preroute_targets` is non-empty and does not
+  contain it.
+- A live `bd show` shows the child `open` and unassigned, with no `workflow.external_owner`,
+  no `gc.*` metadata key (so no `gc.work_dir` or `gc.routed_to`), no work-pack or
+  workspace key, no native routing or session field and no `pool:`, `agent:`, `session:`
+  or `route:` label. A Bead that a reviewed window prepared is routed by that window,
+  never by `dispatch`.
+- A live `bd ready --limit 0 --json` lists it (`--limit 0` is unlimited; the default of
+  100 rows could falsely refuse). bd 1.2.2 marks a child blocked when its parent-child
+  parent is blocked, for example by a `depend` prerequisite, and such a child never
+  reaches a worker. The action refuses, naming that predicate; it never removes the edge.
+- A live `gc --city <city> agent list --json` shows `<target>` exactly once and not
+  suspended.
+
+**The gc calls.** The calls dispatch adds (the `bd show` reads, `bd ready`, `agent list`
+and the sling) use `/home/loucmane/gascity/bin/gc` with exactly this environment and
+nothing inherited: `HOME=/home/loucmane`,
+`PATH=/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin`,
+`GC_HOME=/home/loucmane/gascity/home`, `GIT_OPTIONAL_LOCKS=0`, `BD_DISABLE_METRICS=1`
+(bd never spawns its metrics flusher) and `LANG=C`. Each call is timed at 30 s and runs
+in a process group of its own that a timeout kills as a whole; a timeout refuses. The
+executor caps `bd ready` output at 16 MiB and each `bd show`, `agent list` and sling
+output at 1 MiB and refuses above a cap. The caps are checked after capture, so they
+bound what is accepted, not memory; the timeouts bound that. The ownership and owned-Bead
+reads that dispatch inherits keep `managed_environment()`.
+
+**The sling.** Exactly
+`/home/loucmane/gascity/bin/gc --city <city> --rig <rig> sling <target> <bead> --no-formula --no-convoy --json`,
+the reviewed ga-4z38 routing form. Its JSON result must report `success` and `routed`
+as true, no `dry_run`, no `convoy_id` and no `molecule_id`, and name the same Bead and
+target where it names them, before the readback.
+
+**Readback.** The `before` snapshot stored with the intent and every readback come from
+the same dispatch `bd show --json` argv and environment. Routing is verified when the
+child's metadata equals the metadata before plus `gc.routed_to = <target>`. A pool
+worker may claim the child before the readback, so a claim delta is accepted too:
+`status` (only to `in_progress`), `assignee`, `updated_at`, `started_at` and the metadata
+keys `gc.session_id`, `gc.session_name` and `gc.work_branch` (Core writes the rig
+checkout's branch there, a known Core defect, ga-l7gz), added or changed, in any subset,
+since a readback can race the claim. Nothing may be removed, and every other field,
+nested dependency entries included, must be unchanged. "Verified" means the routing is
+verified, not the claim: an `assignee` is accepted without proving it belongs to
+`<target>`'s pool, which adds no exposure because the child was already ready and
+unassigned. The ga-x7lx window (2026-09-26) observed these route and claim deltas live,
+but on a window-prepared Bead that already carried `gc.work_dir` and `gc.check_path`. A
+dispatch child starts with no `gc.*` key, so if a real sling or claim of such a child
+adds any other key, the record stays pending (fail closed). Watch the first live
+dispatch, and use a throwaway child for it.
+
+### Completion and replay
+
+- The replay lookup runs before any live check. An exact completed dispatch replays as
+  a no-op that returns the recorded result, without comparing the live child to its
+  snapshot: a worker is expected to change it.
+- A sling that fails, times out, exceeds a cap or fails the readback leaves the record
+  pending. No reconcile verb exists for dispatch intents (`reconcile-attachment` handles
+  `depend` intents only); the exact same request completes it. While it is pending, every
+  other `coordinate` action (even the replay of a verified one) and `reconcile-attachment`
+  refuse. `workflow.py log --root <W> --pending-id <id>` still runs, the other workflow
+  verbs keep their behaviour, and delivery is unchanged.
+- The completion always reruns the journal, Bead grammar, verified-`create`,
+  dotted-child, `dispatch_targets` and `preroute_targets` checks, then re-reads the child.
+  If it is routed to `<target>` with an accepted delta against the recorded `before`,
+  the record is verified without a second sling. If it is still unrouted and otherwise
+  as recorded (equal to `before` in every field except `updated_at`) and at least 60 s
+  have passed since the latest sling attempt, it runs the unrouted-state checks, `bd
+  ready` and a fresh `agent list`, and slings once more. Anything else stays pending and
+  is reported with the child's status, assignee and `gc.routed_to`. Nothing retries on
+  its own.
+- Every attempt is timed. Dispatch records carry `last_sling_at` (UTC, with
+  microseconds and a `Z`) from creation, so no pending dispatch lacks it. Before every
+  sling, the first included, it is rewritten as the last journal write, after every
+  other read and immediately before the sling runs; if that write fails, the call
+  refuses without slinging. The 60 s run from the latest value. An unparsable or future
+  `last_sling_at` refuses. No other action uses the field.
+- A child closed while its dispatch was pending matches neither branch, because the
+  close delta is neither specified nor observed; it stays pending. That is a documented
+  limit: a completion normally runs right after a failed sling, long before a worker
+  could close the child. The whole `before` snapshot is compared as stored, so a change
+  to a related Bead, for example a note on the parent, also leaves the record pending.
+
+**Operator remedy.** A dispatch that stays pending is reported with the child's live
+state. The operator brings the child to one of the two accepted states by hand (routed
+to `<target>` with an accepted delta, or unrouted and otherwise as recorded) and re-runs
+the exact request; restoring the recorded unrouted state authorises one more sling. If
+the failed call left a pending event on `<W>` (a failure that reached PostToolUse), log
+it first with `log --root <W> --pending-id <id>`, because `target_for` refuses the
+re-request while any event is pending. While the intent is pending,
+`coordinate --action note` at `<W>` refuses too and no raw `bd` mutation is approved, so
+the coordinator reports the stuck state to the operator. The operator records it on the
+primary Bead by hand only after the remedy is abandoned: a note written earlier changes
+the child's stored parent snapshot, so the unrouted branch could never match again. If
+the child cannot be brought to either state, coordination at `<W>` stays refused.
+Nothing edits the journal by hand.
+
+**Stopping a re-route.** Unrouting a child does not stop a new dispatch request for
+another target, which is a new request key and passes the live checks. To keep a child
+from being routed again, close or defer it once its dispatch record is verified; closing
+it while the record is still pending leaves `<W>` blocked, as above.
+
+### Limits
+
+- **Residual double route.** The 60 s re-sling guard holds because every sling call
+  times out after 30 s. As an invariant: any sling that lands more than 60 s after its
+  `last_sling_at`, for example one orphaned when the Bash tool killed `workflow.py`,
+  could route the child to the same target twice.
+- The claim is not proven to be `<target>`'s (see Readback).
+- Whether a target's sessions work in isolated worktrees is a review requirement
+  wherever `agent list` does not expose a working directory.
+
+### Live preflight before the first real dispatch
+
+Fixtures cannot show the live shapes. Before the first real dispatch the coordinator
+runs, read-only and under exactly the dispatch environment (it has no `USER`, `LOGNAME`
+or `XDG_RUNTIME_DIR`), `gc --city <city> agent list --json`,
+`gc --city <city> --rig <rig> bd ready --limit 0 --json` and a `bd show --json` of an
+existing Bead, and confirms the executor accepts their shapes:
+
+- `bd show --json`: a list of one record, or one record, whose `id` is the Bead.
+- `bd ready --limit 0 --json`: a JSON list of records carrying `id`.
+- `agent list --json`: a list of agent records, or an object whose one `agents` field is
+  that list. A record names its agent by `qualified_name` or `name` equal to
+  `<rig>/<agent>`, or by a `rig` (or `dir`) plus a plain `name`; field names match
+  without regard to case or underscores. It must carry `suspended` as JSON `false`; a
+  record that does not show it refuses.
+
+## Evidence write (ga-fsfg R4)
+
+`evidence-write` lets the canonical seat create one new evidence file in an Operations
+worktree `<W>` with Claude's native `Write` tool, again with no readiness exemption at
+the seat. The profile opts in by listing `evidence-write` in `commands`; the root is
+derived at write time, never configured. The event is discharged with `workflow.py log`,
+which needs the `workflow-coordinate` class for its own native approval.
+
+**Scope.** A native `Write` that creates a new file, and nothing else. `Edit`,
+`MultiEdit`, an overwrite of an existing file, `NotebookEdit` and every other file tool
+keep today's behaviour.
+
+**Which Writes the class owns.** A `Write` from an opted-in canonical seat (a main
+checkout, never a linked worktree's own session) whose absolute `file_path` names
+`docs/ai/work-tracking/active/` below a direct child of the Operations worktree root or
+of a registered or review project's worktree root. Such a Write is validated and refused
+on any failed rule, in advisory mode too (tier C, `coordination_target_invalid`). Every
+other path keeps today's behaviour; at the canonical seat, where readiness is BLOCKED by
+design, an ordinary Write stays refused.
+
+**Where the path must lie.** Inside `<W>/docs/ai/work-tracking/active/<folder>-ACTIVE/reports/`,
+where:
+
+- `<W>` is an Operations registered linked worktree that passes the target validation
+  `coordinate` uses: the canonical seat and payload `cwd`, a known non-plan mode, a
+  direct child of the Operations worktree root without a symlink, the seat's profile and
+  descriptor, the reviewed runtime, a ready journal, verified ownership and the branch
+  form. A registered-project (Core) or review-project worktree refuses.
+- `<folder>-ACTIVE` is the only `*-ACTIVE` entry directly under `<W>`'s `active/`, and
+  it, its `reports/` and every directory above them already exist as real directories,
+  judged by `lstat`. Nothing above `reports/` is ever created.
+
+**The target.** It must not exist yet; a dangling symlink counts as existing. The path
+is canonical and absolute (no `.`, `..` or doubled slash) and has no control or other
+non-printable character. Every existing component below `reports/` is a real directory,
+never a link; a directory below `reports/` that does not exist yet may be created by the
+Write. The content is text of at most 1 MiB.
+
+**Names.** Every component below `reports/` is ordinary: no leading `.`, and, compared
+case-insensitively, no `CLAUDE*.md`, `AGENTS*.md`, `GEMINI*.md`, `*SKILL.md`,
+`conftest.py`, `*.pth` or `*.py`. The file's suffix is exactly `.md`, `.txt`, `.json`,
+`.jsonl` or `.log`.
+
+**Readiness and tracking.** For such a path the gate evaluates readiness, observation,
+the pending event and advisory handling at `<W>`, as `target_for` does for the
+coordination verbs, and audits the approval on `<W>` as
+`native_permission:evidence-write`. The approval uses the same PreToolUse
+`permissionDecision` output as the Bash classes. Observation or an unresolved pending
+event at the seat or at `<W>` refuses, so evidence writes come one at a time: discharge
+each event with `workflow.py log --root <W> --pending-id <id>` before the next.
+
+**After the write.** PostToolUse does not rerun the "must not exist" rule, which the
+write itself makes false. It rechecks `<W>`'s target validation, that the path is under
+the single ACTIVE `reports/`, and that the file is now a regular, singly linked,
+non-symlink file of at most 1 MiB. It then records the event on `<W>` through its own
+branch, never the delivery branch: `kind` `mutation`, handler `claude:Write`, evidence
+the path relative to `<W>`. A failed recheck is a recorded block with exit 2 and no
+event. As for the coordination verbs, an event is recorded when `<W>` has in-progress,
+non-observation current work.
+
+**The race.** Claude's own Write tool performs the write, not the gate, so the gate
+cannot open the file itself. Only its pre-check is no-follow: every existing component
+is checked with `lstat`. A path swapped between the check and the write, for example a
+directory below `reports/` replaced by a symlink, is an accepted race. The PostToolUse
+recheck refuses a result that breaks the rules, but by then the bytes are written.
+
+Plan mode, observation, protected paths, native delegation and hard policy keep their
+precedence. An advisory seat is validated and audited on `<W>` as
+`advisory_evidence_write_no_native_approval` and gets no native approval; an advisory
+`<W>` records its ordinary advisory allow. The degraded PreToolUse fallback treats an
+owned Write as coordination and hard-blocks it, and a detector failure counts as one.
+
 ## Identity and preservation
 
 The profile must be a regular, unaliased, size-bounded JSON object with unique
-keys, exact schema and a nonempty subset of the five known command classes.
+keys, exact schema and a nonempty subset of the seven known command classes.
 Both task and canonical copies must equal their tracked HEAD bytes **and each
 other**. A task branch cannot opt itself in or expand the canonical grant. The
 managed descriptor, Git remote/common-directory identity, current hook cwd, city,
@@ -644,8 +941,9 @@ session with normal hooks loaded. A unit test of exit zero is insufficient.
 Require actual shell execution for context and scoped ledger reads, and prove
 native explicit deny/ask precedence. In an isolated synthetic managed-project
 fixture, prove real transactional begin with a bounded acceptance Bead, followed
-by fresh-session task-worktree behavior. File-write capability is a separate
-native permission and must not be smuggled into this command profile. Re-prove
+by fresh-session task-worktree behavior. General file-write capability is a separate
+native permission and must not be smuggled into this command profile; the one file
+write the profile knows is the closed, create-only `evidence-write` class. Re-prove
 observation/stop and adversarial refusals. Preserve all failed attempts and do not
 close ga-e0t1 based only on parser or hook simulation results.
 

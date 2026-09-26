@@ -22,6 +22,9 @@ WIZARD_REL = Path("scripts/codex-task")
 SOURCE_ROOT = Path(__file__).resolve().parents[3]
 BEAD = re.compile(r"[a-z][a-z0-9]*-[a-z0-9][a-z0-9-]*(?:\.[1-9][0-9]*)*")
 IDENTIFIER = re.compile(r"[a-z][a-z0-9-]*")
+# ga-fsfg R4: a qualified Gas City agent name, `<rig>/<agent>`, for example
+# `gascity/operations-candidate-worker`.
+AGENT = re.compile(r"[a-z0-9][a-z0-9._-]{0,127}/[a-z0-9][a-z0-9._-]{0,127}")
 SHELL_SYNTAX = re.compile(r"[\n\r;&|<>`$]")
 
 

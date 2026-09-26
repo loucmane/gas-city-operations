@@ -120,6 +120,12 @@ def degraded_pretooluse_fallback(raw_payload: str, exc: BaseException) -> int:
             from .delivery import delivery_request
 
             coordinating = delivery_request(root, loaded) is not None
+        if not coordinating:
+            # ga-fsfg R4: so is an evidence write; it never degrades into the generic
+            # Write handling.
+            from .evidence_write import evidence_write_claim
+
+            coordinating = evidence_write_claim(root, loaded) is not None
     except Exception:
         coordinating = True
     if coordinating:

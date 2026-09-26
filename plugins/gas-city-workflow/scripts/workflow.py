@@ -310,8 +310,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     coordinate_command = subparsers.add_parser("coordinate", allow_abbrev=False)
     coordinate_command.add_argument("--root", required=True)
     coordinate_command.add_argument("--bead", required=True)
-    coordinate_command.add_argument("--action", choices=("note", "create", "depend"), required=True)
-    for field in ("text", "title", "description", "acceptance", "blocker"):
+    coordinate_command.add_argument(
+        "--action", choices=("note", "create", "depend", "dispatch"), required=True
+    )
+    for field in ("text", "title", "description", "acceptance", "blocker", "target"):
         coordinate_command.add_argument("--" + field)
     log_command = subparsers.add_parser("log", allow_abbrev=False)
     log_command.add_argument("--root", required=True)
@@ -375,7 +377,7 @@ def _dispatch(args, runner: CommandRunner, root: Path) -> dict[str, Any]:
 
         fields = {
             key: getattr(args, key)
-            for key in ("text", "title", "description", "acceptance", "blocker")
+            for key in ("text", "title", "description", "acceptance", "blocker", "target")
             if getattr(args, key) is not None
         }
         payload = coordinate(root, args.bead, args.action, fields, runner)
