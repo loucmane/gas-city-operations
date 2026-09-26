@@ -1,0 +1,111 @@
+[providers.codex]
+base = "builtin:codex"
+options_schema_merge = "replace"
+command = "/home/loucmane/gascity/bin/codex"
+ready_delay_ms = 0
+resume_command = "/home/loucmane/gascity/bin/codex resume {{.SessionKey}}"
+title_model = "gpt-5.6-sol"
+[providers.codex.option_defaults]
+effort = "xhigh"
+model = "gpt-5.6-sol"
+permission_mode = "fail-fast"
+worklog_access = "classified-vault"
+
+[[providers.codex.options_schema]]
+key = "permission_mode"
+label = "Approval policy"
+type = "select"
+default = "fail-fast"
+
+[[providers.codex.options_schema.choices]]
+value = "fail-fast"
+label = "Fail fast (managed)"
+flag_args = ["--ask-for-approval", "never"]
+
+[[providers.codex.options_schema.choices]]
+value = "attended"
+label = "Attended approvals"
+flag_args = ["--ask-for-approval", "on-request"]
+
+[[providers.codex.options_schema]]
+key = "model"
+label = "Model"
+type = "select"
+default = "gpt-5.6-sol"
+
+[[providers.codex.options_schema.choices]]
+value = "gpt-5.6-sol"
+label = "GPT-5.6 Sol"
+flag_args = ["--model", "gpt-5.6-sol"]
+
+[[providers.codex.options_schema.choices]]
+value = "gpt-5.6-luna"
+label = "GPT-5.6 Luna"
+flag_args = ["--model", "gpt-5.6-luna"]
+
+[[providers.codex.options_schema.choices]]
+value = "gpt-5.6-terra"
+label = "GPT-5.6 Terra"
+flag_args = ["--model", "gpt-5.6-terra"]
+
+[[providers.codex.options_schema]]
+key = "effort"
+label = "Reasoning effort"
+type = "select"
+default = "xhigh"
+
+[[providers.codex.options_schema.choices]]
+value = "low"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=low"]
+
+[[providers.codex.options_schema.choices]]
+value = "medium"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=medium"]
+
+[[providers.codex.options_schema.choices]]
+value = "high"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=high"]
+
+[[providers.codex.options_schema.choices]]
+value = "xhigh"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=xhigh"]
+
+[[providers.codex.options_schema.choices]]
+value = "max"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=max"]
+
+[[providers.codex.options_schema]]
+key = "worklog_access"
+label = "Worklog access"
+type = "select"
+default = "classified-vault"
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault"
+label = "Classified GasCity vault"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-and-blog-worktrees"
+label = "Classified GasCity vault and Blog worktrees"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\",\"/home/loucmane/dev/blog-worktrees\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-and-template-worktrees"
+label = "Classified GasCity vault and template worktrees"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\",\"/home/loucmane/gas-city-template-worktrees\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-template-worktrees-and-git-metadata"
+label = "Classified vault, template worktrees, and template Git metadata"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\",\"/home/loucmane/gas-city-template-worktrees\",\"/home/loucmane/gas-city-template/.git\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-hpfetcher-worktrees-and-git-metadata"
+label = "Classified vault, HPFetcher worktrees, and HPFetcher Git metadata"
+flag_args = ["--sandbox", "workspace-write", "-c", 'sandbox_workspace_write.writable_roots=["/home/loucmane/vaults/main/GasCity","/home/loucmane/dev/hpfetcher-worktrees","/home/loucmane/dev/hpfetcher/.git"]']
