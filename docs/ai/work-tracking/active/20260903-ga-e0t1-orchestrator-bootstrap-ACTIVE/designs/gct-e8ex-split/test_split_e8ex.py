@@ -53,6 +53,7 @@ def test_every_part_is_small(rendered):
     are measured again after creation, with a hard stop at 9000 bytes or 200 lines (README run order)."""
     for name, text in rendered.items():
         assert len(text.encode()) < 5000 and text.count('\n') < 80, name
+    # 9000 / 1.7 is about 5290: the 5000-byte cap leaves little headroom, and the live measurement decides.
 
 
 def test_pointer_uses_the_codex_prompt_read_command(rendered):
@@ -71,7 +72,9 @@ def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
     assert 'not a work item\nand is closed' in header and s.GUIDANCE in text
     for needle in ('"this Bead" means the claimed task, gct-tttt', 'do not read, update or close it',
                    '/Docs/worklogs/gct-tttt.md` (one note per Bead)', 'run `git write-tree` as its own',
-                   'READY FOR SIGNING: gct-tttt tree <digest>', 'do not close the task Bead and do not run\n  drain-ack',
+                   'READY FOR SIGNING: gct-tttt tree <digest>', 'not close the task Bead and do not run drain-ack',
+                   'Never use `-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', 'already hold a READY FOR SIGNING',
+                   'every test you can run passes', '"The worker\n  report" means',
                    "are the\n  coordinator's"):
         assert needle in text, needle
     for needle in ('ReadControlPolicy', 'InspectToolchain', 'run-isolated-composition.py', 'managedworker_test',

@@ -2,12 +2,13 @@
 
 This package prepares the Template candidate-lane Bead, gct-e8ex, for the Template `codex` worker. The worker
 builds a closed Claude candidate lane for the Template rig, and the handover proof (gct-oak5) needs that lane
-first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (6 tests) proves:
+first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (7 tests) proves:
 - the split is verbatim, and holders name themselves;
 - the live umbrella description is the reviewed r6 brief;
 - every part is small;
 - the pointer uses the codex prompt's own read command;
-- the guidance holder carries the review guidance.
+- the notes holder carries the notes and the review guidance;
+- render refuses bad ids.
 
 ## Why
 
@@ -23,14 +24,15 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 ## Run order
 
 1. **Reviews.** Two reviews of this package.
-2. **Create the six holders** in the Template rig (`gc --rig gas-city-template bd create`), then:
-   - close the holders right away;
-   - render the task with their ids;
-   - create the task Bead with no edges, label `template-candidate`;
-   - measure every plain `gc bd show` view. **Stop if any view is 9,000 bytes or more, or 200 lines or more.**
-3. **Keep the umbrella.** gct-e8ex stays open as the umbrella, and its notes stay there.
-4. **Route the new task.** The routing window stamps `gc.routed_to=gas-city-template/codex` and `gc.work_dir`, the
-   codex worker's own routed Template worktree.
+2. **Create the task Bead** in the Template rig with a provisional description, no edges, and the label
+   `template-candidate`.
+3. **Create the six holders** with `split_e8ex.py render <dir> <task> <spec-1> ... <spec-5> <notes>`, then close them.
+4. **Update the task description** to the final render.
+5. **Measure every live plain `gc bd show` view.** Stop if any view is 9,000 bytes or more, or 200 lines or more.
+   A holder over the limit is re-split before routing.
+6. **Keep the umbrella.** gct-e8ex stays open as the umbrella, and its notes stay there.
+7. **Route the task.** It goes to `gas-city-template/codex` through a reviewed Template window, which stamps
+   `gc.work_dir` to a worktree under `/home/loucmane/gas-city-template-worktrees` and checks that root.
 
 ## r2 (answers the reviews of `688723d9`; both SOURCE_PASS)
 
@@ -71,3 +73,17 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 - **Ids:** all real or all placeholders, distinct, never the umbrella's, and checked with raised errors (A 3,
   B 7).
 - **The holder 6 header is tested** (A 5), and the stale counts are fixed (A 2, B 6).
+
+## r4 (answers the reviews of `fb1369a2`; both SOURCE_PASS)
+
+- **B 1: staging.** Stage by explicit path only the files the task created or changed. Never `-A`, `.` or `-f`,
+  and never anything under `.agents/`, `.claude/skills/` or `.gc/`, which Core writes into Template codex worktrees
+  and nothing ignores. Record `git status --porcelain` beside the tree digest.
+- **B 2: tests.** Stage when every runnable test passes, and list by name the Core-build tests the sandbox cannot
+  run.
+- **B 3: restarts.** A restarted worker whose task notes already hold a READY FOR SIGNING digest sends nothing more
+  and stops.
+- **B 6: the worker report.** It is the task notes plus the worklog, and a reported difference is not a stop.
+- **Run order (A 1, B 5)** is rewritten to the task-first order, with a re-split rule for an oversize holder.
+  The routing window checks the Template worktree root.
+- **Counts (A 2)** are fixed, and the size headroom is noted (A 3, B 4).
