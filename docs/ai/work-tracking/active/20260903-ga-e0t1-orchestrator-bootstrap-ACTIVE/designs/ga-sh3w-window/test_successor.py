@@ -202,3 +202,45 @@ def test_overlay_recomputes(g):
     assert hashlib.sha256(candidate).hexdigest() == g.OVERLAY_NEW == prep.OVERLAY_SHA
     assert [p for p in patches if not p['suspended']] == [dict(dir='gascity', name='operations-candidate-worker',
         suspended=False, work_dir=g.WORK, min_active_sessions=0, max_active_sessions=1)]
+
+
+PREP_ROOT = Path('/var/tmp/ga-sh3w-prep-20260926-r1')
+
+
+def test_prep_outputs_are_pinned(g):
+    """s2: window-base pins exactly the ga-sh3w PREP outputs (PREP PASS 2026-09-26 09:29:43Z)."""
+    base = (HERE/'window-base-r11.py').read_text()
+    result = json.loads((PREP_ROOT/'result.json').read_bytes())
+    assert result['ok'] is True and result['installed'] is False and result['worker_launched'] is False
+    assert result['only_unsuspended_city_core_agent'] == 'gascity/operations-candidate-worker'
+    assert result['changed_receipt_fields'] == ['permission_revision', 'receipt_sha256']
+    for value in (sha(PREP_ROOT/'city.isolated.toml'), sha(PREP_ROOT/'receipt.final.json'), result['revision_after'],
+                  sha(PREP_ROOT/'result.json'), sha(PREP_ROOT/'orders.isolated.json')):
+        assert "'%s'" % value in base, value
+    assert result['city_after_sha256'] == sha(PREP_ROOT/'city.isolated.toml') == g.OVERLAY_NEW
+    assert result['revision_before'] == g.REVISION_NEW and result['receipt_before_sha256'] == g.RECEIPT_NEW
+    for stale in ('449346e3', 'c1761144', '2de85e1e', '9d59a0b4'):
+        assert stale not in base, stale
+
+
+def test_window_base_pins_run_against_the_live_prep():
+    """pins() reads every PREP output and the nudge order script by digest, read-only."""
+    w = load(HERE/'window-base-r11.py', 'window_base_pins')
+    w.pins()
+
+
+def test_cache_disposition_pins_the_live_value(g):
+    """s2: the pinned value is the live pack-cache .git time now; the disposition moves only that entry."""
+    live = os.lstat('/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git')
+    assert live.st_mtime_ns == live.st_ctime_ns == g.CACHE_PINNED_NS == 1790415062719606803
+    w = load(HERE/'window-base-r11.py', 'window_base_cache')
+    prior = json.loads(Path(g.ACCEPTED_NEW[0]).read_bytes())
+    image = w.approved_candidate_cache_image(prior)
+    key = '954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git'
+    assert image['cache']['inventory'][key]['mtime_ns'] == image['cache']['inventory'][key]['ctime_ns'] == g.CACHE_PINNED_NS
+    image['cache']['inventory'][key] = prior['cache']['inventory'][key]
+    assert image == prior
+    changed = json.loads(json.dumps(prior))
+    changed['cache']['inventory'][key]['mtime_ns'] += 1
+    with pytest.raises(RuntimeError, match='preimage'):
+        w.approved_candidate_cache_image(changed)

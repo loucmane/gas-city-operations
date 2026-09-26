@@ -134,7 +134,22 @@ FINALIZE_NEW = ('/var/tmp/ga-e0t1.18-p10-preflight-diagnostic-20260926',
 OVERLAY_OLD = '449346e33f73c1882dfd52e3caa0dfc8066ddfdb6eb4ef6c422603be60e817ac'
 OVERLAY_NEW = '8b039657aa28ab5edc10ab50fcd26cea1a3ed15abf65ddae69fdca3c568ca50f'
 CACHE_P10_NS = 1790411960644198389
-CACHE_PINNED_NS = None
+# s2: pinned after the last coordinator note (the s1 outcome workflow.py log, 2026-09-26 09:31:02Z); the
+# operator approved this disposition on 2026-09-26. No workflow.py and no unguarded gc until TERMINAL.
+CACHE_PINNED_NS = 1790415062719606803
+# s2: the ga-sh3w PREP outputs (job ga-sh3w-s1-prep at 6009a6b3, PREP PASS 2026-09-26 09:29:43Z) replace the
+# ga-qcwl ones: the isolated overlay, the final receipt image, the isolated revision and the result record. The
+# isolated order list is unchanged (b57082cf): the same core pack nudge-on-route order and env.
+PREP_PINS = [
+    ('449346e33f73c1882dfd52e3caa0dfc8066ddfdb6eb4ef6c422603be60e817ac',
+     '8b039657aa28ab5edc10ab50fcd26cea1a3ed15abf65ddae69fdca3c568ca50f'),
+    ('c1761144d7ab3b1d557e097902d681325b647324957df56eff4ee8afa77f78eb',
+     '3b4e022d958279078155a03e2aafd346a3a322a99cdbe9c712f955a45316c21c'),
+    ('2de85e1eb06c2b4898aa49896d0683bdd22b77597b8402311dcd956850d93348',
+     'e0ed64ff77370ef18428546003660397b3ac0ad3ad77747eab695561cd00055e'),
+    ('9d59a0b4c2c3ce2d12668039559b0b11eb60f45e625a98996185573816744c92',
+     '2b1762c8b389af9f52adbcdf6d94419edb6f7d9dd5c3e69f94f655099a05f747'),
+]
 
 
 def sha(raw):
@@ -233,6 +248,8 @@ def window_base(text):
                "        result=phase('git-head',HARDENED+['rev-parse','--verify','HEAD^{commit}'],b,owned)\n")
     text = sub(text, "        result=phase('git-status',['/usr/bin/git','-C',str(WORK),'status','--porcelain=v1','--untracked-files=all'],b,owned)\n",
                "        result=phase('git-status',HARDENED+['status','--porcelain=v1','--ignored','--untracked-files=all'],b,owned)\n")
+    for old, new in PREP_PINS:
+        text = sub(text, "'%s'" % old, "'%s'" % new)
     text = sub(text, "ga-sh3w r11: a rebind of the reviewed ga-y49e base window-state-r6-read-safe.py (b10a3810) onto the\n"
                      "post-S3 baseline (M6 metadata, receipt 7cf59ab9, gc b2760ea4) and task ga-sh3w.",
                "ga-sh3w r11: a rebind of the reviewed ga-y49e base window-state-r6-read-safe.py (b10a3810) onto the\n"
@@ -293,6 +310,16 @@ def observer(text, name):
     text = sub(text, "result['entrypoint_sha256']=='%s'" % INSPECTOR_OLD[3], "result['entrypoint_sha256']=='%s'" % entry)
     if name == 'observe-integrity-r11.py':
         text = sub(text, 'admitted_against_p7_snapshot=True', 'admitted_against_p10_snapshot=True')
+        text = sub(text, 'post-S3 baseline (M6). It admits the live state against the P7 adoption snapshot (ga-e0t1.15 S4),\n',
+                   'post-P10 baseline (M9). It admits the live state against the P10 adoption snapshot (ga-sh3w window),\n')
+        text = sub(text, "    # S4: no recovery admission; the accepted image is the P7 snapshot (window-base).\n",
+                   "    # No recovery admission; the accepted image is the P10 snapshot (window-base).\n")
+        text = sub(text, "    # snapshot below and compared exactly with the P7 adoption snapshot.\n",
+                   "    # snapshot below and compared exactly with the P10 adoption snapshot.\n")
+        text = sub(text, "    # The base snapshot named before.json admits the live state against the P7 adoption snapshot\n"
+                         "    # (two LIVE_PASS readbacks) and its provider pins; no P6-era disposition applies.\n",
+                   "    # The base snapshot named before.json admits the live state against the P10 adoption snapshot\n"
+                   "    # (two readback reviews) and its provider pins, through approved_candidate_cache_image only.\n")
     return text
 
 

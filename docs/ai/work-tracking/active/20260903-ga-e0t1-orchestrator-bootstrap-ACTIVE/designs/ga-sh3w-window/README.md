@@ -196,3 +196,61 @@ Operating rules carried from ga-qcwl:
   - have TERMINAL or INTAKE prove that the shared common directory's config, hooks, `info/attributes` and
     non-candidate refs are unchanged (A 7);
   - the IDENTITY and digest rewrites are global, and the leftover-token test compensates for that (A 4).
+
+## s2 (the window binding)
+
+**s1 jobs.** Both ran at `6009a6b3` after two SOURCE_PASS reviews:
+- **WORKTREE** passed at 11:29:30 CEST (09:29:30 UTC). The candidate worktree
+  `/home/loucmane/gas-city-ops-candidate-worktrees/ga-sh3w` was created at `040139d8` on
+  `codex/ga-sh3w-delivery-class`. It is clean, and `verify_linked` accepts it; admin
+  `/home/loucmane/gas-city-ops/.git/worktrees/ga-sh3w`.
+- **PREP** passed at 11:29:43 CEST (09:29:43 UTC), read-only:
+  - overlay `8b039657`;
+  - window receipt `3b4e022d` (self `0bf87e7b`), differing from `c833908f` only in `permission_revision`
+    and `receipt_sha256`;
+  - isolated revision `e0ed64ff`;
+  - result `2b1762c8`;
+  - only nudge-on-route, with the order list unchanged at `b57082cf`;
+  - the only unsuspended agent is the candidate.
+
+**s2 pins.** It pins those outputs in window-base, replacing the qcwl placeholders.
+
+It also pins `CACHE_PINNED_NS` `1790415062719606803`. That is the pack-cache `.git` time after the last
+coordinator note (the s1 outcome `workflow.py` log, 2026-09-26 at 09:31:02Z). The operator approved this
+disposition on 2026-09-26, and nothing has moved it since. From this pin until TERMINAL, no `workflow.py`
+runs; outcomes go to `~/.local/share/gas-city-staging/ga-sh3w-window/outcomes.md` and reach the Bead after
+TERMINAL.
+
+**Live preconditions**, checked read-only on 2026-09-26 at 11:32 CEST:
+- **Process record.** The r12 activation record is exact:
+  - the controller cgroup holds 2852 (dolt watchdog), 2867 (dolt) and 995924, with the recorded start times;
+  - the hidden-by-design pids are exactly the recorded 20162 (gpg-agent) and 2288/2294 (`init.scope`).
+- **Trust.** `~/.claude.json` trusts `/home/loucmane/gas-city-ops`, which is the key for its linked
+  worktrees. No project MCP server is enabled (`enabledMcpjsonServers` is empty and
+  `enableAllProjectMcpServers` is unset).
+- **Queue.** In the gascity rig and city stores, no open or in-progress Bead has a `ci-`/`s-` or candidate
+  assignee, or is routed to the candidate.
+- **Common directory.** A snapshot of the Operations common git directory's control surface (config, hooks,
+  `info/`, `packed-refs`, and every ref except the candidate branch) is in staging as `common-before.json`:
+  25 entries, `6c2fdb6e`, taken with scratchpad `common_snapshot.py`. INTAKE repeats it and requires
+  equality (s1 review A should_fix 7).
+
+**Tests.** 16 in total: 15 pass and 1 skips, because WORKTREE has run. They add:
+- the PREP pins;
+- `pins()` against the live PREP;
+- the cache pin against the live value;
+- the disposition changing only that entry.
+
+**The window jobs, in order, all from this commit.** Each job needs the previous PASS.
+1. BIND.
+2. OBSERVE.
+3. PREFLIGHT.
+4. STAGE.
+5. ROUTE.
+6. WATCH-1.
+7. RESUME, only if WATCH-1 records `routes_unchanged_since_stage` true.
+8. WATCH-2 to WATCH-12, as needed.
+9. CONTAIN-1/2, then CLOSE-1/2 (HOLD-1/2 only for a stranded lifecycle).
+10. ADMIT.
+11. RESTORE.
+12. TERMINAL.

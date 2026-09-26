@@ -34,11 +34,11 @@ PROVISIONER = Path('/home/loucmane/gas-city-template/bin/gct-managed-worker-prov
 WITNESS = Path('/var/tmp/ga-e0t1.18-p10-adoption-20260926/typed-support.json')
 WITNESS_SHA = '53dd45539fad45816d62ecd9d4ee26bba380f5fedc1c4d363435471a9c201d30'
 CITY_SHA = ('4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591',
-            '449346e33f73c1882dfd52e3caa0dfc8066ddfdb6eb4ef6c422603be60e817ac')
+            '8b039657aa28ab5edc10ab50fcd26cea1a3ed15abf65ddae69fdca3c568ca50f')
 RECEIPT_SHA = ('c833908fe89ab180e57ef7164d687f01ae2052f8667360f04b73c5423902f0a4',
-               'c1761144d7ab3b1d557e097902d681325b647324957df56eff4ee8afa77f78eb')
+               '3b4e022d958279078155a03e2aafd346a3a322a99cdbe9c712f955a45316c21c')
 REVISION = ('83c41af65776eaa90f93b57158e8ad57141e19347a592ce509a19f56c2667add',
-            '2de85e1eb06c2b4898aa49896d0683bdd22b77597b8402311dcd956850d93348')
+            'e0ed64ff77370ef18428546003660397b3ac0ad3ad77747eab695561cd00055e')
 INPUT = (Path('/var/tmp/ga-e0t1.18-p10-input-20260926/receipt.input.draft.json'), PREP/'receipt.input.json')
 INPUT_SHA = ('c6674ba5f494faeb8179b6e6d49a904e8fe5761a7bfa491ffb3c9d97c9b5ffe7',
              None)  # The isolated input is compared to the exact native-finalized wire below.
@@ -113,7 +113,7 @@ def load_support():
 
 def pins():
     # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.
-    read(PREP/'result.json', '9d59a0b4c2c3ce2d12668039559b0b11eb60f45e625a98996185573816744c92')
+    read(PREP/'result.json', '2b1762c8b389af9f52adbcdf6d94419edb6f7d9dd5c3e69f94f655099a05f747')
     read(LAUNCH, '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea')
     read(PROVISIONER, '64425a728fc06a082865f2d53afcc6e4793974f5aadab49492d95f5e0a9f4a35')
     read(WITNESS, WITNESS_SHA)
@@ -234,7 +234,7 @@ def approved_coordinator_cache_image(prior):
     return value
 
 CACHE_P10_NS = 1790411960644198389
-CACHE_PINNED_NS = None
+CACHE_PINNED_NS = 1790415062719606803
 
 def approved_candidate_cache_image(prior):
     # ga-sh3w disposition, for operator approval and independent review: after the P10 adoption
