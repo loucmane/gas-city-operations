@@ -11,8 +11,10 @@ routed worktree of the Template repository:
   directory, back-pointer and commondir, HEAD is BASE, no gitlink applies, the drivers are exactly the pinned
   git-lfs set, and the status with ignored files is empty.
 It writes nothing else (besides the new branch's reflog, which `worktree add -b` creates) and refuses any
-existing output root. s1 r2: the pinned drivers, the absent attributes file and the .gitattributes bytes
-are checked before the add, so no checkout-time filter can run.
+existing output root. s1 r2/r3: the pinned drivers, no config include directive, the absent attributes
+file, the .gitattributes bytes, and BASE's single .gitattributes with no gitlink or .gitmodules are
+checked before the output root is created and before the add, so no checkout-time filter can run and a
+refusal there consumes nothing.
 
 Partial failure: if `git worktree add` succeeds and a post-check refuses, the worktree, its admin directory and
 the branch stay, and ROOT holds only intent.json. BIND refuses without this job's exact result.json, so nothing
@@ -61,9 +63,6 @@ def main():
     assert git('rev-parse','--verify','refs/remotes/origin/main^{commit}').stdout.decode().strip()==BASE,'Template origin/main is not BASE'
     assert git('rev-parse','--verify','--quiet','refs/heads/'+BRANCH,expected=(1,)).returncode==1,'branch already exists'
     assert not os.path.lexists(ADMIN),'admin directory already exists'
-    ROOT.mkdir(mode=0o700)
-    (ROOT/'intent.json').write_text(json.dumps(dict(work=str(WORK),base=BASE,branch=BRANCH,executor_sha256=_SOURCE_SHA),
-        sort_keys=True)+'\n')
     # Template variant, s1 r2: before the checkout, the common config carries exactly the pinned git-lfs
     # drivers, no repository attributes file exists, and the one tracked .gitattributes at BASE is the
     # reviewed blob, whose bytes select no filter, diff or merge driver.
@@ -72,6 +71,14 @@ def main():
     assert not os.path.lexists(OPS/'.git'/'info'/'attributes'),'repository attributes file present'
     assert git('rev-parse','--verify',BASE+':.gitattributes').stdout.decode().strip()=='84c48ec45d32b997de49fa694d00b7e4ba3c677e'
     assert git('cat-file','blob','84c48ec45d32b997de49fa694d00b7e4ba3c677e').stdout==b'# Patch files preserve diff syntax; embedded context markers otherwise look\n# like whitespace errors to an outer `git diff --check`.\npatches/*.patch -whitespace\n','.gitattributes content'
+    assert git('config','--get-regexp',r'^include',expected=(1,)).returncode==1,'config include directive'
+    tree=git('ls-tree','-r','-z','--full-tree',BASE).stdout.split(b'\0')
+    assert [e for e in tree if e.rsplit(b'\t',1)[-1].rsplit(b'/',1)[-1]==b'.gitattributes']==[b'100644 blob 84c48ec45d32b997de49fa694d00b7e4ba3c677e\t.gitattributes'],'BASE attributes files'
+    assert not [e for e in tree if e.startswith(b'160000 ')],'BASE gitlink'
+    assert not [e for e in tree if e.rsplit(b'\t',1)[-1]==b'.gitmodules'],'BASE .gitmodules'
+    ROOT.mkdir(mode=0o700)
+    (ROOT/'intent.json').write_text(json.dumps(dict(work=str(WORK),base=BASE,branch=BRANCH,executor_sha256=_SOURCE_SHA),
+        sort_keys=True)+'\n')
     git('worktree','add','-b',BRANCH,str(WORK),BASE)
     assert WORK.is_dir() and not WORK.is_symlink(),'worktree not created'
     admin=cg.verify_linked(CANDIDATE_ROOT,OPS/'.git',WORK,WORK.name)

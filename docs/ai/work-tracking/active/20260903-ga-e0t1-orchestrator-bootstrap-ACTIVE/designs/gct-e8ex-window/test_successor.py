@@ -250,6 +250,7 @@ def test_watch_runs_no_git_while_the_worker_is_live():
     code = watch.split('"""', 2)[2]
     assert 'HARDENED' not in code and "'git-" not in code and '/usr/bin/git' not in code
     assert 'head = branch = None' in code
+    assert 'note_markers=markers' in code and 'os.walk(evidence)' not in code
 
 
 def test_common_snapshot_covers_the_whole_git_directory(g):
@@ -259,11 +260,92 @@ def test_common_snapshot_covers_the_whole_git_directory(g):
     if not Path(g.ADMIN).exists():
         tool.BRANCH = 'HEAD'  # before WORKTREE the candidate branch does not exist; the walk is what is tested
     seen = tool.observe()
-    assert 'config' in seen and 'HEAD' in seen and seen['candidate_branch']
-    assert any(k.startswith('refs/') for k in seen) and any(k.startswith('logs/') for k in seen)
-    assert any(k.startswith('worktrees/') and k.endswith('/gitdir') for k in seen)
-    assert not any(k.startswith('objects/') and not k.startswith('objects/info/') for k in seen)
-    assert ('packed-refs' in seen) == os.path.exists(g.TEMPLATE_REPO + '/.git/packed-refs')
+    control, objects = seen['control'], seen['objects']
+    assert 'config' in control and 'HEAD' in control and seen['candidate_branch']
+    assert any(k.startswith('refs/') for k in control) and any(k.startswith('logs/') for k in control)
+    assert any(k.startswith('worktrees/') and k.endswith('/gitdir') for k in control)
+    assert not any(k == 'objects' or k.startswith('objects/') for k in control)
+    assert 'objects' in objects and 'objects/pack' in objects
+    assert any(k.startswith('objects/pack/pack-') and k.endswith('.pack') for k in objects)
+    assert ('packed-refs' in control) == os.path.exists(g.TEMPLATE_REPO + '/.git/packed-refs')
+    assert 'subprocess' not in (HERE/'common-snapshot-r1.py').read_text()
+
+
+def fake_git(tool, root, g):
+    """A minimal common directory for the snapshot's behaviour: config, the candidate ref, a pack, a loose object,
+    this worktree's index."""
+    import zlib
+    common = root/'.git'
+    (common/'refs/heads/codex').mkdir(parents=True)
+    (common/'config').write_text('[core]\n')
+    (common/'HEAD').write_text('ref: refs/heads/main\n')
+    (common/('refs/heads/' + g.BRANCH)).write_text(g.BASE + '\n')
+    (common/'objects/pack').mkdir(parents=True)
+    (common/('objects/pack/pack-%s.pack' % ('1' * 40))).write_bytes(b'PACK')
+    (common/('worktrees/%s' % g.TASK)).mkdir(parents=True)
+    (common/('worktrees/%s/index' % g.TASK)).write_bytes(b'DIRC')
+    tool.COMMON = common
+    return common, zlib
+
+
+def loose(common, zlib, body, kind=b'blob'):
+    raw = kind + b' %d\0' % len(body) + body
+    name = hashlib.sha1(raw).hexdigest()
+    (common/'objects'/name[:2]).mkdir(exist_ok=True)
+    (common/'objects'/name[:2]/name[2:]).write_bytes(zlib.compress(raw))
+    return common/'objects'/name[:2]/name[2:]
+
+
+def test_common_snapshot_allows_only_git_add(g, tmp_path):
+    """s1 r3 (reviews of 709fcb33, A must_fix 1, B must_fix 1-2): the after comparison, on a fake common directory.
+    Allowed: new loose objects that hash to their name, and this worktree's index rewritten. Refused: an existing
+    object overwritten, a new pack, a new loose object that does not hash to its name, a directory replaced by a
+    link, a moved branch, a config write. An unlistable directory raises."""
+    def fresh(name):
+        tool = load(HERE/'common-snapshot-r1.py', 'common_snapshot_' + name)
+        common, zlib = fake_git(tool, tmp_path/name, g)
+        existing = loose(common, zlib, b'base content')
+        return tool, common, zlib, existing, tool.observe()
+
+    tool, common, zlib, existing, before = fresh('ok')
+    loose(common, zlib, b'staged content')
+    (common/('worktrees/%s/index' % g.TASK)).write_bytes(b'DIRC2')
+    assert tool.compare(before, tool.observe()) == []
+
+    tool, common, zlib, existing, before = fresh('overwrite')
+    existing.write_bytes(zlib.compress(b'blob 4\0evil'))
+    assert tool.compare(before, tool.observe()) != []
+
+    tool, common, zlib, existing, before = fresh('pack')
+    (common/('objects/pack/pack-%s.pack' % ('2' * 40))).write_bytes(b'PACK')
+    assert tool.compare(before, tool.observe()) != []
+
+    tool, common, zlib, existing, before = fresh('misnamed')
+    (common/'objects/ee').mkdir()
+    (common/'objects/ee'/('e' * 38)).write_bytes(zlib.compress(b'blob 3\0abc'))
+    assert tool.compare(before, tool.observe()) != []
+
+    tool, common, zlib, existing, before = fresh('link')
+    (common/'objects/pack').rename(common/'objects/moved')
+    (common/'objects/pack').symlink_to(common/'objects/moved')
+    assert tool.compare(before, tool.observe()) != []
+
+    tool, common, zlib, existing, before = fresh('branch')
+    (common/('refs/heads/' + g.BRANCH)).write_text('0' * 40 + '\n')
+    assert tool.compare(before, tool.observe()) != []
+
+    tool, common, zlib, existing, before = fresh('config')
+    (common/'config').write_text('[core]\n\tfsmonitor = /tmp/x\n')
+    assert tool.compare(before, tool.observe()) == ['config']
+
+    tool, common, zlib, existing, before = fresh('hidden')
+    (common/'objects/info').mkdir()
+    (common/'objects/info').chmod(0o311)
+    try:
+        with pytest.raises(PermissionError):
+            tool.observe()
+    finally:
+        (common/'objects/info').chmod(0o755)
 
 
 def test_bind_writes_only_the_work_dir(g):
@@ -346,4 +428,4 @@ def test_common_snapshot_covers_the_template_git(g):
     tool = (HERE/'common-snapshot-r1.py').read_text()
     assert "COMMON=Path('/home/loucmane/gas-city-template/.git')" in tool
     assert "BASE='%s'" % g.BASE in tool and "BRANCH='refs/heads/%s'" % g.BRANCH in tool
-    assert 'for directory,dirs,files in os.walk(COMMON):' in tool
+    assert 'for directory,dirs,files in os.walk(COMMON,onerror=refuse):' in tool

@@ -68,10 +68,16 @@ The evidence is in `reports/gct-e8ex-split-20260926/live-check-r1`. The umbrella
    - it moves them from the ga-3oa7 TERMINAL value `1790431776352453342` to the value s2 pins after the last
      coordinator note;
    - s1 carries `None`, which refuses.
-10. **The common-directory snapshot** (s1 r2) compares every file and link under the Template `.git` except the
-    object store and this worktree's own index, which `git add` legitimately writes. That covers config, `hooks/`,
-    `info/`, `refs/`, `packed-refs`, `logs/`, `objects/info/` (alternates), every `worktrees/<name>/` admin file,
-    `HEAD` and `lfs/`. The candidate branch must still point at BASE.
+10. **The common-directory snapshot** (s1 r3) runs no git and reads files only.
+    - Outside `objects/`, it compares every file, link and directory under the Template `.git` exactly, except
+      this worktree's own index. That index must stay a plain single-link file.
+    - Inside `objects/`, every existing entry must be unchanged: loose objects, packs, indexes, `objects/info/`
+      and every directory. The only additions allowed are new loose objects, as plain single-link files whose
+      zlib content hashes to their own name. That is what `git add` writes, and such an object can never shadow
+      an existing id.
+    - A new pack or multi-pack-index, an overwritten object and a directory replaced by a link all refuse. So
+      does any walk error, such as an unlistable directory. Every read is bounded.
+    - The candidate branch is read from the ref bytes and must still point at BASE.
 11. **No coordinator git while the worker is live** (s1 r2). The codex sandbox can write the Template `.git` and
     the worktree root, so a coordinator git call against the worktree could run a driver or command the worker
     chose. WATCH therefore runs no git and records HEAD, branch, status and diffs as empty. The worker's signal is
@@ -93,7 +99,18 @@ Unchanged from ga-3oa7:
 
 The codex write roots include the whole `gas-city-template-worktrees` root, not only this worktree. That is the
 deployed lane's existing grant, not something this window adds. After TERMINAL, the coordinator reviews the
-staged tree before signing. The window's containment and the common snapshot are the other controls.
+staged tree before signing. The window's containment and the common snapshot are the other controls. Other
+Template worktrees' gitfiles are not covered, and no coordinator git runs in them until they are re-verified.
+
+Known limit (s1 r3, B should_fix 7): the in-window `gc --rig gas-city-template` calls (the WATCH task read, the
+audit, the CONTAIN and HOLD rig suspension) are gc and bd runs, not git calls in the worktree. The package does
+not prove that Core never runs git in the Template repository while handling them. Two mitigations apply:
+- every WATCH records the digest of the Template `.git/config`, read without git, so a sandbox write into it
+  shows while the worker is live;
+- the snapshot after TERMINAL compares it exactly.
+
+Another Template worktree's index rewritten during the window, for example by a `git status` there with optional
+locks, makes the snapshot refuse. That fails closed and is investigated.
 
 ## Run order
 
@@ -139,6 +156,28 @@ staged tree before signing. The window's containment and the common snapshot are
   repair live runtime assets. The network stays shared, because the Bead store is the local Dolt server on
   127.0.0.1 and PREP's `--unshare-net` form cannot reach it.
 - **Stale text:** BIND.sh, the ROUTE comment and the WORKTREE docstring (branch reflog) are fixed (A 5, B 5).
+
+## s1 r3 (answers the s1 r2 reviews of `709fcb33`: A and B HOLD)
+
+- **The object store (A must_fix 1, B must_fix 1).** r2 skipped `objects/`, so a worker could overwrite a BASE
+  object, add a shadowing pack or link the store away, and hide a staged change from the exported diff. The
+  snapshot is now written whole for the Template (item 10): existing objects are kept exactly, and only
+  self-verifying new loose objects are allowed.
+- **Hidden directories (B must_fix 2).** Directories are recorded, and any walk error raises. A test proves it
+  with an unlistable `objects/info`.
+- **No git in the snapshot (A should_fix 3, B should_fix 1)**, the index type check (B should_fix 2) and bounded
+  reads (B should_fix 3).
+- **Behaviour tests (A should_fix 7, B should_fix 6).** `test_common_snapshot_allows_only_git_add` runs the after
+  comparison on a fake common directory. It allows new loose objects and the rewritten index. It refuses an
+  overwritten object, a new pack, a misnamed loose object, a linked `objects/pack`, a moved branch and a config
+  write. The snapshot's jobs are wrapped and reviewed at s2.
+- **WORKTREE (A should_fix 5-6, B should_fix 4-5).** No config include directive, and BASE carries a single
+  `.gitattributes`, no gitlink and no `.gitmodules`. All of it is checked before the output root is created and
+  before the add.
+- **WATCH (A should_fix 1, B should_fix 3).** It surfaces the `READY FOR SIGNING` / `ESCALATED:` / `STOPPED:`
+  note lines and records the Template `.git/config` digest. It drops the evidence walk, which a worker-made link
+  could redirect.
+- **Stated limits (A should_fix 2, A should_fix 4, B should_fix 7-8)**: see Known scope.
 
 ## Tests
 

@@ -192,16 +192,26 @@ PRE_ADD = (
     "    assert not os.path.lexists(OPS/'.git'/'info'/'attributes'),'repository attributes file present'\n"
     "    assert git('rev-parse','--verify',BASE+':.gitattributes').stdout.decode().strip()=='" + GITATTRIBUTES_BLOB + "'\n"
     "    assert git('cat-file','blob','" + GITATTRIBUTES_BLOB + "').stdout==" + repr(GITATTRIBUTES_BYTES) +
-    ",'.gitattributes content'\n")
+    ",'.gitattributes content'\n"
+    # s1 r3 (B should_fix 4-5, A should_fix 5-6): no include directive can make the add's child see other
+    # config, BASE carries exactly one .gitattributes, no gitlink and no .gitmodules, and all of it is checked
+    # before the output root is consumed.
+    "    assert git('config','--get-regexp',r'^include',expected=(1,)).returncode==1,'config include directive'\n"
+    "    tree=git('ls-tree','-r','-z','--full-tree',BASE).stdout.split(b'\\0')\n"
+    "    assert [e for e in tree if e.rsplit(b'\\t',1)[-1].rsplit(b'/',1)[-1]==b'.gitattributes']==[b'100644 blob "
+    + GITATTRIBUTES_BLOB + "\\t.gitattributes'],'BASE attributes files'\n"
+    "    assert not [e for e in tree if e.startswith(b'160000 ')],'BASE gitlink'\n"
+    "    assert not [e for e in tree if e.rsplit(b'\\t',1)[-1]==b'.gitmodules'],'BASE .gitmodules'\n")
 
 
 def worktree(text):
-    text = sub(text, "    git('worktree','add','-b',BRANCH,str(WORK),BASE)\n",
-               PRE_ADD + "    git('worktree','add','-b',BRANCH,str(WORK),BASE)\n")
+    text = sub(text, "    ROOT.mkdir(mode=0o700)\n", PRE_ADD + "    ROOT.mkdir(mode=0o700)\n")
     text = sub(text, "It writes nothing else and refuses any existing output root.\n",
                "It writes nothing else (besides the new branch's reflog, which `worktree add -b` creates) and refuses any\n"
-               "existing output root. s1 r2: the pinned drivers, the absent attributes file and the .gitattributes bytes\n"
-               "are checked before the add, so no checkout-time filter can run.\n")
+               "existing output root. s1 r2/r3: the pinned drivers, no config include directive, the absent attributes\n"
+               "file, the .gitattributes bytes, and BASE's single .gitattributes with no gitlink or .gitmodules are\n"
+               "checked before the output root is created and before the add, so no checkout-time filter can run and a\n"
+               "refusal there consumes nothing.\n")
     text = sub(text, "OPS=Path('/home/loucmane/gas-city-ops')\nCANDIDATE_ROOT=Path('/home/loucmane/gas-city-ops-candidate-worktrees')\n",
                "OPS=Path('%s')\nCANDIDATE_ROOT=Path('%s')\n" % (TEMPLATE_REPO, ROOT_DIR))
     text = sub(text, "    assert os.listdir(CANDIDATE_ROOT)==[],'candidate root is not empty'\n"
@@ -360,52 +370,182 @@ def watch(text):
                "    # post-window intake check; the task notes (READY FOR SIGNING / ESCALATED / STOPPED) are the signal.\n"
                "    head = branch = None\n"
                "    status = staged = ''\n")
+    # s1 r3 (B should_fix 3): no evidence walk (the codex worker writes no .gc/worker-evidence, and is_dir() would
+    # follow a worker-made link); (A should_fix 1) the note markers are surfaced; the Template .git/config digest
+    # is recorded as early evidence of a sandbox write into it (read only, never acted on here).
+    text = sub(text, "    inventory = dict(untracked=[entry(w, w.WORK/path) for path in untracked], evidence=[])\n"
+                     "    evidence = w.WORK/EVIDENCE\n"
+                     "    if evidence.is_dir() and not evidence.is_symlink():\n"
+                     "        for dirpath, dirnames, filenames in os.walk(evidence):\n"
+                     "            dirnames.sort()\n"
+                     "            for name in sorted(filenames):\n"
+                     "                inventory['evidence'].append(entry(w, Path(dirpath)/name))\n",
+               "    inventory = dict(untracked=[], evidence=[])\n")
+    text = sub(text, "    result = dict(ok=True, mutation=False, head=head, branch=branch,\n",
+               "    notes = bead.get('notes') or ''\n"
+               "    markers = [line[:300] for line in notes.splitlines()\n"
+               "               if 'READY FOR SIGNING:' in line or 'ESCALATED:' in line or 'STOPPED:' in line][-5:]\n"
+               "    try:\n"
+               "        fd = os.open('" + TEMPLATE_REPO + "/.git/config', os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)\n"
+               "        with os.fdopen(fd, 'rb') as handle:\n"
+               "            template_config = hashlib.sha256(handle.read(1 << 20)).hexdigest()\n"
+               "    except OSError as exc:\n"
+               "        template_config = 'unreadable: %s' % exc.__class__.__name__\n"
+               "    result = dict(ok=True, mutation=False, head=head, branch=branch, note_markers=markers,\n"
+               "                  template_git_config_sha256=template_config,\n")
     return sub(text, "- worktree HEAD, branch, full status, unstaged and staged diffs, and the staged patch;\n",
                "- no git state: the Template variant runs no git while the worker is live (s1 r2), so HEAD, branch,\n"
                "  status and diffs are recorded as empty and read after containment instead;\n")
 
 
-COMMON_OBSERVE_OLD = (
-    "def observe():\n"
-    "    out={'config':entry(COMMON/'config')}\n"
-    "    for sub in ('hooks','info'):\n"
-    "        for directory,dirs,files in os.walk(COMMON/sub):\n"
-    "            dirs.sort()\n"
-    "            for name in sorted(files):\n"
-    "                path=Path(directory)/name\n"
-    "                out[str(path.relative_to(COMMON))]=entry(path)\n")
-COMMON_OBSERVE_NEW = (
-    "# s1 r2 (B must_fix 3, A should_fix 1): the codex sandbox can write this whole directory, so the compared set\n"
-    "# is every file and link under it (config, hooks/, info/, refs/, packed-refs, logs/, objects/info/ with its\n"
-    "# alternates, every worktrees/<name>/ admin file, HEAD, shallow, modules/, lfs/) except the object store, which\n"
-    "# `git add` legitimately extends, and this worktree's own index, which `git add` rewrites.\n"
-    "OBJECTS=Path('objects')\n"
-    "MUTABLE={'worktrees/%s/index'}\n"
-    "\n"
-    "def observe():\n"
-    "    out={}\n"
-    "    for directory,dirs,files in os.walk(COMMON):\n"
-    "        dirs.sort()\n"
-    "        here=Path(directory).relative_to(COMMON)\n"
-    "        # os.walk lists a symlinked directory in dirs and never descends it: record it as a link.\n"
-    "        for name in sorted(files)+[d for d in dirs if os.path.islink(Path(directory)/d)]:\n"
-    "            rel=here/name\n"
-    "            if (rel.parts[:1]==OBJECTS.parts and rel.parts[:2]!=('objects','info')) or str(rel) in MUTABLE:\n"
-    "                continue\n"
-    "            out[str(rel)]=entry(Path(directory)/name)\n" % TASK)
+# s1 r3 (reviews of 709fcb33: A must_fix 1, B must_fix 1-2, B should_fix 1-3): the Template common-snapshot
+# tool is written whole. It runs no git, compares every entry outside objects/ exactly, keeps every existing
+# object entry and allows only new loose objects that hash to their own name, records directories, raises on
+# any walk error and bounds every read. The ga-3oa7 tool is asserted as the source it replaces.
+COMMON_TOOL = r'''"""Read-only proof that the worker left the Template common git directory unchanged (s1 r3).
+
+  common-snapshot-r1.py before <out-json>
+  common-snapshot-r1.py after <before-json> <before-sha256> <out-json>
+
+The codex sandbox can write the whole Template .git, so this tool runs no git at all: it reads files only.
+- control: every file, link and directory under the .git outside objects/ is compared exactly (type, mode, owner,
+  size, sha256 or link target), except this worktree's own index, which `git add` rewrites. That covers config,
+  hooks/, info/, refs/, packed-refs, logs/, every worktrees/<name>/ admin file, HEAD, shallow, modules/ and lfs/.
+- objects: every entry that exists under objects/ in `before` (loose objects, packs, indexes, objects/info/ with
+  its alternates, and every directory) must be unchanged in `after`. The only allowed differences are new
+  loose-object directories and NEW loose objects (regular single-link files) whose zlib content hashes to their
+  own name, which is what `git add` writes: a new object can never shadow an existing id. A new pack, index or
+  multi-pack-index, an overwritten or removed object, and a directory replaced by a link all refuse.
+- every directory is recorded (type and mode) and any walk error raises, so an unlistable directory cannot hide
+  files; every read is bounded (1 GiB), and the excluded index must stay a plain single-link file.
+- the candidate branch is resolved from the ref bytes (the loose ref file, else packed-refs), never through git,
+  and must still point at BASE (the worker delivers staged, uncommitted work).
+Run `after` immediately after TERMINAL, before any other coordinator git call. Another Template worktree's index
+rewritten during the window (a `git status` there with optional locks) also refuses: it fails closed and is
+investigated. It writes only its own output file.
+"""
+import hashlib
+import json
+import os
+import re
+import stat
+import sys
+import zlib
+from pathlib import Path
+
+COMMON=Path('%(repo)s/.git')
+BASE='%(base)s'
+BRANCH='refs/heads/%(branch)s'
+MUTABLE={'worktrees/%(task)s/index'}
+LOOSE_DIR=re.compile(r'objects/[0-9a-f]{2}')
+LOOSE=re.compile(r'objects/[0-9a-f]{2}/[0-9a-f]{38}')
+LIMIT=1<<30
+
+def entry(path):
+    s=os.lstat(path)
+    value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid)
+    if stat.S_ISREG(s.st_mode):
+        assert s.st_size<=LIMIT,('file over the read bound',str(path))
+        value['size']=s.st_size
+        value['nlink']=s.st_nlink
+        value['sha256']=hashlib.sha256(Path(path).read_bytes()).hexdigest()
+    elif stat.S_ISLNK(s.st_mode):value['target']=os.readlink(path)
+    return value
+
+def walk():
+    """Every entry under COMMON (directories included), never following a link."""
+    out={}
+    def refuse(error):raise error
+    for directory,dirs,files in os.walk(COMMON,onerror=refuse):
+        dirs.sort()
+        here=Path(directory).relative_to(COMMON)
+        for name in sorted(dirs)+sorted(files):
+            out[str(here/name)]=entry(Path(directory)/name)
+    return out
+
+def branch_target():
+    loose=COMMON/BRANCH
+    if os.path.lexists(loose):
+        s=os.lstat(loose)
+        assert stat.S_ISREG(s.st_mode),'candidate branch ref is not a regular file'
+        return loose.read_text().strip()
+    packed=COMMON/'packed-refs'
+    if os.path.lexists(packed):
+        for line in packed.read_text().splitlines():
+            parts=line.split(' ')
+            if len(parts)==2 and parts[1]==BRANCH:return parts[0]
+    raise AssertionError('candidate branch not found')
+
+def observe():
+    everything=walk()
+    control={k:v for k,v in everything.items() if k!='objects' and not k.startswith('objects/') and k not in MUTABLE}
+    objects={k:v for k,v in everything.items() if k=='objects' or k.startswith('objects/')}
+    return dict(control=control,objects=objects,candidate_branch=branch_target())
+
+def loose_ok(rel):
+    """A new loose object must hash to its own name, so it can never shadow an existing object id."""
+    inflate=zlib.decompressobj()
+    try:
+        raw=inflate.decompress((COMMON/rel).read_bytes(),LIMIT)
+    except zlib.error:
+        return False
+    if inflate.unconsumed_tail or not inflate.eof:return False
+    head,_,body=raw.partition(b'\0')
+    kind,_,size=head.partition(b' ')
+    return kind in (b'blob',b'tree',b'commit',b'tag') and size.isdigit() and int(size)==len(body) \
+        and hashlib.sha1(raw).hexdigest()==rel[8:10]+rel[11:]
+
+def mutable_ok(after):
+    """The excluded index must still be a plain, single-link file of the operator."""
+    for rel in MUTABLE:
+        path=COMMON/rel
+        if not os.path.lexists(path):return False
+        s=os.lstat(path)
+        if not (stat.S_ISREG(s.st_mode) and s.st_uid==1000 and s.st_nlink==1 and s.st_size<=LIMIT):return False
+    return True
+
+def compare(before,after):
+    changed=sorted(k for k in set(before['control'])|set(after['control'])
+        if before['control'].get(k)!=after['control'].get(k))
+    for k,v in before['objects'].items():
+        if after['objects'].get(k)!=v:changed.append(k)
+    for k,v in after['objects'].items():
+        if k in before['objects']:continue
+        if v['type']==stat.S_IFDIR and LOOSE_DIR.fullmatch(k):continue
+        if v['type']==stat.S_IFREG and v['nlink']==1 and LOOSE.fullmatch(k) and loose_ok(k):continue
+        changed.append(k)
+    if after['candidate_branch']!=BASE:changed.append('candidate_branch')
+    if not mutable_ok(after):changed.append('mutable-index')
+    return sorted(set(changed))
+
+def write(path,value):
+    raw=(json.dumps(value,sort_keys=True,indent=1)+'\n').encode()
+    fd=os.open(path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+    with os.fdopen(fd,'wb') as out:out.write(raw)
+    return hashlib.sha256(raw).hexdigest()
+
+def main(argv):
+    if len(argv)==2 and argv[0]=='before':
+        value=observe();assert value['candidate_branch']==BASE,'candidate branch is not BASE'
+        print(json.dumps(dict(ok=True,control=len(value['control']),objects=len(value['objects']),
+            sha256=write(argv[1],value))));return 0
+    assert len(argv)==4 and argv[0]=='after','usage: see docstring'
+    raw=Path(argv[1]).read_bytes();assert hashlib.sha256(raw).hexdigest()==argv[2],'before record digest'
+    before=json.loads(raw);after=observe()
+    changed=compare(before,after)
+    added=sorted(set(after['objects'])-set(before['objects']))
+    result=dict(ok=not changed,changed=changed,added_objects=len(added),candidate_branch=after['candidate_branch'])
+    print(json.dumps(dict(result,sha256=write(argv[3],dict(result,after=after,added=added)))))
+    return 0 if not changed else 1
+
+if __name__=='__main__':raise SystemExit(main(sys.argv[1:]))
+'''
 
 
 def common(text):
-    text = sub(text, COMMON_OBSERVE_OLD, COMMON_OBSERVE_NEW)
-    text = sub(text, "config, every file under hooks/ and info/ (info/exclude as the ga-sh3w EXCLUDE job left it), and the candidate branch, which must\n"
-                     "still point at BASE (the candidate delivers uncommitted work). Coordinator refs (main, the ga-e0t1 branch,\n"
-                     "remote-tracking refs) legitimately move after TERMINAL and are not compared. It writes only its own output file.\n",
-               "every file and link under the Template .git except the object store (objects/, but objects/info/ is\n"
-               "compared) and this worktree's own index, plus the candidate branch, which must still point at BASE (the\n"
-               "worker delivers staged, uncommitted work). No coordinator git runs in the Template repository during the\n"
-               "window, so every ref is compared. Run `after` immediately after TERMINAL, before any other coordinator\n"
-               "git call. It writes only its own output file.\n")
-    return sub(text, "COMMON=Path('/home/loucmane/gas-city-ops/.git')", "COMMON=Path('%s/.git')" % TEMPLATE_REPO)
+    for needle in ("COMMON=Path('/home/loucmane/gas-city-ops/.git')", 'def observe():', 'def main(argv):'):
+        assert text.count(needle) == 1, needle
+    return COMMON_TOOL % dict(repo=TEMPLATE_REPO, base=BASE, branch=BRANCH, task=TASK)
 
 
 # The global rename also rewrites history lines that name the predecessors; these restore them and state the
@@ -455,10 +595,6 @@ FIXUPS = {
     ],
     'window-base-r11.py': [
         ("candidate task %(task)s (ga-fsfg R4), admitted\n", "Template codex task %(task)s (gct-e8ex), admitted\n"),
-    ],
-    'common-snapshot-r1.py': [
-        ('"""Read-only proof that the candidate left the Operations common git directory unchanged (s1 review A 7).',
-         '"""Read-only proof that the worker left the Template common git directory unchanged (s1 review A 7).'),
     ],
     'operator/BIND.sh': [
         ("contract binding (gc.work_dir, gc.check_path), before the window.",

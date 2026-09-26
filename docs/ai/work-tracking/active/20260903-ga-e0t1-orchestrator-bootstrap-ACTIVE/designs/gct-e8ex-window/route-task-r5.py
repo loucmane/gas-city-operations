@@ -15,7 +15,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-e8ex-window')
 ROOT=Path('/var/tmp/gct-mbg6-route-20260926-r1')
 BIND=Path('/var/tmp/gct-mbg6-bind-20260926-r1')
-BIND_SHA='d07cf470cd009fea443ff8569355824f6ae26b4008593fa399165309533cb7f8'
+BIND_SHA='dc049723caa98fc19c9c6ea16d392d96e143c1aaaed8d637622ce6bfb3353e57'
 DESCRIPTION_SHA='381cd7a83680b4259e7a774f61876d7e9ff619d6c7f13b746fe7359feb770004'
 PREROUTE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/preroute.py')
 PREROUTE_SHA='d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6'

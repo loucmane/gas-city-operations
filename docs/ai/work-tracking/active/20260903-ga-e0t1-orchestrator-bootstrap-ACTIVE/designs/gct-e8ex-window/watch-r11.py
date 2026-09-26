@@ -307,13 +307,7 @@ def main():
             continue
     records = [r for r in status.split('\0') if r]
     untracked = [r[3:] for r in records if r.startswith('?? ')]
-    inventory = dict(untracked=[entry(w, w.WORK/path) for path in untracked], evidence=[])
-    evidence = w.WORK/EVIDENCE
-    if evidence.is_dir() and not evidence.is_symlink():
-        for dirpath, dirnames, filenames in os.walk(evidence):
-            dirnames.sort()
-            for name in sorted(filenames):
-                inventory['evidence'].append(entry(w, Path(dirpath)/name))
+    inventory = dict(untracked=[], evidence=[])
     w.save('processes.json', processes)
     w.save('inventory.json', inventory)
     epoch()
@@ -331,7 +325,17 @@ def main():
                or (v.get('metadata') or {}).get('gc.trigger_bead_id') == TASK
                or (v.get('metadata') or {}).get('gc.work_dir') == str(w.WORK)]
     [bead] = task
-    result = dict(ok=True, mutation=False, head=head, branch=branch,
+    notes = bead.get('notes') or ''
+    markers = [line[:300] for line in notes.splitlines()
+               if 'READY FOR SIGNING:' in line or 'ESCALATED:' in line or 'STOPPED:' in line][-5:]
+    try:
+        fd = os.open('/home/loucmane/gas-city-template/.git/config', os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+        with os.fdopen(fd, 'rb') as handle:
+            template_config = hashlib.sha256(handle.read(1 << 20)).hexdigest()
+    except OSError as exc:
+        template_config = 'unreadable: %s' % exc.__class__.__name__
+    result = dict(ok=True, mutation=False, head=head, branch=branch, note_markers=markers,
+                  template_git_config_sha256=template_config,
                   status_records=records, staged=staged.splitlines(),
                   live_sessions=sessions.get('sessions'), related_session_beads=related,
                   task=dict(status=bead['status'], assignee=bead.get('assignee'),
