@@ -164,3 +164,22 @@ composition in full (A should_fix 4).
 - (c) The Bead carries `gc.build.artifact_schema` and `gc.build.artifact_path_keys`, plus the artifact path key,
   as the signing bind step does.
 - (d) The pack cache must not refresh, because the check path and digest live under it.
+
+## Adopted (2026-09-26)
+
+Both adoption binding reviews of `c07bdc89` passed. The platform file modes were checked by hand: 0644, and the
+M9 acceptance is 0600. `p10-adopt.py` then ran once:
+- **Phases.** check, then revision, then apply, then verify, then after. The rollback was not needed, and no
+  worker was launched.
+- **Live receipt.** `c833908f` (self `6bb7ca5b`, revision `83c41af6`), with the signing profile `ad0c695b`
+  unchanged and the candidate `e641dc17` added.
+- **Witness.** `53dd4553`, bound to the M9 pair `7f7c5dbe` and `5ad49de0` and the acceptance `959e3137`.
+
+Both readback reviews passed. The M9 inspector still reports zero drift.
+
+**Readback notes.**
+- "Nothing else changed" is proven within snapshot scope. The unconfined `gc trace show` could touch
+  `city/.gc/scripts`, which the snapshots do not cover (B 1).
+- The receipt is bound to config revision `83c41af6`, so any config change makes it stale.
+- The host is still quiesced: city and rigs suspended, and the candidate agent suspended.
+- The first launch must still prove the routed-Bead claim and `gc.check_path`.
