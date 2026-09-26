@@ -91,12 +91,59 @@ runs offline, with no gc execution.
 - the whole source diff from `deefb98b` to `f45a6262`: exactly the 55 reviewed paths (the ga-6umo Go files,
   their tests and the regenerated schema docs), with nothing under `internal/bootstrap/packs` or `examples`.
 
-### S2: broker sequence 16
+**Result (ran 2026-09-27 on ops `3ca5e3c0`, after two SOURCE_PASS reviews):**
+- `artifact-verification.json` (sha `b37088d9`) accepts the live `fce2e9a0` and both `207a78e2` artifacts,
+  refuses `83d098fc`, and shows the validator unchanged in the new source.
+- `provenance.json` (sha `0f27adcd`) records the signer, `f45a6262`, the merge parents, the tree and the 55 paths,
+  with no embedded pack path changed.
+- Carried S1b should-fix items, all non-blocking: count checks on the provenance slice anchors, pinning the
+  `deefb98b` tree literal and the verify-head exit, `GIT_NO_REPLACE_OBJECTS` for the rig reads, and the go test
+  writes outside the root (operator Go cache and telemetry, as in S1a). The module packs (gascity-packs) are
+  unchanged because go.mod and go.sum are outside the 55 changed paths.
 
-Generated from the executed sequence 15 transition by count-checked substitutions, following ga-e0t1.18 S2:
-- the M9 metadata pair as the new preimages;
-- the Core `fce2e9a0` to the new artifact;
-- the same timer, recovery and hard-stop rules.
+### S2: broker sequence 16 (this commit)
+
+**Generation.** Everything is generated from the executed sequence 15 files by count-checked substitutions only:
+- `make_s2.py` generates `s2_transition.py` (sha `781c9456`) from the executed sequence 15 transition (`c6d74b61`);
+- `make_tests.py` generates `test_s2.py` from `0cf33557` and `make_envelope.py` from `3649de29`.
+
+`make_s2.py`'s docstring has the rationale. In summary:
+
+| Area | Sequence 16 rule |
+| --- | --- |
+| Identity | Core `fce2e9a0` → `207a78e2`; source `f45a6262` / tree `f1011ada`; artifact blob `2f4f8449`; broker sequence 16; ROOT `/var/tmp/ga-bebv-seq16-20260927`; attempt `r17`; accept root `/var/tmp/ga-bebv-predecessor-20260927-r1` |
+| Preimages | The M9 pair: manifest `5a29dc59`, 129653 bytes; receipt `4c19802f`, 2549 bytes. M7 to M9 were adopted after sequence 15 |
+| Cache | Unchanged sequence 15 rule. The embedded pack content is unchanged (S1b), so nothing may be added except the optional `9c8c14fc` under the exact-content rule. `69fe9a2e` stays exact |
+| City | The shim stays `a7bcaa7c`. The re-derived live-key inventory is byte-identical to sequence 15's (143 links, 9 manifests, TSVs `25735dc8` and `1ee92cb5`) |
+| Dolt | The watchdog still maps the deleted `69d00186` (host up since 2026-09-24). The rule that admits `69d00186` or `c.OLD` (now `fce2e9a0`) stands |
+| Broker | `gas-city-privileged-provision.service` and its socket are active and running, as sequence 15 accepted. The sequence 15 broker, budget, marker and recovery rules stand unchanged |
+
+`test_s2.py` has 82 tests, all passing, with ROOT staged (step 0 below). They are the sequence 15 suite with its
+identities, pins and roots rebound. They include the live check of the prior state:
+- `gc` is `fce2e9a0`;
+- the shim is `a7bcaa7c`;
+- the watchdog maps `69d00186`;
+- the broker pin;
+- the M9 preimages.
+
+**Run order, stops and time limits.** These are exactly ga-e0t1.18 PLAN S2, with sequence 16 names:
+- Every `s2_transition.py` phase runs through
+  `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B`.
+- The broker's `prepare` runs only through `python3 -I -B make_envelope.py`.
+- The steps:
+  0. **Setup, done.** ROOT is created 0700, with `deadlines.py` (`1486dbbc`) staged byte-for-byte from the
+     sequence 15 root.
+  1. **Timer.** Record, stop and drain `aegis-obsidian-reconcile.timer`.
+  2. **Accept.** Run `s2_transition.py accept` (read-only), then an independent review of its delta and the two
+     observations. Write `accepted.json`, regenerate, test and commit, then a constants-only diff review.
+  3. **Envelope.** Run `prepare`, then `make_envelope.py`, then `bind-envelope`, then an independent
+     full-envelope review, all inside the 900 s window.
+  4. **Submit.** `recheck`, then `submit` (the one broker call), then `postflight1` and `postflight2`, at least 5 s
+     apart.
+  5. **Close.** A live readback review, then restore the timer.
+- The retry rule before submit, the recovery phase after submit, and the hard stops are the ga-e0t1.18 s2 r3 to
+  r6 rules unchanged. The recovery root is `/var/tmp/ga-bebv-seq16-recovery-20260927`.
+- From step 1 to step 5 the coordinator makes no Bead writes, runs no `gc`, and walks no directories.
 
 ### S3: metadata successor, receipt and inspector
 
