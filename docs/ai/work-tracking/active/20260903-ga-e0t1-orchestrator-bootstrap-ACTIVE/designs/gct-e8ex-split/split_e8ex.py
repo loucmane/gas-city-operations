@@ -101,23 +101,26 @@ def notes_holder(task_id):
             '  run `git write-tree` as its own command (its output is the staged tree digest), and run\n'
             '  `git status --porcelain` as another. Append that status and a bounded test summary (counts, plus the\n'
             '  names of failing or skipped tests; never full output) to the task Bead, and the full results to the\n'
-            '  worklog. As the last note, append exactly this line with the digest filled in:\n'
+            '  worklog. Keep every task note to a few lines; detail goes to the worklog. As the last note, append\n'
+            '  exactly this line with the digest filled in:\n'
             f'  `READY FOR SIGNING: {task_id} tree <digest>`\n'
             '  Then send one escalation to the mayor with that same line as its subject, and stop: do not close the\n'
             '  task Bead and do not run `gc runtime drain-ack`. The coordinator reads the task notes, reviews, signs,\n'
             '  delivers and closes it.\n'
-            '- The stop check at the top of the task description applies throughout: a task whose notes hold that\n'
-            '  READY FOR SIGNING line or a recorded escalation is finished for you. Record every escalation in the\n'
-            '  task notes before you send it, never after.\n\n'
+            '- The stop check at the top of the task description applies throughout. Record every other escalation\n'
+            '  first as a task note starting `ESCALATED:` with its reason, then send it; if that note cannot be\n'
+            '  recorded, stop without sending.\n\n'
             '## B. Review hints for building the tests (not new requirements)\n\n' + GUIDANCE)
 
 
 def pointer(ids):
     lines = ['## Stop check (before anything else)\n\n',
              'The claimed task is "this Bead" throughout; the heading keeps the source id of the umbrella. Before any\n',
-             'other read, read this Bead\'s notes (in the task view you already have). If they hold a line starting\n',
-             '`READY FOR SIGNING:` or record an escalation, send nothing and stop: the coordinator reads the notes. If the\n',
-             'task view itself is truncated and you cannot see the notes, stop the same way.\n\n',
+             'other read, read this Bead\'s notes (in the task view you already have). If any note contains\n',
+             '`READY FOR SIGNING:`, `ESCALATED:` or `STOPPED:`, or otherwise records an escalation or a failed read, send\n',
+             'nothing, do not close this Bead, do not run `gc runtime drain-ack`, and stop: the coordinator reads the\n',
+             'notes. If the task view itself is truncated and you cannot see the notes, append the note\n',
+             '`STOPPED: task view truncated` and stop the same way, sending nothing.\n\n',
              '## The full specification (read first)\n\n',
              'This description continues in six closed holder Beads. Parts 1 to 5 are the rest of this description,\n',
              'verbatim from the reviewed r6 brief and split only because of its length: the requirements this task must\n',
@@ -128,8 +131,9 @@ def pointer(ids):
     for n, sid in enumerate(ids, 1):
         what = TITLES[n - 1] if n <= 5 else 'coordinator notes and review hints'
         lines.append(f'{n}. `{GC_SHOW} {sid}` ({"part %d: " % n if n <= 5 else ""}{what}).\n')
-    lines.append('If any read is truncated or fails, stop: record which read failed on this Bead first, then escalate to\n'
-                 'the mayor as your prompt describes, and do not guess the missing text.\n\n')
+    lines.append('If any read is truncated or fails, stop: first append to this Bead the note `ESCALATED: read <n> failed`\n'
+                 '(n is its number above), then escalate to the mayor as your prompt describes; if that note cannot be\n'
+                 'recorded, stop without sending. Do not guess the missing text.\n\n')
     return ''.join(lines)
 
 

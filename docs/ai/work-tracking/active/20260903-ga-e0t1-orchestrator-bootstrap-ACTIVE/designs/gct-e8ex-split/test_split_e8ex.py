@@ -73,7 +73,7 @@ def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
     for needle in ('"this Bead" means the claimed task, gct-tttt', 'do not read, update or close it',
                    '/Docs/worklogs/gct-tttt.md` (one note per Bead)', 'run `git write-tree` as its own',
                    '`READY FOR SIGNING: gct-tttt tree <digest>`', 'do not run `gc runtime drain-ack`',
-                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', 'Record every escalation in the\n  task notes before you send it', 'a bounded test summary',
+                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', '`ESCALATED:` with its reason, then send it', 'stop without sending', 'Keep every task note to a few lines', 'a bounded test summary',
                    '`git diff --cached --name-only`', '`git restore --staged <file>`',
                    'explicit file paths, never a directory', 'refused as ignored is reported',
                    'every test you can run passes', '"The worker\n  report" means',
@@ -107,6 +107,7 @@ def test_holders_depend_only_on_the_task_id(s, tmp_path, rendered):
         assert text == rendered[name], name
     # Only the two intended angle-bracket tokens remain: the digest to fill in and Core's quoted error text.
     assert '<' not in alone['spec-6.md'].replace('<digest>', '').replace('<name>', '').replace('<file>', '')
+    assert '<' not in rendered['task.md'][rendered['task.md'].index('## Stop check'):].replace('<n>', '')
     other = s.holders('gct-tttt')
     assert other == alone
     task_only = s.render_task(tmp_path / 't', 'gct-tttt', 'gct-aaaa', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee',
@@ -125,5 +126,16 @@ def test_stop_check_comes_before_every_read(rendered):
     task = rendered['task.md']
     stop = task.index('## Stop check (before anything else)')
     assert stop < task.index('## The full specification (read first)') < task.index('1. `/home/loucmane/gascity/bin/gc bd show')
-    assert '`READY FOR SIGNING:` or record an escalation, send nothing and stop' in task
-    assert 'record which read failed on this Bead first, then escalate' in task
+    head = task[stop:task.index('## The full specification (read first)')]
+    for needle in ('`READY FOR SIGNING:`, `ESCALATED:` or `STOPPED:`', 'records an escalation or a failed read',
+                   'do not close this Bead, do not run `gc runtime drain-ack`', '`STOPPED: task view truncated`'):
+        assert needle in head, needle
+    failed = task[task.index('If any read is truncated or fails'):]
+    assert failed.index('`ESCALATED: read <n> failed`') < failed.index('then escalate') < failed.index(
+        'stop without sending')
+
+
+def test_ready_note_comes_before_the_mail(rendered):
+    """r8 (r7 review A 4): the READY line is appended before the one escalation is sent."""
+    text = rendered['spec-6.md']
+    assert text.index('`READY FOR SIGNING: gct-tttt tree <digest>`') < text.index('Then send one escalation')

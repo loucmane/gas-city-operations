@@ -2,7 +2,7 @@
 
 This package prepares the Template candidate-lane Bead, gct-e8ex, for the Template `codex` worker. The worker
 builds a closed Claude candidate lane for the Template rig, and the handover proof (gct-oak5) needs that lane
-first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (9 tests; the first bullet covers two) proves:
+first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (10 tests; some bullets cover two) proves:
 - the split is verbatim, and holders name themselves;
 - the live umbrella description is the reviewed r6 brief;
 - every part is small;
@@ -37,8 +37,9 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
    unassigned, with no edges, metadata or notes. Measure every live plain `gc bd show` view, and stop if any
    view is 9,000 bytes or more, or 200 lines or more. On a mismatch or an oversize view, do not route: leave the
    bad holder closed and unreferenced, create new holders with `render-holders`, re-render the task with
-   `render-task`, and re-check. A change to the renderer goes back to review. Never edit a closed holder in
-   place.
+   `render-task`, and re-check. A task that already has notes, metadata, an assignee or edges is not re-rendered:
+   create a new task Bead and new holders. A second mismatch after one recovery, or any change to the renderer,
+   goes back to review. Never edit a closed holder in place.
 6. **Keep the umbrella.** gct-e8ex stays open as the umbrella, and its notes stay there.
 7. **Route the task.** It goes to `gas-city-template/codex` through a reviewed Template window, which stamps
    `gc.work_dir` to a worktree under `/home/loucmane/gas-city-template-worktrees`, checks that root, and asserts
@@ -150,3 +151,17 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 - **Pre-claim notes (A 2):** nothing writes notes on the task before it is claimed (step 5 checks it).
 - **The live-read test (B 8)** reads `reports/`, which is gitignored and local evidence, not reproducible from the
   commit alone.
+
+## r8 (answers the reviews of `e5e3f19c`: A and B SOURCE_PASS)
+
+- **Fixed note prefixes (B 1, A 1, A 5).** Every escalation other than READY is first recorded as a note starting
+  `ESCALATED:`; a failed read records `ESCALATED: read <n> failed`. The stop check fires on any note containing
+  `READY FOR SIGNING:`, `ESCALATED:` or `STOPPED:`, or one that otherwise records an escalation or a failed read, so
+  a differently worded note still stops a restarted session. If the note cannot be recorded, nothing is sent.
+- **The stop check forbids close and drain-ack (B 2).** A restarted session stops before it reads holder 6, so the
+  stop check itself says not to close the Bead or run `gc runtime drain-ack`.
+- **A truncated task view leaves a trace (A 2, B 3).** The worker appends `STOPPED: task view truncated` and sends
+  nothing. Every task note is kept to a few lines, with detail in the worklog.
+- **Step 5 recovery (A 3, B 4).** A dirty task needs a new task Bead and new holders; a second mismatch after one
+  recovery goes back to review instead of looping.
+- **Tests (A 4).** The stop-check clauses, the failed-read order and the READY-before-mail order are pinned (10 tests).
