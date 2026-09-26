@@ -15,7 +15,7 @@ from pathlib import Path
 
 from .contracts import Payload
 from .coordination_runtime import reviewed_registered_target, reviewed_runtime
-from .orchestrator import BEAD, SHELL_SYNTAX, WORKFLOW_REL, _options, _python
+from .orchestrator import AGENT, BEAD, SHELL_SYNTAX, WORKFLOW_REL, _options, _python
 from .payloads import bash_command, shlex_tokens, strip_shell_prefixes
 
 VERBS = frozenset(
@@ -64,6 +64,7 @@ def request(root: Path, payload: Payload) -> tuple[str, dict[str, list[str]]] | 
             "--description",
             "--acceptance",
             "--blocker",
+            "--target",
         }
         required |= {"--bead", "--action"}
     elif verb == "log":
@@ -82,10 +83,14 @@ def request(root: Path, payload: Payload) -> tuple[str, dict[str, list[str]]] | 
             "note": {"--text"},
             "create": {"--title", "--description", "--acceptance"},
             "depend": {"--blocker"},
+            # ga-fsfg R4: `--target` belongs to the dispatch shape alone.
+            "dispatch": {"--target"},
         }
         action = options["--action"][0]
         if action not in shapes or set(options) != required | shapes[action]:
             raise ValueError("unrecognized ledger operation")
+        if action == "dispatch" and not AGENT.fullmatch(options["--target"][0]):
+            raise ValueError("invalid dispatch target")
     elif verb == "log":
         evidence_sources = {"--evidence", "--pending-id"} & set(options)
         if len(evidence_sources) != 1:
@@ -230,9 +235,55 @@ def _journal(
         record = journal.get("external_ownership", {}).get(owned, {})
         if record.get("state") != "verified" or record.get("binding") != binding:
             raise ValueError("coordination ownership journal is not verified")
-    if verb == "coordinate" and options["--bead"][0] not in [bead, *attached]:
+    if verb == "coordinate" and options["--action"][0] == "dispatch":
+        dispatch_child(journal, [bead, *attached], options["--bead"][0])
+    elif verb == "coordinate" and options["--bead"][0] not in [bead, *attached]:
         raise ValueError("ledger operation does not name an owned Bead")
     return spec
+
+
+def dispatch_child(journal: dict, owned: list[str], child: str) -> None:
+    """ga-fsfg R4: the one ownership exemption, bound to a verified `create` record.
+
+    `<W>` routes only a child it created and does not own: a routed owned Bead would
+    fail every later ownership check at `<W>`. Verified `note` and `depend` records also
+    carry a `result_bead`, always an owned Bead, and never qualify. Journal reads only.
+    """
+
+    if not BEAD.fullmatch(child) or child in owned:
+        raise ValueError("dispatch names an owned Bead or a malformed identity")
+    if not any(child.startswith(parent + ".") for parent in owned):
+        raise ValueError("dispatch Bead is not a dotted child of an owned Bead")
+    records = journal.get("coordination", {})
+    if not isinstance(records, dict) or not any(
+        isinstance(record, dict)
+        and record.get("state") == "verified"
+        and isinstance(record.get("request"), dict)
+        and record["request"].get("action") == "create"
+        and record.get("result_bead") == child
+        for record in records.values()
+    ):
+        raise ValueError("dispatch Bead has no verified create record in the target journal")
+
+
+def dispatch_policy(profile: dict, target: str, registered: dict | None) -> None:
+    """ga-fsfg R4: the profile half of a dispatch request, judged from local state.
+
+    Every live read (the child, `bd ready`, `agent list`) runs in the executor under
+    the repository lock, so neither this check nor the PostToolUse recheck ever sees
+    the child's live state, which the sling itself changes.
+    """
+
+    from .native_permissions import DISPATCH
+
+    if DISPATCH not in profile["commands"]:
+        raise ValueError("dispatch is not opted into by the command profile")
+    if registered is not None:
+        raise ValueError("dispatch requires an Operations worktree")
+    if target not in profile["dispatch_targets"]:
+        raise ValueError("dispatch target is not listed in dispatch_targets")
+    if not profile["preroute_targets"] or target in profile["preroute_targets"]:
+        raise ValueError("dispatch target is routed only by its reviewed window package")
 
 
 def registered_target_readiness(
@@ -293,6 +344,13 @@ def target_for(root: Path, payload: Payload, *, post_success: bool = False) -> P
     delivered = delivery_target(root, payload, post_success=post_success)
     if delivered is not None:
         return delivered
+    # ga-fsfg R4: a native Write into a worktree's ACTIVE reports/ directory selects
+    # that worktree through the evidence-write class.
+    from .evidence_write import evidence_write_target
+
+    written = evidence_write_target(root, payload, post_success=post_success)
+    if written is not None:
+        return written
     parsed = request(root, payload)
     if parsed is None:
         return None
@@ -306,6 +364,8 @@ def target_for(root: Path, payload: Payload, *, post_success: bool = False) -> P
     verb, options = parsed
     target = Path(options["--root"][0])
     registered = registered_entry(profile, target) if target.is_absolute() else None
+    if verb == "coordinate" and options["--action"][0] == "dispatch":
+        dispatch_policy(profile, options["--target"][0], registered)
     parents = {Path(profile["worktree_root"])}
     if registered is not None:
         parents.add(Path(registered["worktree_root"]))

@@ -6,6 +6,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 from dataclasses import asdict, dataclass
@@ -42,15 +43,19 @@ class CommandRunner:
         cwd: Path | None = None,
         env: Mapping[str, str] | None = None,
         check: bool = True,
+        timeout: float | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        result = subprocess.run(
-            list(argv),
-            cwd=str(cwd) if cwd is not None else None,
-            env=dict(env) if env is not None else None,
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        if timeout is not None:
+            result = _run_bounded(argv, cwd, env, timeout)
+        else:
+            result = subprocess.run(
+                list(argv),
+                cwd=str(cwd) if cwd is not None else None,
+                env=dict(env) if env is not None else None,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
         if check and result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()
             raise WorkflowError(
@@ -58,6 +63,51 @@ class CommandRunner:
                 + (f": {detail}" if detail else "")
             )
         return result
+
+
+def _run_bounded(
+    argv: Sequence[str],
+    cwd: Path | None,
+    env: Mapping[str, str] | None,
+    timeout: float,
+) -> subprocess.CompletedProcess[str]:
+    """Run in a process group of its own; a timeout kills the whole group (ga-fsfg R4).
+
+    The timeout bounds how long the call waits, not memory. A `TimeoutExpired` becomes a
+    `WorkflowError`, so a caller holding a pending intent leaves it pending.
+    """
+
+    process = subprocess.Popen(
+        list(argv),
+        cwd=str(cwd) if cwd is not None else None,
+        env=dict(env) if env is not None else None,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+        start_new_session=True,
+    )
+    try:
+        stdout, stderr = process.communicate(timeout=timeout)
+    except subprocess.TimeoutExpired:
+        _kill_group(process)
+        raise WorkflowError(f"command timed out after {timeout:g} s: {' '.join(argv)}") from None
+    except BaseException:
+        _kill_group(process)
+        raise
+    return subprocess.CompletedProcess(list(argv), process.returncode, stdout, stderr)
+
+
+def _kill_group(process: subprocess.Popen[str]) -> None:
+    try:
+        os.killpg(process.pid, signal.SIGKILL)
+    except (ProcessLookupError, PermissionError):
+        pass
+    try:
+        process.communicate(timeout=5)
+    except subprocess.TimeoutExpired:
+        # A descendant that left the group still holds the pipes; the child is reaped.
+        process.kill()
+        process.wait()
 
 
 @dataclass(frozen=True)
@@ -155,8 +205,14 @@ def load_bead(
         ],
         env=managed_environment(),
     )
+    return parse_bead_readback(result.stdout, bead_id)
+
+
+def parse_bead_readback(stdout: str, bead_id: str) -> dict[str, Any]:
+    """One `bd show --json` record for exactly `bead_id`."""
+
     try:
-        payload = json.loads(result.stdout)
+        payload = json.loads(stdout)
     except json.JSONDecodeError as exc:
         raise WorkflowError("bead readback returned invalid JSON") from exc
     if isinstance(payload, list) and len(payload) == 1 and isinstance(payload[0], dict):

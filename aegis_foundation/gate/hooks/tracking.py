@@ -61,6 +61,12 @@ def posttooluse_tracking() -> int:
     try:
         target = target_for(root, payload, post_success=True)
         if target is not None:
+            if payload.tool_name == "Write":
+                # ga-fsfg R4: target_for resolves a Write only through the evidence-write
+                # class; its event lands on <W> here, never in the delivery branch below.
+                from .evidence_write import record_evidence_write_event
+
+                return record_evidence_write_event(target, payload)
             parsed = coordination_request(root, payload)
             if parsed is None:
                 # ga-fsfg R3: a target without a workflow request came from the call's

@@ -57,13 +57,14 @@ new denial records. Failure to record a denial never makes the operation permiss
 
 Hook success alone is not Claude-native command approval. Operations explicitly
 opts into the command profile documented in
-`docs/aegis/claude-orchestrator-permissions.md`, which knows five classes. Only the
+`docs/aegis/claude-orchestrator-permissions.md`, which knows seven classes. Only the
 exact scoped context, Beads reads, canonical `workflow.py begin`, with the
-`workflow-coordinate` opt-in below the stationary coordination verbs, and with the
-separate `delivery` opt-in the closed push, pull-request and merge forms receive
-audited native approvals after all applicable strict checks. No broad Bash allowlist,
-file-write grant, plan-mode mutation, signing or lifecycle authority follows from this
-profile.
+`workflow-coordinate` opt-in below the stationary coordination verbs, with the
+separate `delivery` opt-in the closed push, pull-request and merge forms, and with the
+separate `dispatch` and `evidence-write` opt-ins the routing of a created child and one
+create-only reports write, receive audited native approvals after all applicable strict
+checks. No broad Bash allowlist, general file-write grant, plan-mode mutation, signing
+or lifecycle authority follows from this profile.
 
 ### Stationary canonical-root orchestration
 
@@ -109,6 +110,8 @@ edge. `depend` adds a **blocks** prerequisite to the primary Bead, then invokes 
 existing transactional `attach`; these relationships are not interchangeable.
 `note` changes only notes on a primary or attached owned Bead. Exact completed
 requests replay as no-ops; a pending/ambiguous intent requires reconciliation.
+`dispatch` (its own opt-in, below) routes a child that `create` made; it never routes
+an owned Bead.
 
 The two `log` forms are mutually exclusive. Use `--pending-id` only with the exact
 12-character lowercase hexadecimal ID reported by the selected target; stationary
@@ -118,7 +121,8 @@ retain the original request digest and session identity. Observation state at th
 or target refuses this opt-in; an advisory seat or target still validates and audits
 the request but receives no native approval. Use target `log` to clear target
 tracking. No general raw `bd` mutation approval, cross-rig grant, source edit,
-dispatch, signing, publication, lifecycle, or plan-mode exemption is added.
+signing, publication, lifecycle, or plan-mode exemption is added; routing comes only
+through the `dispatch` action below.
 
 The target's executable workflow helpers must match reviewed canonical bytes.
 Ordinary candidate source edits are permitted, but edited workflow executors cannot
@@ -173,6 +177,43 @@ class, including changes to the gate and the profile, which is acceptable becaus
 the host signer holds it and the coordinator signs only changes that passed two
 independent reviews. Run the read-only live preflight in the permissions reference
 before the first real delivery.
+
+### Stationary dispatch and evidence writes (ga-fsfg R4)
+
+With the explicit `dispatch` opt-in (the profile lists `dispatch` besides
+`workflow-coordinate`, with a closed `dispatch_targets` list and a non-empty
+`preroute_targets` list), the canonical seat can route a child Bead that an Operations
+worktree `<W>` created, and does not own, to a listed pool agent. It is a fourth
+`coordinate` action, approved as `workflow-coordinate`; pass the Bash tool a timeout of
+300000 ms:
+
+```bash
+python3 /home/loucmane/gas-city-ops/plugins/gas-city-workflow/scripts/workflow.py coordinate --root /absolute/registered/task-worktree --bead ga-primary.1 --action dispatch --target gascity/worker
+```
+
+The Bead must be the result of a verified `create` in `<W>`'s journal and a dotted child
+of the primary or an attached Bead; the target must be in `dispatch_targets` and not in
+`preroute_targets`; Core and review-project worktrees refuse. The gate reads only local
+state. The executor reads the child, `bd ready --limit 0` and `agent list` live, under a
+fixed six-variable gc environment with 30 s timeouts and output caps, then runs the
+reviewed `gc sling <target> <bead> --no-formula --no-convoy --json` form and accepts only
+the route and claim delta on readback. A failed or timed-out sling leaves the intent
+pending: log any pending event on `<W>` first, then repeat the exact request, which
+verifies a route that landed or, when the child is untouched and 60 s have passed since
+the last attempt, slings once more. While it is pending every other `coordinate` action
+at `<W>` refuses. Run the live preflight in the permissions reference before the first
+real dispatch, and use a throwaway child for it.
+
+With the explicit `evidence-write` opt-in, a native `Write` from the canonical seat may
+create one new file under
+`<W>/docs/ai/work-tracking/active/<folder>-ACTIVE/reports/`: `<W>` an Operations
+worktree that passes coordinate's target validation, `<folder>-ACTIVE` the only ACTIVE
+folder, nothing above `reports/` created, no existing target, no link, control
+character or trusted name (`CLAUDE*.md`, `AGENTS*.md`, `GEMINI*.md`, `*SKILL.md`,
+`conftest.py`, `*.pth`, `*.py`, a leading dot), a `.md`, `.txt`, `.json`, `.jsonl` or
+`.log` suffix and at most 1 MiB. Readiness and the pending event belong to `<W>`;
+discharge it with `workflow.py log --root <W> --pending-id <id>`. `Edit`, overwrites,
+`NotebookEdit` and every other path keep today's behaviour.
 
 The PreToolUse dispatcher in `.claude/scripts/pretooluse-gate.sh` enforces this for hookable Claude file tools and tested Bash mutation patterns. After a successful mutation, `.claude/scripts/posttooluse-tracking.sh` records pending S:W:H:E tracking and `.claude/scripts/tracking-stop-gate.sh` blocks session stop until `aegis log` has updated the session, tracker, implementation log, changelog, handoff, and plan evidence.
 

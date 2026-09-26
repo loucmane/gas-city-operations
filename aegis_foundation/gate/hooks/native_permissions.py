@@ -2,7 +2,9 @@
 
 This is not another shell allowlist. It reuses the closed orchestrator grammar,
 narrows it to the configured project/store, and never approves general Bash,
-file tools, direct bd, delegation, publication, or lifecycle commands.
+file tools, direct bd, delegation, publication, or lifecycle commands. The one file
+tool it approves is the evidence-write class's create-only Write into a worktree's
+ACTIVE `reports/` directory (ga-fsfg R4).
 """
 
 from __future__ import annotations
@@ -16,6 +18,7 @@ from .contracts import Payload
 from .delegation import DESCRIPTOR_NAME, _head_bound_bytes, resolve_managed_project
 from .delivery_grammar import COMMAND as DELIVERY, DELIVERY_KEYS, validate_delivery_profile
 from .orchestrator import (
+    AGENT,
     CITY,
     CONTEXT_REL,
     MANAGED_BIN,
@@ -30,10 +33,22 @@ from .runtime_state import hook_invoking_agent
 
 PROFILE = Path(".claude/orchestrator-command-profile.json")
 SCHEMA = "aegis.claude-orchestrator-command-profile.v1"
+# ga-fsfg R4: `dispatch` (a `coordinate` action, approved as `workflow-coordinate`) and
+# `evidence-write` (a stationary native Write) are the sixth and seventh classes.
+DISPATCH = "dispatch"
+EVIDENCE_WRITE = "evidence-write"
 # ga-fsfg R3: `delivery` is the fifth class; a profile opts in by listing it together
 # with every field in DELIVERY_KEYS.
 COMMANDS = frozenset(
-    {"project-context", "beads-read", "workflow-begin", "workflow-coordinate", DELIVERY}
+    {
+        "project-context",
+        "beads-read",
+        "workflow-begin",
+        "workflow-coordinate",
+        DELIVERY,
+        DISPATCH,
+        EVIDENCE_WRITE,
+    }
 )
 KEYS = {"schema", "project_id", "canonical_root", "worktree_root", "city", "rig", "commands"}
 # ga-fsfg R2: optional registered projects whose direct-child worktrees the seat may
@@ -41,8 +56,12 @@ KEYS = {"schema", "project_id", "canonical_root", "worktree_root", "city", "rig"
 # bind an aegis-reviewer candidate; they grant no coordination. Each record must agree
 # with the tracked canonical registry, and the two lists may not overlap.
 OPTIONAL_KEYS = {"registered_projects", "review_projects"}
+# ga-fsfg R4: both lists are required when `dispatch` is listed, and refused otherwise.
+DISPATCH_KEYS = frozenset({"dispatch_targets", "preroute_targets"})
+MAX_DISPATCH_TARGETS = 16
 # An advisory seat coordinating a strict target leaves this record on the target.
 ADVISORY_COORDINATION_REASON = "advisory_coordination_no_native_approval"
+ADVISORY_EVIDENCE_WRITE_REASON = "advisory_evidence_write_no_native_approval"
 REGISTERED_KEYS = {"id", "repository", "canonical_root", "worktree_root", "rig"}
 MAX_REGISTERED = 16
 
@@ -107,6 +126,38 @@ def _validate_registered(
     return validated
 
 
+def validate_dispatch_profile(value: dict[str, Any]) -> None:
+    """ga-fsfg R4: `dispatch` needs both target lists; neither list may appear without it.
+
+    Each list is closed: unique qualified agent names, at most sixteen. Every
+    `dispatch_targets` entry lies in the profile rig. `preroute_targets` names the lanes
+    that only their reviewed window packages route. A failure refuses the whole profile,
+    the same fail-closed rule as a drifted `review_projects` record.
+    """
+
+    present = DISPATCH_KEYS & set(value)
+    if DISPATCH not in value["commands"]:
+        if present:
+            raise ValueError("dispatch_targets and preroute_targets require dispatch in commands")
+        return
+    if present != DISPATCH_KEYS:
+        raise ValueError("dispatch requires dispatch_targets and preroute_targets")
+    if "workflow-coordinate" not in value["commands"]:
+        raise ValueError("dispatch is a coordinate action and requires workflow-coordinate")
+    for key in sorted(DISPATCH_KEYS):
+        entries = value[key]
+        if (
+            not isinstance(entries, list)
+            or not entries
+            or len(entries) > MAX_DISPATCH_TARGETS
+            or not all(isinstance(entry, str) and AGENT.fullmatch(entry) for entry in entries)
+            or len(set(entries)) != len(entries)
+        ):
+            raise ValueError(f"{key} must be a non-empty closed list of agent names")
+    if any(not entry.startswith(value["rig"] + "/") for entry in value["dispatch_targets"]):
+        raise ValueError("every dispatch target must be an agent of the profile rig")
+
+
 def _unique_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     result: dict[str, Any] = {}
     for key, value in pairs:
@@ -131,7 +182,7 @@ def _profile(root: Path) -> dict[str, Any] | None:
     value = json.loads(raw, object_pairs_hook=_unique_object)
     if (
         not isinstance(value, dict)
-        or set(value) - OPTIONAL_KEYS - DELIVERY_KEYS != KEYS
+        or set(value) - OPTIONAL_KEYS - DELIVERY_KEYS - DISPATCH_KEYS != KEYS
         or value["schema"] != SCHEMA
     ):
         raise ValueError("invalid command-profile schema")
@@ -147,6 +198,7 @@ def _profile(root: Path) -> dict[str, Any] | None:
     ):
         raise ValueError("invalid command-profile command set")
     validate_delivery_profile(value)
+    validate_dispatch_profile(value)
     if "default_branch" in value:
         from .delivery_checks import branch_format_accepted
 
@@ -240,7 +292,8 @@ def native_permission(root: Path, payload: Payload) -> str | None:
     Profile/identity failures raise so the gate can refuse rather than approve.
     No recognized command is executed here.
     """
-    if payload.tool_name != "Bash" or hook_invoking_agent(payload) != "claude":
+    # ga-fsfg R4: a native Write is considered only as a stationary evidence write.
+    if payload.tool_name not in {"Bash", "Write"} or hook_invoking_agent(payload) != "claude":
         return None
     # Stationary commands retain the original payload/cwd for the request digest.
     # Only the explicitly validated workflow target receives task readiness/evidence.
@@ -251,6 +304,18 @@ def native_permission(root: Path, payload: Payload) -> str | None:
 
         seat = Path(payload.cwd)
         if target_for(seat, payload) == root:
+            if payload.tool_name == "Write":
+                # target_for selects a target for a Write only through evidence-write.
+                if advisory_enabled(seat):
+                    append_gate_decision(
+                        root,
+                        hook="pretooluse",
+                        payload=payload,
+                        verdict="allow",
+                        reason=ADVISORY_EVIDENCE_WRITE_REASON,
+                    )
+                    return None
+                return EVIDENCE_WRITE
             # ga-fsfg R3: the only two binding write points are the advisory audit
             # return and the approval return below, never target_for.
             delivery = delivery_evaluation(payload, root)
@@ -276,6 +341,8 @@ def native_permission(root: Path, payload: Payload) -> str | None:
                 bind(delivery, payload, approving=True)
                 return DELIVERY
             return KIND
+        return None
+    if payload.tool_name != "Bash":
         return None
     profile_path = root / PROFILE
     if not profile_path.exists() and not profile_path.is_symlink():

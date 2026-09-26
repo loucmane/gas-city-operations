@@ -2,7 +2,9 @@
 
 All writes use native APIs inside workflow.py's repository lock. A pending intent
 is never replayed automatically: an uncertain create/update must be reconciled,
-not duplicated. No command, rig, status, metadata, route or assignee is caller-set.
+not duplicated. No command, rig, status, metadata or assignee is caller-set. The one
+route, `dispatch`'s target (ga-fsfg R4, workflow_dispatch.py), must be listed in the
+orchestrator profile's closed `dispatch_targets`.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ import re
 import sys
 from pathlib import Path
 
+import workflow_dispatch as dispatch
 from project_context import DEFAULT_REGISTRY, build_context
 from workflow_attach import attach
 from workflow_common import (
@@ -37,7 +40,12 @@ from workflow_ownership import (
 )
 from workflow_snapshots import compact_records, resolve_snapshot, store_snapshot
 
-FIELDS = {"note": {"text"}, "create": {"title", "description", "acceptance"}, "depend": {"blocker"}}
+FIELDS = {
+    "note": {"text"},
+    "create": {"title", "description", "acceptance"},
+    "depend": {"blocker"},
+    "dispatch": {"target"},
+}
 PENDING_EVENT_ID = re.compile(r"[0-9a-f]{12}")
 
 
@@ -58,6 +66,7 @@ def coordinate(
     runner: CommandRunner,
     *,
     registry: Path = DEFAULT_REGISTRY,
+    seat: Path | None = None,
 ) -> dict:
     if action not in FIELDS or set(fields) != FIELDS[action]:
         raise WorkflowError("unknown or overbroad coordination operation")
@@ -79,7 +88,12 @@ def coordinate(
     journal = load_journal(path)
     if journal is None or journal["phase"] != "ready":
         raise WorkflowError("coordination requires a ready journal")
-    if bead_id not in [spec.bead_id, *journal.get("attached_bead_ids", [])]:
+    profile = None
+    if action == "dispatch":
+        # ga-fsfg R4: the one exemption from the ownership refusal, bound to a verified
+        # create record; every other action keeps refusing an unowned Bead.
+        profile = dispatch.preflight(context, spec, journal, bead_id, fields["target"], seat=seat)
+    elif bead_id not in [spec.bead_id, *journal.get("attached_bead_ids", [])]:
         raise WorkflowError("coordination bead is not owned by this workflow")
     if action == "depend" and bead_id != spec.bead_id:
         raise WorkflowError("only the primary Bead may acquire an attached dependency")
@@ -89,11 +103,33 @@ def coordinate(
     operations = journal.setdefault("coordination", {})
     if not isinstance(operations, dict):
         raise WorkflowError("invalid coordination journal")
+    if action != "dispatch" and dispatch.pending_dispatch(operations):
+        raise WorkflowError(
+            "a pending dispatch refuses every other coordination here; "
+            "complete it with its exact request first"
+        )
     previous = operations.get(key)
     if previous:
+        if (
+            action == "dispatch"
+            and previous.get("state") == "pending"
+            and previous.get("request") == request
+        ):
+            # ga-fsfg R4: the exact request completes its own pending dispatch.
+            return dispatch.complete(runner, root, profile, path, key, previous, registry=registry)
         if previous.get("state") != "verified" or previous.get("request") != request:
             raise WorkflowError(
                 "pending/ambiguous coordination intent; explicit reconciliation required"
+            )
+        if action == "dispatch":
+            # A worker is expected to change the routed child: replay compares nothing.
+            return result_payload(
+                "coordinate",
+                "unchanged",
+                request_sha256=key,
+                bead_id=previous["result_bead"],
+                target=fields["target"],
+                journal=str(path),
             )
         current = load_bead(runner, context, previous["result_bead"])
         if _semantic(current) != _semantic(resolve_snapshot(path, previous["after"])):
@@ -107,6 +143,8 @@ def coordinate(
         )
     if any(record.get("state") != "verified" for record in operations.values()):
         raise WorkflowError("another coordination intent is unresolved")
+    if action == "dispatch":
+        return dispatch.start(runner, root, profile, path, journal, key, request, registry=registry)
     before = load_bead(runner, context, bead_id)
     blocker_before = None
     if blocker:
