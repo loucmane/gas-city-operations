@@ -52,15 +52,44 @@ unchanged.
 
 **How it runs.** It runs as ga-e0t1.18 S1a did: `python3 -I -B build.py` as the operator identity, offline.
 - It reads the rig repository and the Go toolchain and module cache.
-- Its evidence goes only under its root.
-- Git and go still see the operator HOME. Only `gc` is isolated.
+- Its own evidence goes only under its root.
+- Git and go still see the operator HOME. Only `gc` is isolated. Outside the root they write:
+  - the operator Go build cache;
+  - Go telemetry counters;
+  - lock files in the module cache;
+  - the gpg trustdb that `verify-commit` touches.
 
-### S1b: custody acceptance and provenance
+  None of these is Gas City live state.
+- The artifact is stamped `main.commit=f45a6262`, the reviewed head, not the merge commit `0b63856a`; the
+  trees are identical. So the deployed `gc version` reports `f45a6262`. S2, the M10 pins and the P11 receipt
+  expect that commit identity.
 
-Next commit. Its checks:
-- the custody validator must accept the live `fce2e9a0` and both new artifacts;
-- the provenance binds the S1a result, the signer of `f45a6262`, and the merge parents;
-- the source diff from `deefb98b` is exactly the reviewed ga-6umo file list, with no embedded pack path.
+**Result (ran 2026-09-27 on ops `58ed49b1`, after two SOURCE_PASS reviews):**
+- `/var/tmp/ga-bebv-build-20260927/result.json` has sha `8f77877c`.
+- The artifact is `207a78e27fe4b470ec5926ded186813543568683cf26d7d7487e6c185d8f3e8f`: 134146157 bytes, 0755,
+  identical from both clones. `gc version` reports commit `f45a6262`, version `dev`.
+- 7125 audited inputs, 1546 of them Git-bound, identical before and after the builds.
+- `verify-head.stderr` shows a good signature made with RSA key FD5585922F5335BC378AD8D42ECF4432C7E7982D.
+- The live city shim was unchanged (`a7bcaa7c`), and the probe HOME and GC_HOME stayed empty.
+
+### S1b: custody acceptance and provenance (this commit)
+
+`make_s1.py verify` generates `verify.py` (sha `595431de`) from the executed ga-e0t1.18 verify (`485fc00c`). It
+runs offline, with no gc execution.
+
+**Custody validator.**
+- The validator must refuse `83d098fc`.
+- It must accept the live `fce2e9a0` and both new artifacts `207a78e2`.
+- The validator file must be byte-identical in the new source.
+
+**Provenance** (answers the S1a should-fix items). It binds:
+- the S1a result (`8f77877c`), its head, tree and main, and the `f45a6262` stamp on both artifacts;
+- the exact signer: `verify-head.stderr` must name RSA key FD5585922F5335BC378AD8D42ECF4432C7E7982D and a good
+  signature;
+- from the rig repository: `0b63856a^1` is `f3856bd1` and `0b63856a^2` is `f45a6262`; the trees of `0b63856a`
+  and `f45a6262` are both `f1011ada`; the live build source `deefb98b` has the tree of `f3856bd1`;
+- the whole source diff from `deefb98b` to `f45a6262`: exactly the 55 reviewed paths (the ga-6umo Go files,
+  their tests and the regenerated schema docs), with nothing under `internal/bootstrap/packs` or `examples`.
 
 ### S2: broker sequence 16
 
