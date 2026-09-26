@@ -265,17 +265,25 @@ def overrides(r):
          "    c.o.require(result.get('returncode')==0 and c.o.decode(result.get('stdout','').encode()).get('ok') is True,\n"
          "                'the broker reported failure; hard stop, not recovery')\n"
          "    call=json.loads((root/'broker-call.json').read_text())\n"
-         "    c.o.require(os.path.lexists(S15_RECEIPTS/(call['envelope_sha256']+'.json')),\n"
-         "                'no broker receipt for the marked envelope; do not start recovery yet')\n"
+         "    envelope=call.get('envelope_sha256')\n"
+         "    c.o.require(isinstance(envelope,str) and len(envelope)==64 and all(x in '0123456789abcdef' for x in envelope),\n"
+         "                'broker-call marker envelope identity')\n"
+         "    c.o.require(os.path.lexists(S15_RECEIPTS/(envelope+'.json')),\n"
+         "                'no broker receipt for the marked envelope; hard stop, not recovery')\n"
          "    return call"),
-        ("    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)\n"
+        # s2 r5: the digest reads and the marker binding move in front of the one-shot recovery root.
+        ("    b=baseline(baseline_sha)\n"
+         "    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)\n"
          "    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')\n",
+         ""),
+        ("    c.o.require(json.loads((ROOT/'terminal.json').read_text())=={'phase':'postflight1','error_type':'Refused',\n"
+         "                'reason':'supervisor scope membership','submission_started':True},'terminal disposition changed')\n",
+         "    call=s15_recovery_gate(ROOT)\n"
+         "    # s2 r5: every read-only precondition runs before the one-shot recovery root is created.\n"
+         "    b=baseline(baseline_sha)\n"
          "    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)\n"
          "    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')\n"
          "    c.o.require(call['envelope_sha256']==binding['envelope_sha256'],'broker-call marker names another envelope')\n"),
-        ("    c.o.require(json.loads((ROOT/'terminal.json').read_text())=={'phase':'postflight1','error_type':'Refused',\n"
-         "                'reason':'supervisor scope membership','submission_started':True},'terminal disposition changed')\n",
-         "    call=s15_recovery_gate(ROOT)\n"),
         ("    c.o.require(os.path.lexists(ROOT/'submit-done.json') and os.path.lexists(ROOT/'broker-result.json'),'submission record')\n",
          ""),
         ("        s14_wait_initialized()\n        c.timer_inactive()\n",

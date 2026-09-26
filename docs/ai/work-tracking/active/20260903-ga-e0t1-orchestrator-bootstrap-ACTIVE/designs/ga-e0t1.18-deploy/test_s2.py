@@ -314,6 +314,10 @@ def gate_root(tmp_path, phase='postflight1', started=True, call=True, result='ok
         (root/'broker-result.json').write_text(json.dumps(dict(returncode=0, stdout='{"ok": true}', stderr='')))
     elif result == 'failed':
         (root/'broker-result.json').write_text(json.dumps(dict(returncode=1, stdout='{"ok": false}', stderr='x')))
+    elif result == 'rc0-not-ok':
+        (root/'broker-result.json').write_text(json.dumps(dict(returncode=0, stdout='{"ok": false}', stderr='')))
+    elif result == 'rc3-ok':
+        (root/'broker-result.json').write_text(json.dumps(dict(returncode=3, stdout='{"ok": true}', stderr='')))
     if done:
         (root/'postflight2-done.json').write_text('{}')
     return root
@@ -334,6 +338,8 @@ def test_recovery_gate_admits_post_call_terminals_with_success_and_receipt(s2, t
     (dict(phase='submit', result=None), 'broker client lost after the call'),
     (dict(result=None), 'broker client lost after the call'),
     (dict(result='failed'), 'the broker reported failure'),
+    (dict(result='rc0-not-ok'), 'the broker reported failure'),
+    (dict(result='rc3-ok'), 'the broker reported failure'),
     (dict(phase='postflight2', done=True), 'postflight2 completed'),
     (dict(receipt=False), 'no broker receipt for the marked envelope'),
 ])
@@ -344,10 +350,61 @@ def test_recovery_gate_refusals(s2, tmp_path, monkeypatch, kw, message):
         s2.s15_recovery_gate(root)
 
 
-def test_recovery_binds_the_marker_to_the_binding():
+def test_recovery_gate_refuses_a_malformed_marker_identity(s2, tmp_path, monkeypatch):
+    root = gate_root(tmp_path)
+    (root/'broker-call.json').write_text(json.dumps(dict(envelope_sha256='../../etc/passwd')))
+    monkeypatch.setattr(s2, 'S15_RECEIPTS', tmp_path/'receipts')
+    with pytest.raises(Exception, match='broker-call marker envelope identity'):
+        s2.s15_recovery_gate(root)
+
+
+def test_recovery_checks_everything_before_its_one_shot_root():
     body = (HERE/'s2_transition.py').read_text().split('def s14_recover(baseline_sha,binding_sha):\n', 1)[1]
-    assert body.index('call=s15_recovery_gate(ROOT)') < body.index('S14_RECOVERY_ROOT.mkdir(mode=0o700)')
-    assert "c.o.require(call['envelope_sha256']==binding['envelope_sha256'],'broker-call marker names another envelope')" in body
+    mkdir = body.index('S14_RECOVERY_ROOT.mkdir(mode=0o700)')
+    for step in ('call=s15_recovery_gate(ROOT)', 'b=baseline(baseline_sha)',
+                 "binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)",
+                 "c.o.require(call['envelope_sha256']==binding['envelope_sha256'],'broker-call marker names another envelope')"):
+        assert body.count(step) == 1 and body.index(step) < mkdir, step
+
+
+def envelope_module():
+    path = HERE/'make_envelope.py'
+    module = types.ModuleType('make_envelope_under_test')
+    module.__file__ = str(path)
+    exec(compile(path.read_bytes(), str(path), 'exec'), module.__dict__)
+    return module
+
+
+def test_envelope_wrapper_targets_the_current_root_with_the_reviewed_arguments(s2):
+    env = envelope_module()
+    root = env.current_root()
+    assert root == s2.ROOT
+    argv = env.command(root)
+    assert argv[:2] == ['/usr/local/libexec/gas-city/gct-privileged-provision', 'prepare']
+    flags = dict(zip(argv[2::2], argv[3::2]))
+    assert flags == {'--operation': 'replace-gas-city-control-plane.v1', '--artifact': str(s2.ARTIFACT),
+                     '--bead': 'ga-ecwh', '--commit': s2.SOURCE['commit'], '--tree': s2.SOURCE['tree'],
+                     '--sequence': '15', '--output': str(s2.ROOT/'envelope.json')}
+
+
+def test_envelope_wrapper_follows_a_retry_root(tmp_path):
+    env = envelope_module()
+    fake = tmp_path/'s2_transition.py'
+    fake.write_text("x\nROOT=Path('/var/tmp/ga-e0t1.18-seq15-20260926-t2')\ny\n")
+    assert str(env.current_root(fake)) == '/var/tmp/ga-e0t1.18-seq15-20260926-t2'
+
+
+@pytest.mark.parametrize('state, message', [('no-preflight', 'run prepare first'),
+                                            ('existing', 'never overwrite an envelope')])
+def test_envelope_wrapper_refusals(tmp_path, state, message):
+    env = envelope_module()
+    root = tmp_path/'root'
+    root.mkdir()
+    if state == 'existing':
+        (root/'preflight.json').write_text('{}')
+        (root/'envelope.json').write_text('{}')
+    with pytest.raises(SystemExit, match=message):
+        env.preconditions(root)
 
 
 def test_recovery_calls_the_gate_before_creating_its_root():

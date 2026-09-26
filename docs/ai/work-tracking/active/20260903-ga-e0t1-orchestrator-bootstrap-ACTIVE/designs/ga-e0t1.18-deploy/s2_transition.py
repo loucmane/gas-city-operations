@@ -988,13 +988,21 @@ def s15_recovery_gate(root):
     c.o.require(result.get('returncode')==0 and c.o.decode(result.get('stdout','').encode()).get('ok') is True,
                 'the broker reported failure; hard stop, not recovery')
     call=json.loads((root/'broker-call.json').read_text())
-    c.o.require(os.path.lexists(S15_RECEIPTS/(call['envelope_sha256']+'.json')),
-                'no broker receipt for the marked envelope; do not start recovery yet')
+    envelope=call.get('envelope_sha256')
+    c.o.require(isinstance(envelope,str) and len(envelope)==64 and all(x in '0123456789abcdef' for x in envelope),
+                'broker-call marker envelope identity')
+    c.o.require(os.path.lexists(S15_RECEIPTS/(envelope+'.json')),
+                'no broker receipt for the marked envelope; hard stop, not recovery')
     return call
 
 def s14_recover(baseline_sha,binding_sha):
     c.o.require(sys.flags.isolated and sys.flags.dont_write_bytecode and sys.flags.optimize==0,'use python3 -I -B')
     call=s15_recovery_gate(ROOT)
+    # s2 r5: every read-only precondition runs before the one-shot recovery root is created.
+    b=baseline(baseline_sha)
+    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)
+    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')
+    c.o.require(call['envelope_sha256']==binding['envelope_sha256'],'broker-call marker names another envelope')
     S14_RECOVERY_ROOT.mkdir(mode=0o700)
     def rec(name,value):
         data=json.dumps(value,indent=1,sort_keys=True).encode()
@@ -1008,10 +1016,6 @@ def s14_recover(baseline_sha,binding_sha):
         return s14_sha(data)
     rec('start.json',dict(executor_sha256=s14_sha(Path(__file__).read_bytes()),baseline_sha256=baseline_sha,
                           binding_sha256=binding_sha))
-    b=baseline(baseline_sha)
-    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)
-    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')
-    c.o.require(call['envelope_sha256']==binding['envelope_sha256'],'broker-call marker names another envelope')
     observations=[]
     for n in (1,2):
         s14_wait_initialized()

@@ -102,7 +102,7 @@ rationale. In summary:
 | Cache (r2) | With no additions, the cache root metadata must also be exactly unchanged |
 | Accept (r2) | The broker socket must be active, enabled, Result success, and SubState listening or running |
 
-`test_s2.py` has 67 tests at r4. They cover:
+`test_s2.py` has 74 tests at r5, including the envelope wrapper's root, argument and refusal checks. They cover:
 - behavioural cases, ported from sequence 14 and extended to every sequence 15 rule:
   - fresh or survived dolt from a live or a deleted predecessor;
   - an unchanged or freshly started broker, and each broker refusal;
@@ -135,16 +135,21 @@ below; the r2 wording is superseded.
 
   The marker is what decides whether a call happened. A normal apply keeps the long-running broker's epoch, so the
   epoch is only a consistency check.
-- **Retry steps** (as ga-e0t1.15 PLAN):
-  1. Write `retry.json` `{"retry": N, "reaccept": <true if the closure drifted>}` and regenerate. This gives a
+  If any of the three fails, the pre-submit stop is a hard stop (s2 r5): the timer stays paused and I report.
+- **Retry steps** (as ga-e0t1.15 PLAN, ordered in s2 r5):
+  1. Wait until the previous envelope's `expires_at` has passed.
+  2. Write `retry.json` `{"retry": N, "reaccept": <true if the closure drifted>}` and regenerate. This gives a
      fresh ROOT `-tN` and attempt `r(16+N)`; with reaccept it also gives a fresh accept root `-r(1+N)`.
-  2. Stage `deadlines.py` (`1486dbbc`) into the new ROOT.
-  3. Get a constants-only diff review, then rerun from `prepare`, or from `accept` when reaccepting.
-  4. Create the new envelope only after the previous one's `expires_at` has passed.
+  3. Stage `deadlines.py` (`1486dbbc`) into the new ROOT.
+  4. Get a constants-only diff review.
+  5. Pause the timer again (run order step 1).
+  6. Rerun from `prepare`, or from `accept` when reaccepting. The envelope for the new ROOT comes only from
+     `make_envelope.py` (below), never from a hand-written command.
 - **After submit** (`broker-call.json` present):
   - Keep the timer paused.
-  - **With `broker-result.json` showing exact success**, wait until the receipt
-    `/var/lib/gas-city-provisioning/receipts/<envelope sha>.json` exists, then run the recovery phase:
+  - **With `broker-result.json` showing exact success**, the receipt
+    `/var/lib/gas-city-provisioning/receipts/<envelope sha>.json` must already exist, because the broker writes it
+    before it replies. If it is missing, that is a hard stop. Otherwise run the recovery phase:
     `systemd-run --user --wait --collect --pipe -p UMask=0022 /usr/bin/python3 -I -B /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1.18-deploy/s2_transition.py recover <baseline_sha256> <binding_sha256>`.
     - Its gate (`s15_recovery_gate`) refuses, before creating the one-shot recovery root, unless all of these hold:
       - a submit, postflight1 or postflight2 terminal;
@@ -158,13 +163,24 @@ below; the r2 wording is superseded.
   - **Without `broker-result.json`, a lost client, it is a hard stop (s2 r4).** The installed broker
     (`gct-privileged-provision` `_serve`) keeps applying after the client is gone. It writes its receipt, then fails
     the reply with EPIPE and exits with code 3. Its unit has no `Restart=`, so it is left failed with
-    Result=exit-code. The capture requires a healthy broker, so recovery cannot pass. Expected end state: the Core
-    is either adopted or rolled back, as the receipt says; the broker unit is failed; the timer is paused; the city is
-    suspended. Next step: report. Resetting the broker unit and verifying the adoption needs its own reviewed change.
+    Result=exit-code. The capture requires a healthy broker, so recovery cannot pass.
+    Possible end states (s2 r5):
+    - **Applied or rolled back.** A receipt exists, and says whether the Core was adopted or rolled back. The
+      broker unit is failed.
+    - **Nothing applied.** No receipt exists and the Core is unchanged: the client died before the broker had the
+      whole request or its lock, or the `apply` exec itself failed after the marker. Sequence 15 is unconsumed. The
+      broker unit is failed if it tried to reply, or unchanged if it never received a request.
+    - **Broker still healthy.** The kill landed just after the broker's reply: a receipt exists and the broker
+      is still active.
+
+    In every case the timer stays paused and the city suspended, and I report. Resetting the broker unit,
+    verifying the outcome and any retry need their own reviewed change.
 - **Hard stops.** In every hard stop the timer stays paused, the city stays suspended, everything is preserved, and
   I report. They are:
   - a lost broker client (above);
-  - a broker result that reports failure;
+  - a broker result that reports failure. The client maps a socket timeout or any OSError to exit 3 with empty
+    stdout, so the broker may still have applied, exactly as for a lost client; the same end states apply;
+  - a pre-submit stop that fails any of the three timer-restore conditions;
   - a recovery refusal;
   - process loss without `terminal.json`;
   - a failed readback review after postflight2 or after recovery.
@@ -180,6 +196,8 @@ below; the r2 wording is superseded.
     and fenced at 123476.391.
   - So submit must be *launched* by 620 s into the prepare window and by 330 s after the envelope's `issued_at`,
     for the fence to find more than 240 s left.
+  - The window starts at the first `audit_clock` inside `prepare`, recorded as `ROOT/clock-0.json` (`mono`). Read
+    both references from `clock-0.json` and the envelope's `issued_at`, not from the launch time.
   - Sequence 14 launched its submit about 546 s into the window and 172 s after issue.
   - The in-window envelope review is time-boxed at about 4 minutes, with a manifest extract.
 - **Signing.** A pre-window probe of the operator key succeeded non-interactively:
@@ -208,9 +226,14 @@ operator shell. The run is atime-neutral, as ga-e0t1.15 S2 r4 was.
    - A constants-only diff review.
 3. **Envelope.**
    - Run `prepare` and note the baseline digest.
-   - Create the envelope with the installed broker's prepare:
-     `/usr/local/libexec/gas-city/gct-privileged-provision prepare --operation replace-gas-city-control-plane.v1 --artifact /var/tmp/ga-e0t1.18-build-20260926/gc-a --bead ga-ecwh --commit deefb98b2aed07875df31351d081fbac195cb1cd --tree af5c3f045c1f50cd62c859f6dc58fa613e5f2f99 --sequence 15 --output /var/tmp/ga-e0t1.18-seq15-20260926/envelope.json`.
-     It is signed with FD5585… and must not prompt.
+   - Create the envelope only with `python3 -I -B make_envelope.py`, run from the operator shell (s2 r5).
+     - It reads the current attempt's ROOT from `s2_transition.py`, including any `-tN` suffix.
+     - It refuses unless `ROOT/preflight.json` exists and `ROOT/envelope.json` does not, because the broker's
+       prepare replaces its output atomically.
+     - It runs the broker's prepare with the fixed arguments (operation, artifact, bead `ga-ecwh`, commit
+       `deefb98b…`, tree `af5c3f04…`, sequence 15, output `ROOT/envelope.json`).
+     - It prints the envelope sha256.
+     - It is signed with FD5585… and must not prompt.
    - Run `bind-envelope`, then an independent full-envelope review.
    - All of this happens inside the fixed 900 s window.
 4. **Submit.** `recheck`, then `submit` (one broker call), then `postflight1` and `postflight2`, at least 5 s apart.
