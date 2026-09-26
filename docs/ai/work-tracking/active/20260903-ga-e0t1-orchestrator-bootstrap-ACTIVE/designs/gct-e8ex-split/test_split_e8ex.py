@@ -72,8 +72,9 @@ def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
     assert 'not a work item\nand is closed' in header and s.GUIDANCE in text
     for needle in ('"this Bead" means the claimed task, gct-tttt', 'do not read, update or close it',
                    '/Docs/worklogs/gct-tttt.md` (one note per Bead)', 'run `git write-tree` as its own',
-                   'READY FOR SIGNING: gct-tttt tree <digest>', 'not close the task Bead and do not run drain-ack',
-                   'Never use `-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', 'already hold a READY FOR SIGNING',
+                   '`READY FOR SIGNING: gct-tttt tree <digest>`', 'do not run `gc runtime drain-ack`',
+                   '`-A`, `.` or `-f`', '`.agents/`, `.claude/skills/` or `.gc/`', 'already hold that READY FOR SIGNING line',
+                   'explicit file paths, never a directory', 'refused as ignored is reported',
                    'every test you can run passes', '"The worker\n  report" means',
                    "are the\n  coordinator's"):
         assert needle in text, needle
@@ -85,7 +86,7 @@ def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
 def test_render_refuses_bad_ids(s, tmp_path):
     good = ['gct-t1', 'gct-a1', 'gct-b1', 'gct-c1', 'gct-d1', 'gct-e1', 'gct-f1']
     for bad in (good[:6], ['<task>'] + good[1:], ['gct-e8ex'] + good[1:], good[:6] + ['gct-a1'],
-                good[:6] + ['gct-x `rm`']):
+                good[:6] + ['gct-x `rm`'], ['gct-e8ex.1'] + good[1:], good[:6] + ['gct-e8ex.2']):
         with pytest.raises(ValueError):
             s.render(tmp_path / 'x', *bad)
 
@@ -94,3 +95,21 @@ def test_spec_holders_name_themselves(rendered):
     for n in range(1, 6):
         header = rendered['spec-%d.md' % n].split('\n\n', 1)[0]
         assert header.startswith('gct-e8ex spec part %d of 5' % n) and 'not a work item and is\nclosed' in header
+
+
+def test_holders_depend_only_on_the_task_id(s, tmp_path, rendered):
+    """r5 (r4 review B must_fix 1): the six holders are rendered from the real task id alone, before their own
+    ids exist, and equal the combined render; holder 6 carries no placeholder."""
+    alone = s.render_holders(tmp_path / 'h', 'gct-tttt')
+    assert sorted(alone) == ['spec-%d.md' % n for n in range(1, 7)]
+    for name, text in alone.items():
+        assert text == rendered[name], name
+    # Only the two intended angle-bracket tokens remain: the digest to fill in and Core's quoted error text.
+    assert '<' not in alone['spec-6.md'].replace('<digest>', '').replace('<name>', '')
+    other = s.holders('gct-tttt')
+    assert other == alone
+    task_only = s.render_task(tmp_path / 't', 'gct-aaaa', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee', 'gct-ffff')
+    assert task_only['task.md'] == rendered['task.md']
+    for bad in ('<task>', 'gct-e8ex', 'gct-e8ex.3'):
+        with pytest.raises(ValueError):
+            s.render_holders(tmp_path / 'x', bad)

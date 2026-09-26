@@ -2,13 +2,14 @@
 
 This package prepares the Template candidate-lane Bead, gct-e8ex, for the Template `codex` worker. The worker
 builds a closed Claude candidate lane for the Template rig, and the handover proof (gct-oak5) needs that lane
-first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (7 tests) proves:
+first. `split_e8ex.py` renders the Bead texts, and `test_split_e8ex.py` (8 tests) proves:
 - the split is verbatim, and holders name themselves;
 - the live umbrella description is the reviewed r6 brief;
 - every part is small;
 - the pointer uses the codex prompt's own read command;
 - the notes holder carries the notes and the review guidance;
-- render refuses bad ids.
+- render refuses bad ids;
+- the holders depend only on the task id.
 
 ## Why
 
@@ -26,13 +27,15 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 1. **Reviews.** Two reviews of this package.
 2. **Create the task Bead** in the Template rig with a provisional description, no edges, and the label
    `template-candidate`.
-3. **Create the six holders** with `split_e8ex.py render <dir> <task> <spec-1> ... <spec-5> <notes>`, then close them.
-4. **Update the task description** to the final render.
-5. **Measure every live plain `gc bd show` view.** Stop if any view is 9,000 bytes or more, or 200 lines or more.
-   A holder over the limit is re-split before routing.
+3. **Create the six holders** from `split_e8ex.py render-holders <dir> <task-id>` (spec-1.md to spec-6.md; they
+   depend only on the task id), then close them.
+4. **Update the task description** to `split_e8ex.py render-task <dir> <spec-1> ... <spec-5> <notes>`.
+5. **Measure every live plain `gc bd show` view.** Stop if any view is 9,000 bytes or more, or 200 lines or more:
+   an oversize view goes back to review, never an improvised re-split.
 6. **Keep the umbrella.** gct-e8ex stays open as the umbrella, and its notes stay there.
 7. **Route the task.** It goes to `gas-city-template/codex` through a reviewed Template window, which stamps
-   `gc.work_dir` to a worktree under `/home/loucmane/gas-city-template-worktrees` and checks that root.
+   `gc.work_dir` to a worktree under `/home/loucmane/gas-city-template-worktrees`, checks that root, and asserts
+   that the composed codex session can write `/home/loucmane/gas-city-template/.git` (needed for `git add`).
 
 ## r2 (answers the reviews of `688723d9`; both SOURCE_PASS)
 
@@ -49,7 +52,8 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
   inside the codex agent's classified-vault write root, following gas-city-native `templates/worklog.md`.
 - **A 1: the size caps.** The size test counts bytes; the hard stop on the live views is above.
 - **A 3: holder ids.** Holder ids are checked against the Bead id pattern and must be distinct.
-- **A 4 and B 6:** the pointer punctuation, and the holders are closed before the task exists.
+- **A 4 and B 6:** the pointer punctuation, and the holders are closed right after creation (superseded by the
+  task-first order in r3).
 - **Tests:** 6 pass.
 
 ## r3 (answers the reviews of `2bfc59ac`; both SOURCE_PASS)
@@ -78,7 +82,7 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 
 - **B 1: staging.** Stage by explicit path only the files the task created or changed. Never `-A`, `.` or `-f`,
   and never anything under `.agents/`, `.claude/skills/` or `.gc/`, which Core writes into Template codex worktrees
-  and nothing ignores. Record `git status --porcelain` beside the tree digest.
+  (`.gc/` is ignored, the other two are not). Record `git status --porcelain` beside the tree digest.
 - **B 2: tests.** Stage when every runnable test passes, and list by name the Core-build tests the sandbox cannot
   run.
 - **B 3: restarts.** A restarted worker whose task notes already hold a READY FOR SIGNING digest sends nothing more
@@ -87,3 +91,23 @@ under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 - **Run order (A 1, B 5)** is rewritten to the task-first order, with a re-split rule for an oversize holder.
   The routing window checks the Template worktree root.
 - **Counts (A 2)** are fixed, and the size headroom is noted (A 3, B 4).
+
+## r5 (answers the reviews of `16cba95a`: A SOURCE_PASS, B HOLD)
+
+- **B must_fix 1: the run order was not executable.** The combined render needed the holder ids before the
+  holders existed. There are now two steps:
+  - `render-holders <dir> <task-id>` writes the six holders, which depend only on the task id;
+  - `render-task <dir> <six holder ids>` writes the task description.
+
+  A test proves the holders equal the combined render, carry no placeholder, and refuse a placeholder, the
+  umbrella or its children.
+- **The restart rule (A 2, B 1).** The literal line `READY FOR SIGNING: <task> tree <digest>` is the last note,
+  appended before the mail, and the restart rule matches that line. The coordinator reads the notes even if the
+  mail was not sent.
+- **Staging.** Stage explicit file paths only, never a directory, and report a path refused as ignored instead of
+  forcing it (A 3, B 5). `gc runtime drain-ack` is named precisely, so the claim command's `--drain-ack` is not
+  confused with it (B 7).
+- **Ids.** Dotted children of the umbrella are refused as ids (B 3).
+- **An oversize live view** goes back to review (B 4).
+- **The routing window** asserts that the Template `.git` is writable by the composed codex session (B 2).
+- **README fixes:** the `.gc/` note (A 1) and the stale r2 line (B 6).

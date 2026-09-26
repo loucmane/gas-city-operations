@@ -90,16 +90,19 @@ def notes_holder(task_id):
             '  escalate. "The uncommitted-delivery rule above" in the acceptance text is in spec part 1. "The worker\n'
             '  report" means your notes on the task Bead plus the worklog; a named difference you report there (for\n'
             '  example a Core symbol that is missing) is not a reason to stop.\n'
-            '- When every test you can run passes (list by name any Core-build test the sandbox cannot run): `git add`,\n'
-            '  by explicit path, only the files you created or changed for this task. Never use `-A`, `.` or `-f`, and\n'
-            '  never stage anything under `.agents/`, `.claude/skills/` or `.gc/` (Core writes those). Then\n'
+            '- When every test you can run passes (list by name any Core-build test the sandbox cannot run): `git add`\n'
+            '  explicit file paths, never a directory, of only the files you created or changed for this task. Never\n'
+            '  use `-A`, `.` or `-f`, and never stage anything under `.agents/`, `.claude/skills/` or `.gc/` (Core\n'
+            '  writes those); a path refused as ignored is reported in your notes, not forced. Then\n'
             '  run `git write-tree` as its own command (its output is the staged tree digest), and run\n'
-            '  `git status --porcelain` as another. Append the digest, that status and the test results to the task\n'
-            '  Bead and the worklog. Then send\n'
-            f'  one escalation to the mayor with the subject "READY FOR SIGNING: {task_id} tree <digest>", and stop: do\n'
-            '  not close the task Bead and do not run drain-ack. The coordinator reviews, signs, delivers and closes it.\n'
-            '- If you are restarted and the task notes already hold a READY FOR SIGNING tree digest, send nothing more\n'
-            '  and stop.\n\n'
+            '  `git status --porcelain` as another. Append that status and the test results to the task Bead and the\n'
+            '  worklog. As the last note, append exactly this line with the digest filled in:\n'
+            f'  `READY FOR SIGNING: {task_id} tree <digest>`\n'
+            '  Then send one escalation to the mayor with that same line as its subject, and stop: do not close the\n'
+            '  task Bead and do not run `gc runtime drain-ack`. The coordinator reads the task notes, reviews, signs,\n'
+            '  delivers and closes it.\n'
+            '- If you are restarted and the task notes already hold that READY FOR SIGNING line, send nothing more and\n'
+            '  stop: the coordinator reads the notes even if the mail was not sent.\n\n'
             '## B. Review hints for building the tests (not new requirements)\n\n' + GUIDANCE)
 
 
@@ -119,30 +122,61 @@ def pointer(ids):
     return ''.join(lines)
 
 
-def render(out, *ids):
-    """ids: the task id, then the six holder ids (five spec parts, then the notes holder); all real or none."""
-    ids = ids or ('<task>', '<spec-1>', '<spec-2>', '<spec-3>', '<spec-4>', '<spec-5>', '<notes>')
-    if len(ids) != 7:
-        raise ValueError('need the task id and six holder ids')
-    placeholders = [i.startswith('<') for i in ids]
-    if any(placeholders) and not all(placeholders):
-        raise ValueError('mixed placeholder and real ids')
-    if not any(placeholders) and (not all(ID.fullmatch(i) for i in ids) or len(set(ids)) != 7 or UMBRELLA in ids):
-        raise ValueError('ids must be distinct Bead ids other than the umbrella')
-    task_id, ids = ids[0], ids[1:]
-    full = r6()
-    head, bodies, tail = parts(full)
+def check_ids(ids):
+    """Real Bead ids only: the id pattern, distinct, never the umbrella or one of its dotted children."""
+    if not all(ID.fullmatch(i) for i in ids) or len(set(ids)) != len(ids):
+        raise ValueError('ids must be distinct Bead ids')
+    if any(i == UMBRELLA or i.startswith(UMBRELLA + '.') for i in ids):
+        raise ValueError('ids must not be the umbrella or its children')
+
+
+def write(out, files):
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
-    files = {f'spec-{n}.md': spec(n, body) for n, body in enumerate(bodies, 1)}
-    files['spec-6.md'] = notes_holder(task_id)
-    files['task.md'] = head + pointer(ids) + tail
     for name, text in sorted(files.items()):
         (out / name).write_text(text)
         print(name, len(text.encode()), text.count('\n'), hashlib.sha256(text.encode()).hexdigest())
     return files
 
 
+def holders(task_id):
+    """The six holder texts; they depend only on the task id, never on the holder ids."""
+    check_ids([task_id])
+    head, bodies, tail = parts(r6())
+    files = {f'spec-{n}.md': spec(n, body) for n, body in enumerate(bodies, 1)}
+    files['spec-6.md'] = notes_holder(task_id)
+    return files
+
+
+def task(holder_ids):
+    """The task description; it depends only on the six holder ids."""
+    check_ids(list(holder_ids))
+    if len(holder_ids) != 6:
+        raise ValueError('need six holder ids')
+    head, bodies, tail = parts(r6())
+    return head + pointer(holder_ids) + tail
+
+
+def render_holders(out, task_id):
+    """Step 3: the six holders for the real task id, created before their own ids exist."""
+    return write(out, holders(task_id))
+
+
+def render_task(out, *holder_ids):
+    """Step 4: the final task description once the six holders exist."""
+    return write(out, {'task.md': task(holder_ids)})
+
+
+def render(out, task_id, *holder_ids):
+    """Both at once, for tests and review renders: the task id, then the six holder ids."""
+    if len(holder_ids) != 6:
+        raise ValueError('need the task id and six holder ids')
+    check_ids([task_id, *holder_ids])
+    files = holders(task_id)
+    files['task.md'] = task(holder_ids)
+    return write(out, files)
+
+
 if __name__ == '__main__':
-    assert sys.argv[1] == 'render'
-    render(*sys.argv[2:])
+    command, args = sys.argv[1], sys.argv[2:]
+    {'render': render, 'render-holders': render_holders, 'render-task': render_task}[command](*args)
