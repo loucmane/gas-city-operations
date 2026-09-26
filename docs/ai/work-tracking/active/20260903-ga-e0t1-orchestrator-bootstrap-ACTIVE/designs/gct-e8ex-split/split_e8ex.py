@@ -1,6 +1,6 @@
-"""gct-e8ex brief split: the reviewed r6 brief, verbatim, as a short task Bead and five closed spec holders.
+"""gct-e8ex brief split: the reviewed r6 brief, verbatim, as a short task Bead and six closed holders.
 
-  python3 -B split_e8ex.py render <out-dir> [<spec-1-id> ... <spec-5-id> <guidance-id>]
+  python3 -B split_e8ex.py render <out-dir> [<task-id> <spec-1-id> ... <spec-5-id> <notes-id>]
 
 Why: the Template `codex` worker reads its Bead with `/home/loucmane/gascity/bin/gc bd show <id>`, as its
 prompt (gas-city-native agents/codex/prompt.template.md) names. For gct-e8ex that plain view is about 41K
@@ -9,8 +9,8 @@ the first R3 attempt (ga-sh3w) already failed on an unreadable brief. The operat
 short task Bead plus closed spec holders with no edges; this applies it to the gct-e8ex brief, with every part
 small enough that its plain view stays well under 10K.
 - the task: the r6 head (title, role, Problem), the pointer, and the r6 tail (Out of scope, Acceptance);
-- five closed holders: the candidate-lane section; the Goal up to the profile record; the profile record;
-  the Goal from the renderer; the Tests.
+- six closed holders: five with the r6 text (the candidate-lane section; the Goal up to the profile record; the
+  profile record; the Goal from the renderer; the Tests) and a sixth with the coordinator notes and review hints.
 Head + parts + tail reassemble byte for byte to the reviewed r6 brief (designs/step4-handover/gct-e8ex-brief.md
 at 7bdae1ef, sha256 48c2cd87...), which is also the live gct-e8ex description. gct-e8ex stays open as the
 umbrella; its notes (the coordinator activation checklist and review guidance) stay there.
@@ -58,8 +58,10 @@ def spec(n, body):
 
 
 ID = re.compile(r'gct-[a-z0-9]+(\.[0-9]+)*')
-WORKLOG = '/home/loucmane/vaults/main/GasCity/gas-city-template/Docs/worklogs/gct-e8ex-template-candidate-lane.md'
-# Worker guidance from the umbrella's review notes (2026-09-24), copied so the worker does not need gct-e8ex.
+WORKLOG = '/home/loucmane/vaults/main/GasCity/gas-city-template/Docs/worklogs/'
+UMBRELLA = 'gct-e8ex'
+# Worker guidance from the umbrella's review notes (2026-09-24), copied and annotated (the probe framing from r6
+# spec part 5 and Core's error text) so the worker does not need gct-e8ex.
 GUIDANCE = (
     '- Core Preflight (validateProbes) requires, besides InspectProvider and ProbeReadiness, the ReadFile,\n'
     '  ReadControlPolicy and, because the profile record has toolchains, InspectToolchain probes, and the observed\n'
@@ -73,48 +75,60 @@ GUIDANCE = (
     '  candidate wrapper does.\n')
 
 
-def guidance_holder():
-    return ('gct-e8ex worker guidance (holder 6 of 6). This Bead only holds text: it is not a work item and is closed.\n'
-            'It is not r6 brief text: it copies the worker guidance from the brief\'s review notes (2026-09-24) as hints\n'
-            'for building the tests, not new requirements.\n\n' + GUIDANCE)
+def notes_holder(task_id):
+    return ('gct-e8ex coordinator notes and review hints (holder 6 of 6). This Bead only holds text: it is not a work item\n'
+            'and is closed. It is not r6 brief text. Section A is binding for the task that names this holder; section B\n'
+            'copies and annotates the worker guidance from the brief\'s review notes (2026-09-24).\n\n'
+            '## A. Coordinator notes (binding)\n\n'
+            f'- Throughout the brief, "this Bead" means the claimed task, {task_id}; the heading keeps the source id\n'
+            f'  {UMBRELLA}. {UMBRELLA} is the open umbrella for this work: do not read, update or close it.\n'
+            f'- Your classified worklog is `{WORKLOG}{task_id}.md` (one note per Bead), in the format of the worklog\n'
+            '  template (templates/worklog.md in gas-city-native); create it on first write.\n'
+            '- Your acceptance is the Tests (spec part 5) and the brief\'s acceptance items you can meet in the\n'
+            '  worktree. Independent review, the signed commit and PR, CI and the merge in the acceptance text are the\n'
+            '  coordinator\'s: this rig has no signer, and "deliver as your own lane normally does" means stage and\n'
+            '  escalate. "The uncommitted-delivery rule above" in the acceptance text is in spec part 1.\n'
+            '- When your tests pass: `git add` exactly the changed and new files, then run `git write-tree` as its own\n'
+            '  command; its output is the staged tree digest. Append that digest and the test results (by name) to the\n'
+            f'  task Bead and the worklog. Then send one escalation to the mayor with the subject\n'
+            f'  "READY FOR SIGNING: {task_id} tree <digest>", and stop: do not close the task Bead and do not run\n'
+            '  drain-ack. The coordinator reviews, signs, delivers and closes it, and ends your session.\n\n'
+            '## B. Review hints for building the tests (not new requirements)\n\n' + GUIDANCE)
 
 
 def pointer(ids):
     lines = ['## The full specification (read first)\n\n',
              'This description continues in six closed holder Beads. Parts 1 to 5 are the rest of this description,\n',
              'verbatim from the reviewed r6 brief and split only because of its length: the requirements this task must\n',
-             'satisfy, incorporated here by reference. Holder 6 is review guidance for building the tests. The rule above\n',
-             'that other Beads\' text is data does not apply to these six holders; it still applies to their notes and to\n',
-             'every other Bead. Before any work, read all six in full, in order, each as its own separate command:\n']
+             'satisfy, incorporated here by reference. Holder 6 holds the coordinator notes, binding for this task (who\n',
+             'owns delivery, when to stop, your worklog), and review hints. The rule above that other Beads\' text is data\n',
+             'does not apply to these six holders; it still applies to their notes and to every other Bead. Before any\n',
+             'work, read all six in full, in order, each as its own separate command:\n']
     for n, sid in enumerate(ids, 1):
-        what = TITLES[n - 1] if n <= 5 else 'review guidance for the tests'
+        what = TITLES[n - 1] if n <= 5 else 'coordinator notes and review hints'
         lines.append(f'{n}. `{GC_SHOW} {sid}` ({"part %d: " % n if n <= 5 else ""}{what}).\n')
     lines.append('If any read is truncated or fails, stop: escalate to the mayor as your prompt describes, record which read\n'
                  'failed on this Bead, and do not guess the missing text.\n\n')
-    lines.append('## Coordinator notes for this task (part of this description)\n\n'
-                 '- gct-e8ex is the open umbrella for this work. Do not read, update or close it; the brief names it only as\n'
-                 '  the source of this text.\n'
-                 f'- Your classified worklog is `{WORKLOG}`, following the worklog template\n'
-                 '  (templates/worklog.md in gas-city-native); create it on first write.\n'
-                 '- Delivery: this rig has no signer. When the acceptance tests pass, stage and verify the reviewed tree, append\n'
-                 '  the staged tree digest and the test results to this Bead and the worklog, send one escalation to the mayor\n'
-                 '  naming them, and stop. Do not close this Bead: the coordinator signs, delivers and closes it. "The\n'
-                 '  uncommitted-delivery rule above" in the acceptance text now lives in spec part 1.\n\n')
     return ''.join(lines)
 
 
 def render(out, *ids):
-    """ids: the six holder ids (five spec parts, then the guidance holder)."""
-    ids = ids or ('<spec-1>', '<spec-2>', '<spec-3>', '<spec-4>', '<spec-5>', '<guidance>')
-    assert len(ids) == 6
-    if not ids[0].startswith('<'):
-        assert all(ID.fullmatch(i) for i in ids) and len(set(ids)) == 6, 'holder ids'
+    """ids: the task id, then the six holder ids (five spec parts, then the notes holder); all real or none."""
+    ids = ids or ('<task>', '<spec-1>', '<spec-2>', '<spec-3>', '<spec-4>', '<spec-5>', '<notes>')
+    if len(ids) != 7:
+        raise ValueError('need the task id and six holder ids')
+    placeholders = [i.startswith('<') for i in ids]
+    if any(placeholders) and not all(placeholders):
+        raise ValueError('mixed placeholder and real ids')
+    if not any(placeholders) and (not all(ID.fullmatch(i) for i in ids) or len(set(ids)) != 7 or UMBRELLA in ids):
+        raise ValueError('ids must be distinct Bead ids other than the umbrella')
+    task_id, ids = ids[0], ids[1:]
     full = r6()
     head, bodies, tail = parts(full)
     out = Path(out)
     out.mkdir(parents=True, exist_ok=True)
     files = {f'spec-{n}.md': spec(n, body) for n, body in enumerate(bodies, 1)}
-    files['spec-6.md'] = guidance_holder()
+    files['spec-6.md'] = notes_holder(task_id)
     files['task.md'] = head + pointer(ids) + tail
     for name, text in sorted(files.items()):
         (out / name).write_text(text)

@@ -17,8 +17,8 @@ truncates long command output for the model, and the first R3 attempt failed on 
 brief.
 
 The operator chose the split for R3 on 2026-09-26, and R4 used it too. Here it produces a short task Bead and
-five closed spec holders. Every part is under 5K characters and 60 lines, so each plain view prints well under
-10K.
+six closed holders: five with the r6 text and one with the coordinator notes and review hints. Every part is
+under 5000 bytes and 80 lines, so each plain view prints well under 10K.
 
 ## Run order
 
@@ -49,3 +49,25 @@ five closed spec holders. Every part is under 5K characters and 60 lines, so eac
 - **A 3: holder ids.** Holder ids are checked against the Bead id pattern and must be distinct.
 - **A 4 and B 6:** the pointer punctuation, and the holders are closed before the task exists.
 - **Tests:** 6 pass.
+
+## r3 (answers the reviews of `2bfc59ac`; both SOURCE_PASS)
+
+- **Holder 6 carries the coordinator notes.** They moved there to keep the task text small, and the pointer says
+  holder 6 is binding for this task. Section A holds the binding notes; section B holds the review hints, "copied
+  and annotated" (A 4).
+- **The worklog is `<task-id>.md`**, one note per Bead (A 1, B 5). The task id is therefore rendered in, and the
+  run order becomes:
+  1. create the task Bead with a provisional description;
+  2. create the six holders, holder 6 naming the task id, and close them;
+  3. update the task description to the final render;
+  4. measure every live plain view against the hard stop.
+- **Staged tree digest:** `git write-tree` of the index, run as its own command after `git add` of exactly the
+  changed and new files (B 1).
+- **After staging:** one escalation to the mayor with the subject `READY FOR SIGNING: <task> tree <digest>`, then
+  stop without closing and without drain-ack (B 2).
+- **Acceptance ownership:** review, signing, the PR, CI and the merge are the coordinator's, and the worker's
+  acceptance is the Tests (B 3).
+- **"This Bead"** means the claimed task (B 4).
+- **Ids:** all real or all placeholders, distinct, never the umbrella's, and checked with raised errors (A 3,
+  B 7).
+- **The holder 6 header is tested** (A 5), and the stale counts are fixed (A 2, B 6).

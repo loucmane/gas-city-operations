@@ -28,7 +28,7 @@ def s():
 @pytest.fixture(scope='module')
 def rendered(s):
     with tempfile.TemporaryDirectory() as tmp:
-        yield s.render(tmp, 'gct-aaaa', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee', 'gct-ffff')
+        yield s.render(tmp, 'gct-tttt', 'gct-aaaa', 'gct-bbbb', 'gct-cccc', 'gct-dddd', 'gct-eeee', 'gct-ffff')
 
 
 def test_reassembles_to_the_reviewed_r6_brief(s, rendered):
@@ -61,16 +61,30 @@ def test_pointer_uses_the_codex_prompt_read_command(rendered):
         assert '%d. `/home/loucmane/gascity/bin/gc bd show %s`' % (n, sid) in task
     assert 'escalate to the mayor as your prompt describes' in task
     assert task.index('## The full specification') < task.index('## Out of scope') < task.index('## Acceptance')
-    assert "does not apply to these six holders" in task and 'Do not close this Bead' in task
-    assert '/Docs/worklogs/gct-e8ex-template-candidate-lane.md' in task and 'Do not read, update or close it' in task
+    assert "does not apply to these six holders" in task and 'Holder 6 holds the coordinator notes, binding' in task
 
 
-def test_guidance_holder_carries_the_review_guidance(s, rendered):
+def test_notes_holder_carries_the_notes_and_the_review_guidance(s, rendered):
     text = rendered['spec-6.md']
-    assert text.startswith('gct-e8ex worker guidance (holder 6 of 6)') and s.GUIDANCE in text
+    header = text.split('\n\n', 1)[0]
+    assert header.startswith('gct-e8ex coordinator notes and review hints (holder 6 of 6)')
+    assert 'not a work item\nand is closed' in header and s.GUIDANCE in text
+    for needle in ('"this Bead" means the claimed task, gct-tttt', 'do not read, update or close it',
+                   '/Docs/worklogs/gct-tttt.md` (one note per Bead)', 'run `git write-tree` as its own',
+                   'READY FOR SIGNING: gct-tttt tree <digest>', 'do not close the task Bead and do not run\n  drain-ack',
+                   "are the\n  coordinator's"):
+        assert needle in text, needle
     for needle in ('ReadControlPolicy', 'InspectToolchain', 'run-isolated-composition.py', 'managedworker_test',
                    'gas-city-template-candidate-worktrees'):
         assert needle in text, needle
+
+
+def test_render_refuses_bad_ids(s, tmp_path):
+    good = ['gct-t1', 'gct-a1', 'gct-b1', 'gct-c1', 'gct-d1', 'gct-e1', 'gct-f1']
+    for bad in (good[:6], ['<task>'] + good[1:], ['gct-e8ex'] + good[1:], good[:6] + ['gct-a1'],
+                good[:6] + ['gct-x `rm`']):
+        with pytest.raises(ValueError):
+            s.render(tmp_path / 'x', *bad)
 
 
 def test_spec_holders_name_themselves(rendered):
