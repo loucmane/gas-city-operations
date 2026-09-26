@@ -18,8 +18,8 @@ after two independent aegis-reviewer SOURCE_PASS reviews, and stop on every othe
   - `internal/managedworker/canary.go`;
   - `internal/managedworker/canary_profile.go` (+ its test);
   - `internal/platforminstall/integrity.go` (+ its test).
-- The embedded pack content is therefore unchanged. So are the synthetic pack-cache keys (`69fe9a2e`) and the
-  nudge-on-route script. S1b is expected to be a no-op check, not a new expectation.
+- Expected consequence: the embedded pack content, the synthetic pack-cache keys (`69fe9a2e`) and the nudge-on-route
+  script are unchanged. S1b checks this; it is not taken as given.
 - The running `gc` is `b2760ea4`, built from `9faeabc2` (tree `c9f19d21`, which equals `b6843d3f`).
 
 ## Stages
@@ -37,22 +37,39 @@ after two independent aegis-reviewer SOURCE_PASS reviews, and stop on every othe
 - the `gc version --json` probe runs with an isolated HOME and GC_HOME, plus `DO_NOT_TRACK=1` and
   `GC_DISABLE_USAGE_METRICS=1`. In ga-e0t1.15 the same probe rewrote the live city shim (correction r3).
 
-**How it runs.** The build reads only the rig repository: it clones twice with `--no-hardlinks`. It writes only
-under its root.
+**How it runs.** Only `gc` is isolated; git and go still see the operator HOME.
+- It reads the rig repository (two `--no-hardlinks` clones plus rev-parse and verify-commit, all with
+  GIT_OPTIONAL_LOCKS=0). Under relatime these reads may move the atimes of rig files.
+- It reads the Go toolchain and the operator module cache offline.
+- Its own evidence goes only under its root. go, git and gpg also write the operator Go build cache, Go telemetry
+  counters and the gpg trustdb. None of these is Gas City live state.
 
-**Result.**
-- Two reproducible artifacts from two clones, with an identical audited input set before and after.
-- The artifact digest feeds S1b.
+**Result (ran 2026-09-26 on ops `f9a230f0`, after two SOURCE_PASS reviews):**
+- `/var/tmp/ga-e0t1.18-build-20260926/result.json` has sha `2233e474`.
+- The artifact is `fce2e9a0bea6c79f257e55b6424cf9271405d58f916a1017f3c14e232ad5d13b`: 134062284 bytes, 0755,
+  identical from both clones.
+- 7120 audited inputs, 1541 of them Git-bound, identical before and after the builds.
+- The probe reports commit `deefb98b`, version `dev`.
+- The live city shim was unchanged across the run (`a7bcaa7c`), and the probe HOME and GC_HOME stayed empty.
 
-### S1b: custody acceptance and cache check (next)
+### S1b: custody acceptance and provenance (this commit)
 
-**`verify.py`** is rebound: the production validator `validateMetadataCustodyBuild` must still refuse `83d098fc`
-and must accept the live `b2760ea4` and both new artifacts.
+`make_s1.py verify` generates `verify.py` (sha `485fc00c`) from the reviewed ga-e0t1.15 verify (`7081a0f7`). It
+runs offline, with no gc execution.
 
-**The validator file.** It must be byte-identical in the new source (`87e6855e`).
+**Custody validator.**
+- The validator must refuse `83d098fc`.
+- It must accept the live `b2760ea4` and both new artifacts `fce2e9a0`.
+- The validator file must be byte-identical in the new source (`87e6855e`).
 
-**Cache expectation.** It is re-derived to confirm that the new binary materializes the same core-pack key
-`69fe9a2e` with the same manifest.
+**Provenance.**
+- It binds the S1a result (`2233e474`).
+- It checks the build-source signer fingerprint FD5585… in the saved `verify-commit` stderr.
+- It asserts the parents `b6843d3f` and `0e638e1f`.
+- It requires the whole source diff from the live build source `9faeabc2` to be exactly the seven Go files,
+  with nothing under `internal/bootstrap/packs` or `examples`. None of the seven files has a `//go:embed`
+  directive, so the embedded content, and with it the synthetic cache keys, is unchanged. This replaces
+  re-running the S1b cache expectation.
 
 ### S2: broker sequence 15
 

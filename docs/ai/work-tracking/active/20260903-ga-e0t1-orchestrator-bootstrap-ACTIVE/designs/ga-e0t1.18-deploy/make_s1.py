@@ -73,8 +73,85 @@ def build():
     print('build.py', sha(text.encode()))
 
 
+VERIFY_SOURCE = HERE.parent/'ga-e0t1.15-deploy'/'verify.py'
+VERIFY_SOURCE_SHA = '7081a0f7c122ccfb6281ac6808c40777cfe910e7ddd9ed886ddd2e5dc8942027'
+# s1b: the S1a result (build ran 2026-09-26 on ops f9a230f0 after two SOURCE_PASS reviews).
+BUILD_RESULT_SHA = '2233e474648da36c15ba738e5b8ce5822aa6651254a49057d63a6ea6c5bb4756'
+NEW = 'fce2e9a0bea6c79f257e55b6424cf9271405d58f916a1017f3c14e232ad5d13b'
+LIVE = 'b2760ea407d8a5853fb7fbb3c184870ad4b6e9ccd763241a8ec59a8c3201d489'
+SIGNER = 'FD5585922F5335BC378AD8D42ECF4432C7E7982D'
+PARENTS = ('b6843d3f539eeebaf9d9c12e7d095d25cdee585d', '0e638e1f076195e6cddbb1e7a10aaf18cdeebb6a')
+
+
+def verify():
+    raw = VERIFY_SOURCE.read_bytes()
+    if sha(raw) != VERIFY_SOURCE_SHA:
+        raise SystemExit('reviewed source drift: %s' % VERIFY_SOURCE)
+    text = raw.decode()
+    text = sub(text, '"""Append-only offline custody acceptance of the ga-e0t1.15 build; no live operation.\n',
+               '"""Append-only offline custody acceptance of the ga-e0t1.18 build; no live operation.\n')
+    text = sub(text, '- the live Core 69d00186 and both new artifacts must be accepted.\n',
+               '- the live Core b2760ea4 and both new artifacts must be accepted.\n'
+               'ga-e0t1.18 also binds the S1a result record, the build-source signer fingerprint and parents, and proves\n'
+               'that no embedded pack file changed between the live build source and the new one, so the synthetic\n'
+               'pack-cache keys and materialized contents stay those of the running Core.\n')
+    text = sub(text, "ROOT = Path('/var/tmp/ga-e0t1.15-build-20260925')", "ROOT = Path('%s')" % ROOT)
+    text = sub(text, "NEW = 'b2760ea407d8a5853fb7fbb3c184870ad4b6e9ccd763241a8ec59a8c3201d489'", "NEW = '%s'" % NEW)
+    text = sub(text, "    ('live-core', '/home/loucmane/gascity/bin/gc',\n"
+                     "     '69d00186c098b84efe6658c03d888ce07f6d6528d6c446671b53d92f7bde89f9', ''),\n",
+               "    ('live-core', '/home/loucmane/gascity/bin/gc',\n"
+               "     '%s', ''),\n" % LIVE)
+    text = sub(text, "def main():\n    env = json.loads((ROOT / 'build-a.request.json').read_text())['environment']\n",
+               "RESULT_SHA = '%s'\n"
+               "SIGNER = '%s'\n"
+               "PARENTS = %r\n"
+               "LIVE_SOURCE = '9faeabc2892d8c7133111e13ad55af66790a2ac6'\n"
+               "EMBED_ROOTS = ('internal/bootstrap/packs', 'examples')\n"
+               "CHANGED = ('cmd/gc/managed_product_dispatch_gate.go', 'cmd/gc/managed_product_dispatch_gate_test.go',\n"
+               "           'internal/managedworker/canary.go', 'internal/managedworker/canary_profile.go',\n"
+               "           'internal/managedworker/canary_profile_test.go', 'internal/platforminstall/integrity.go',\n"
+               "           'internal/platforminstall/integrity_test.go')\n"
+               "\n\n"
+               "def provenance():\n"
+               "    result = (ROOT / 'result.json').read_bytes()\n"
+               "    assert sha(result) == RESULT_SHA, 'S1a result drift'\n"
+               "    record = json.loads(result)\n"
+               "    assert record['ok'] and [a['sha256'] for a in record['artifacts']] == [NEW, NEW], 'S1a artifacts'\n"
+               "    head = record['head']\n"
+               "    assert f'using RSA key {SIGNER}' in (ROOT / 'verify-head.stderr').read_text(), 'build-source signer'\n"
+               "    git = ['/usr/bin/git', '-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',\n"
+               "           '-C', str(ROOT / 'repro-source')]\n"
+               "    env = {'PATH': '/usr/bin:/bin', 'HOME': str(ROOT / 'probe-home'), 'GIT_OPTIONAL_LOCKS': '0'}\n"
+               "    parents = subprocess.run(git + ['rev-parse', head + '^1', head + '^2'], env=env, capture_output=True,\n"
+               "                             check=True).stdout.decode().split()\n"
+               "    assert tuple(parents) == PARENTS, parents\n"
+               "    changed = subprocess.run(git + ['diff', '--name-only', LIVE_SOURCE, head, '--', *EMBED_ROOTS],\n"
+               "                             env=env, capture_output=True, check=True).stdout\n"
+               "    assert changed == b'', 'embedded pack content changed: ' + changed.decode()\n"
+               "    names = subprocess.run(git + ['diff', '--name-only', LIVE_SOURCE, head], env=env,\n"
+               "                           capture_output=True, check=True).stdout.decode().split()\n"
+               "    # The whole source change is exactly the seven reviewed Go files of Core PR 48; no embedded asset.\n"
+               "    assert sorted(names) == sorted(CHANGED), names\n"
+               "    save('provenance.json', json.dumps({'s1a_result_sha256': RESULT_SHA, 'signer': SIGNER,\n"
+               "                                        'parents': list(parents), 'live_source': LIVE_SOURCE,\n"
+               "                                        'changed_paths': names, 'embedded_pack_paths_changed': []},\n"
+               "                                       indent=2).encode())\n"
+               "\n\n"
+               "def main():\n"
+               "    provenance()\n"
+               "    env = json.loads((ROOT / 'build-a.request.json').read_text())['environment']\n"
+               % (BUILD_RESULT_SHA, SIGNER, PARENTS))
+    text = sub(text, "'schema': 'ga-e0t1.15.custody-verification.v1'", "'schema': 'ga-e0t1.18.custody-verification.v1'")
+    out = HERE/'verify.py'
+    out.write_bytes(text.encode())
+    out.chmod(0o644)
+    print('verify.py', sha(text.encode()))
+
+
 if __name__ == '__main__':
     if sys.argv[1:] == ['build']:
         build()
+    elif sys.argv[1:] == ['verify']:
+        verify()
     else:
         raise SystemExit(__doc__)
