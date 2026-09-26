@@ -3,7 +3,8 @@
   python3 -m pytest -q designs/ga-e0t1.18-deploy/s3/test_s3.py
 
 Offline except for read-only reads of the installed M6 pair, the sequence 15 accepted observation, the
-sequence 15 receipt, the build roots and the Core rig at deefb98b.
+sequence 15 receipt, the build roots and the S1 reproduction clone at deefb98b. Nothing runs git in a
+repository the capture pins, so the suite may run inside the quiescent window.
 """
 import copy
 import hashlib
@@ -19,7 +20,9 @@ HERE = Path(__file__).parent
 M6 = HERE.parent.parent/'ga-e0t1.15-deploy/s3'
 INSTALLED = Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 SEQ15 = Path('/var/tmp/ga-e0t1.18-seq15-20260926/postflight2.json')
-CORE_RIG = '/home/loucmane/gascity/city/rigs/gascity'
+# The S1 reproduction clone of deefb98b, never the Core rig: the capture pins the rig's Git directory and the
+# quiescence rule forbids any git there until restore-accepted (review A of 7d86f441, should_fix 2).
+CORE_SOURCE = '/var/tmp/ga-e0t1.18-build-20260926/repro-source'
 
 
 def sha(path):
@@ -95,7 +98,7 @@ def test_build_commit_is_the_version_commit(m):
 
 def test_native_successor_rules(m, old, seq15):
     """Core installer.go validateSuccessor at deefb98b, restated for the fields M7 touches."""
-    shown = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', CORE_RIG, 'show',
+    shown = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', CORE_SOURCE, 'show',
                             m.COMMIT + ':internal/platforminstall/installer.go'], capture_output=True, check=True)
     source = shown.stdout.decode()
     assert 'candidate.PreviousSHA256 != previous.Core.SHA256' in source

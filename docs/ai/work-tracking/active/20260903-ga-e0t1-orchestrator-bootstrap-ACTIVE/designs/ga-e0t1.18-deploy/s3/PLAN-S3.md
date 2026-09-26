@@ -79,6 +79,44 @@ committed.
 in staging), and no git in the canonical Template, its linked worktrees, the Core rig, the codex authorities
 or the packs repository.
 
+## Binding step (r2, 2026-09-26): live results
+
+r1 `7d86f441` received two independent SOURCE_PASS verdicts with no must_fix. The capture then ran once,
+in the supervisor namespaces, with candidate `C` = `5bdd4129` at `7d86f441`, clean:
+- `reports/m7-capture/baseline.json` `28d65524`, zero drifts: 760 pins, 49 trees, 23 links, scope
+  (core 995924 plus the dolt pair, watchdog deleted-old), suspension `5c98be4a`, cache `4b284f67`.
+- One admitted cache bookkeeping entry: `954ed149…/.git` (mtime and ctime only), now at 05:09:13Z, the
+  second of the coordinator's `workflow.py log` call. That is the same `gc bd` cause the dry probe found
+  at 04:58:00Z; the capture binds the live value exactly.
+- The executor's predecessor file `reports/m6/q/manifest.json` was checked by hand before the capture:
+  `7f335ad8` (review B should_fix 1).
+
+The r2 changes:
+- `manifest_candidate.py` pins `BASELINE_SHA`, which changes its digest from `5bdd4129` to `b3644e84`.
+- `source-pins.json` is new (`cc067c45`) and lists the six executor sources.
+- `test_native_successor_rules` reads `installer.go` from the S1 reproduction clone instead of the Core rig,
+  so no test runs git in a pinned repository inside the quiescent window (review A should_fix 2). All 28
+  tests pass, including the build against the frozen baseline (frame margin over 2048) and the source
+  inventory.
+
+The next step is the executor, `launch.py --expect-sources cc067c45… prepare`, after the two binding reviews.
+
+## Review dispositions for r1 (`7d86f441`: two SOURCE_PASS verdicts)
+
+| Finding | Disposition |
+| --- | --- |
+| A 1: the prompt said the Core rig is checked out at `deefb98b` | Prompt error only; the package reads the rig's objects, never its checkout. The rig HEAD is unchanged, consistent with only its object tree moving. |
+| A 2: a test runs git in the Core rig, which quiescence forbids after the capture | Fixed in r2 (the S1 reproduction clone). |
+| A 3, B 5: refusal branches without a negative test (managed files, providers, last authority, previous backup binding, parents, receipt; nested cache `.git` keys, gate extract) | Follow-up coverage. Every branch fails closed, and the positive paths are pinned. |
+| A 4: "two paths" versus the five differing recorder lines | The recorder moves two paths; the other three differing lines are its docstring. |
+| A 5: frame and closure counts not independently computed | The tests assert the frame margin; the capture refuses on a count mismatch and passed. |
+| B 1: the capture does not check the executor's predecessor file | Checked by hand before the capture (`7f335ad8`); `prepare` refuses on drift, at worst consuming the package root without any live change. |
+| B 2: the capture docstring claims the seq 15 links are compared | The executor's snapshot requires links equal to the baseline, which the capture took from the live host; the docstring overstates the capture itself. Wording follow-up. |
+| B 3: no reconciler recheck at the end of the capture | Inherited from M6. Any reconciler effect fails closed at the executor's exact snapshot. |
+| B 4: `cache_drift` is not tied to one event | Accepted as bounded: content, size, inode, device, owner and nlink stay exact. The one admitted entry is listed above for the binding reviewers. |
+| B 6: the `install_policy` docstring still says "the replaced image" | Wording; changing it would re-pin `metadata_closure.py`. |
+| B 7: the capture does not check the receipt epoch | The executor checks it before creating the package root. |
+
 ## Stop conditions
 
 Any refusal, host epoch drift, drift outside the bounds, an ambiguous result, new privilege or a pinentry
