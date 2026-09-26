@@ -1,238 +1,187 @@
-# ga-6umo: Core launch-parameter hardening (specification r5, the narrow fix)
+# ga-6umo: Core launch-parameter hardening (specification r6: one launch gate)
 
 The coordinator writes this under the operator's coordinator-fix exception (2026-09-26). The implementation goes
 to Core `main` (`f3856bd1`): red first, two aegis-reviewer passes on the commit, then PR, CI and merge.
-Deployment is a separate reviewed package together with ga-bebv.
+Deployment is a separate reviewed package with ga-bebv.
 
-## Scope (r4)
+**Scope.** Narrow, by operator decision: stop any single worker-written field on a work, trigger or session Bead
+from widening an existing session's launch. Identity rewrite, session creation, routing, session-key substitution,
+API reach and the symlink race stay the declared residual (ga-5eix).
 
-Three review rounds (r1 `6fd6a904`, r2 `85bf1585`, r3 `9ddeb5f1`) showed the root cause: Core has no
-authorization boundary between workers and the operator. Workers run `gc` and `bd` with the operator's
-authority, so they can rewrite any session Bead field and create sessions of any template with
-`gc session new`. Closing that needs a Core authorization model, and whether to build it now is an open
-operator decision.
+## Why r6 changes shape
 
-r4 specifies only the fixes that either decision needs: the ones that stop a single worker-written field on a
-work, trigger or session Bead from widening an existing session's launch. It does not claim to stop a worker
-that rewrites a session's identity or creates a new session. That is the declared residual below.
+Five spec rounds each found launch sites that the previous list missed. In r5, the metadata reaches launch code
+through the `session.Info` codec (`internal/session/info_store.go:38-40`, `info_codec.go`) and the worker factory
+(`internal/worker/factory.go:165-192`). A source scan cannot see those paths, and whenever the provider does not
+resolve, the stored `command`, `work_dir` and resume fields reach the launch unchecked.
 
-The operator chose this narrow fix on 2026-09-26. r5 answers the r4 reviews (`d5c228cc`, A and B HOLD, the same
-missed site), adds the mechanical guarantee below, and closes the definition gaps.
+r6 therefore puts the security control at the one boundary every launch crosses: `runtime.Provider.Start(ctx,
+name, cfg)`. It is enforced by a gate that wraps the provider at the single construction seam,
+`resolveSessionTransportProvider` (`cmd/gc/providers.go:260-292`). The CLI, the controller and its in-process API
+all build their session provider there. Whatever path the metadata took, the final argv and working directory are
+checked against config. The upstream fixes stay as defence in depth. They are listed below but are not the
+guarantee.
 
-## Mechanical guarantee (r5)
+## 1. The launch gate (the guarantee)
 
-Site lists kept missing sites. So every read of a launch-relevant session or work Bead metadata key goes through
-guarded accessors in one package (`internal/session/launchmeta`):
-- `command`, `resume_command`, `resume_flag`, `resume_style`;
-- `template_overrides` and `opt_*`;
-- `work_dir`, `gc.work_dir`, `worker_dir`;
-- `session_key`, `gc.brain_parent_sid`.
+`launchGate` wraps the provider returned by `resolveSessionTransportProvider`: the auto, acp and base providers
+alike. Every other provider method delegates unchanged.
 
-A source-scan test (`launchmeta_scan_test.go`) parses every non-test Go file of the module. It fails if any code
-outside that package, and outside an explicit allow-list of display-only and write sites (each entry named with a
-reason), reads one of those keys from a metadata map by literal or constant. A missed launch site therefore fails
-CI instead of shipping.
+On `Start(ctx, name, cfg)`, the gate:
+1. **Resolves the session identity** by runtime session name from the session store: template (agent) or
+   provider name. Trusting the Bead for identity is the declared residual. With no session Bead, or with an
+   identity that does not resolve in the current config, the start is refused.
+2. **Computes the baseline from config only:**
+   - the resolved provider's command and args;
+   - the flag_args of the agent's effective option defaults;
+   - the provider's declared resume, session-id and fork forms (`resume_flag`, `resume_style`,
+     `resume_command`, `session_id_flag`, `--fork-session`).
+3. **Classifies the final argv** (`shellquote.Split(cfg.Command)`, and for ACP the resolved ACP command). Every
+   flag outside the benign set is security-bearing:
+   - the benign set is `--model`/`-m` with a value, `--effort` with a value, and `-c`/`--config` whose value starts
+     with `model_reasoning_effort=` or `model=`;
+   - forms are recognised as `--flag value`, `--flag=value` and clustered short flags;
+   - the session key or parent id in a provider-declared resume or fork position is not a flag.
+4. **Refuses the start** if any of these holds:
+   - a security-bearing flag and value pair is present in the argv but absent from the baseline. Adding flags
+     widens; dropping baseline flags counts too, because removing `--settings`, `--sandbox` or
+     `--ask-for-approval` widens a launch just as adding them does. The flag and value pairs of the baseline and
+     the argv must be equal;
+   - the argv's executable differs from the baseline's;
+   - `cfg.WorkDir` fails the §2 guard;
+   - the argv carries an unrestricted-mode encoding from the closed list without the provider's
+     `allow_security_option_overrides = true`: any flag containing `dangerously`, `--yolo`, `-y`,
+     `--approval-mode yolo`, `--permission-mode bypassPermissions`, `--sandbox`/`-s danger-full-access`, or `-c`
+     with a value starting `sandbox_mode=` and containing `danger-full-access`, each also as `--flag=value`.
 
-## Rule
+A refusal returns an error the caller already handles as a failed start, and records one event.
+`EmitsPermissionWarning` does not matter here.
 
-Worker-writable metadata may select among declared non-security choices. It may never add a security-bearing
-flag, relocate a session outside its allowed roots, or replace the config-derived command. Input that fails the
-rule is ignored, never fatal. The configured value is used, and one deduplicated, bounded event is recorded.
+**Stated behaviour change.** Builtin provider profiles whose base args carry `--yolo` or `--dangerously-allow-all`
+(`internal/worker/builtin/profiles.go:392`, `:404`, `:473`, `:506`), and the builtin claude and codex default
+`permission_mode=unrestricted`, stop launching without the opt-in. The live city overrides every such default and
+uses none of those profiles, so it is unaffected.
 
-## 1. Option overrides: one guard, default deny
+**Opt-in.** `allow_security_option_overrides = true` on a provider lets the gate accept security flags that
+differ from the baseline. It has no default and is never set by ga-bebv.
 
-- **Where.** `config.FilterMetadataOptionOverrides(resolved, overrides, source) (allowed, rejected)`, applied at
-  every site that turns metadata into option overrides, and silently in the drift-hash path so a rejected
-  override causes no restart loop:
-  - `session_reconciler.go:5542-5601` (the work and trigger Beads);
-  - `session_lifecycle_parallel.go:984-988` and `:1264-1295` (session `template_overrides`);
-  - `cmd_session.go:1545-1555`;
-  - `internal/api/session_runtime.go:369-373`, `:391-396` and `:492-496` (the worker-runtime resume, missed in
-    r4);
-  - `worker_handle.go:582-588` and `:671-677`;
-  - `session_hash.go:14-18` → `session_reconciler.go:5160-5186`;
-  - the dashboard options view (`internal/api/handler_sessions.go:161-176`), which shows only the filtered
-    overrides;
-  - the create paths, which refuse a security-bearing choice at create time: the Huma agent and provider create
-    (`huma_handlers_sessions_command.go:76-86`, `:116`, `:255-268`, `:297-306`) and the legacy handlers
-    (`handler_session_create.go:101-117`, `:280-299`, `:338`, `:355`).
-- **Not options.** `initial_message` and every other key of `template_overrides` that is not in the provider's
-  options schema passes unchanged. The filter touches only schema option keys.
-- **Inheritance.** `overridable_options` and `allow_security_option_overrides` are inherited along a
-  `base = "provider:…"` chain, and a child that sets either replaces the inherited value.
-- **Allow-list.** Only keys in the provider's `overridable_options` pass. The built-in default when it is unset
-  is `["model", "effort"]`. Within an allowed key, a choice passes only when every element of its `flag_args` is
-  in the benign set:
-  - `--model`/`-m` with a value;
-  - `--effort` with a value;
-  - `-c`/`--config` whose value starts with `model_reasoning_effort=` or `model=`.
+**Pre-start.** `cfg.PreStart` and `cfg.SessionLive` come from config through template resolution. The gate checks
+that each command matches the config-derived list for the identity, after work-dir retargeting. It refuses
+otherwise.
 
-  Everything else is security-bearing and is refused unless the provider sets
-  `allow_security_option_overrides = true`, which has no default. Codex effort (`-c model_reasoning_effort=…`)
-  and claude and codex model and effort therefore keep working (the ga-1mj flow).
-- **API endpoints.** The permission-mode endpoint (`huma_handlers_sessions_command.go:647-658`) and create with
-  options (`handler_session_create.go:163`, `:355`) refuse a security-bearing choice without the opt-in. This is
-  a stated behaviour change: codex `attended` through the API then needs the opt-in.
+## 2. Working-directory guard
 
-## 2. Working directory: one guard, per-agent subtree
+`validateSessionWorkDir(cityPath, agent, instance, candidate)`, used by the gate and by the upstream fixes.
 
-- **Guard.** `validateSessionWorkDir(cityPath, agent, instance, candidate, source)`:
-  - it runs after every fallback, before the pre_start retarget and the stale-key probe
-    (`session_lifecycle_parallel.go:1029-1040`);
-  - it covers `work_dir`, `gc.work_dir` and `worker_dir`, both resolvers (`session_reconciler.go:5464-5497` and
-    `:5610-5640`, where a rejected task Bead is skipped and the next one considered), and the resume, wake and
-    attach paths: `worker_handle.go:574-578` (MCP gets the guarded directory), `session_runtime.go:353` and
-    `:500-503`, `chat.go:363-365` and `:498-500` (through an injected validator), and `cmd_session.go:1528`,
-    `:1586` and `:1622`.
-- **Empty input.** An empty or unresolvable candidate yields the configured work_dir, never a city-root fallback
-  for an agent session.
-- **Nil agent.** A provider-kind session is created in the city root (`handler_session_create.go:317`), so it
-  accepts only the exact city root, never a descendant, and refuses anything else.
-- **Accept.** The candidate and every accepted base (the configured work_dir, the subtree and `work_dir_roots`
-  entries) are resolved the same way: symlinks on the longest existing prefix. Containment is by path component,
-  never a string prefix, so `/root-evil` is not under `/root`. Any `.git` component rejects, compared
-  case-insensitively. Accepted are:
-  - the configured work_dir;
-  - its descendants, except when it is the city root, where only the exact root is accepted;
-  - a descendant of the per-agent worktree subtree, defined as the expansion of the agent's configured
-    `work_dir` template when that template lies under `workdir.WorktreesRoot(cityPath)`, taken up to and
-    including its first per-instance component. The per-instance variables are `{{.Agent}}` and `{{.AgentBase}}`
-    (the pool instance or named identity), expanded from the session's config-derived instance. A template with
-    no per-instance component gets no subtree beyond its exact expansion and its descendants. A sibling agent's or
-    rig's subtree is rejected, with a negative test;
+- **Resolution.** The candidate and every accepted base are resolved the same way: symlinks on the longest
+  existing prefix, then containment by path component (never a string prefix). Any `.git` component rejects,
+  compared case-insensitively.
+- **Accepted:**
+  - the configured work_dir and its descendants, except when it is the city root, where only the exact root is
+    accepted;
+  - the per-agent worktree subtree: the agent's `work_dir` template under `workdir.WorktreesRoot(cityPath)`,
+    expanded up to and including the path components produced by its first `{{.Agent}}` or `{{.AgentBase}}`
+    variable (a qualified `rig/name` spans two components, and both are included), from the session's instance. A
+    template without such a variable gets its exact expansion and descendants;
   - a descendant of an agent `work_dir_roots` entry (built-in default: empty).
-- **Pool packs.** `gc.pack` must be a single clean segment (no `/`, `\`, `..` or NUL, not empty). A pack sibling
-  workspace needs a `work_dir_roots` entry.
+- **Nil agent.** A provider-kind session (the API creates these in the city root, `handler_session_create.go:317`)
+  accepts only the exact city root. A session whose config identity is an agent but whose metadata claims
+  provider kind (`real_world_app_session_kind=provider`) is refused, because its identity no longer matches.
+- **Pool packs.** `gc.pack` and `gc.pack_workspace` (`build_desired_state.go:1694-1705`, `:3203-3222`) must each
+  be a single clean segment, and a pack sibling workspace needs a `work_dir_roots` entry.
 
-## 3. Stored commands and resume keys
+## 3. Defence in depth upstream (not the guarantee)
 
-- **Never reused.** A stored `command`, `resume_command`, `resume_flag` or `resume_style` on a session Bead is
-  never used for a launch. Every path rebuilds from the resolved provider plus guarded overrides:
-  - `worker_handle.go:582`, `:649-650` and `:664-727` (including the claude `--settings` rule);
-  - `session_runtime.go:363-367`, `:383-443` (including the error branches), `:491` and `:505-506`;
-  - `manager.go:2067-2100`;
-  - `handle_lifecycle.go:433-472`;
-  - `cmd_session.go:1525-1625`, including the stored-command resume at `:1526-1528`;
-  - `session_runtime.go:349-353`, the nil-provider stored resume;
-  - `chat.go:125-136` (`freshStartCommandFromMetadata`) and `:167-210` (`retryFreshStartAfterStaleKey`). The
-    stale-key retry strips the resume form using the resolved provider's `ResumeFlag` and `ResumeStyle`, never
-    Bead metadata, and §5 re-runs on the retry command.
-- **Rebuild parity.** A rebuild goes through the same builder the create path uses (`template_resolve.go:200-218`,
-  including the claude settings projection and provider hook arguments), so nothing the create path adds is lost.
-- **No resolved provider.** The session refuses with a recorded reason.
+These make the common paths do the right thing, so the gate refuses rarely:
+- **Option guard.** `config.FilterMetadataOptionOverrides` is used wherever metadata becomes option overrides.
+  The default allow-list is `overridable_options = ["model","effort"]`, inherited along `provider:` chains and
+  replaced by a child. Security-bearing choices need the opt-in, and non-option keys such as `initial_message`
+  pass. It covers:
+  - `session_reconciler.go:5542-5601`;
+  - `session_lifecycle_parallel.go:984-988` and `:1264-1295`;
+  - `worker_handle.go:582-588` and `:671-677`;
+  - `session_runtime.go:369-373`, `:391-396` and `:492-496`;
+  - the drift hash, `session_hash.go:14-18` → `session_reconciler.go:5160-5186`, filtered silently so there is no
+    restart loop;
+  - the dashboard options view, `handler_sessions.go:161-176`;
+  - the create endpoints, which refuse security-bearing choices.
+- **Nil provider.** The worker factory refuses to start a session whose provider does not resolve: `factory.go:
+  165-192`, `session_runtime.go:476-479`, `worker_handle.go:557-563`. It does not fall back to the stored
+  `Info.Command`, `WorkDir` or `Resume*` values.
+- **Stored commands.** The existing preservation of a stored command (`worker_handle.go:698-727`,
+  `session_runtime.go:383-443`; issue #799, which keeps the claude `--settings` form) is left as it is. The gate is
+  the control: a preserved command whose security flags equal the baseline passes, and a widened one is refused.
+  The stale-key retry (`internal/session/chat.go:167-210`) is checked the same way at the gate.
+- **Session keys.** `session_key` and `gc.brain_parent_sid` must match `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$` at
+  every splice site. The check runs before the stale-key probe. An invalid key starts the session fresh; an
+  invalid parent id refuses the fork loudly.
+- **Work dir.** The §2 guard runs where `Info.WorkDir` and task Beads are resolved: both resolvers (a rejected task
+  Bead is skipped) and the resume resolvers `session_runtime.go:634-682` and `worker_handle.go:552-578`.
+- **Stated as residual.** Transport inferred from a stored command is part of the declared transport residual.
 
-## 4. Session keys
+## 4. Recording and the read-only print
 
-- **Grammar.** `session_key` and `gc.brain_parent_sid` must match `^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$`. The
-  check runs at every splice site: `session_reconciler.go:5992-6021`, `manager.go:2070` and `:2093-2098`,
-  `handle_lifecycle.go:454`, and the fork form.
-  - A failing `session_key` is ignored and recorded, and the session starts fresh.
-  - A failing `gc.brain_parent_sid` refuses the fork loudly, keeping the fork invariant
-    (`session_lifecycle_parallel.go:1991-2035`: never silently degrade a fork to fresh).
-  - The grammar check runs before the stale-key probe (`session_lifecycle_parallel.go:1055-1057`).
-- **Post-splice check.** The baseline is the config-derived command plus the provider's own resume, session-id
-  and fork forms (`--resume`, `--session-id`, `--fork-session`, the `resume` subcommand) as the resolved provider
-  declares them. After splicing, the final command may contain no other flag outside the §1 benign set that the
-  baseline does not already contain.
-
-## 5. Managed-policy check
-
-**What it refuses.** Independently of `EmitsPermissionWarning`, a managed launch or resume command is refused if
-its argv contains an unrestricted-mode encoding from a closed list, unless the provider sets
-`allow_security_option_overrides = true`. The list, with each form also matched as `--flag=value`:
-- any flag containing `dangerously`;
-- `--yolo`;
-- `--approval-mode yolo`;
-- `--permission-mode bypassPermissions`;
-- `--sandbox danger-full-access`.
-
-The check runs on the final spliced command, including the stale-key retry.
-
-**Definitions.** A managed launch is any session start, wake, attach or resume that Core builds for an agent or
-provider session. `gc` never checks a command an operator runs by hand.
-
-**Behaviour change, stated.**
-- The builtin claude and codex default is `permission_mode=unrestricted`. A city that relies on it stops
-  launching until it sets the opt-in or a narrower default.
-- The live city overrides the default for every provider, so it is unaffected.
-- `template_resolve_phase2_test.go:61` and `:73` are updated by name.
-
-## 6. Recording and the read-only print
-
-- **Events.** Dedupe per (session, source Bead, key) is kept in a bounded LRU of at most 4096 entries in the
-  controller runtime directory, persisted across restarts.
-  - The file is parsed with a size bound. A corrupt or oversized file is discarded, never trusted.
-  - Events raised outside the controller (`gc session attach`, the API) dedupe per process only.
-  - Event values are truncated to 256 bytes with control characters escaped, and a controller log line mirrors
-    each event.
-- **Print.** `gc config show --providers` adds `resolved_providers`:
-  - the base chain;
-  - `options_schema`, with each choice marked benign or security-bearing;
-  - `option_defaults`;
-  - `overridable_options`;
-  - `allow_security_option_overrides`.
-
-  It also prints each agent's `work_dir`, derived worktree subtree and `work_dir_roots`.
+- **Events.** Each refusal or ignored input writes one event naming the session, the source Bead id when known,
+  the key or flag and the reason.
+  - Values are truncated to 256 bytes with control characters escaped.
+  - Controller events dedupe per (session, source, key) in a bounded LRU of 4096 entries, persisted in the
+    runtime directory. The file is parsed with a size bound, and a corrupt file is discarded.
+  - CLI and API events dedupe per process.
+- **Print.** `gc config show --providers` adds `resolved_providers`: the base chain, the schema with each choice
+  marked benign or security-bearing, the option defaults, `overridable_options` and
+  `allow_security_option_overrides`. It also prints each agent's `work_dir`, subtree and `work_dir_roots`.
 
 ## Tests (red first; each fails at f3856bd1)
 
-- **Options.** On each site above:
-  - codex and claude `permission_mode=unrestricted`, `worktree_access`, `worklog_access` and
-    `managed_worktree_access` are ignored;
-  - codex and claude `opt_model` and `opt_effort` apply;
-  - the benign-set table covers `=` and clustered forms;
-  - a rejected override causes no drift or restart across ticks;
-  - the API endpoints refuse.
-- **Working directory.**
-  - Each key, both resolvers and each resume path are covered.
-  - Rejected: symlink escape, a `.git` component, a sibling agent's subtree and `gc.pack=../x`.
-  - A nonexistent candidate is handled; an empty candidate gives the configured work_dir; a nil agent fails
-    closed; a rejected task Bead is skipped.
-  - Accepted: the configured work_dir, a descendant, the per-agent subtree and a `work_dir_roots` entry.
-- **Stored.** On each path, including a provider without `resume_command` and the API error branch, a stored
-  command or resume key is never used. A config-less session refuses.
-- **Keys.** A leading dash, `;`, whitespace and over-length values are rejected for `session_key` and
-  `brain_parent_sid`, followed by the post-splice re-check.
-- **Managed.** Codex `--dangerously-bypass-approvals-and-sandbox` and claude
-  `--allow-dangerously-skip-permissions` are refused without the opt-in.
-- **Events.** One per (session, Bead, key) across ticks and a controller restart, bounded.
-- **r5 additions:**
-  - `session_runtime.go:492-496` with a `worktree_access` or `worklog_access` override is filtered;
-  - the stale-key retry ignores a stored `resume_flag` of `--settings <path> --resume` and never uses a stored
-    `command`;
-  - the nil-provider resume refuses;
-  - an invalid `brain_parent_sid` refuses the fork;
-  - `/root-evil` and `.GIT` are rejected;
-  - the dashboard view shows filtered overrides;
-  - `initial_message` survives the filter;
-  - the closed unrestricted list, including `=` forms;
-  - the source-scan test itself, with a planted direct read that must fail it.
-- **Existing tests** that encode the old behaviour are updated by name, with the reason in the commit:
+**Gate.** A table over every `Start` caller constructed through the seam: the reconciler start, the pool start,
+the worker-handle attach and resume, the API resume, `gc session` wake and the stale-key retry.
+
+- Each caller, fed a worker-written field, must be refused at the gate:
+  - `template_overrides` with `permission_mode=unrestricted`, `worklog_access` or `worktree_access` on codex and
+    claude;
+  - a stored `command` with extra flags, and a stored `command` whose provider no longer resolves;
+  - a stored `resume_flag` of `--settings <p> --resume`;
+  - a `resume_command` on a provider without one;
+  - a `work_dir` outside the roots (`/root-evil`, `.GIT`, a sibling agent);
+  - `gc.pack=../x`;
+  - a `session_key` of `--add-dir=/`.
+- Must launch: `opt_model` and `opt_effort` on codex and claude, and each live lane's legitimate worktree with the
+  ga-bebv roots.
+
+**Other tests:**
+- **Baseline equality:** a missing baseline `--settings` or `--sandbox` refuses.
+- **Closed list:** the unrestricted list with every encoding.
+- **Nil provider:** the factory refuses.
+- **Keys:** the grammar, and an invalid parent id refusing the fork.
+- **Events:** dedupe and bounds, and a corrupt LRU file.
+- **Upstream:** the option-filter sites, the drift loop, the dashboard view, `initial_message`, and the create
+  endpoints.
+- **Gate coverage:** a test proves the seam wraps every provider kind (base, auto, acp), so no construction
+  bypasses it. A source check asserts `resolveSessionTransportProvider` is the only place cmd/gc builds a session
+  provider for starts.
+- **Existing tests** that encode old behaviour are updated by name, with reasons:
   `template_resolve_phase2_test.go:61` and `:73`, `cmd_session_test.go:1068-1086`,
   `session_reconciler_test.go:11255-11324` and `session_reasoning_effort_test.go`. The rest of the suite stays
   green.
 
-## Declared residual (the operator's narrow-fix decision; not closed by r5)
+## Declared residual (operator's narrow-fix decision)
 
-A worker that can run `gc` and `bd` can still:
-- rewrite a session Bead's identity fields (`template`, `provider`, `session_kind`, `agent_name`, `alias`,
-  `session_name`, `transport`, `mcp_identity`, `mcp_servers_snapshot`) to make an existing session resolve a more
-  privileged config;
-- create a session of any configured template with `gc session new`, or through manual-origin rediscovery;
-- route a Bead to a more privileged pool with `gc.routed_to`;
-- substitute another session's valid `session_key` or `brain_parent_sid` to resume or fork its transcript;
-- reach the controller API, if it is reachable from its sandbox;
-- race a symlink swap between the check and the launch;
-- write fields outside the launch-flag class that reach another session's first start without widening it:
-  `template_overrides.initial_message` and `wake_mode`, and `worker_dir`, which drives auto-prune of clean trees
-  under `.gc/worktrees`.
+A worker running `gc`/`bd` can still:
+- rewrite a session Bead's identity (`template`, `provider`, `real_world_app_session_kind`, `session_origin`, the
+  named-session marker, `agent_name`, `alias`, `session_name`, `transport`, `mcp_identity`,
+  `mcp_servers_snapshot`), so the gate checks against the wrong config;
+- create sessions (`gc session new`, manual-origin rediscovery);
+- route a Bead through `gc.routed_to`;
+- substitute another session's valid `session_key` or `brain_parent_sid`;
+- reach the controller API;
+- race a symlink swap;
+- write `template_overrides.initial_message`, `wake_mode` or `worker_dir` (auto-prune under `.gc/worktrees`), none
+  of which widens a launch;
+- change env or MCP servers through identity (covered by the identity residual).
 
-Closing these needs a Core authorization model (controller-attested session identity and an operator-only
-creation channel), tracked as its own Bead. Until then Gas City workers are semi-trusted: they are routed only
-inside reviewed windows, and the reviewed diff plus CI is the control.
+These are tracked as ga-5eix. Until then workers are routed only inside reviewed windows, and the reviewed diff
+plus CI is the control.
 
 ## Out of scope
 
-city.toml, packs and live state. ga-bebv carries the replace-mode schemas, `work_dir_roots`,
-`overridable_options` and the deployment. r5 creates no identity field, so it needs no session-Bead upgrade
-step.
+city.toml, packs and live state, which ga-bebv carries.

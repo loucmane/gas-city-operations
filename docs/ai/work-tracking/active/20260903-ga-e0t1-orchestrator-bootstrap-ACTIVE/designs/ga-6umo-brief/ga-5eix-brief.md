@@ -7,7 +7,8 @@ and recorded on ga-e0t1. Brief to be reviewed before routing.
 
 Core at f3856bd1 has no boundary between a worker's `gc` and `bd` calls and the operator's. Workers run them
 with the operator's authority, so a worker can:
-- rewrite a session Bead's identity fields (`template`, `provider`, `session_kind`, `agent_name`, `alias`,
+- rewrite a session Bead's identity fields (`template`, `provider`, `real_world_app_session_kind`, `session_origin`,
+  the named-session marker, `agent_name`, `alias`,
   `session_name`, `transport`, `mcp_identity`, `mcp_servers_snapshot`) to make an existing session resolve a more
   privileged config;
 - create a session of any configured template with `gc session new`, or through manual-origin rediscovery
