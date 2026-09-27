@@ -33,8 +33,10 @@ OLD_MANIFEST_SHA = '9f60c3bf69a64e3483b2a069fd542ae4ddefee5c0e63f1bc06a388ab7f59
 OLD_RECEIPT_SHA = '746644c7229b07c037839fd48a54e2f7a1e9d956db061e2fa69016ae2e901307'
 OLD_RELEASE_ID = 'gct-oak5-template-candidate-lane-metadata-m11-20260927'
 BASELINE_PATH = O + '/reports/m12-capture/baseline.json'
-# Frozen by the capture after prereqs_m12.py; None refuses.
-BASELINE_SHA = None
+# Frozen by the 2026-09-27 capture (candidate 15570e72 at 572f3c7d, after prereqs_m12.py; zero drifts, exactly the two
+# admitted pin changes and the known cache Git bookkeeping). Nobody runs gc, workflow.py, a Bead write or git in a
+# pinned repository until restore-accepted.
+BASELINE_SHA = '98f31719bbc02986e3d165a614149411ae9d689c00a6f98f2932097d1fe5e369'
 SUSPENSION_SHA = 'a3306567b3cf77e6371a870e6df239194574fab8f2dc3090ea55a5eeb14b4817'
 TEMPLATE = '/home/loucmane/gas-city-template'
 TEMPLATE_COMMIT = '3474abfaec255f7ea4266ce8aa35218afcfc89b0'

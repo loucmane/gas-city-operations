@@ -85,3 +85,24 @@ Run order, as for M11:
 ## Then P13
 
 P13 re-pins the worker receipt's `permission_revision` to the revision the controller traces after A2 (`a61666b3…`, reported by the reload). It is the P12 pattern with one leaf. It also re-pins the Template head's `3474abfa` authority, which is unchanged.
+
+## Binding (2026-09-27)
+
+Package `572f3c7d` received two SOURCE_PASS verdicts with no must_fix. Four should_fix items are carried as follow-ups, not folded in before the capture, so that the capture that ran is the reviewed capture:
+- narrow the capture's `allow_dirty` waiver to the canonical Template path and commit, and give it a behavioural test;
+- `prereqs` directory-mode and metadata checks;
+- a test that the superseded M10 source stays pinned;
+- PLAN wording.
+
+Then, in the supervisor namespaces with candidate C = `15570e72`:
+- **`prereqs_m12.py C`** wrote `reports/m12-inputs/city.toml` (`bdcec254`, 0644). Quiescence began.
+- **`capture_m12.py C`** wrote `reports/m12-capture/baseline.json`, `98f31719`:
+  - zero drifts;
+  - pin changes exactly the receipt and city.toml;
+  - cache bookkeeping only the known `954ed149.../.git` entry.
+
+The binding commit:
+- **`manifest_candidate.py`** pins `BASELINE_SHA`, which moves its digest from `15570e72` to `bf453fc8`.
+- **`source-pins.json`** is `98deeaf2`: the same six names as M11. Only `manifest_candidate.py` differs from M11's pins.
+- **Frame:** against the frozen baseline, 567 spare bytes, with a floor of 256.
+- **Tests:** `test_m12.py` passes 23, including the frozen-baseline build and the source inventory.
