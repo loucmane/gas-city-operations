@@ -108,6 +108,52 @@ The executor, discipline, resume and rollback are the reviewed ga-6utp r12 desig
 - a foreign `city.toml` refused;
 - the live pins and helper identity.
 
+## Run record (2026-09-27, applied)
+
+**Reviews.** Two SOURCE_PASS reviews of `9936810e` are filed.
+
+**Should_fix dispositions before the live run:**
+- **Render middle state** (A 1, B 7). The real Core ran `gc config show --validate` in a staging shadow with the
+  live `city.toml`, override still in place, plus the new fragment: "Config valid". In that state the worker
+  composes as plain `claude` with `auto-edit`, because the override wins, so the middle state changes nothing
+  effective.
+- **Checkout hardening** (B 3), as read-only operator pre-checks:
+  - no `core.worktree`, include, submodule, autocrlf/eol, sparse checkout, extensions, promisor or `hook.*` keys;
+  - the only working-tree `.gitattributes` is the tracked root one;
+  - `check-attr` shows no attribute on the 16 changed paths;
+  - no `index.lock`;
+  - git 2.43.
+- **Python** (A 2, B 5). It was measured again at `e50d468e` by the `make_pins` recheck, whose reproduced pins
+  equal `7ec0f7b1`.
+- **Pre-P12 barrier** (A 3, B 4). The claim that signing launches fail was the wrong mechanism for this lane.
+  - The real barriers are every rig suspended, nothing routed, and the empty candidate root: the wrapper refuses
+    any directory that is not a linked Template worktree directly under it.
+  - M11 and P12 must assert the Template rig is suspended and no Template Bead is routed to the worker.
+- **Crash temporaries and a controller restart** (A 5, B 1-2). These are the hand procedure.
+  - A `.<name>.tmp.gct-oak5.N` beside a live file, or a half-moved checkout, is inspected by hand before `resume`
+    or `rollback`.
+  - A controller restart inside a step leaves only `rollback`.
+  - None occurred.
+
+**Live steps**, all first attempt, package root `~/.local/share/gas-city-staging/gct-oak5-activation-r1`:
+
+| Step | Result |
+| --- | --- |
+| host | pass |
+| inputs | pass |
+| root | `/home/loucmane/gas-city-template-candidate-worktrees`, operator, 0755 |
+| checkout | canonical Template at `3474abfa`; the linked `gas-city-native` is untouched at `68d00588` |
+| registry | `0b0e6a87` |
+| render | fragment `df9c82d0` |
+| city | `b0eeb168`, with the shadow proof recorded |
+| reload | `no_change`, revision `06076790` |
+
+**Composed live.** `gas-city-template/gc.implementation-worker` is on `claude-template-candidate` with `opus-5-5`,
+`full-auto` and grant `managed-7d0dfd6c7f3b4e62`. Its `WorkDirRoots` is the candidate root, `MaxActiveSessions` is
+1 and its pool is `{0,1}`. `run-operator` is unchanged.
+
+Recorded on ga-e0t1 at 09:10Z.
+
 ## Run order after two reviews
 
 - **Root.** A fresh operator-staging package root, `~/.local/share/gas-city-staging/gct-oak5-activation-r1`,
