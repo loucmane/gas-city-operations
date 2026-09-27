@@ -543,6 +543,26 @@ FRESH_ROOTS = ('window-obs', 'window', 'bind', 'route', 'integrity', 'terminal',
                'audit-%s')
 # Every form must be replaced somewhere in the package (asserted after generation, like sub()'s counts).
 FRESH_COUNTS = dict.fromkeys(FRESH_ROOTS, 0)
+# s4 r3: the s4 ROUTE refused before its sling (07:01Z) because the reviewed preroute.survey flagged five
+# cgroup members that exited mid-scan (hidden-during-scan:entry), and its r2 root now exists. The live window
+# (window, bind, integrity roots at -r2) stays; only the route and audit roots, which no live record binds, move
+# to -r3 so ROUTE can run once more.
+GENERATION = {'route': 'r3', 'audit-route': 'r3', 'audit-resume': 'r3', 'audit-%s': 'r3'}
+# preroute.survey's own contract: a member that exits mid-scan "fails closed and the survey is simply rerun".
+# ROUTE reruns it at most five times, two seconds apart, saves every attempt, and still requires the last to be
+# clean; a process that really holds the worktree is flagged on every attempt.
+REBASE.setdefault('route-task-r5.py', []).extend([
+    ("import stat\n", "import stat\nimport time\n", 1),
+    ("    problems=pr.survey(work,1000,slice_root,record['hidden'])\n",
+     "    attempts=[]\n"
+     "    for _ in range(5):\n"
+     "        problems=pr.survey(work,1000,slice_root,record['hidden'])\n"
+     "        attempts.append(problems)\n"
+     "        if not problems:\n"
+     "            break\n"
+     "        time.sleep(2)\n"
+     "    w.save('survey-attempts.json',dict(attempts=attempts))\n", 1),
+])
 
 
 def fresh_roots(text):
@@ -553,7 +573,7 @@ def fresh_roots(text):
     for root in FRESH_ROOTS:
         old = '/var/tmp/%s-%s-20260926-r1' % (TASK, root)
         FRESH_COUNTS[root] += text.count(old)
-        text = text.replace(old, '/var/tmp/%s-%s-20260926-r2' % (TASK, root))
+        text = text.replace(old, '/var/tmp/%s-%s-20260926-%s' % (TASK, root, GENERATION.get(root, 'r2')))
     text = text.replace('\0', keep)
     # Nothing else of this task may still name a -r1 root except PREP, WORKTREE and the accepted record.
     for found in re.findall(r"/var/tmp/%s-[A-Za-z%%-]+-20260926-r1[^'\" ]*" % TASK, text):

@@ -9,11 +9,12 @@ import json
 import os
 from pathlib import Path
 import stat
+import time
 import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-e8ex-window')
-ROOT=Path('/var/tmp/gct-mbg6-route-20260926-r2')
+ROOT=Path('/var/tmp/gct-mbg6-route-20260926-r3')
 BIND=Path('/var/tmp/gct-mbg6-bind-20260926-r2')
 BIND_SHA='56a4634c44548211fdfceb36daff6c0f37f6801d3bbd66959e02095f4d39c40d'
 DESCRIPTION_SHA='c66bab3c40693762c54c998efa8b5f8bab2813391ba15a9318a00b7b33f2ef0c'
@@ -92,7 +93,14 @@ def main():
     assert attrs==['.gitattributes'],('tracked attributes files',attrs)
     assert cg.git(admin,work,'rev-parse','--verify',head+':.gitattributes').decode().strip()=='84c48ec45d32b997de49fa694d00b7e4ba3c677e'
     assert cg.git(admin,work,'status','--porcelain','--ignored','-z','--untracked-files=all')==b'','routed worktree is not freshly clean'
-    problems=pr.survey(work,1000,slice_root,record['hidden'])
+    attempts=[]
+    for _ in range(5):
+        problems=pr.survey(work,1000,slice_root,record['hidden'])
+        attempts.append(problems)
+        if not problems:
+            break
+        time.sleep(2)
+    w.save('survey-attempts.json',dict(attempts=attempts))
     assert not problems,('processes hold the worktree',problems)
     shown_bead=json.loads(shown);shown_bead=shown_bead[0] if isinstance(shown_bead,list) else shown_bead
     assert shown_bead.get('id')=='gct-mbg6','task id'

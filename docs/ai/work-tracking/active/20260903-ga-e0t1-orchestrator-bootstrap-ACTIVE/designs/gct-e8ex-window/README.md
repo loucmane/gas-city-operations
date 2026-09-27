@@ -468,6 +468,35 @@ Coordinator evidence for s4:
   `gct-mbg6-close-drain.requested` marker exist. So CLOSE's HOLD glob and drain guard can only see s4 records.
   The only earlier CLOSE result, s3's, carries the s3 `close-r11.py` digest, which ADMIT rejects.
 
+**s4 run so far, and r3.** At `8398b685`, two filed SOURCE_PASS reviews:
+- **Before BIND:**
+  - the cache lstat equalled the pin 1790491430741191162;
+  - the common snapshot before was `common-snapshot-before-s4.json`, `b2152144` (6843 entries, identical to s2);
+  - the dry audit `queue-audit-dry-s4.json` (`6cb8a412`) held only the two expected pre-route rows;
+  - all four access-time gates passed.
+- **Window steps:**
+  - BIND PASS 06:57Z;
+  - OBSERVE PASS 06:58Z (full native integrity);
+  - PREFLIGHT PASS 06:58:52Z, which starts the four-hour bound; ADMIT must run before about 09:58Z;
+  - STAGE PASS 07:00:39Z.
+- **ROUTE refused** at 07:01:03Z inside `route-task-r5.py`, before its preview or sling:
+  - The reviewed `preroute.survey` flagged five cgroup members, pids 49980 to 49988, as
+    `hidden-during-scan:entry`. They had exited and were gone at once.
+  - The task was not routed and no worker exists.
+  - Only `/var/tmp/gct-mbg6-route-20260926-r2` was written, with task-before and preroute-bead records.
+
+**r3** moves only the route and audit roots, which no live record binds, to `-r3`. Every live window root (window,
+bind, integrity) stays at `-r2`, and the other scripts keep their bytes: only `route-task-r5.py`,
+`audit-queue-r3.py`, `ROUTE.sh` and `RESUME.sh` change.
+
+ROUTE now reruns the survey, as the survey's own contract prescribes ("the survey is simply rerun"):
+- at most five times, two seconds apart;
+- it saves every attempt to `survey-attempts.json`;
+- it requires the last attempt to be clean before the preview and the sling.
+
+`test_successor.py` must not run in full during the window, since its live tests call gc and git. Only its
+static tests ran for r3: generator output, shell parse, roots, digest bindings and the survey rerun.
+
 ## Tests
 
 `test_successor.py` is run at s1; the three s2 pins skip until then: the PREP outputs, the live `pins()` and the

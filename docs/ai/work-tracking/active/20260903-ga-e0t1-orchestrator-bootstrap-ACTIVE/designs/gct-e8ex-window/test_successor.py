@@ -145,9 +145,28 @@ def test_admit_binds_this_close():
 
 def test_audit_writes_fresh_roots():
     text = (HERE/'audit-queue-r3.py').read_text()
-    assert "ROOT = Path('/var/tmp/gct-mbg6-audit-%s-20260926-r2' % MODE)" in text
-    for wrapper, root in (('ROUTE.sh', 'audit-route'), ('RESUME.sh', 'audit-resume')):
-        assert '/var/tmp/gct-mbg6-%s-20260926-r2' % root in (HERE/'operator'/wrapper).read_text()
+    # s4 r3: the route and audit roots are -r3 (the s4 ROUTE consumed route -r2); every live window root stays -r2.
+    assert "ROOT = Path('/var/tmp/gct-mbg6-audit-%s-20260926-r3' % MODE)" in text
+    for wrapper, root in (('ROUTE.sh', 'audit-route'), ('ROUTE.sh', 'route'), ('RESUME.sh', 'audit-route'),
+                          ('RESUME.sh', 'route'), ('RESUME.sh', 'audit-resume')):
+        assert '/var/tmp/gct-mbg6-%s-20260926-r3' % root in (HERE/'operator'/wrapper).read_text()
+    assert "/var/tmp/gct-mbg6-route-20260926-r3" in (HERE/'route-task-r5.py').read_text()
+    for name, raw in package_files().items():
+        for root in re.findall(r"/var/tmp/gct-mbg6-([a-z%-]+)-20260926-r[23]", raw.decode()):
+            assert (root in ('route', 'audit-route', 'audit-resume', 'audit-%s')) == \
+                bool(re.search(r"/var/tmp/gct-mbg6-%s-20260926-r3" % re.escape(root), raw.decode())), (name, root)
+        for root in ('window', 'window-obs', 'bind', 'integrity', 'terminal'):
+            assert '/var/tmp/gct-mbg6-%s-20260926-r3' % root not in raw.decode(), (name, root)
+
+
+def test_route_reruns_the_survey_boundedly():
+    text = (HERE/'route-task-r5.py').read_text()
+    assert text.count('pr.survey(') == 1
+    assert ("    for _ in range(5):\n"
+            "        problems=pr.survey(work,1000,slice_root,record['hidden'])\n") in text
+    assert "    w.save('survey-attempts.json',dict(attempts=attempts))\n" \
+           "    assert not problems,('processes hold the worktree',problems)\n" in text
+    assert text.index("assert not problems,('processes hold the worktree'") < text.index("run('route',argv)")
 
 
 def test_identity(g):

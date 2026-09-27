@@ -10,8 +10,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-e8ex-window
 COMMIT=${1:?usage: ROUTE.sh <reviewed commit>}
-ROUTE_SHA=266a03c638bf7d2e4d448f605e176ff00fa608d1e99e013a78105179c07a3761
-AUDIT_SHA=ae62a55ff2b6fbfee33e8e5ff82a230d8db84acf3e039dc0262147c658e298d4
+ROUTE_SHA=fdf81051324230e368f58b4b8ea938314b0ec87c114b7f88cfe828ff93c7d917
+AUDIT_SHA=3174d4d408aab7b64effb95865d879d6a555477cc0ad83e0cd5b60c755807394
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -26,8 +26,8 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/gct-mbg6-route-20260926-r2 ] && [ ! -L /var/tmp/gct-mbg6-route-20260926-r2 ]; } || { echo "== STOP: output root already used: /var/tmp/gct-mbg6-route-20260926-r2"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/gct-mbg6-audit-route-20260926-r2 ] && [ ! -L /var/tmp/gct-mbg6-audit-route-20260926-r2 ]; } || { echo "== STOP: output root already used: /var/tmp/gct-mbg6-audit-route-20260926-r2"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/gct-mbg6-route-20260926-r3 ] && [ ! -L /var/tmp/gct-mbg6-route-20260926-r3 ]; } || { echo "== STOP: output root already used: /var/tmp/gct-mbg6-route-20260926-r3"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/gct-mbg6-audit-route-20260926-r3 ] && [ ! -L /var/tmp/gct-mbg6-audit-route-20260926-r3 ]; } || { echo "== STOP: output root already used: /var/tmp/gct-mbg6-audit-route-20260926-r3"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
