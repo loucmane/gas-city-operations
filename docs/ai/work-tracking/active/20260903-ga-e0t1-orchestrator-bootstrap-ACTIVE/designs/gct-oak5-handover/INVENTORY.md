@@ -185,3 +185,13 @@ Both run in one reviewed job (`operator/PROBE-AB.sh`, `probe/probe_ab.py`), beca
 - **Claude-lane directory modes.** The Core Claude worktrees `ga-4z38-typed-route-cycles` and `ga-5ot6-typed-route-cycles` both have `.gc` 0700, `.gc/tmp` 0700 and `.gc/scripts` 0755, operator-owned, the same as the codex lane. ga-5ot6's own directories are 0700 because of an older umask. The Template's `.claude/skills` is tracked, so its mode comes from checkout.
 - **The hold race** (Core `f45a6262`). An agent-level hold on a live session with no open assigned work begins a "suspended" drain that sends Ctrl-C (`session_reconciler.go:2032-2106`). The drain-ack fast path applies only when drain-ack was already recorded (`1956-1998`). `markDrainAckStopPending` writes `state=draining` and `state_reason=drain-ack-stop-pending` before it queues the stop.
 - **MCP servers in the Claude lane.** The deferred-tool records of the real Claude-lane sessions (`~/.claude/projects/-home-loucmane-gas-city-ops-candidate-worktrees-{ga-3oa7,ga-x7lx,ga-sh3w}/*.jsonl`) list only `claude_ai_*` connectors: Claude Docs, Crypto.com, Exa, Gmail, Google Calendar and Google Drive. None of the local stdio servers in `~/.claude.json` appear (for example `aegis`, `zen` or the `npx` servers), so `--setting-sources ""` did not start them. The lane policy allows none of the connector tools, so `dontAsk` refuses them.
+
+## 11. Probe run 1 (`oak5-probe-ab-r3`, commit `f0b93afc`, 16:16:15–16:16:49 CEST (14:16Z))
+
+- Stage `~/.local/share/gas-city-staging/gct-oak5-handover/probe-ab-r2`; job exit 0; Claude exit 0 after 33 s and 5 turns, cost $0.16. `init_mcp_servers` was empty.
+- **Commands.**
+  - The plain `mkdir -p`, `chmod -R u+w` and `rm -r` were auto-allowed and ran, with no sandbox-disable request.
+  - The pinned test command `/usr/bin/env PYTHONDONTWRITEBYTECODE=1 TMPDIR=… /usr/bin/python3.12 -m pytest …` was **refused**: "Permission to use Bash has been denied because Claude Code is running in don't ask mode". The earlier lesson about leading assignments therefore extends to the `/usr/bin/env` form.
+- **Worktree.** The worktree gained only the empty `.claude/.cc-writes`. The temp directory was gone, and there was no bytecode and no pytest cache.
+- **Git.** The admin `index` was **identical**. The session created an empty `config.worktree` (0644) in both `clone/.git/` and `clone/.git/worktrees/wt/` at 16:16:17.504, and nothing else changed in `.git`.
+  - In the live repositories the common file already exists: the Template's since 2026-09-06, the Operations one since 2026-09-26 and Core's since 2026-09-17. Every linked worktree admin directory has one.

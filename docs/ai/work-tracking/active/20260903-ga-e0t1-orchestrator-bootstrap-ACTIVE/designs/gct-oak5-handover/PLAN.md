@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r13
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r14
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, and r13 answers the r12 reviews of `e2384515` (A HOLD, B SOURCE_PASS); see the last four sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, and r14 applies the first probe run (`f0b93afc`, both reviews SOURCE_PASS); see the last five sections.
 
 ## Decisions this plan relies on
 
@@ -88,14 +88,11 @@ No step stages, commits, pushes, signs or touches git state, apart from the one 
 
 **The C2 test command** is pinned by the inventory, not chosen by the worker:
 - the interpreter and virtual environment, never the canonical `.venv`, which carries a stale editable `.pth` and coverage `.pth` files;
-- `PYTHONDONTWRITEBYTECODE=1`, pytest `-p no:cacheprovider`, no coverage, and no network;
-- **Temporary paths.** Two distinct subdirectories under the declared `<worktree>/.oak5-c2-tmp/`, both inside the lane's existing write root, so no policy or receipt change is needed:
-  - `.oak5-c2-tmp/tmp` for `TMPDIR`;
-  - `.oak5-c2-tmp/basetemp` for pytest `--basetemp`, which pytest removes and recreates.
-
-  C2 creates both before running the command, so Python's `tempfile` never falls back to `/tmp`. The inventory confirms the path is neither tracked nor ignored at BASE, and that pytest's default `norecursedirs` skips it.
-- **The inventory runs the exact command,** including its env-variable form, under the live lane policy and sandbox, and proves it is permitted.
-- **Cleanup.** After the test and before its note, C2 deletes `.oak5-c2-tmp/` with exactly two commands: `/usr/bin/chmod -R u+w -- .oak5-c2-tmp`, then `/usr/bin/rm -r -- .oak5-c2-tmp`. Plain `rm -r` fails on a read-only directory that pytest's `tmp_path` may leave behind, The probe's local test shows the plain failure. The live probe runs the two-step deletion under the retargeted policy and sandbox.
+- **The exact form**, with no leading variable assignment and no `/usr/bin/env` wrapper: `/usr/bin/python3.12 -B -m pytest -q -p no:cacheprovider --basetemp=<worktree>/.oak5-c2-tmp/basetemp <A2>`, run from the worktree. `-B` replaces `PYTHONDONTWRITEBYTECODE=1`. There is no coverage and no network;
+  - The first probe run (probe-ab-r2) showed Claude refusing the earlier `/usr/bin/env PYTHONDONTWRITEBYTECODE=1 TMPDIR=… /usr/bin/python3.12 …` form in `dontAsk` mode, while it auto-allowed the plain sandboxed `mkdir`, `chmod` and `rm`.
+- **Temporary paths.** One subdirectory, `<worktree>/.oak5-c2-tmp/basetemp`, inside the lane's existing write root, for pytest `--basetemp`. C2 creates it first with `/usr/bin/mkdir -p .oak5-c2-tmp/basetemp`. `TMPDIR` is no longer set. What Python's `tempfile` uses inside the sandbox is recorded by the second probe run, and code that writes there is covered by the `/tmp` known limit. The inventory confirms the path is neither tracked nor ignored at BASE, and that pytest's default `norecursedirs` skips it.
+- **The inventory runs the exact command** under the retargeted live policy and sandbox (the second probe run, probe-ab-r3), and it must be auto-allowed and pass.
+- **Cleanup.** After the test and before its note, C2 deletes `.oak5-c2-tmp/` with exactly two commands: `/usr/bin/chmod -R u+w -- .oak5-c2-tmp`, then `/usr/bin/rm -r -- .oak5-c2-tmp`. Plain `rm -r` fails on a read-only directory that pytest's `tmp_path` may leave behind. The probe's local test shows the plain failure. The live probe runs the two-step deletion under the retargeted policy and sandbox.
 
 **Checks on the test run.**
 - CLOSE's final export (rules 2 to 4 and 6) must show that `.oak5-c2-tmp/` is gone and that `M1`, `A1`, `M2` and `A2` hold exactly the digests C2 recorded before the test.
@@ -111,6 +108,11 @@ No step stages, commits, pushes, signs or touches git state, apart from the one 
 One linked worktree of the canonical Template: `/home/loucmane/gas-city-template-candidate-worktrees/gct-oak5` on `codex/gct-oak5-handover-proof`, at BASE `3474abfa` (Template origin/main, the M11/M12 pinned commit).
 
 **Created by** a reviewed WORKTREE job. It is the gct-mbg6 `worktree-task-r1` retargeted to the candidate root, with the pre-add driver, attributes and gitlink checks. The candidate root must hold exactly this worktree during the handover.
+
+**`config.worktree`.** WORKTREE also creates an empty, operator-owned, single-link `config.worktree` (0644) in the new admin directory `.git/worktrees/gct-oak5/`, before the chain's first common snapshot.
+- The first probe run showed a Claude session creating an empty `config.worktree` in both the common directory and the admin directory when they are missing.
+- Every existing linked worktree of the canonical Template, Operations and Core repositories already has one, and the canonical Template's common `.git/config.worktree` has existed since 2026-09-06.
+- Pre-created, the file is part of the baseline, so a session changes nothing there. Any byte or mode change to it refuses, and the file is in M13's exact pair.
 
 **Canonical `HEAD` stays at `3474abfa`.** Adding the worktree changes the metadata-pinned Template `.git` tree:
 - dispatch is not refused, because `InspectIntegrity` does not examine metadata trees;
@@ -362,14 +364,15 @@ Each segment is one reviewed window. Each is a successor package generated with 
     - no new file appears in the admin directory, such as a `sharedindex.*`.
 
     Anything else refuses. If the inventory shows a harness rewriting an extension, the rule is re-reviewed before C1.
-  - The inventory runs the real wrapper and provider argv in a scratch linked worktree of a throwaway clone, never the canonical Template. If it cannot reproduce the managed lane, its result is recorded as a lower bound.
+  - The inventory runs the real Claude launch flags directly, not through the wrapper, which refuses outside the candidate root. It uses a scratch linked worktree of a GitHub clone, never the canonical Template, and the result is a declared lower bound. Codex is covered by the gct-mbg6 window's byte-identical `.git` snapshot.
+  - The first run left the index identical; the only admin change was the new `config.worktree`, which WORKTREE now pre-creates.
   - The chain's first `before` is taken after WORKTREE and before C1's BIND.
   - **No git reads.** No gate, reviewer or intake step relies on `git status` or `git diff` in the handover worktree, because a stat-only rewrite could make a racy-clean entry hide a content change. The images and the export read files only.
   - **Scope.** The common snapshot covers the Template `.git` only. The candidate-root audit (rule 6), the image, and the stated vault and `/tmp` scope are the complementary parts.
 - **WATCH** records, on every tick, the routing (`gc.routed_to`) and assignee of the non-current steps, the holders and the root. Any change triggers CONTAIN at once.
   - **When WATCH first observes the current step closed**, it switches to a 15-second poll of the census session Bead and holds the lane at the agent level at the first of:
     - the session Bead shows `state_reason=drain-ack-stop-pending`, which Core writes before it queues the stop, so the hold cannot turn the teardown into a "suspended" drain;
-    - 4 minutes after the step's `closed_at`, the time of the close itself, not of WATCH's observation.
+    - 4 minutes after the step's `closed_at`, the time of the close itself, not of WATCH's observation. WATCH parses `closed_at` with its explicit zone, and requires it to be no earlier than the last tick that saw the step open and no later than the first tick that saw it closed. Otherwise it uses that last open tick.
 
     An agent-level hold on a live session with no open work begins a "suspended" drain that sends Ctrl-C (`cmd/gc/session_reconciler.go:2032-2106`). If the hold lands before the worker has run drain-ack, the session ends "suspended" and the window refuses: the worker did not drain within the bound. A drain-ack that Core recorded but has not yet marked still takes the drain-ack path, because that check comes before the suspended drain (`session_reconciler.go:1933-1998`). The 4 minutes, counted from `closed_at`, stay inside the idle restart bound, which runs 5 minutes from the worker's last provider activity, and the close is itself such activity. Nothing else changes in the lane during the wait: the next step is unrouted, and `max_active_sessions = 1`.
   - A worker with unsandboxed `bd update` could route a later step before closing its own, and the reconciler could start a session inside one tick. That tick-bounded gap is stated as a known limit, and it is detected by the store-wide diff and fails closed.
@@ -464,7 +467,7 @@ The gct-mbg6 intake runs unchanged in method:
 
   Containment inside the candidate root rests on the rule 6 audit at ROUTE and RESUME and at CLOSE, not on the sandbox.
 - **Known limits, stated on gct-oak5:**
-  - **Account-level connectors in the Claude lane.** Real Claude-lane sessions launched with `--setting-sources ""` load no local user-scope MCP server: the ga-3oa7, ga-x7lx and ga-sh3w transcripts show none of the `~/.claude.json` servers. They do list the account-level claude.ai connectors (Docs, Gmail, Calendar, Drive, Exa, Crypto.com) as deferred tools. The lane policy allows none of them, so `dontAsk` refuses every call. This is recorded as a limit, with a hardening follow-up to switch the connectors off for worker lanes.
+  - **Account-level connectors in the Claude lane.** Real Claude-lane sessions launched with `--setting-sources ""` load no local user-scope MCP server: the ga-3oa7, ga-x7lx and ga-sh3w transcripts show none of the `~/.claude.json` servers. They do list the account-level claude.ai connectors (Docs, Gmail, Calendar, Drive, Exa, Crypto.com) as deferred tools. The lane policy allows none of them, so `dontAsk` refuses every connector tool call. The generic MCP resource read tools are read-only. This is recorded as a limit, with a hardening follow-up to switch the connectors off for worker lanes.
   - **The RESUME gap.** Between the last rule 6 audit before RESUME and the session reading its files.
   - **The root directory.** Containment of the candidate root directory itself, as well as of entries inside it, rests on the rule 6 audits at ROUTE, RESUME and CLOSE. X's write roots include the whole root.
   - **The close-then-route tick.** A worker's unsandboxed `bd update` can route a later step before its own close. The gap is bounded by one WATCH tick, detected and fail-closed.
@@ -768,3 +771,18 @@ The plan part of r11 closed the three r10 must_fix items (both reviews verified 
   - claim-time git is declared as not covered (A 7);
   - the environment is checked before any work (B 1);
   - the 4-minute bound runs from `closed_at` (B 2).
+
+## r14 (applies the first probe run, `oak5-probe-ab-r3` at `f0b93afc`, 16:16 CEST (14:16Z))
+
+- **Probe B: the pinned test command was refused.** Under `dontAsk` with the retargeted policy, Claude refused `/usr/bin/env PYTHONDONTWRITEBYTECODE=1 TMPDIR=… /usr/bin/python3.12 -m pytest …` with "Permission to use Bash has been denied". The plain sandboxed `mkdir`, `chmod` and `rm` ran. The C2 command is now `/usr/bin/python3.12 -B -m pytest …` with no assignment or wrapper. `TMPDIR` is dropped, and the effective temp directory is recorded.
+- **Probe A: the index stayed identical.** A Claude session creates an empty `config.worktree` in the common directory and in the admin directory when they are missing. WORKTREE now pre-creates the admin one, and the common one already exists.
+- **MCP.** The probe's `--strict-mcp-config` session started no MCP server (`mcp_servers` was empty).
+- **A second probe run** (probe-ab-r3, stage `probe-ab-r3`) is required. It confirms the new command is auto-allowed and passes, and that pre-created `config.worktree` files stay unchanged, before the C1 package.
+- **Should_fix from the `f0b93afc` reviews:**
+  - the MCP parser is a tested helper, a missing init event is flagged, and the flag is printed;
+  - the environment names, the `GIT_*` values and the Claude binary digest are recorded;
+  - the report is always written;
+  - a test pins the wrapper digest;
+  - the `closed_at` parsing rule is stated;
+  - the connector wording is exact;
+  - the "real wrapper argv" wording is corrected.

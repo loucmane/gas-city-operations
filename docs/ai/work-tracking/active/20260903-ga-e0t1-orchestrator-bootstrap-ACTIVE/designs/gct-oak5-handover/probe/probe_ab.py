@@ -86,7 +86,7 @@ def test_imports_worktree_code():
 
 def test_isolation():
     assert sys.dont_write_bytecode
-    assert Path(tempfile.gettempdir()).resolve() == (Path.cwd() / ".oak5-c2-tmp/tmp").resolve()
+    assert tempfile.gettempdir()
 
 
 def test_digest(tmp_path):
@@ -107,16 +107,19 @@ def test_leaves_read_only_entries(tmp_path):
 
 
 def test_command(worktree):
+    # No leading variable assignment and no /usr/bin/env wrapper: probe run 1 (probe-ab-r2) showed
+    # Claude refusing that form under dontAsk. -B replaces PYTHONDONTWRITEBYTECODE.
     return (
-        f"/usr/bin/env PYTHONDONTWRITEBYTECODE=1 TMPDIR={worktree}/.oak5-c2-tmp/tmp "
-        f"/usr/bin/python3.12 -m pytest -q -p no:cacheprovider "
+        f"/usr/bin/python3.12 -B -m pytest -q -p no:cacheprovider "
         f"--basetemp={worktree}/.oak5-c2-tmp/basetemp tests/test_gct_handover_digest.py"
     )
 
 
+TEMPDIR_COMMAND = '/usr/bin/python3.12 -B -c "import tempfile; print(tempfile.gettempdir())"'
 COMMANDS = (
-    "/usr/bin/mkdir -p .oak5-c2-tmp/tmp .oak5-c2-tmp/basetemp",
+    "/usr/bin/mkdir -p .oak5-c2-tmp/basetemp",
     None,  # the test command, filled per worktree
+    TEMPDIR_COMMAND,
     "/usr/bin/chmod -R u+w -- .oak5-c2-tmp",
     "/usr/bin/rm -r -- .oak5-c2-tmp",
 )
@@ -224,6 +227,42 @@ def tree_state(worktree):
     return state
 
 
+def parse_stream(lines):
+    """Return (tool calls with results, final result, init MCP server list or None)."""
+    calls, results, final, servers = [], {}, None, None
+    for line in lines:
+        try:
+            event = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(event, dict):
+            continue
+        message = event.get("message") or {}
+        content_parts = message.get("content") if isinstance(message, dict) else None
+        for part in content_parts if isinstance(content_parts, list) else []:
+            if not isinstance(part, dict):
+                continue
+            if part.get("type") == "tool_use":
+                calls.append({"id": part.get("id"), "tool": part.get("name"), "input": part.get("input")})
+            elif part.get("type") == "tool_result":
+                content = part.get("content")
+                if isinstance(content, list):
+                    content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
+                results[part.get("tool_use_id")] = {"is_error": bool(part.get("is_error")), "content": str(content)[:4000]}
+        if event.get("type") == "system" and event.get("subtype") == "init":
+            servers = event.get("mcp_servers") or []
+        if event.get("type") == "result":
+            final = {k: event.get(k) for k in ("subtype", "is_error", "result", "num_turns", "total_cost_usd")}
+    return [dict(call, result=results.get(call["id"])) for call in calls], final, servers
+
+
+def local_servers(servers):
+    """Servers that are not account-level claude.ai connectors; a missing init event is flagged."""
+    if servers is None:
+        return ["<no init event>"]
+    return [s for s in servers if not (isinstance(s, dict) and str(s.get("name", "")).startswith("claude.ai "))]
+
+
 def probe_policy(raw, root):
     text = raw.decode("utf-8")
     if text.count(LIVE_ROOT) != 2:
@@ -264,7 +303,7 @@ def main(stage_arg):
         raise SystemExit(f"stage already exists: {stage}")
     environment = child_environment(os.environ)
     stage.mkdir(mode=0o700, parents=False)
-    report = {"schema": "gct-oak5.probe-ab.v1", "base": BASE, "stage": str(stage), "deviations": [
+    report = {"schema": "gct-oak5.probe-ab.v2", "base": BASE, "stage": str(stage), "deviations": [
         "scratch root replaces the candidate root in --add-dir and the two Edit rules",
         "policy hooks removed",
         "print mode: -p with --output-format stream-json --verbose",
@@ -272,6 +311,7 @@ def main(stage_arg):
         "the five native control commands removed from permissions.allow and sandbox.excludedCommands",
         "subscription authentication step of the real launch skipped",
         "--strict-mcp-config with no --mcp-config: no MCP server from the operator configuration starts",
+        "empty config.worktree pre-created in the clone common dir and the worktree admin dir, as in the real lane",
     ], "not_covered": [
         "codex startup git (taken from the gct-mbg6 window common snapshot instead)",
         "claim-time git (ResolveWorkBranch under gc hook --claim), removed with the control commands; the gct-mbg6 snapshot covers it for the same gc binary",
@@ -294,6 +334,15 @@ def main(stage_arg):
     worktree = root / "wt"
     run(GIT + ["-C", str(stage / "clone"), "worktree", "add", "--quiet", "-b", BRANCH, str(worktree), BASE])
     admin = stage / "clone/.git/worktrees/wt"
+    # The real lane: the canonical Template already has .git/config.worktree, and the WORKTREE job
+    # pre-creates the admin one. Probe run 1 showed a Claude session creating both when missing.
+    for placeholder in (stage / "clone/.git/config.worktree", admin / "config.worktree"):
+        if placeholder.exists() or placeholder.is_symlink():
+            raise SystemExit(f"unexpected {placeholder}")
+        placeholder.touch(mode=0o644, exist_ok=False)
+    report["environment_names"] = sorted(environment)
+    report["environment_git"] = {k: v for k, v in environment.items() if k.startswith("GIT_")}
+    report["claude_sha256"] = hashlib.sha256(Path(CLAUDE).read_bytes()).hexdigest()
     (worktree / "lib/gct_handover_digest.py").write_text(HELPER)
     (worktree / "tests/test_gct_handover_digest.py").write_text(TEST)
 
@@ -331,7 +380,15 @@ def main(stage_arg):
             proc.wait()
             time.sleep(2)
     report["seconds"] = round(time.time() - started, 1)
+    try:
+        return measure(report, stage, admin, worktree, stream, commands, admin_before, git_before,
+                       index_before, tree_before)
+    finally:
+        (stage / "report.json").write_text(json.dumps(report, indent=1, sort_keys=True, default=str) + "\n")
 
+
+def measure(report, stage, admin, worktree, stream, commands, admin_before, git_before, index_before, tree_before):
+    report["measurement"] = "incomplete"
     admin_after = admin_state(admin)
     git_after = admin_state(stage / "clone/.git")
     index_after = (admin / "index").read_bytes()
@@ -350,31 +407,14 @@ def main(stage_arg):
     report["tree_removed"] = sorted(set(tree_before) - set(tree_after))
     report["tree_changed"] = sorted(k for k in set(tree_before) & set(tree_after) if tree_before[k] != tree_after[k])
 
-    calls, results = [], {}
-    for line in stream.read_text(errors="replace").splitlines():
-        try:
-            event = json.loads(line)
-        except ValueError:
-            continue
-        message = event.get("message") or {}
-        content_parts = message.get("content") if isinstance(message, dict) else None
-        for part in content_parts if isinstance(content_parts, list) else []:
-            if part.get("type") == "tool_use":
-                calls.append({"id": part.get("id"), "tool": part.get("name"), "input": part.get("input")})
-            elif part.get("type") == "tool_result":
-                content = part.get("content")
-                if isinstance(content, list):
-                    content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
-                results[part.get("tool_use_id")] = {"is_error": bool(part.get("is_error")), "content": str(content)[:4000]}
-        if event.get("type") == "system" and event.get("subtype") == "init":
-            servers = event.get("mcp_servers") or []
-            report["init_mcp_servers"] = servers
-            report["local_mcp_servers_started"] = [
-                s for s in servers if isinstance(s, dict) and not str(s.get("name", "")).startswith("claude.ai")]
-        if event.get("type") == "result":
-            report["final"] = {k: event.get(k) for k in ("subtype", "is_error", "result", "num_turns", "total_cost_usd")}
-    report["tool_calls"] = [dict(call, result=results.get(call["id"])) for call in calls]
+    calls, final, servers = parse_stream(stream.read_text(errors="replace").splitlines())
+    report["tool_calls"] = calls
+    report["final"] = final
+    report["init_mcp_servers"] = servers
+    report["local_mcp_servers_started"] = local_servers(servers)
     executed = [c["input"].get("command") for c in calls if c["tool"] == "Bash" and isinstance(c.get("input"), dict)]
+    by_command = {c["input"].get("command"): c.get("result") for c in calls
+                  if c["tool"] == "Bash" and isinstance(c.get("input"), dict)}
     report["probe_b"] = {
         "exact_commands_only": executed == commands,
         "sandbox_disable_requested": any(
@@ -384,10 +424,14 @@ def main(stage_arg):
         "temp_absent_after": not (worktree / ".oak5-c2-tmp").exists(),
         "no_bytecode": not any("__pycache__" in k or k.endswith(".pyc") for k in tree_after),
         "no_pytest_cache": not any(k.startswith(".pytest_cache") for k in tree_after),
+        "each_command": {command: (by_command.get(command) or {}).get("is_error") for command in commands},
+        "tempdir_output": (by_command.get(TEMPDIR_COMMAND) or {}).get("content"),
     }
-    (stage / "report.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n")
-    print(json.dumps({k: report[k] for k in ("claude_exit", "seconds", "probe_b", "tree_added", "tree_changed")}, sort_keys=True))
-    print(json.dumps({"index": report["probe_a"]["index"], "admin_changed": report["probe_a"]["admin_changed"]}))
+    report["measurement"] = "complete"
+    print(json.dumps({k: report[k] for k in ("claude_exit", "seconds", "probe_b", "tree_added", "tree_changed",
+                                            "local_mcp_servers_started")}, sort_keys=True))
+    print(json.dumps({"index": report["probe_a"]["index"], "admin_changed": report["probe_a"]["admin_changed"],
+                      "git_changed_outside_admin": report["probe_a"]["git_changed_outside_admin"]}))
     return 0
 
 

@@ -180,12 +180,42 @@ def test_child_environment():
 
 def test_commands_and_prompt():
     command = probe.test_command("/w")
-    assert command.startswith("/usr/bin/env PYTHONDONTWRITEBYTECODE=1 TMPDIR=/w/.oak5-c2-tmp/tmp /usr/bin/python3.12 -m pytest")
+    assert command == ("/usr/bin/python3.12 -B -m pytest -q -p no:cacheprovider "
+                       "--basetemp=/w/.oak5-c2-tmp/basetemp tests/test_gct_handover_digest.py")
+    assert "=" not in command.split(" ", 1)[0] and "env" not in command
     text = probe.prompt([probe.COMMANDS[0], command, *probe.COMMANDS[2:]])
-    assert "exactly these 4 commands" in text
-    assert "1. /usr/bin/mkdir -p .oak5-c2-tmp/tmp .oak5-c2-tmp/basetemp" in text
-    assert "3. /usr/bin/chmod -R u+w -- .oak5-c2-tmp" in text
-    assert "4. /usr/bin/rm -r -- .oak5-c2-tmp" in text
+    assert "exactly these 5 commands" in text
+    assert "1. /usr/bin/mkdir -p .oak5-c2-tmp/basetemp" in text
+    assert "3. " + probe.TEMPDIR_COMMAND in text
+    assert "4. /usr/bin/chmod -R u+w -- .oak5-c2-tmp" in text
+    assert "5. /usr/bin/rm -r -- .oak5-c2-tmp" in text
+
+
+def test_parse_stream_and_mcp_flag():
+    lines = [
+        json.dumps({"type": "system", "subtype": "init", "mcp_servers": [
+            {"name": "claude.ai Gmail", "status": "connected"}, {"name": "aegis", "status": "connected"}]}),
+        json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": "t1", "name": "Bash", "input": {"command": "ls"}}]}}),
+        json.dumps({"type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": "t1", "is_error": True, "content": [{"type": "text", "text": "denied"}]}]}}),
+        "not json",
+        json.dumps({"type": "result", "subtype": "success", "is_error": False, "result": "ok", "num_turns": 2}),
+    ]
+    calls, final, servers = probe.parse_stream(lines)
+    assert calls == [{"id": "t1", "tool": "Bash", "input": {"command": "ls"}, "result": {"is_error": True, "content": "denied"}}]
+    assert final["result"] == "ok"
+    assert probe.local_servers(servers) == [{"name": "aegis", "status": "connected"}]
+    assert probe.local_servers([{"name": "claude.ai Docs"}]) == []
+    assert probe.local_servers([]) == []
+    assert probe.local_servers(probe.parse_stream(lines[1:])[2]) == ["<no init event>"]
+
+
+def test_wrapper_pins_this_probe():
+    wrapper = (HERE.parent / "operator/PROBE-AB.sh").read_text()
+    digest = hashlib.sha256((HERE / "probe_ab.py").read_bytes()).hexdigest()
+    assert f"PROBE_SHA={digest}\n" in wrapper
+    assert "STAGE=$S/probe-ab-r3\n" in wrapper
 
 
 def test_seeded_test_passes_with_pinned_command(tmp_path):
@@ -194,7 +224,7 @@ def test_seeded_test_passes_with_pinned_command(tmp_path):
     (worktree / "tests").mkdir()
     (worktree / "lib/gct_handover_digest.py").write_text(probe.HELPER)
     (worktree / "tests/test_gct_handover_digest.py").write_text(probe.TEST)
-    subprocess.run(["/usr/bin/mkdir", "-p", ".oak5-c2-tmp/tmp", ".oak5-c2-tmp/basetemp"], cwd=worktree, check=True)
+    subprocess.run(["/usr/bin/mkdir", "-p", ".oak5-c2-tmp/basetemp"], cwd=worktree, check=True)
     result = subprocess.run(probe.test_command(worktree), shell=True, cwd=worktree, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
     assert "4 passed" in result.stdout
