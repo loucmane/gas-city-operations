@@ -140,3 +140,21 @@ Adoption constants:
 | `READY_PINS_SHA` | 82a4a70c |
 
 `test_p12.py` passes 26.
+
+## Adoption (2026-09-27)
+
+Adoption-binding reviews: two independent SOURCE_PASS of 2220a1fe. The coordinator's `git diff --stat 1ab5af55 2220a1fe` confirms only `p12-adopt.py` (the five constants) and this plan changed.
+
+`p12-adopt.py` (935c155f) ran once at 12:26 CEST (10:26 UTC). It returned ok, rollback not-needed and worker_launched false.
+- **Receipt:** 06a3f58a became 7125be84, self 4204aef0, mode 0600, one link.
+- **Provisioner:** check found drift exactly `receipt.sha256`; apply and verify returned ok with drift [], runner 3beeedb2.
+- **Witness:** d67d9420 binds the M11 acceptance cc21edc1 (manifest 599ccc58, receipt 66bf96e2) and gc 207a78e2 at f45a6262, tree f1011ada.
+- **Revision:** 06076790, controller 2800348.
+- **Snapshots:** with the receipt pin removed, before and after are equal. The coordinator recomputed this, and the provider pins are byte-equal.
+
+Readback: two independent ADOPT_PASS of 2220a1fe, no must_fix. The should_fix items are follow-ups:
+- the adopt comment claims atime retention;
+- the after snapshot prints nothing;
+- result.json lacks the receipt metadata.
+
+Follow-up: the canary receipts are stale after P12, as they were after P11. `gc platform canary` refuses multi-profile receipts.
