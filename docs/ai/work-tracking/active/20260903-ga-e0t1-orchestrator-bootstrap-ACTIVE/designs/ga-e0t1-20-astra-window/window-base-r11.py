@@ -189,8 +189,8 @@ def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
 CACHE_PREV_NS = 1790510685769555369
-CACHE_PINNED_NS = 1790550950937952576
-# Read-only observation SHA-256 5931029c8f398219924b0ac950b592ad7c915662984125a8cf8adcce85c22c20
+CACHE_PINNED_NS = 1790552062805742810
+# Read-only observation SHA-256 7f8dd40546a23fc460d190ba08d9a22953c91b4c2ce875c38dccbddbdd97e7d7
 
 def approved_candidate_cache_image(prior):
     require(CACHE_PINNED_NS is not None, 'S2 cache disposition is not approved or pinned')
@@ -747,7 +747,7 @@ def main():
             'candidate common Git baseline')
         require(not common.compare(common_before,common.observe()),'common Git changed during baseline')
         save('common-before.json',common_before)
-        validator=module(HERE/'startup-validation.py','baf895aed138c3dae71a458703c3bba961250b46a94d91d1efc358bacd5b7edc')
+        validator=module(HERE/'startup-validation.py','7d2026c1e184937f8cd20b28acfaac6d6f45791b309c1b55f36ac9db0822d0dd')
         # No circular imports: this reader is the existing bounded worker probe.
         probe=module(HERE/'worker-startup.py','7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3')
         workspace_before=validator.workspace_image(WORK,probe.read_regular)

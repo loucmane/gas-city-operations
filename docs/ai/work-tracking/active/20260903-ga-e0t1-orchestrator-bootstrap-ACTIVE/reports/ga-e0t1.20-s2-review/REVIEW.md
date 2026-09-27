@@ -163,3 +163,14 @@ the exact two cache times are 1790550950937952576. All other non-access-time
 fields and providers remain unchanged, and the workspace image is identical.
 This supersedes the r2 binding only for the corrected candidate; earlier
 observations and the held signed candidate remain untouched.
+
+## Native claim-time successor — 2026-09-28 CEST
+
+The next signed candidate 0db1a66ed3d990ed0016f658af6dca209340af7f received
+SOURCE_PASS and HOLD. Both authentic native envelopes are filed. The HOLD
+found the native started_at field rejected by the exact task comparison.
+CLAIM-TIME.md records the bound real observation, the one-failure RED and
+158-pass GREEN, the narrow chronological validation and unchanged authority
+checks. It also records the active-session polling regression and corrected
+test count. No S2 job or worker launch occurred. Two fresh exact-head reviews
+are required for the corrected successor; earlier verdicts cannot admit it.

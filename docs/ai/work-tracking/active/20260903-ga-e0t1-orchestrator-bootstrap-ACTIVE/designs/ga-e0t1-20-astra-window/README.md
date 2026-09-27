@@ -63,18 +63,18 @@ reviews of the exact signed head and the runner's checks remain mandatory.
    evidence bounds, policy hashes and exact common-Git preservation. Only after
    independent candidate review may the coordinator intake or deliver its patch.
 3. The complete read-only host comparison is preserved at
-   /tmp/ga-e0t1-20-readonly-baseline-20260928-r3. Observation SHA-256 is
-   5931029c8f398219924b0ac950b592ad7c915662984125a8cf8adcce85c22c20.
+   /tmp/ga-e0t1-20-readonly-baseline-20260928-r4. Observation SHA-256 is
+   7f8dd40546a23fc460d190ba08d9a22953c91b4c2ce875c38dccbddbdd97e7d7.
    Its only non-access-time differences from accepted P13 are mtime_ns and
    ctime_ns of cache directory
    954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git:
-   1790510685769555369 -> 1790550950937952576. All cache content, all other
+   1790510685769555369 -> 1790552062805742810. All cache content, all other
    metadata, host, protected and provider fields compare exactly under the
    existing historical read-time contract. This candidate binds that pair
    exactly under standing corrected-package authority. Any later change still
    refuses. No timestamp is written or silently normalized. C1's later
    explicitly operator-bound disposition remains separate and is not granted.
-   The r1 and r2 observations remain preserved. The r3 observation follows the final
+   The r1 through r3 observations remain preserved. The r4 observation follows the final
    coordinator evidence/Bead/verify commands, which refresh this directory.
    The exact package-shaped native gc read was separately observed not to do so.
 4. Sign the clean final candidate and obtain two fresh request-bound Astra
@@ -139,6 +139,6 @@ real hook or trust check refuses, report it and contain; never bypass it.
 ## Reproduction
 
 `generators/` contains the exact authoring inputs and fixture tests. Run its
-five test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
+six test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
 The generator writes only a fresh chosen output directory; it never launches
 its outputs. Prior /tmp assembled drafts and tests remain preserved.

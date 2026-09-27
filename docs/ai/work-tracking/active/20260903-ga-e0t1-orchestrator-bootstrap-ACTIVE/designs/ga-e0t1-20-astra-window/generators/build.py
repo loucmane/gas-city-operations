@@ -21,8 +21,8 @@ HERE = Path(__file__).parent
 WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'
 PREP = '/var/tmp/ga-e0t1.20-prep-20260927-r1'
 HEX = re.compile(r'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])')
-FINAL_CACHE_NS = 1790550950937952576
-FINAL_OBSERVATION_SHA = '5931029c8f398219924b0ac950b592ad7c915662984125a8cf8adcce85c22c20'
+FINAL_CACHE_NS = 1790552062805742810
+FINAL_OBSERVATION_SHA = '7f8dd40546a23fc460d190ba08d9a22953c91b4c2ce875c38dccbddbdd97e7d7'
 
 
 def sha(raw):

@@ -4,6 +4,7 @@ This file does not grant authority, invoke a provider or issue commands.
 The release job supplies real host observations and native rollout bytes.
 """
 import errno
+from datetime import datetime
 import hashlib
 import json
 import os
@@ -67,6 +68,30 @@ def process_arguments(argv):
     return dict(flags=flags, config=config, prompt_sha256=hashlib.sha256(prompt[0].encode()).hexdigest())
 
 
+def native_time(value):
+    # Native UTC RFC3339/RFC3339Nano only. Keep nanoseconds for ordering;
+    # datetime alone would silently truncate the last three digits.
+    require(isinstance(value,str), 'native timestamp type')
+    match=re.fullmatch(r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?Z',value)
+    require(match is not None, 'native timestamp format')
+    try:whole=datetime.strptime(match[1],'%Y-%m-%dT%H:%M:%S')
+    except ValueError as exc:raise RuntimeError('native timestamp calendar') from exc
+    return whole,int((match[2] or '').ljust(9,'0'))
+
+
+def claim_time(task, routed, session):
+    # Only this first native claim may introduce started_at. This is bounded
+    # bookkeeping, not identity evidence; exact claim/source checks remain.
+    require('started_at' not in routed, 'routed task already has a start time')
+    started=native_time(task.get('started_at'))
+    created=native_time(routed.get('created_at'))
+    routed_at=native_time(routed.get('updated_at'))
+    session_at=native_time(session.get('created_at'))
+    updated=native_time(task.get('updated_at'))
+    require(created <= routed_at <= started <= updated and session_at <= started,
+            'native claim timestamp order')
+
+
 def live_task(task, routed, session, contract, startup_digest):
     require(task.get('id') == TASK and task.get('status') == 'in_progress', 'task not in progress')
     require(task.get('assignee') == session['session_name'], 'native claim owner differs')
@@ -76,8 +101,9 @@ def live_task(task, routed, session, contract, startup_digest):
     require(task.get('metadata') == expected, 'claim metadata differs')
     note = 'STARTUP READY: '+TASK+' report_sha256='+startup_digest
     require(task.get('notes') == routed['notes']+'\n'+note, 'startup note is not exact or single')
+    claim_time(task,routed,session)
     for key in set(task) | set(routed):
-        if key not in ('status','assignee','metadata','notes','updated_at'):
+        if key not in ('status','assignee','metadata','notes','updated_at','started_at'):
             require(task.get(key) == routed.get(key), 'task changed outside claim and startup note: '+key)
     contract.validate_task(routed, 'routed')
     return note

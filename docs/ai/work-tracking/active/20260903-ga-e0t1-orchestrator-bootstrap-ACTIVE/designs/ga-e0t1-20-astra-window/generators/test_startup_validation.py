@@ -138,7 +138,8 @@ def test_unproven_native_denials_refuse(change):
 
 def session():
     return dict(id='ci-synthetic',session_name='gc__gascity-codex-ci-synthetic',template='gascity/codex',
-        rig='gascity',provider='codex-managed',work_dir=v.WORK,closed=False,session_key=KEY)
+        rig='gascity',provider='codex-managed',work_dir=v.WORK,closed=False,session_key=KEY,
+        created_at='2026-09-28T00:00:00Z')
 
 
 def test_actual_native_session_shape_and_extra_session_negative():
@@ -155,7 +156,9 @@ def test_claim_uses_tmux_session_name_and_stamps_native_id():
         notes=c.BOUND_NOTE,dependencies=[dict(id='ga-e0t1',dependency_type='parent-child')])
     s=session();sha='a'*64
     actual=copy.deepcopy(routed)
-    actual.update(status='in_progress',assignee=s['session_name'],notes=routed['notes']+'\nSTARTUP READY: '+v.TASK+' report_sha256='+sha)
+    actual.update(status='in_progress',assignee=s['session_name'],
+        started_at='2026-09-28T00:00:01Z',updated_at='2026-09-28T00:00:02Z',
+        notes=routed['notes']+'\nSTARTUP READY: '+v.TASK+' report_sha256='+sha)
     actual['metadata'].update({'gc.session_id':s['id'],'gc.session_name':s['session_name'],'gc.work_branch':v.BRANCH})
     v.live_task(actual,routed,s,c,sha)
     actual['metadata'].pop('gc.work_branch')
@@ -181,6 +184,39 @@ def test_pristine_workspace_allows_only_probe_evidence(tmp_path,monkeypatch):
     v.pristine_startup(before,after,sha,{})
     (tmp_path/'source.txt').write_text('premature change')
     with pytest.raises(RuntimeError,match='pre-edit'):v.pristine_startup(before,v.workspace_image(tmp_path,p.read_regular),sha,{})
+
+
+@pytest.mark.parametrize('value',[None,42,'','2026-09-28T00:00:01','2026-09-28T00:00:01+00:00',
+    '2026-02-30T00:00:01Z','2026-09-28T00:00:01.1234567890Z',
+    '2026-09-26T00:00:00Z','2026-09-27T23:59:59Z','2026-09-28T00:00:03Z'])
+def test_native_start_time_refuses_missing_malformed_and_out_of_order(value):
+    routed=dict(created_at='2026-09-27T19:21:22Z',updated_at='2026-09-27T20:00:00Z')
+    actual=dict(started_at=value,updated_at='2026-09-28T00:00:02Z')
+    with pytest.raises(RuntimeError):v.claim_time(actual,routed,session())
+
+
+def test_native_start_time_preserves_nanosecond_order_and_rejects_existing_start():
+    routed=dict(created_at='2026-09-27T19:21:22Z',updated_at='2026-09-27T20:00:00Z')
+    actual=dict(started_at='2026-09-28T00:00:01.000000002Z',updated_at='2026-09-28T00:00:01.000000003Z')
+    v.claim_time(actual,routed,session())
+    actual['updated_at']='2026-09-28T00:00:01.000000001Z'
+    with pytest.raises(RuntimeError):v.claim_time(actual,routed,session())
+    actual['updated_at']='2026-09-28T00:00:02Z';routed['started_at']=None
+    with pytest.raises(RuntimeError):v.claim_time(actual,routed,session())
+
+
+@pytest.mark.parametrize('key',['title','created_at','owner','priority','invented_field'])
+def test_native_claim_time_does_not_waive_other_task_fields(key):
+    c=load('contract');c.BOUND_NOTE='synthetic bound note'
+    routed=json.loads((HERE/'task-own-fields.json').read_bytes())
+    routed.update(status='open',assignee='',metadata={'gc.work_dir':v.WORK,'gc.routed_to':'gascity/codex'},
+        notes=c.BOUND_NOTE,dependencies=[dict(id='ga-e0t1',dependency_type='parent-child')])
+    s=session();sha='a'*64;actual=copy.deepcopy(routed)
+    actual.update(status='in_progress',assignee=s['session_name'],started_at='2026-09-28T00:00:01Z',
+        updated_at='2026-09-28T00:00:02Z',notes=routed['notes']+'\nSTARTUP READY: '+v.TASK+' report_sha256='+sha)
+    actual['metadata'].update({'gc.session_id':s['id'],'gc.session_name':s['session_name']})
+    actual[key]='unexpected'
+    with pytest.raises(RuntimeError,match='outside claim'):v.live_task(actual,routed,s,c,sha)
 
 
 def test_release_has_one_native_nudge_after_consumed_intent_and_all_checks():

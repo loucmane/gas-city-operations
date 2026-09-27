@@ -82,6 +82,14 @@ def test_changed_task_claim_never_receives_drain(source,tmp_path):
     with pytest.raises(RuntimeError,match='claim'):m.main()
     assert mutations(commands)==[]
 
+def test_active_session_substitution_during_poll_never_retargets(source,tmp_path):
+    s=dict(session(),state='active')
+    other=dict(s,id='ci-other',session_name='codex-ci-other')
+    m,commands=run_fixture(source,tmp_path,[[s],[other],[other]])
+    with pytest.raises(RuntimeError,match='substituted'):m.main()
+    assert [a[1:4] for a in mutations(commands)]==[['runtime','drain',s['id']]]
+    assert list(tmp_path.glob('ga-e0t1.20-close-*/drain-poll-refused-*.json'))
+
 def test_persistent_binding_prevents_retarget_on_later_invocation(source,tmp_path):
     s=session();saved=dict(schema='ga-e0t1.20.close-session.v1',task=c.TASK,session=c.close_identity(s))
     (tmp_path/'ga-e0t1.20-close-session.json').write_text(json.dumps(saved))
