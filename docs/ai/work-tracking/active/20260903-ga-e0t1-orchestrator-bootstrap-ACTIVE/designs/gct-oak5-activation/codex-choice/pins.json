@@ -1,0 +1,24 @@
+{
+ "candidate_root": "/home/loucmane/gas-city-template-candidate-worktrees",
+ "city": "/home/loucmane/gascity/city",
+ "city_before": "b0eeb168579f3e247cafa634af3e74d0eb8d57109c21f71f9b2bfa035cecf47b",
+ "env": {
+  "BD_DISABLE_METRICS": "1",
+  "GC_HOME": "/home/loucmane/gascity/home",
+  "GIT_OPTIONAL_LOCKS": "0",
+  "HOME": "/home/loucmane",
+  "LANG": "C",
+  "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
+ },
+ "executor": {
+  "activate.py": "f45a36f1fdb458e482140a4caf12478db573f17a5eda74774ae425c971c1038e",
+  "activate_codex.py": "ffe149547a47646d6f82a5cfcb6302bffae2e99828be33ef0406996de24048c3",
+  "candidate_git.py": "d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe",
+  "preroute.py": "d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6"
+ },
+ "gc": "/home/loucmane/gascity/bin/gc",
+ "inputs": {
+  "city.toml": "bdcec2549fae330ed4aedc2c25563f1917e2bfd39e1caea4be443536f94c69b1"
+ },
+ "uid": 1000
+}
