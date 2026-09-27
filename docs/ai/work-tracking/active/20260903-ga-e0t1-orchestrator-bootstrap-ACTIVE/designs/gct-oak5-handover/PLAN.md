@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r16
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r17
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, and r16 answers the reviews of the split package at `4cb2b80e` (A and B HOLD); see the last seven sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, r16 answered the reviews of the split package at `4cb2b80e`, and r17 records the applied split, the chain anchor and the image tool; see the last eight sections.
 
 ## Decisions this plan relies on
 
@@ -832,3 +832,28 @@ The plan part of r11 closed the three r10 must_fix items (both reviews verified 
   - a STOP close is a failure for the route gate;
   - fake-gc tests cover `run()` and `verify()`: success, refusal before writes, member drift, a Core auto-close, a failure after writes, and a tampered field.
 - **A stated limit:** member enumeration follows direct links only (`gc.root_bead_id` and edges to `gct-wn1m`), and it matches the pinned set, so any drift refuses.
+
+## r17 (records the applied split and the chain anchor; adds the image tool)
+
+- **The split package was applied** as job `oak5-split-r2` at `182c7693`: two SOURCE_PASS reviews, exit 0, no problems, 16:56:44–16:57:07 CEST (14:56–14:57Z).
+  - `gct-wn1m` and its five open members were closed by the coordinator in dependency order with `gc.work_outcome=abandoned`.
+  - **Steps:** C1 `gct-9s1c`, X `gct-gbtx`, C2 `gct-s1oq`.
+  - **Spec holders:** `gct-z2k8` (C1), `gct-czmh` (X), `gct-a973` (C2).
+  - **Image holders**, closed and empty: H1 `gct-893n`, H2 `gct-qcjw`.
+  - **Checks:** only C1 is ready, and both lane-eligible sets are empty. The city store and `gct-oak5` were unchanged.
+  - The evidence is in `~/.local/share/gas-city-staging/gct-oak5-handover/split-r2/`.
+- **The chain anchor** is `~/.local/share/gas-city-staging/gct-oak5-handover/anchor-r1/`, taken at 17:04:02 CEST (15:04:02Z).
+  - **Settle pair:** the Template and city exports are byte-identical to the split's verification exports from 16:57:07 CEST, 6 min 55 s earlier.
+  - **Orders:** none has run since 2026-09-12 apart from `nudge-on-route`, last at 09:42:24 CEST (07:42:24Z) on 2026-09-27, before the split.
+  - The city is suspended.
+  - **Raw exports** of every reachable store, sha256:
+  - `city.jsonl`: `373548106bd0aabb0849d9eb412b9575713be84ca2508db1a4de0f1359f4c6b3`
+  - `rig-blog.jsonl`: `f986a6ba3df0ac4a4ba2c40d1103e6cd2972a826cfdda858c48d2040e4b2e27b`
+  - `rig-gascity.jsonl`: `01073dda3183b4f3d8757782a18dfdf48821187b4b77237126aed685f314526b`
+  - `rig-hpfetcher.jsonl`: `a2ff4617f3d993a41c585ca00021cc796588cf30c46b32d19cca6cd98c66a4d6`
+  - `template.jsonl`: `38f580cdd80825757c6d9d880abe7fde0d786727ac7b16afe92d01eaff9852ee`
+- **The image tool** is `image/image_tool.py`, tested by `image/test_image_tool.py`:
+  - `export` implements the image of "Handover images and the route gate". It adds `--runtime none` for image 0, the baseline right after WORKTREE, before any session;
+  - `compare` implements route-gate rules 2 to 4 between two images;
+  - `holder` renders the `DIGEST` lines.
+  - The Bead-state part of each image and the chained snapshot digest are added by the window packages, which own those reads.
