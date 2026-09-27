@@ -21,7 +21,7 @@ set -eu
 COMMIT=${1:?usage: INSTALL.sh <reviewed commit>}
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
-RUNNER_SHA=0c493db2872c8a44b729376b9d2bcdd2f33fe2d913f2e82c15096dfe0cce9b71
+RUNNER_SHA=b5cdfeefb79f982f52bb0deee20729c4772bdc75f39950911a4eeb71e793199f
 GCJOBS_SHA=7a3180ea5f74de7e4b8cecb9f28f411d44263fd5c3b728005d4d90118f64b863
 LAUNCH_SHA=31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea
 SIGNER=7720D1FE503A88EDECA61A6F0C7D823543E01875
