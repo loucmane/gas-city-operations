@@ -126,7 +126,7 @@ routes=load(HERE/'restore-r9-routes-r3.py',
 routes_policy=load(HERE/'route-chain-r1.py',
     'c456230f7c51e0d7164c246501c1f7e1a94376a36e405cdb41c119245779e284','window_route_chain')
 INTEGRITY=Path('/var/tmp/gct-mbg6-integrity-20260926-r2')
-OBSERVER_SHA='a3242ce92f36c2d34ffe0c7f13969a2b181651176a5e9079f569f402d357390d'
+OBSERVER_SHA='f8a163b00f87b199f6678582832cdeb1c0d7ee93740ca309ea3328c0cfd006ff'
 INSPECTOR_SHA='e1bb4fc9ac4884b4ad96710b05006c1148349781e826976d3bfef868752beac8'
 
 def integrity_baseline(first):

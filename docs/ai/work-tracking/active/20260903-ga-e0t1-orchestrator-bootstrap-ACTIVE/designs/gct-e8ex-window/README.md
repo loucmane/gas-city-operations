@@ -446,6 +446,28 @@ s2 window wrote; its view equals BIND's `task-before.json` except `updated_at`.
 - **Pre-route check.** Before ROUTE is queued, the coordinator repeats the read-only queue-audit dry run, and it
   must be empty.
 
+**s4 r2** is the review fix for `459dba70`. Both reviewers held on the same defect.
+
+The defect: `audit-queue-r3.py` names its root as `'/var/tmp/gct-mbg6-audit-%s-20260926-r1' % MODE`, and the
+literal-path rewrite missed that form. ROUTE would have slung the task and then refused on the existing r1
+audit root.
+
+The fix:
+- `fresh_roots` now also rewrites the `audit-%s` form.
+- It counts every replacement form and asserts that each one was used.
+- Each output file must name no other `-r1` root.
+- New tests bind ADMIT's `CLOSE_SHA` to this `close-r11.py` and check that the audit roots are `-r2`.
+- The observer wording now names the s3 TERMINAL record.
+
+Coordinator evidence for s4:
+- **Common snapshot before.** The before-record is
+  `~/.local/share/gas-city-staging/gct-e8ex-window/common-snapshot-before-s4.json`, a new file. The s2 record
+  stays untouched.
+- **Queue-audit dry run.** Its output is filed beside it as `queue-audit-dry-s4.json`.
+- **Cross-run state.** Before BIND, the coordinator confirmed that no `gct-mbg6-hold-*` root and no
+  `gct-mbg6-close-drain.requested` marker exist. So CLOSE's HOLD glob and drain guard can only see s4 records.
+  The only earlier CLOSE result, s3's, carries the s3 `close-r11.py` digest, which ADMIT rejects.
+
 ## Tests
 
 `test_successor.py` is run at s1; the three s2 pins skip until then: the PREP outputs, the live `pins()` and the

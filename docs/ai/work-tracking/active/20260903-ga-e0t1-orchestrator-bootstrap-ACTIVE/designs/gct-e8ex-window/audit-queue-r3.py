@@ -13,7 +13,7 @@ import types
 
 MODE = sys.argv[1] if len(sys.argv) == 2 else None
 assert MODE in ('route', 'resume'), 'audit mode'
-ROOT = Path('/var/tmp/gct-mbg6-audit-%s-20260926-r1' % MODE)
+ROOT = Path('/var/tmp/gct-mbg6-audit-%s-20260926-r2' % MODE)
 RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
 raw = RUNNER.read_bytes()
 assert hashlib.sha256(raw).hexdigest() == 'eddf5e1174a7b275abe280e91ea5c8ea0762600d38524ba9631f53fb4874cdf3'

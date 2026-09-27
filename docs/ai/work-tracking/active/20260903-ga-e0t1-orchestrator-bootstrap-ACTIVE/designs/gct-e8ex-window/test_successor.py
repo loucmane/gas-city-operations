@@ -120,7 +120,8 @@ def test_every_output_root_is_fresh():
         # s1 r8: no ga-3oa7 root is read any more (the accepted image is the P11 adoption snapshot).
         assert not re.findall(r"/var/tmp/ga-3oa7-[A-Za-z0-9_-]+", raw.decode()), name
         # s4: every consumed s2 window root moved to -r2; only PREP, WORKTREE and the accepted TERMINAL record stay -r1.
-        for root in re.findall(r"/var/tmp/gct-mbg6-[a-z-]+-20260926-r1[^'\" ]*", raw.decode()):
+        # s4 r2: the character class admits format-string roots such as audit-%s.
+        for root in re.findall(r"/var/tmp/gct-mbg6-[A-Za-z%-]+-20260926-r1[^'\" ]*", raw.decode()):
             assert root.startswith(('/var/tmp/gct-mbg6-prep-', '/var/tmp/gct-mbg6-worktree-',
                                     '/var/tmp/gct-mbg6-terminal-20260926-r1/observed-after.json')), (name, root)
 
@@ -132,6 +133,21 @@ def test_wrappers_bind_their_scripts():
             name, var = script
             [value] = re.findall(r'^%s=([0-9a-f]{64})$' % var, text, re.M)
             assert value == sha(HERE/name), (wrapper.name, name)
+
+
+def test_admit_binds_this_close():
+    # ADMIT accepts only a CLOSE result carrying this package's close-r11.py digest (s3's result must not count).
+    [value] = re.findall(r'^CLOSE_SHA=([0-9a-f]{64})$', (HERE/'operator/ADMIT.sh').read_text(), re.M)
+    assert value == sha(HERE/'close-r11.py')
+    assert re.search(r'-exec grep -l \'"ok": true\' \{\} \+ \| xargs -r grep -l "\$CLOSE_SHA"',
+                     (HERE/'operator/ADMIT.sh').read_text())
+
+
+def test_audit_writes_fresh_roots():
+    text = (HERE/'audit-queue-r3.py').read_text()
+    assert "ROOT = Path('/var/tmp/gct-mbg6-audit-%s-20260926-r2' % MODE)" in text
+    for wrapper, root in (('ROUTE.sh', 'audit-route'), ('RESUME.sh', 'audit-resume')):
+        assert '/var/tmp/gct-mbg6-%s-20260926-r2' % root in (HERE/'operator'/wrapper).read_text()
 
 
 def test_identity(g):

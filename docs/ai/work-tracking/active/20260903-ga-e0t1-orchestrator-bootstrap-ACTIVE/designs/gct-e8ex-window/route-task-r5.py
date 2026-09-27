@@ -25,7 +25,7 @@ CANDIDATE_GIT_SHA='d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823b
 RECORD=Path('/home/loucmane/.local/share/gas-city-staging/ga-bebv-process-record-20260927/process-record.json')
 RECORD_SHA='df765fd0e357925bab51891c72019018bb43b65fcd6e97addf0582c9bdf5e5d7'
 HELPER=HERE/'window-r11.py'
-SHA='c9e0d59ba3db2bd20a0119dd0973a4ffd59950ea40dcab20191fa5c10ea91a5d'
+SHA='0400a9b1f744b205e66eb4744cc207dd388a7abf8e8fd12768e034c4e59a21e2'
 TARGET='gas-city-template/codex'
 
 def main():

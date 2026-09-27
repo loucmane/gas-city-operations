@@ -538,7 +538,11 @@ REBASE['close-r11.py'] = [
 
 # s4: every window output root the s2 run consumed moves to -r2. PREP (-r1) and WORKTREE (-r1) are reused: the
 # worktree is unchanged and clean, and PREP's read-only outputs describe the same city (restored exactly at s3).
-FRESH_ROOTS = ('window-obs', 'window', 'bind', 'route', 'integrity', 'terminal', 'audit-route', 'audit-resume')
+FRESH_ROOTS = ('window-obs', 'window', 'bind', 'route', 'integrity', 'terminal', 'audit-route', 'audit-resume',
+               # s4 r2: audit-queue-r3.py names its root through MODE ('audit-%s'), which the literal forms missed.
+               'audit-%s')
+# Every form must be replaced somewhere in the package (asserted after generation, like sub()'s counts).
+FRESH_COUNTS = dict.fromkeys(FRESH_ROOTS, 0)
 
 
 def fresh_roots(text):
@@ -547,8 +551,14 @@ def fresh_roots(text):
     assert text.count('\0') == 0
     text = text.replace(keep, '\0')
     for root in FRESH_ROOTS:
-        text = text.replace('/var/tmp/%s-%s-20260926-r1' % (TASK, root), '/var/tmp/%s-%s-20260926-r2' % (TASK, root))
-    return text.replace('\0', keep)
+        old = '/var/tmp/%s-%s-20260926-r1' % (TASK, root)
+        FRESH_COUNTS[root] += text.count(old)
+        text = text.replace(old, '/var/tmp/%s-%s-20260926-r2' % (TASK, root))
+    text = text.replace('\0', keep)
+    # Nothing else of this task may still name a -r1 root except PREP, WORKTREE and the accepted record.
+    for found in re.findall(r"/var/tmp/%s-[A-Za-z%%-]+-20260926-r1[^'\" ]*" % TASK, text):
+        assert found.startswith(('/var/tmp/%s-prep-' % TASK, '/var/tmp/%s-worktree-' % TASK, keep)), found
+    return text
 
 
 def rebase(name, text):
@@ -562,8 +572,8 @@ def observer_integrity(text):
                 "the accepted image is the ga-x7lx TERMINAL record (window-base).",
                 "compared exactly with the ga-x7lx TERMINAL record.",
                 "admits the live state against the ga-x7lx TERMINAL record\n"):
-        # s1 r8: the admission is the P11 adoption after-snapshot (window-base ACCEPTED_NEW).
-        text = sub(text, old, old.replace('the ga-x7lx TERMINAL record', 'the P11 adoption after-snapshot'))
+        # s4: the admission is the s3 TERMINAL record (window-base ACCEPTED_NEW).
+        text = sub(text, old, old.replace('the ga-x7lx TERMINAL record', 'the gct-mbg6 s3 TERMINAL record'))
     return text
 
 
@@ -884,6 +894,7 @@ def rebind(files):
         text = rebase(name, text)
         text = fresh_roots(text)
         out[name] = text.encode()
+    assert all(FRESH_COUNTS.values()), FRESH_COUNTS
     history = {name: {hashlib.sha256(raw).hexdigest()} for name, raw in files.items()}
     while True:
         for name, raw in out.items():
