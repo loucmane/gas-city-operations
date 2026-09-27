@@ -109,7 +109,7 @@ def live():
 def census():
     return dict(ok=True, sessions=[dict(id='ci-example', template=c.TARGET,
                                       session_name='codex-ci-example', closed=False,
-                                      work_dir=c.WORK, rig='gascity', provider='codex')])
+                                      work_dir=c.WORK, rig='gascity', provider=c.PROVIDER)])
 
 
 def test_one_worker_two_display_rows_only_for_suspend(live, census):
@@ -148,3 +148,10 @@ def test_source_scope_has_no_signing_or_live_paths():
     for paths in ([], ['city.toml'], [c.SOURCE_PATHS[0]]*2,
                   [c.SOURCE_PATHS[0], '.codex/rules/window-restrictions.rules']):
         with pytest.raises(RuntimeError): c.require_source_scope(paths)
+
+
+def test_exact_runtime_paths_are_not_a_blanket_ignore_allowance():
+    rows=candidate_rows()+b''.join(b'!! '+path.encode()+b'\0' for path in sorted(c.RUNTIME_FILES))
+    assert c.candidate_status(rows)['runtime']==sorted(c.RUNTIME_FILES)
+    for path in ('.gc/tmp/unknown','.agents/skills/foreign','.gc/settings.json.backup'):
+        with pytest.raises(RuntimeError):c.candidate_status(rows+b'!! '+path.encode()+b'\0')

@@ -1,21 +1,21 @@
 #!/bin/sh
 # ga-e0t1.20 window watch: read-only in-window observation; repeatable, one fresh root per run.
-# Slot 10 of 12: the job runner starts each wrapper path once per commit.
+# Slot 1 of 12: the job runner starts each wrapper path once per commit.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
-# Log: ~/.local/share/gas-city-staging/ga-e0t1-20-astra-window/watch-10-<timestamp>.txt. Exits with the first failing
+# Log: ~/.local/share/gas-city-staging/ga-e0t1-20-astra-window/inspect-<timestamp>.txt. Exits with the first failing
 # step's result, or 0.
 S=/home/loucmane/.local/share/gas-city-staging/ga-e0t1-20-astra-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
-COMMIT=${1:?usage: WATCH-10.sh <reviewed commit>}
-WATCH_SHA=97c812df5400d7f1943adfb5dca992d71207b29528e230668ec8e27eb244b189
+COMMIT=${1:?usage: INSPECT.sh <reviewed commit>}
+WATCH_SHA=a9692a746883d7dc6f05a7fa7a7df203c248c8bef74fae5ba0b8efccd8a2c850
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
 [ ! -L "$S" ] || exit 1
-LOG="$S/watch-10-$(date -u +%Y%m%dT%H%M%SZ).txt"
+LOG="$S/inspect-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
 for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
@@ -31,11 +31,11 @@ step() {
   /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
   rc=$?
   if [ "$rc" != 0 ]; then
-    echo "== WATCH-10 REFUSED at $label rc=$rc: read this log and the named roots before any further step"
+    echo "== INSPECT REFUSED at $label rc=$rc: read this log and the named roots before any further step"
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-step watch "$C/watch-r11.py" "$WATCH_SHA"
-echo "== WATCH-10 PASS"
+step inspect "$C/candidate-inspect.py" "$WATCH_SHA"
+echo "== INSPECT PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0

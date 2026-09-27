@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window admit: the read-only restore admission (full preservation check, terminal lifecycle,
 # quiescent host) after CONTAIN and the session close. RESTORE.sh requires its pass.
 #
@@ -12,9 +10,9 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
-ADMIT_SHA=dd1462736ac93ebc33d767dcfa4c13a825d05fec118ec819a3154aba6382673a
+ADMIT_SHA=77db69fc934aa37ac8c8da5baec80e9dac53d0414b1d693f0e746e3686737858
 BUDGET_SHA=d0bcd79fe004f0c19936d002acf0a0c9da2ecab132f6ea579a291031ec978281
-CLOSE_SHA=27aada2c6bdf5bffedf15b7f018dc7fe9ae1ea701d07718203b476a9230f4eda
+CLOSE_SHA=a7a95cbf6b8bf5d5a5a064fb690ecbd31b160bdf61b5437239fcd6a8329b6b3f
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

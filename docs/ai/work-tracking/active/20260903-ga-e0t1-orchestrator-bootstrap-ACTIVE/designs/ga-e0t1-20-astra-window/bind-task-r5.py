@@ -1,15 +1,7 @@
-"""The one ga-e0t1.20 contract binding before the window: gc.work_dir only; never route or resume.
+"""Bind only the Operations candidate workspace and exact startup contract.
 
-ga-e0t1.20: bind-task-r5.py as reviewed for ga-x7lx and ga-3oa7, retargeted to the Template codex task. The Bead
-description is the short gct-e8ex task brief (sha256 136f2b728a6713c123dab4a79a6fb34934e578bf01cf57658603afdb46166955): the reviewed r6 gct-e8ex brief head and tail,
-verbatim, with the stop check and a pointer to six closed holders (designs/gct-e8ex-split). The task
-carries no dependency edge, so `bd show` prints no embedded record.
-Template window (twelfth successor): the codex agent is not in the provisioning receipt, so the Core start
-preflight does not gate it and no gc.check_path stamp is written; the binding sets gc.work_dir only. There is
-no info/exclude check: the codex worker cannot write the Template .git (s1 r5) and leaves its changes
-uncommitted for a reviewed Template intake. No option or template override is written on the Bead (the
-narrower codex choice comes from the PREP overlay). It runs as its own job BEFORE the window, so no window
-root may exist yet.
+The existing nonblocking parent edge is verified, not removed. No receipt,
+claim, route, runtime configuration or worker implementation is created here.
 """
 import hashlib
 import json
@@ -22,7 +14,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
 ROOT=Path('/var/tmp/ga-e0t1.20-bind-20260927-r1')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='889616086d8f084d5a4ff13c98c30d7d20393336e462de83c17b157e5899f261'
+HELPER_SHA='414c3ec6459d044519b3fb5314f5de55681a46b64496b5d6e2d272874d8e998b'
 WORKTREE_RESULT=Path('/var/tmp/ga-e0t1.20-worktree-20260927-r1/result.json')
 WORKTREE_SHA='9760bb7c2f8de075619e9c8d0b53e03f4b9d40a07aa45dc5c26380ad1cbec4af'
 DESCRIPTION_SHA='136f2b728a6713c123dab4a79a6fb34934e578bf01cf57658603afdb46166955'
@@ -46,7 +38,6 @@ def main():
     assert made['local_rules']==w.contract().RULES and made['default_rules_unchanged'] is True
     assert not os.path.lexists(w.ROOT), 'binding must precede the window'
     w.read(w.CITY/'city.toml',w.CITY_SHA[0]);w.read(w.RECEIPT,w.RECEIPT_SHA[0])
-    raise RuntimeError('DRAFT package has no execution admission')
     ROOT.mkdir(mode=0o700);w.ROOT=ROOT
     def run(name,args):return w.phase(name,args,b,owned)
     def bead(name):

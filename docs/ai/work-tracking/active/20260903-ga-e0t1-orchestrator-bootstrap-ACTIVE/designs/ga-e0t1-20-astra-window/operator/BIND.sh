@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window bind: the one ga-e0t1.20 contract binding (gc.work_dir only), before the window.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
@@ -11,7 +9,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: BIND.sh <reviewed commit>}
-STEP_SHA=3ae758f94ceab25c485eea7728312adab8ec0ad51618c473388ae24ca5d2a539
+STEP_SHA=c7af4dd77ce1183928c95b501f1ec80dc2d0a703ed9a38cf8853cd056d19856d
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

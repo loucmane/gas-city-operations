@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window observe: the fresh accepted-state admission plus a full native integrity read,
 # immediately before PREFLIGHT.sh. It writes only its root and the log, installs nothing
 # and launches no worker. Outside the read-only sandbox it runs gc status, gc session
@@ -14,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: OBSERVE.sh <reviewed commit>}
-OBSERVE_SHA=b7efd6c4e743bd3c63a3ef67055bc6c9e497d500fec229769e937f34f0967167
+OBSERVE_SHA=2d1bbdf4cd4a170b5ba659e1053dc814cb0744d8835af98001f79610225a7abe
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

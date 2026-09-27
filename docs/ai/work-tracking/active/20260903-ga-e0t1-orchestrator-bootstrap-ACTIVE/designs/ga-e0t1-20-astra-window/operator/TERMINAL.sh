@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window terminal: the full native integrity observation of the restored baseline,
 # bound to the terminal suspension endpoint and the accepted restoration.
 #
@@ -12,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: TERMINAL.sh <reviewed commit>}
-TERMINAL_SHA=9eab53b3a50b9a802c0178cbf15e250d00e73af1eb80a02cc46ed4aaf188f5b7
+TERMINAL_SHA=fbada47770924a5b44f6337add15feef366e067a25c44712643bc28e72721156
 BUDGET_SHA=d0bcd79fe004f0c19936d002acf0a0c9da2ecab132f6ea579a291031ec978281
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

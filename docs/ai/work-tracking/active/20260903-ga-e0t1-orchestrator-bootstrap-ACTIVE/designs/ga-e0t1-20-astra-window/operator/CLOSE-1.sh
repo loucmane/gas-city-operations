@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window close: after CONTAIN (or a passing HOLD), drain once (best-effort) and close the one
 # worker session, then prove zero session, tmux-session and worktree-process residue.
 # Repeatable: a rerun never repeats the drain and closes only a still-open session.
@@ -14,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: CLOSE-1.sh <reviewed commit>}
-CLOSE_SHA=27aada2c6bdf5bffedf15b7f018dc7fe9ae1ea701d07718203b476a9230f4eda
+CLOSE_SHA=a7a95cbf6b8bf5d5a5a064fb690ecbd31b160bdf61b5437239fcd6a8329b6b3f
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

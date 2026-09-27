@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window watch: read-only in-window observation; repeatable, one fresh root per run.
 # Slot 6 of 12: the job runner starts each wrapper path once per commit.
 #
@@ -12,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: WATCH-6.sh <reviewed commit>}
-WATCH_SHA=6cbad247c723c1dc6863cfde741de8ff6507c4b3ffca1dffe5775618d0d0a7b5
+WATCH_SHA=97c812df5400d7f1943adfb5dca992d71207b29528e230668ec8e27eb244b189
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

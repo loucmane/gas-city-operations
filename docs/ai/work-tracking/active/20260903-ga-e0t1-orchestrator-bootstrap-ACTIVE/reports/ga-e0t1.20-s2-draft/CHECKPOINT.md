@@ -47,3 +47,18 @@ Authoring inputs and tests are in the S2 package's generators directory.
 The generated assembly manifest binds every original and resulting file.
 All 50 generated files, their launch barriers, the authoring inputs and this
 checkpoint are preserved in the existing ga-e0t1 tracker, not only in /tmp.
+
+## Append-forward continuation — 2026-09-28 CEST
+
+The operational package now has 55 generated files and fixture-tested startup
+release plus post-terminal inspection. The final draft has 126 passing focused
+tests with no failures or skips. Real Core and prior worker evidence corrected
+provider-name, optional session-key/branch publication, exact startup runtime
+materialization and native code-mode transcript assumptions before any launch.
+The original 65-test draft is preserved and superseded, not rewritten as PASS.
+
+Next: complete the final exact host/cache binding after coordinator logging,
+sign the candidate and obtain two fresh request-bound Astra reviews. The full
+review object and actual-runtime anchors are in reports/ga-e0t1.20-s2-review/REVIEW.md.
+No S2 job, route, resume, product edit or worker launch has occurred. No Fable
+invocation, profile capability claim or provider-parity acceptance is implied.

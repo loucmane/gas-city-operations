@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window route: one raw route of the bound task while every rig is suspended, then the
 # read-only sole-task queue audit.
 #
@@ -12,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: ROUTE.sh <reviewed commit>}
-ROUTE_SHA=2ef2e89ec1934733fe6f8e3edce0b52732d52e9ee926dd8c0a07a164f525ed23
+ROUTE_SHA=967a4afebc22248599aa2415e00a907f6872d959deb7215b39c8c93a84062d21
 AUDIT_SHA=8ab56a0739c81a10e04bb6386634588b08a15d35bda8dfafd8f3f60d9e661853
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

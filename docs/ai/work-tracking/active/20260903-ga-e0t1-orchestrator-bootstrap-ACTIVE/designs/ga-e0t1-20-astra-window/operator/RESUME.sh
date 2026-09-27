@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window resume: rig-resume, the read-only queue audit, then city-resume, once each.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
@@ -11,7 +9,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: RESUME.sh <reviewed commit>}
-WINDOW_SHA=82fcaac7db784e597ad1617fad7559cdbd0972f59626fa9e759d2d48795ecc49
+WINDOW_SHA=b5ccaee09f6b0f2c62d880733640667163cf89d547632da7f0a7ab23305fd0ef
 AUDIT_SHA=8ab56a0739c81a10e04bb6386634588b08a15d35bda8dfafd8f3f60d9e661853
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

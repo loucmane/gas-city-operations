@@ -29,7 +29,7 @@ def built():
 def test_deterministic_and_original_input_unchanged(built):
     g,old,new=built
     assert g.assemble()==(old,new)
-    assert len(new)==50
+    assert len(new)==55
     assert 'operator/WORKTREE.sh' not in new and 'operator/PREP.sh' not in new
 
 
@@ -121,7 +121,22 @@ def test_watch_applies_existing_bounded_accounting(built):
 
 def test_all_generated_python_compiles(built):
     for name,raw in built[2].items():
-        if name.endswith('.py'):ast.parse(raw,filename=name)
+        if name.endswith('.py'):
+            ast.parse(raw,filename=name)
+            assert b'ASSEMBLY_' not in raw,name
+
+
+def test_common_baseline_and_terminal_inspection_are_wired(built):
+    new=built[2]
+    base=new['window-base-r11.py'].decode()
+    assert "save('common-before.json',common_before)" in base
+    assert base.index("save('common-before.json'") < base.index("save('preflight-pass.json'")
+    inspect=new['candidate-inspect.py'].decode()
+    assert inspect.index('TERMINAL did not pass') < inspect.index("'common Git changed before candidate inspection'")
+    assert inspect.index("'common Git changed before candidate inspection'") < inspect.index('cg.no_drivers')
+    assert 'subprocess.run' not in inspect
+    assert 'w.phase(name, w.HARDENED+list(args)' in inspect
+    assert 'intake=False' in inspect
 
 
 def test_source_generator_never_invokes_lifecycle():
@@ -130,3 +145,31 @@ def test_source_generator_never_invokes_lifecycle():
            and isinstance(n.func,ast.Attribute) and n.func.attr=='run']
     assert len(calls)==1
     assert 'git' in ast.unparse(calls[0])
+
+
+def test_final_candidate_is_explicit_pinned_and_not_executed(built,tmp_path):
+    g,old,draft=built
+    _,final=g.assemble(final=True)
+    assert g.assemble(final=True)==(old,final)
+    assert final.keys()==draft.keys()
+    for name,raw in final.items():
+        assert b'ASSEMBLY_' not in raw
+        if name.endswith('.sh'):
+            path=tmp_path/Path(name).name;path.write_bytes(raw)
+            assert subprocess.run(['/bin/sh','-n',str(path)]).returncode==0
+            assert b'exit 125' not in raw
+            for script,var in re.findall(r'"\$C/([a-z0-9-]+\.py)" "\$([A-Z_]+)"',raw.decode()):
+                [pin]=re.findall(r'^%s=([0-9a-f]{64})$'%var,raw.decode(),re.M)
+                assert pin==hashlib.sha256(final[script]).hexdigest()
+        elif name.endswith('.py'):ast.parse(raw,filename=name)
+    m=types.ModuleType('final_cache');m.__file__='window-base-r11.py'
+    exec(compile(final['window-base-r11.py'],m.__file__,'exec',dont_inherit=True),m.__dict__)
+    prior=dict(cache=dict(inventory={m.CACHE_DIRECTORY:dict(mtime_ns=m.CACHE_PREV_NS,
+        ctime_ns=m.CACHE_PREV_NS,mode=493,sha256='unchanged')}),host={'unchanged':True})
+    image=m.approved_candidate_cache_image(prior)
+    assert image['cache']['inventory'][m.CACHE_DIRECTORY]==dict(mtime_ns=g.FINAL_CACHE_NS,
+        ctime_ns=g.FINAL_CACHE_NS,mode=493,sha256='unchanged')
+    assert prior['cache']['inventory'][m.CACHE_DIRECTORY]['mtime_ns']==m.CACHE_PREV_NS
+    assert image['host']==prior['host']
+    prior['cache']['inventory'][m.CACHE_DIRECTORY]['ctime_ns']+=1
+    with pytest.raises(RuntimeError,match='preimage'):m.approved_candidate_cache_image(prior)

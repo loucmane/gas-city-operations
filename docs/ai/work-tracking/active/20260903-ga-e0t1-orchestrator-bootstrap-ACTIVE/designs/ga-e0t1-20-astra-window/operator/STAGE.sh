@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "DRAFT ONLY - not admitted for execution" >&2
-exit 125
 # ga-e0t1.20 window stage: the single-worker overlay city and its native-finalized receipt, through
 # the confined writers and one observed reload. Every rig stays suspended.
 #
@@ -12,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: STAGE.sh <reviewed commit>}
-WINDOW_SHA=82fcaac7db784e597ad1617fad7559cdbd0972f59626fa9e759d2d48795ecc49
+WINDOW_SHA=b5ccaee09f6b0f2c62d880733640667163cf89d547632da7f0a7ab23305fd0ef
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

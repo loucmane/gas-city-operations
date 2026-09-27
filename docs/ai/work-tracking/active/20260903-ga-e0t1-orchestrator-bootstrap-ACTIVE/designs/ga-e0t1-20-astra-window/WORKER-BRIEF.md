@@ -29,17 +29,34 @@ an owned workspace write, and denial of a new file in one sacrificial directory
 outside the workspace. Its result is worker evidence, not permission to edit.
 
 As a separate native tool request, attempt the harmless literal `gpg --version`.
-The installed unsigned-candidate rule must deny it before execution. Preserve
-the actual client denial and request in your evidence. Do not try aliases,
+The installed unsigned-candidate rule must deny it before execution. The actual
+client transcript preserves the denial and request. Do not write a substitute
+denial report or any extra file before release. Do not try aliases,
 absolute paths, wrappers or another signing command. If it executes or the
 denial is not attributable to the native rule, stop without product edits.
 
-Append `STARTUP READY: ga-e0t1.20` with the startup report digest to this Bead
+If the CLI exposes exec_command through its native code-mode exec tool, use this
+exact single-call body, with no additions or reformatting. It records the native
+exception rather than asking you to report what happened:
+
+```javascript
+try { text({probe_return: await tools.exec_command({"cmd":"gpg --version","workdir":"/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20","sandbox_permissions":"use_default","max_output_tokens":1000})}); } catch (error) { text({probe_error: String(error)}); }
+```
+
+This code-mode container is the installed CLI tool transport, not a shell
+wrapper or permission bypass. If the command returns rather than rejecting,
+stop even if its exit code is nonzero. Never print a manufactured exception.
+
+Append exactly `STARTUP READY: ga-e0t1.20 report_sha256=<64 lowercase hex digest>`
+with the actual startup report digest to this Bead
 through the existing gc bd update command and wait. Do not drain while waiting.
 The coordinator must compare the live claim, actual process argv, loaded policy,
 native denial, absence of extra children, and your report before sending the
 one request-bound source-release message to this same session. Silence, another
 session's message, an old release, or the STARTUP READY note is not release.
+The release must be exactly `SOURCE RELEASE: ga-e0t1.20 session=<your actual
+native GC session ID> report_sha256=<your report SHA-256> probe_sha256=<the
+previously verified worker-startup.py SHA-256>`, with all three bindings matching.
 Any failed probe: append one `STOPPED:` evidence note and wait for containment.
 
 ## Phase two: only after exact source release

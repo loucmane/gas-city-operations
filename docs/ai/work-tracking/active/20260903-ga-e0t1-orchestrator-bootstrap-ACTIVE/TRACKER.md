@@ -2,7 +2,7 @@
 
 **Started**: 2026-09-03
 **Status**: ACTIVE
-**Last Updated**: 2026-09-27
+**Last Updated**: 2026-09-28
 
 ## Goals
 - [ ] Repair scoped pre-kickoff inspection and trusted transactional bootstrap without weakening mutation or delegation boundaries
@@ -636,6 +636,13 @@ except d.DelegationPolicyError as exc:
 - **2026-09-27 23:04 CEST** - [S:20260927|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s1-native/S1-COMPLETE.md] S1 preparation is complete with both live preparation jobs passing and no worker release. Exact workspace and uninstalled image results are preserved and recorded on the primary Bead. Current next deliverable is the S2 Astra worker window for the three file C1 admission repair. No completed preparation operation may be repeated. All three live typed profiles and protected services remain unchanged.
 - **2026-09-27 23:46 CEST** - [S:20260927|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-draft/CHECKPOINT.md] Preserved the inert S2 operational draft and sixty five passing focused checks for the existing Astra candidate task. Startup proof and source release remain separate and no worker or lifecycle action occurred. The original full goal stays active and completed S1 preparation must not be repeated.
 - **2026-09-27 23:50 CEST** - [S:20260927|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/README.md] Clarified that every final launch barrier and pin must be in the exact signed candidate before independent review. Earlier draft verdicts cannot authorize changed bytes. No executable or live state changed.
+- **2026-09-28 00:00** — [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:shell:date|E:cmd`date "+%Y-%m-%d %H:%M %Z"`] Confirmed current timestamp as `2026-09-28 00:00 CEST`
+- **2026-09-28 00:00** — [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:scripts/codex-task:sessions-continue|E:sessions/2026/09/2026-09-28-001-ga-e0t1-orchestrator-bootstrap.md] Created a fresh daily bead `ga-e0t1` continuation session while reusing the existing ACTIVE work-tracking folder
+- **2026-09-28 00:00** — [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:plans/current|E:plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md] Reused the existing bead `ga-e0t1` plan for continuation
+- **2026-09-28 00:00** — [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:sessions/state.json|E:sessions/state.json] Repointed session state to the bead `ga-e0t1` continuation session
+- **2026-09-28 00:01 CEST** - [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/generators/candidate-inspect.py] Continued the same active goal into the supported September 28 session and prepared the post terminal candidate inspection draft. The normal resume refusal reflected existing attached blockers and all active work checks passed before rollover. No worker launched and no rig or live configuration changed. Startup release integration and final package review remain required.
+- **2026-09-28 00:03 CEST** - [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:s2-operational-draft|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/README.md] Continued the existing goal into September 28 with the same ownership and plan. S1 remains complete and S2 remains deliberately inert. The startup release and post terminal inspection are operational package work only. Product edits remain reserved for the scoped Gas City worker and no live state changed.
+- **2026-09-28 00:31 CEST** - [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/REVIEW.md] Completed the S2 operational execution candidate with independent startup release and post-terminal bounded inspection. Focused tests passed 106 cases. Host comparison found only the exact cache directory time pair and no protected drift. No job or worker was launched. Fresh independent reviews remain required.
 
 ## Review and evidence
 

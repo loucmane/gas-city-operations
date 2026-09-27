@@ -1,4 +1,4 @@
-"""Read-only proof that nothing changed the Template common git directory during the window (s1 r6).
+"""Read-only proof that nothing changed the Operations common Git directory during the window (s1 r6).
 
   common-snapshot-r1.py before <out-json>
   common-snapshot-r1.py after <before-json> <before-sha256> <out-json>
@@ -33,14 +33,24 @@ BRANCH='refs/heads/codex/ga-e0t1.20-c1-close-admission'
 LIMIT=1<<30
 
 def entry(path):
-    s=os.lstat(path)
+    path=Path(path)
+    s=path.lstat()
     value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid,gid=s.st_gid)
+    assert s.st_uid==s.st_gid==1000 and not s.st_mode&0o022, 'common Git authority'
     if stat.S_ISREG(s.st_mode):
-        assert s.st_size<=LIMIT,('file over the read bound',str(path))
-        value['size']=s.st_size
-        value['nlink']=s.st_nlink
-        value['sha256']=hashlib.sha256(Path(path).read_bytes()).hexdigest()
-    elif stat.S_ISLNK(s.st_mode):value['target']=os.readlink(path)
+        assert s.st_size<=LIMIT and s.st_nlink==1, 'common Git file bound or links'
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_NOATIME|os.O_CLOEXEC)
+        try:
+            assert os.fstat(fd)==s, 'common Git open race'
+            h=hashlib.sha256();size=0
+            while block:=os.read(fd,1048576):
+                size+=len(block);assert size<=LIMIT, 'common Git read overflow';h.update(block)
+            assert os.fstat(fd)==s and path.lstat()==s and size==s.st_size, 'common Git changed during read'
+        finally:os.close(fd)
+        value.update(size=size,nlink=s.st_nlink,sha256=h.hexdigest())
+    elif stat.S_ISLNK(s.st_mode):
+        raise AssertionError('common Git symlink requires review')
+    else:assert stat.S_ISDIR(s.st_mode), 'common Git special file'
     return value
 
 def walk():
@@ -55,11 +65,16 @@ def walk():
     return out
 
 def plain(path):
-    """A plain bounded file's text, or None when absent; anything else refuses."""
     if not os.path.lexists(path):return None
-    s=os.lstat(path)
-    assert stat.S_ISREG(s.st_mode) and s.st_size<=LIMIT,('not a plain bounded file',str(path))
-    return Path(path).read_text()
+    s=path.lstat()
+    assert stat.S_ISREG(s.st_mode) and s.st_size<=LIMIT and s.st_nlink==1, 'common Git plain input'
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_NOATIME|os.O_CLOEXEC)
+    try:
+        assert os.fstat(fd)==s
+        with os.fdopen(fd,'rb',closefd=False) as stream:raw=stream.read(LIMIT+1)
+        assert len(raw)==s.st_size and os.fstat(fd)==s and path.lstat()==s
+    finally:os.close(fd)
+    return raw.decode('utf-8','strict')
 
 def branch_target():
     loose=plain(COMMON/BRANCH)

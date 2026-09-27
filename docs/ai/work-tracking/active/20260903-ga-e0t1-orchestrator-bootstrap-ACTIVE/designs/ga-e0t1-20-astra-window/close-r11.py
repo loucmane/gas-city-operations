@@ -45,7 +45,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/window-base-r11.py')
-BASE_SHA = '889616086d8f084d5a4ff13c98c30d7d20393336e462de83c17b157e5899f261'
+BASE_SHA = '414c3ec6459d044519b3fb5314f5de55681a46b64496b5d6e2d272874d8e998b'
 WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260927-r1')
 VAR = Path('/var/tmp')
 TEMPLATE = 'gascity/codex'

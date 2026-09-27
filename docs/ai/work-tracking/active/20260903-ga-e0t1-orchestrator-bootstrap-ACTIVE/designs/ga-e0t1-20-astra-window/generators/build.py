@@ -1,7 +1,7 @@
 """Create-only, non-executing S2 assembly from the signed S5 operational package.
 
-Outputs are a DRAFT. They cannot launch: the cache disposition and startup
-release are deliberately unresolved. No inherited consumed job is replayed.
+Default outputs remain inert drafts. --execution-candidate prepares final bytes
+for independent review, not admission. No inherited consumed job is replayed.
 """
 import ast
 import hashlib
@@ -21,6 +21,8 @@ HERE = Path(__file__).parent
 WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'
 PREP = '/var/tmp/ga-e0t1.20-prep-20260927-r1'
 HEX = re.compile(r'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])')
+FINAL_CACHE_NS = 1790549689686189995
+FINAL_OBSERVATION_SHA = 'd04d5390e1ce57e23502b644d4dbca16070e8a7946b328622acc1d5018570e70'
 
 
 def sha(raw):
@@ -92,6 +94,12 @@ def rebind(name, text):
 
 
 def base(text):
+    document=ast.parse(text).body[0]
+    lines=text.splitlines(keepends=True)
+    text='"""ga-e0t1.20 bounded Astra candidate window, rebound from signed S5.\n\nS1 WORKTREE and PREP are completed. The accepted platform is P13; the current\nsource contains no reusable historical lifecycle exception. This package is\nnot C1 or handover acceptance and introduces no Claude invocation.\n"""\n'+''.join(lines[document.end_lineno:])
+    start=text.index('# The accepted image is ')
+    end=text.index('ACCEPTED = ',start)
+    text=text[:start]+'# Accepted P13 observation; all host, pin and protected fields remain exact.\n'+text[end:]
     text = once(text, 'CACHE_PREV_NS = 1790470648629115669', 'CACHE_PREV_NS = 1790510685769555369')
     text = once(text, 'CACHE_PINNED_NS = 1790491430741191162', 'CACHE_PINNED_NS = None  # Exact new disposition still requires review and authority.')
     text = replace_function(text, 'approved_candidate_cache_image', '''def approved_candidate_cache_image(prior):
@@ -102,6 +110,8 @@ def base(text):
         require(entry[key] == CACHE_PREV_NS, 'cache disposition preimage')
         entry[key] = CACHE_PINNED_NS
     return value''')
+    text=text.replace("        # The ga-e0t1.20 TERMINAL record was taken on this epoch after RESTORE; only the coordinator-cache\n        # disposition of this window applies (approved_candidate_cache_image).",
+        "        # Compare against P13 with this package's exact cache-directory time pair only.")
     # Historical exception code cannot become permission for this fresh window.
     for name in ('approved_historical_image', 'approved_epoch_image', 'approved_restore_image',
                  'approved_coordinator_cache_image', 'approved_recovery_image'):
@@ -137,10 +147,30 @@ def base(text):
                 'suspension_status_matches(status,expected,probe,census=census,action=action)')
     # Fail closed until live startup proof is integrated into the release path.
     text = once(text, "action=sys.argv[1]\n", "action=sys.argv[1]\n    require(False, 'DRAFT package has no execution admission')\n")
+    text = once(text, "        save('preflight-pass.json',dict(ok=True,executor_sha256=_SOURCE_SHA,worker_launched=False))",
+                """        common=module(HERE/'common-snapshot-r1.py','ASSEMBLY_COMMON_SHA')
+        common_before=common.observe()
+        require(common_before['candidate_branch']==BASE and not common.baseline_problems(common_before),
+            'candidate common Git baseline')
+        require(not common.compare(common_before,common.observe()),'common Git changed during baseline')
+        save('common-before.json',common_before)
+        validator=module(HERE/'startup-validation.py','ASSEMBLY_VALIDATOR_SHA')
+        # No circular imports: this reader is the existing bounded worker probe.
+        probe=module(HERE/'worker-startup.py','ASSEMBLY_PROBE_SHA')
+        workspace_before=validator.workspace_image(WORK,probe.read_regular)
+        require(workspace_before==validator.workspace_image(WORK,probe.read_regular),'workspace baseline drift')
+        save('workspace-before.json',workspace_before)
+        client_paths=('/home/loucmane/.codex/config.toml','/home/loucmane/.codex/hooks.json',
+            '/home/loucmane/.local/libexec/gas-city-workflow/root-policy-v1/root-policy',
+            '/home/loucmane/.local/libexec/gas-city-workflow/root-policy-v1/root-policy.json')
+        save('client-inputs-before.json',{path:digest(probe.read_regular(Path(path))) for path in client_paths})
+        save('preflight-pass.json',dict(ok=True,executor_sha256=_SOURCE_SHA,worker_launched=False))""")
     return text
 
 
 def bind(text):
+    document=ast.parse(text).body[0]
+    text='"""Bind only the Operations candidate workspace and exact startup contract.\n\nThe existing nonblocking parent edge is verified, not removed. No receipt,\nclaim, route, runtime configuration or worker implementation is created here.\n"""\n'+''.join(text.splitlines(keepends=True)[document.end_lineno:])
     text = once(text, "WORKTREE_SHA='310f75d0d1e29e99a8305a03caa4245e81dd445045986b60eca50bc8bb0108aa'",
                 "WORKTREE_SHA='9760bb7c2f8de075619e9c8d0b53e03f4b9d40a07aa45dc5c26380ad1cbec4af'")
     start = text.index('    made=json.loads(w.read(WORKTREE_RESULT))')
@@ -212,7 +242,43 @@ def watch(text):
     return once(text, old, new)
 
 
-def assemble():
+def common(text):
+    text = text.replace('Template common git', 'Operations common Git')
+    text = replace_function(text, 'entry', '''def entry(path):
+    path=Path(path)
+    s=path.lstat()
+    value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid,gid=s.st_gid)
+    assert s.st_uid==s.st_gid==1000 and not s.st_mode&0o022, 'common Git authority'
+    if stat.S_ISREG(s.st_mode):
+        assert s.st_size<=LIMIT and s.st_nlink==1, 'common Git file bound or links'
+        fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_NOATIME|os.O_CLOEXEC)
+        try:
+            assert os.fstat(fd)==s, 'common Git open race'
+            h=hashlib.sha256();size=0
+            while block:=os.read(fd,1048576):
+                size+=len(block);assert size<=LIMIT, 'common Git read overflow';h.update(block)
+            assert os.fstat(fd)==s and path.lstat()==s and size==s.st_size, 'common Git changed during read'
+        finally:os.close(fd)
+        value.update(size=size,nlink=s.st_nlink,sha256=h.hexdigest())
+    elif stat.S_ISLNK(s.st_mode):
+        raise AssertionError('common Git symlink requires review')
+    else:assert stat.S_ISDIR(s.st_mode), 'common Git special file'
+    return value''')
+    text = replace_function(text, 'plain', '''def plain(path):
+    if not os.path.lexists(path):return None
+    s=path.lstat()
+    assert stat.S_ISREG(s.st_mode) and s.st_size<=LIMIT and s.st_nlink==1, 'common Git plain input'
+    fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_NOATIME|os.O_CLOEXEC)
+    try:
+        assert os.fstat(fd)==s
+        with os.fdopen(fd,'rb',closefd=False) as stream:raw=stream.read(LIMIT+1)
+        assert len(raw)==s.st_size and os.fstat(fd)==s and path.lstat()==s
+    finally:os.close(fd)
+    return raw.decode('utf-8','strict')''')
+    return text
+
+
+def assemble(final=False):
     names = git('ls-tree', '-r', '--name-only', SOURCE, OLD).decode().splitlines()
     names = [name for name in names if (name.endswith('.py') and '/generators/' not in name
              and not name.endswith(('test_successor.py','prep-r11.py','worktree-task-r1.py')))
@@ -225,6 +291,7 @@ def assemble():
         elif name == 'bind-task-r5.py': text = bind(text)
         elif name == 'route-task-r5.py': text = route(text)
         elif name == 'watch-r11.py': text = watch(text)
+        elif name == 'common-snapshot-r1.py': text = common(text)
         elif name == 'suspension-lineage.py': text = text.replace("'gas-city-template'", "'gascity'")
         elif name == 'audit-queue-r3.py':
             text = text.replace("('template', ['--rig', 'gascity'])", "('gascity', ['--rig', 'gascity'])")
@@ -235,8 +302,35 @@ def assemble():
             # No draft wrapper can run, even if somebody tries to submit it.
             text = once(text, '#!/bin/sh\n', '#!/bin/sh\necho "DRAFT ONLY - not admitted for execution" >&2\nexit 125\n')
         out[name] = text.encode()
-    for name in ('contract.py','test_contract.py','task-own-fields.json','worker-startup.py','WORKER-BRIEF.md'):
+    for name in ('contract.py','test_contract.py','task-own-fields.json','worker-startup.py','WORKER-BRIEF.md',
+                 'candidate-inspect.py','startup-validation.py','startup-release.py'):
         out[name] = (HERE/name).read_bytes()
+    # The inspector runs only after TERMINAL and before any coordinator Git or
+    # workflow operation. This wrapper retains the same deliberate draft barrier.
+    inspect_wrapper=out['operator/WATCH-1.sh'].decode()
+    inspect_wrapper=inspect_wrapper.replace('WATCH-1', 'INSPECT').replace('watch-1-', 'inspect-')
+    inspect_wrapper=inspect_wrapper.replace('step watch "$C/watch-r11.py" "$WATCH_SHA"',
+        'step inspect "$C/candidate-inspect.py" "$WATCH_SHA"')
+    inspect_wrapper=re.sub(r'^WATCH_SHA=[0-9a-f]{64}$','WATCH_SHA=ASSEMBLY_INSPECT_SHA',inspect_wrapper,flags=re.M)
+    out['operator/INSPECT.sh']=inspect_wrapper.encode()
+    release_wrapper=out['operator/WATCH-1.sh'].decode()
+    release_wrapper=release_wrapper.replace('WATCH-1', 'RELEASE').replace('watch-1-', 'release-')
+    release_wrapper=release_wrapper.replace('step watch "$C/watch-r11.py" "$WATCH_SHA"',
+        'step release "$C/startup-release.py" "$WATCH_SHA"')
+    release_wrapper=re.sub(r'^WATCH_SHA=[0-9a-f]{64}$','WATCH_SHA=ASSEMBLY_RELEASE_SHA',release_wrapper,flags=re.M)
+    out['operator/RELEASE.sh']=release_wrapper.encode()
+    if final:
+        for name,raw in out.items():
+            text=raw.decode()
+            if name.endswith('.sh'):
+                text=once(text,'echo "DRAFT ONLY - not admitted for execution" >&2\nexit 125\n','')
+            elif name=='window-base-r11.py':
+                text=once(text,"    require(False, 'DRAFT package has no execution admission')\n",'')
+                text=once(text,'CACHE_PINNED_NS = None  # Exact new disposition still requires review and authority.',
+                    'CACHE_PINNED_NS = '+str(FINAL_CACHE_NS)+'\n# Read-only observation SHA-256 '+FINAL_OBSERVATION_SHA)
+            elif name in ('bind-task-r5.py','route-task-r5.py'):
+                text=once(text,"    raise RuntimeError('DRAFT package has no execution admission')\n",'')
+            out[name]=text.encode()
     note=('Operational startup contract for ga-e0t1.20: read '+str(O/NEW/'WORKER-BRIEF.md')+
           ' sha256 '+sha(out['WORKER-BRIEF.md'])+'. Verify and run '+str(O/NEW/'worker-startup.py')+
           ' sha256 '+sha(out['worker-startup.py'])+' inside the actual worker sandbox with its real session ID. '+
@@ -252,7 +346,19 @@ def assemble():
         mapping = {old:sha(out[name]) for name, old_set in history.items() for old in old_set if old != sha(out[name])}
         # S5 retained an earlier observer's runtime digest only for its consumed recovery.
         mapping['f8a163b00f87b199f6678582832cdeb1c0d7ee93740ca309ea3328c0cfd006ff'] = sha(out['observe-integrity-r11.py'])
-        newer = {name: HEX.sub(lambda m:mapping.get(m[0],m[0]),raw.decode()).encode()
+        tokens = {'ASSEMBLY_BASE_SHA':sha(out['window-base-r11.py']),
+                  'ASSEMBLY_COMMON_SHA':sha(out['common-snapshot-r1.py']),
+                  'ASSEMBLY_TERMINAL_SHA':sha(out['observe-terminal-r11.py']),
+                  'ASSEMBLY_CLOSE_SHA':sha(out['close-r11.py']),
+                  'ASSEMBLY_INSPECT_SHA':sha(out['candidate-inspect.py']),
+                  'ASSEMBLY_VALIDATOR_SHA':sha(out['startup-validation.py']),
+                  'ASSEMBLY_PROBE_SHA':sha(out['worker-startup.py']),
+                  'ASSEMBLY_RELEASE_SHA':sha(out['startup-release.py'])}
+        def replace_bindings(raw):
+            text=raw.decode()
+            for key,value in tokens.items():text=text.replace(key,value)
+            return HEX.sub(lambda m:mapping.get(m[0],m[0]),text).encode()
+        newer = {name: replace_bindings(raw)
                  if name.endswith(('.py','.sh')) else raw for name,raw in out.items()}
         if newer == out: break
         out = newer
@@ -262,20 +368,23 @@ def assemble():
     return sources,out
 
 
-def main(output):
+def main(output, *options):
+    assert options in ((),('--execution-candidate',)), 'unknown assembly mode'
+    final=bool(options)
     root=Path(output)
     assert not root.exists(), 'create-only output'
-    sources,out=assemble()
+    sources,out=assemble(final=final)
     root.mkdir(mode=0o700)
     for name,raw in out.items():
         path=root/name;path.parent.mkdir(parents=True,exist_ok=True)
         with path.open('xb') as stream: stream.write(raw)
         path.chmod(0o755 if name.endswith('.sh') else 0o644)
-    manifest=dict(schema='ga-e0t1.20.s2-draft.v1', source_commit=SOURCE,
+    manifest=dict(schema='ga-e0t1.20.s2-assembly.v1', source_commit=SOURCE,
         source_files={name:sha(raw) for name,raw in sources.items()},
         files={name:sha(raw) for name,raw in out.items()}, execution_admitted=False,
-        remaining=['startup release proof and worker brief','post-terminal scoped intake',
-                   'final cache disposition and independent reviews'])
+        execution_candidate=final, cache_pin_ns=FINAL_CACHE_NS if final else None,
+        baseline_observation_sha256=FINAL_OBSERVATION_SHA if final else None,
+        remaining=['two independent exact-head reviews','immediate preflight','live acceptance'])
     with (root/'assembly.json').open('x') as stream: json.dump(manifest,stream,indent=2,sort_keys=True);stream.write('\n')
     print(json.dumps(dict(output=str(root),files=len(out),execution_admitted=False)))
 

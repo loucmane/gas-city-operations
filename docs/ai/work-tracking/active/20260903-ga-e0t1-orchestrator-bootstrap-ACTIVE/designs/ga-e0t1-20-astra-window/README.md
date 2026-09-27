@@ -1,4 +1,4 @@
-# ga-e0t1.20 S2 operational successor — INERT DRAFT
+# ga-e0t1.20 S2 operational successor — execution candidate, not yet admitted
 
 S1 WORKTREE and PREP have already passed. Do not repeat either job or allocate
 another worktree. This package prepares the bounded Astra worker window for the
@@ -7,9 +7,10 @@ three-file C1 CLOSE self-admission repair. It does not implement that repair.
 The source is signed S5 commit 1df3d47ee499b85928c6d34f1aec6e33d1ef2c25,
 rebound to S1's exact Operations workspace, P13 receipt and M12 inspector. The
 generator preserves source-file digests and deterministically refreshes internal
-bindings. All 50 generated files are inert: wrappers exit 125, mutation entry
-points refuse, and the cache disposition is deliberately unset. No launch or
-source-PASS claim follows from this draft.
+bindings. The 55 generated files are now final candidate bytes for independent
+review. Only explicit --execution-candidate assembly removes draft barriers;
+default assembly remains inert. This is not admission: two fresh request-bound
+reviews of the exact signed head and the runner's checks remain mandatory.
 
 ## Explicit differences from the old Template window
 
@@ -36,25 +37,86 @@ source-PASS claim follows from this draft.
 - The post-terminal candidate status parser admits only unstaged changes to
   the three source files, the two unchanged policy files and separately bounded
   evidence. Staging, deletion, rename, extra source and path escapes refuse.
+- Installed Core startup materializes a closed set of ignored runtime files
+  before the worker edits. RUNTIME_IMAGE pins their exact bytes, modes and link
+  targets; unknown additions or changed source/policy refuse. These are not
+  blanket ignored-file exemptions or new permission grants.
+- Core publishes the resolved provider name codex-managed. Its native resume
+  key and work-branch metadata can be absent initially. Actual branch proof
+  remains mandatory, and the real process-open transcript filename plus its
+  session metadata bind the provider identity; a conflicting published key
+  still refuses. The installed CLI uses code-mode custom tool calls, so its
+  negative probe has an exact literal one-call transport as well as the direct
+  function-call form. Echoes, alternate code, shell failures and unrelated
+  refusals cannot satisfy it.
 
-## Still required before this can be reviewed for execution
+## Startup and inspection contract
 
-1. Finish the actual startup-release integration: compare live session/claim,
+1. The actual startup-release integration compares live session/claim,
    process argv and ancestry, effective policy/trust, actual native denial,
    probe report and unchanged source before one supported same-session nudge.
-   The worker-side report alone must never authorize source edits.
-2. Wire the post-terminal read-only candidate inspection, including regular-file
+   The worker-side report alone never authorizes source edits. A request/result
+   pair in the actual process-owned native transcript must prove the literal
+   forbidden command was rejected by policy. Unknown transcript shapes refuse;
+   fixture tests do not claim fresh-session live proof.
+2. Post-terminal read-only candidate inspection includes regular-file
    evidence bounds, policy hashes and exact common-Git preservation. Only after
    independent candidate review may the coordinator intake or deliver its patch.
-3. Bind the final exact cache disposition after a complete current-state
-   comparison. Do not copy the old window's accepted timestamp or normalize
-   unrelated drift. C1's later operator-bound disposition remains separate.
-4. After the missing technical checks are implemented, replace the deliberate
-   draft barriers as part of preparing the final execution candidate. Exercise
-   its consolidated tests, preserve all failure evidence, sign the clean final
-   candidate, and obtain two fresh request-bound Astra reviews. Queue only
-   those exact reviewed bytes. Never change a barrier or pin after review and
-   reuse the earlier verdicts.
+3. The complete read-only host comparison is preserved at
+   /tmp/ga-e0t1-20-readonly-baseline-20260928-r2. Observation SHA-256 is
+   d04d5390e1ce57e23502b644d4dbca16070e8a7946b328622acc1d5018570e70.
+   Its only non-access-time differences from accepted P13 are mtime_ns and
+   ctime_ns of cache directory
+   954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git:
+   1790510685769555369 -> 1790549689686189995. All cache content, all other
+   metadata, host, protected and provider fields compare exactly under the
+   existing historical read-time contract. This candidate binds that pair
+   exactly under standing corrected-package authority. Any later change still
+   refuses. No timestamp is written or silently normalized. C1's later
+   explicitly operator-bound disposition remains separate and is not granted.
+   The r1 observation remains preserved. The r2 observation follows the final
+   coordinator evidence/Bead/verify commands, which refresh this directory.
+   The exact package-shaped native gc read was separately observed not to do so.
+4. Sign the clean final candidate and obtain two fresh request-bound Astra
+   reviews. Queue only those exact reviewed bytes. Never change a barrier or
+   pin after review and reuse earlier verdicts.
+
+## Ordered execution and stop disposition
+
+S1 WORKTREE/PREP are complete. Only the job runner may execute these wrappers.
+Each wrapper receives the same reviewed commit; every completed operation and
+consumed output root is preserved. One job at a time, using fresh native review
+envelopes admitted by the existing runner protocol.
+
+1. BIND -> ROUTE -> OBSERVE -> PREFLIGHT -> STAGE -> RESUME. Read each result,
+   not merely its exit code. BIND/ROUTE are ledger mutations, not worker launch;
+   RESUME alone releases this scoped demand after its sole-task queue audit.
+2. WATCH-1 and, if needed, the next unused WATCH wrapper observe startup. Only
+   after the exact startup note appears and there is one expected session may
+   RELEASE run. It verifies the actual claim, argv, process chain, native
+   refusal, version, policy inputs, pristine source and report, then consumes
+   one nudge intent and sends one supported session-bound release. A failed or
+   ambiguous RELEASE is never replayed. It triggers containment, not editing.
+3. Remaining WATCH wrappers observe the candidate. STOPPED, extra session,
+   drift or any failed check triggers containment immediately. Startup is
+   bounded to five minutes and candidate work to twenty minutes after release;
+   exhausted WATCH slots also trigger containment. Do not extend by inventing
+   another wrapper or rerouting. No checkpoint is provider-parity acceptance.
+4. CONTAIN-1 -> CLOSE-1 -> unused WATCH -> ADMIT -> RESTORE -> TERMINAL -> INSPECT.
+   If supported containment refuses, preserve its exact result and inspect
+   before any successor. HOLD/CLOSE-2/CONTAIN-2 are existing bounded recovery
+   surfaces, not permission to replay an ambiguous transition. CLOSE's exact
+   native session close and empty city-server close are inherited reviewed
+   operations; no direct signal or fallback is added.
+5. INSPECT runs after terminal restoration and before coordinator Git changes
+   or workflow writes. It preserves a patch and hashes; it never executes,
+   accepts or intakes worker source. Two independent candidate reviews precede
+   later intake and signed product delivery.
+
+From PREFLIGHT through INSPECT, leave this package checkout unchanged: no
+workflow.py, coordinator Bead writes or unguarded gc. No operator tmux pane and
+no coordinator Git against the active candidate. Preserve all logs and failed
+roots. All other rigs remain suspended; no Claude invocation is permitted.
 
 No new root, privilege, worker service, task database, permission exemption or
 Claude invocation is introduced. The product source remains for Gas City.
@@ -68,12 +130,12 @@ candidate lane has its own explicit root and claim contract. On this Linux
 worker account there is no installed gas-city-workflow plugin, and this base
 has no project hooks.json; the global protected-root hook remains present.
 These are configuration observations, not proof that native trust/rules load.
-The actual startup and negative-policy checks above are still mandatory. If a
+The actual startup and negative-policy checks above are mandatory. If a
 real hook or trust check refuses, report it and contain; never bypass it.
 
 ## Reproduction
 
 `generators/` contains the exact authoring inputs and fixture tests. Run its
-three test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
+five test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
 The generator writes only a fresh chosen output directory; it never launches
 its outputs. Prior /tmp assembled drafts and tests remain preserved.

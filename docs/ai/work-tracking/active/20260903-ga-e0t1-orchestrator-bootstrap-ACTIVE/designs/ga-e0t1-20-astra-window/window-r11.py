@@ -16,7 +16,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA='889616086d8f084d5a4ff13c98c30d7d20393336e462de83c17b157e5899f261'
+BASE_SHA='414c3ec6459d044519b3fb5314f5de55681a46b64496b5d6e2d272874d8e998b'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):
@@ -126,7 +126,7 @@ routes=load(HERE/'restore-r9-routes-r3.py',
 routes_policy=load(HERE/'route-chain-r1.py',
     'c456230f7c51e0d7164c246501c1f7e1a94376a36e405cdb41c119245779e284','window_route_chain')
 INTEGRITY=Path('/var/tmp/ga-e0t1.20-integrity-20260927-r1')
-OBSERVER_SHA='b7efd6c4e743bd3c63a3ef67055bc6c9e497d500fec229769e937f34f0967167'
+OBSERVER_SHA='2d1bbdf4cd4a170b5ba659e1053dc814cb0744d8835af98001f79610225a7abe'
 INSPECTOR_SHA='0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6'
 
 def integrity_baseline(first):
