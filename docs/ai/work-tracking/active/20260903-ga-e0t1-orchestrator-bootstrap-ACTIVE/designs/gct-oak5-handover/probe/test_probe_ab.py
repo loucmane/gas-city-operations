@@ -1,0 +1,138 @@
+"""Tests for the gct-oak5 probe A/B helpers (no provider launch, no network)."""
+import importlib.util
+import json
+import os
+import subprocess
+from pathlib import Path
+
+import pytest
+
+HERE = Path(__file__).resolve().parent
+spec = importlib.util.spec_from_file_location("probe_ab", HERE / "probe_ab.py")
+probe = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(probe)
+
+GIT_ENV = {
+    "PATH": "/usr/bin:/bin",
+    "HOME": "/nonexistent",
+    "GIT_CONFIG_NOSYSTEM": "1",
+    "GIT_CONFIG_GLOBAL": "/dev/null",
+    "GIT_AUTHOR_NAME": "t",
+    "GIT_AUTHOR_EMAIL": "t@example.invalid",
+    "GIT_COMMITTER_NAME": "t",
+    "GIT_COMMITTER_EMAIL": "t@example.invalid",
+}
+
+
+def git(*args, cwd):
+    subprocess.run(["/usr/bin/git", "-c", "commit.gpgsign=false", *args], cwd=cwd, env=GIT_ENV,
+                   check=True, capture_output=True)
+
+
+@pytest.fixture
+def linked(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git("init", "-q", "-b", "main", cwd=repo)
+    for name in ("a.txt", "lib/b.py", "tests/c.py"):
+        path = repo / name
+        path.parent.mkdir(exist_ok=True)
+        path.write_text(name)
+    git("add", ".", cwd=repo)
+    git("commit", "-q", "-m", "base", cwd=repo)
+    worktree = tmp_path / "root" / "wt"
+    worktree.parent.mkdir()
+    git("worktree", "add", "-q", "-b", "probe", str(worktree), "main", cwd=repo)
+    return worktree, repo / ".git/worktrees/wt/index"
+
+
+def test_parse_real_index_round_trip(linked):
+    _, index = linked
+    header, entries, extensions, _ = probe.parse_index(index.read_bytes())
+    assert [e[0] for e in entries] == [b"a.txt", b"lib/b.py", b"tests/c.py"]
+    assert header[:4] == b"DIRC"
+
+
+def test_identical(linked):
+    _, index = linked
+    raw = index.read_bytes()
+    assert probe.classify_index(raw, raw) == "identical"
+
+
+def test_stat_only_refresh(linked):
+    worktree, index = linked
+    before = index.read_bytes()
+    target = worktree / "a.txt"
+    stamp = target.stat().st_mtime_ns + 5_000_000_000
+    os.utime(target, ns=(stamp, stamp))
+    git("update-index", "--refresh", cwd=worktree)
+    after = index.read_bytes()
+    assert after != before
+    assert probe.classify_index(before, after) == "stat-only"
+
+
+def test_entry_change_is_not_stat_only(linked):
+    worktree, index = linked
+    before = index.read_bytes()
+    (worktree / "a.txt").write_text("changed")
+    git("add", "a.txt", cwd=worktree)
+    assert probe.classify_index(before, index.read_bytes()) == "entries changed"
+
+
+def test_extension_change_detected(linked):
+    worktree, index = linked
+    git("update-index", "--untracked-cache", cwd=worktree)
+    git("status", "--porcelain", cwd=worktree)
+    before = index.read_bytes()
+    (worktree / "new-untracked").write_text("x")
+    git("status", "--porcelain", "--untracked-files=all", cwd=worktree)
+    result = probe.classify_index(before, index.read_bytes())
+    assert result.startswith("extensions changed") or result == "identical"
+
+
+def test_probe_policy_retargets_and_drops_hooks(tmp_path):
+    raw = Path(probe.LIVE_POLICY).read_bytes()
+    policy = probe.probe_policy(raw, tmp_path)
+    assert "hooks" not in policy
+    text = json.dumps(policy)
+    assert probe.LIVE_ROOT not in text
+    assert f"Edit(/{tmp_path}/*/**)" in policy["permissions"]["allow"]
+    assert f"Edit(/{tmp_path}/*/.git)" in policy["permissions"]["deny"]
+    assert policy["sandbox"] == json.loads(raw)["sandbox"]
+
+
+def test_probe_policy_refuses_unexpected_root_count(tmp_path):
+    raw = Path(probe.LIVE_POLICY).read_bytes().replace(probe.LIVE_ROOT.encode(), b"/elsewhere", 1)
+    with pytest.raises(RuntimeError):
+        probe.probe_policy(raw, tmp_path)
+
+
+def test_child_environment():
+    child = probe.child_environment({"PATH": "/usr/bin", "ANTHROPIC_API_KEY": "k", "HOME": "/h"})
+    assert child == {"PATH": "/usr/bin", "HOME": "/h"}
+    for name in ("ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK", "GC_CITY", "BEADS_DIR"):
+        with pytest.raises(RuntimeError):
+            probe.child_environment({name: "x"})
+
+
+def test_commands_and_prompt():
+    command = probe.test_command("/w")
+    assert command.startswith("/usr/bin/env PYTHONDONTWRITEBYTECODE=1 TMPDIR=/w/.oak5-c2-tmp/tmp /usr/bin/python3.12 -m pytest")
+    text = probe.prompt([probe.COMMANDS[0], command, probe.COMMANDS[2]])
+    assert "1. /usr/bin/mkdir -p .oak5-c2-tmp/tmp .oak5-c2-tmp/basetemp" in text
+    assert "3. /usr/bin/rm -r -- .oak5-c2-tmp" in text
+
+
+def test_seeded_test_passes_with_pinned_command(tmp_path):
+    worktree = tmp_path / "wt"
+    (worktree / "lib").mkdir(parents=True)
+    (worktree / "tests").mkdir()
+    (worktree / "lib/gct_handover_digest.py").write_text(probe.HELPER)
+    (worktree / "tests/test_gct_handover_digest.py").write_text(probe.TEST)
+    subprocess.run(["/usr/bin/mkdir", "-p", ".oak5-c2-tmp/tmp", ".oak5-c2-tmp/basetemp"], cwd=worktree, check=True)
+    result = subprocess.run(probe.test_command(worktree), shell=True, cwd=worktree, capture_output=True, text=True)
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "3 passed" in result.stdout
+    subprocess.run(["/usr/bin/rm", "-r", "--", ".oak5-c2-tmp"], cwd=worktree, check=True)
+    assert not (worktree / ".oak5-c2-tmp").exists()
+    assert not any(p.name == "__pycache__" for p in worktree.rglob("*"))

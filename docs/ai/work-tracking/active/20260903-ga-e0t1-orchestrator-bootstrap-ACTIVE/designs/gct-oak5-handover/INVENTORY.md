@@ -1,4 +1,4 @@
-# gct-oak5 handover — inventory (for plan r9 `54553f79`)
+# gct-oak5 handover — inventory (for plan r9 `54553f79`; corrected for r11)
 
 Read-only inventory taken on 2026-09-27 between 15:15 and 15:35 CEST (13:15–13:35Z), from the canonical Operations seat. Sources:
 - deployed Core `f45a6262`, read with `git show` in the Core rig checkout;
@@ -30,6 +30,15 @@ Items marked **PENDING** need a live probe, which is described at the end.
   - `close_reason`, only with `--reason`.
 
   **It keeps the assignee and every claim key.** On ga-3oa7, the closed row still has `assignee=operations-candidate-worker-ci-yi6m4` after the session was drained. `closed_by_session` does not exist in either export's key set.
+- **The codex lane's `gc bd close`** runs only the warn-only work-record gate and then execs the same `bd close` (`cmd/gc/cmd_bd.go:308-331`; `work_record_gate.go:186-237`). So it keeps the assignee too.
+- **Every Core path that clears or changes a work Bead's assignee or status** acts only on open or in_progress rows:
+  - orphan release;
+  - retired- and closing-session release and reassign;
+  - legacy canonicalisation;
+  - route recovery;
+  - `on_death` and `on_boot`.
+
+  So a closed step is left alone.
 - **The orphan release** (`pool_session_name.go:670-780`, `releasePoolAssignment*`) is what clears the assignee. It runs when the session dies while the Bead is still `in_progress`. It writes:
   - `status=open` and `assignee=""`;
   - empty `gc.continuation_group` and `gc.session_affinity` (from `clearedSessionAffinityMetadata`).
@@ -41,18 +50,25 @@ Items marked **PENDING** need a live probe, which is described at the end.
   - The Claude pack prompt sets `gc.outcome=pass` only "for a bead that asks for close metadata". On an unrecoverable failure it sets `gc.outcome=fail` and `gc.failure_class`.
   - The codex prompt closes with `gc bd close <id> [--reason …]` and no metadata.
   - Neither calls `gc bd heartbeat`, and neither sets `gc.work_outcome`.
+  - After a close, the Claude prompt repeats `gc hook --claim --json` before draining, unless the Bead's result contract says the final action is to drain and exit (lines 86-90). The codex prompt ends with `gc runtime drain-ack`. The briefs therefore state drain and exit.
   - The step briefs ask for no close metadata. So `gc.outcome` is absent on success, and the failure keys mean a failed step.
 
 ## 3. Session Beads (city store)
 
 - Every pool start creates a new session Bead: 16 for `gas-city-template/codex` and 4 for `gas-city-template/gc.implementation-worker`, with no reuse. Each has labels `agent:<template>` and `gc:session`, and `session_origin=ephemeral`, `pool_managed=true`.
-- **The key set is not fixed per lifecycle.** Optional keys depend on events, for example `idle_claim_nudge_*`, `held_until`, `pin_awake`, `last_nudge_delivered_at`, `drain_at` and `core_hash_breakdown`. The union over each lane template's rows is the admissible superset: codex 70 keys over 16 rows; Claude Template lane 55 keys over 4 rows, with the Ops candidate lane at 56 over 3.
+- **The key set is not fixed per lifecycle.** Optional keys depend on events, for example `idle_claim_nudge_*`, `held_until`, `pin_awake`, `last_nudge_delivered_at`, `drain_at` and `core_hash_breakdown`.
+  - Per template, the union is codex 70 keys over 16 rows, the Claude Template lane 55 over 4, and the Ops candidate lane 56 over 3.
+  - **Correction (r11):** the four Template Claude rows predate the lane's current custom provider, `claude-template-candidate` (`base = "provider:claude"`). For such a provider Core writes `provider_kind` and `builtin_ancestor` (`cmd/gc/session_beads.go:213-227`), and that union lacks them.
+  - **The admissible set** is therefore the union over all 1972 session Beads in the city store: 96 keys, which include those keys, `resume_command` and the wake-request keys (`held_until`, `quarantined_until`, `wait_hold`, `wake_attempts`, `churn_count`).
 - **Identity keys, pinned by value:** `template`, `alias`, `agent_name`, `canonical_instance_name`, `session_name`, `work_dir`, `gc.work_dir`, `gc.trigger_bead_id`, `gc.trigger_bead_store_ref=rig:gas-city-template`, `currently_processing_bead_id`, `provider`, and the labels.
-- **End states observed:**
-  - **Claude lane**, the ga-3oa7 teardown: `closed`, `state=drained`, `state_reason=drain-ack-stop-pending`, `close_reason="session drained: pool slot retired by reconciler"`.
-  - **Codex lane**, the gct-mbg6 teardown: `closed`, `state=awake`, `state_reason=creation_complete`, no `close_reason`.
+- **End states observed.** Across the city's closed pool sessions:
+  - `drained` / `drain-ack-stop-pending` / "session drained: pool slot retired by reconciler": 299 rows, including ga-3oa7's `ci-yi6m4`;
+  - the same with no close reason: 3 rows;
+  - `failed-create`: 1482;
+  - `awake`/`creation_complete` with no reason: 45, including gct-mbg6's `ci-sg37g`, whose step was released by Core's orphan release because the worker never closed it;
+  - smaller counts of `dead-runtime`, `stranded-repair`, `gc_swept`, `stale-session`, `asleep` and `orphaned`.
 
-  Each lane's final state is pinned from its source window's teardown path.
+  **Pinned for both lanes (r11):** the drain-ack teardown, which is the path of a worker that closes its step and runs `gc runtime drain-ack`.
 - **Per window, one nudge row** is created in the city store by nudge-on-route: `gc:nudge`, `agent:<template>`, with metadata `agent`/`session_id`/`nudge_id`. On gct-mbg6 it was `ci-wisp-8l6m`. It carries no assignee, `gc.routed_to` or `gc.run_target`, so it is outside the projection.
 - **Worker mail.** Workers send mail to `mayor`: gct-mbg6 sent `READY FOR SIGNING`. These are city-store messages with `assignee=mayor`, outside the projection.
   - No open message is addressed to either lane: all 9 open rows mentioning the codex lane are its own sent mail.
@@ -64,7 +80,15 @@ Items marked **PENDING** need a live probe, which is described at the end.
 - **No order has executed since 2026-09-12 13:49 CEST (11:49Z), except `nudge-on-route`.** `gc order check` reports every cooldown order due, with about 361 h elapsed.
   - The reason is `gc status`: the city is **Suspended: yes**, so the controller dispatches no orders.
   - Inside a window, the reused overlay skips every order except `nudge-on-route`. Its last run was at 09:42 CEST (07:42Z) on 2026-09-27, during the gct-mbg6 window.
-  - **Consequence:** reaper, wisp-compact, orphan-sweep, prune-branches, cross-rig-deps, gate-sweep, order-tracking-sweep, nudge-mail-sweep, the dolt/mol-dog orders and the attention and mail-wake chain all do not run across the chain, as long as the city stays suspended between windows and each window keeps the overlay.
+  - **Consequence:** reaper, wisp-compact, orphan-sweep, prune-branches, cross-rig-deps, gate-sweep, the dolt/mol-dog orders and the attention and mail-wake chain do not run across the chain, as long as the city stays suspended between windows and each window keeps the overlay.
+- **Correction (r11): controller tick phases still run while suspended** (`cmd/gc/city_runtime.go:1105-1176, 1232, 1279, 1341-1344`; only desired-state building stops, `build_desired_state.go:391-394`). They are:
+  - the order-tracking and nudge-mail sweep **watchdogs**, which act on city-store tracking and nudge rows. The same work as the order-tracking-sweep and nudge-mail-sweep orders therefore still happens;
+  - `recoverUnroutedWorkRoutes`. No row in either store has the open, unassigned, kind-less, `gc.run_target`-without-route shape;
+  - session corpse and stale reaping, bead sync, and bead reconcile.
+
+  The city-store export was byte-identical at 15:15 and 15:43 CEST (13:15 and 13:43Z) (`37354810…`), so these phases wrote nothing in between.
+- `daemon.auto_reap_closed_bead_worktrees` is unset in `city.toml` and in `gc config show`, so the closed-step worktree reaper is off (default, `config.go:2645-2650`).
+- **MCP:** `gc mcp list --agent` reports "No projected MCP servers" for both lanes. No `mcp/` catalog directory exists in the city, the lane packs or the native tree.
 - **Row writers, if any did run:**
   - reaper and wisp-compact (row age);
   - orphan-sweep (resets orphaned `in_progress` rows);
@@ -76,7 +100,10 @@ Items marked **PENDING** need a live probe, which is described at the end.
 
 ## 5. Snapshot method
 
-- `bd export --all` per store is deterministic: two consecutive Template exports were byte-identical (`a5c44757…`, 261 rows).
+- `bd export --all` per store is deterministic:
+  - two consecutive Template exports were byte-identical (`a5c44757…`, 261 rows);
+  - three city exports over 28 minutes were byte-identical (`37354810…`, 2648 rows).
+- It exports the issues table only. The events table is not included, so no gate may rely on event rows.
 - It includes labels, dependencies, comments and metadata. In the city store it covers exactly the rows of `bd list --all --include-infra --limit 0` (2648 = 2648), including 253 ephemeral rows and 1972 session Beads.
 - **Normalisation:** none is needed for a static store. Rows are compared by id with full field equality.
 
@@ -125,7 +152,14 @@ Items marked **PENDING** need a live probe, which is described at the end.
 | codex | `.agents/skills/.gc-skill-ownership.json` and the same eight links under `.agents/skills/` | as above | **untracked** |
 | codex | `.codex/hooks.json` | file 0644, pinned bytes | **untracked** |
 
-The Claude rows come from the ga-3oa7 intake manifest (the Ops candidate lane, the same Claude family and pack), and the codex rows from gct-mbg6. The Template Claude lane's exact set is pinned when C1 first writes it; see r10.
+The Claude rows come from the ga-3oa7 intake manifest (the Ops candidate lane, the same Claude family and pack), and the codex rows from gct-mbg6.
+
+**Worker-independent pins (r11):**
+- `gc skill list --agent gas-city-template/gc.implementation-worker` and `--agent gas-city-template/codex` both list the same eight skills. Their `SKILL.md` paths equal the gct-mbg6 sink's link targets, so the rig catalog is shared.
+- Every target equals its `realpath`, because the cache repos contain no symlink, and each holds a `SKILL.md`.
+- The gct-mbg6 ownership file (1348 bytes) is exactly `json.dumps({"targets": map}, separators=(",", ":"), sort_keys=True)`.
+- The gct-mbg6 catalog decodes to `{"Entries": [8 × {Name, Origin, Source, Description}], "OwnedRoots": [the two roots], "Shadowed": null}`, and its sources equal the map.
+- **Directory modes on gct-mbg6:** `.gc` 0700, `.gc/tmp` 0700, `.gc/scripts` 0755, `.agents` 0755, `.agents/skills` 0755, `.codex` 0755, all operator-owned. The `RUNTIME` files are single-link.
 
 **Consequence for the plan:**
 - rule 3 allowed "admitted runtime entries", but rule 2 ("no other paths") and rule 4 ("no ignored entries at all") did not;

@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r10
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r11
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applies the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicts or completes r9; see the last section.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, and r11 answers the r10 reviews of `943b94b6` (A and B HOLD); see the last two sections.
 
 ## Decisions this plan relies on
 
@@ -66,6 +66,8 @@ This rests on the brief, and each CLOSE verifies it (see Windows).
 | X | First verify the worktree against H1's per-path digests; on mismatch, note `IMAGE MISMATCH` and stop. Do not redo C1's edits. Add exactly one modified tracked file `M2` and one new untracked file `A2`; run no tests and create no caches. Then record the note. Only after that, run the negative probes. Then close X. The vault worklog the codex prompt asks for is waived for this segment: X writes nothing in the vault. |
 | C2 | Verify H2 the same way. Finish the change in `M1`, `M2`, `A1` and `A2` only. Record the per-path sha256 of `M1`, `M2`, `A1` and `A2` in a note before the test. Then run the pinned test command sandboxed and record the result. Run the negative probe. Close C2. |
 
+**Every brief ends with drain and exit.** Its result contract says that after closing its own step, the worker's final command is `/home/loucmane/gascity/bin/gc runtime drain-ack`, and it claims nothing further. The Claude prompt skips its post-close re-claim when a Bead's result contract says so (implementation-worker `prompt.template.md:86-90`), and the codex prompt already ends that way.
+
 **The X brief overrides the codex prompt explicitly** on four points:
 - "stage and verify the reviewed tree": X does not stage;
 - "escalate instead of invoking direct `git commit`": X runs exactly the listed `git commit` probe, once, as an expected refusal;
@@ -124,11 +126,11 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
 **The tool** is `intake_template.py export`, generalised in a reviewed package:
 - **Output location.** The candidate root and the probe-target directory `…/gct-oak5-handover/probe-target` (not its parent) join `FORBIDDEN_ROOTS`. The GitHub-only bare BASE clone, every image, every scratch mirror and every export live under `~/.local/share/gas-city-staging/gct-oak5-handover/`, outside every lane write root. `outside()` checks the clone and every scratch path, not only the output directory.
 - **Nested `.git`.** Any path component named `.git`, case-insensitively, below the top level refuses.
-- **Ignored entries.** They are no longer summarised as a path list. Each is recorded with its type, mode, size and sha256, and links, hard links and special files among them refuse.
+- **Ignored entries.** They are no longer summarised as a path list. Each is recorded with its type, mode, size and sha256, and links, hard links and special files among them refuse. The same single-link regular-file rule applies to every `RUNTIME` file, ignored or untracked, including `.codex/hooks.json` and the ownership files.
 - **Limits.** Empty directories and group or other mode bits are not recorded. This is stated as a limit of the byte-exact claim.
 - **Runtime entries** (inventory section 8). A lane session start writes a fixed, per-lane set of entries into the worktree. The tool classifies these as `RUNTIME`, separately from the contract delta. They are never delivered by the intake. Every other path under `.gc/`, `.claude/`, `.agents/` or `.codex/` that is not tracked at BASE refuses.
   - **Both lanes:**
-    - `.gc/settings.json`, a regular file 0644, byte-equal to the live city `.gc/settings.json` pinned by the window;
+    - `.gc/settings.json`, a regular file 0644, byte-equal to the live city `.gc/settings.json` read at CLOSE. A Claude start rewrites the city file before staging it (`cmd/gc/cmd_start.go:1191-1205`), so the value is pinned after the session, not at PREP;
     - `.gc/scripts/mol-dog-stale-db.sh`, a regular file 0755, byte-equal to the city `.gc/scripts/` copy pinned by the window.
   - **Claude lane:**
     - `.gc/tmp/skill-catalog-gas-city-template_gc.implementation-worker.b64`, a regular file 0600;
@@ -136,15 +138,18 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
   - **Codex lane:**
     - `.gc/tmp/skill-catalog-gas-city-template_codex.b64` (0600);
     - the sink `.agents/skills/`: the ownership file and its links;
-    - `.codex/hooks.json`, a regular file 0644, byte-equal to the bytes the X window pins.
-  - **Sink rules:**
-    - the ownership file is `{"targets":{name:target}}`;
-    - the link names equal its keys exactly;
-    - each link's target string equals its value and lies under a pinned pack-cache root (`…/cache/repos/69fe9a2e…/internal/bootstrap/packs/core/skills/` or `…/cache/repos/954ed149…/gascity/skills/`);
-    - the catalog file decodes to JSON whose `Entries` have exactly those names and sources;
+    - `.codex/hooks.json`, a regular file 0644, byte-equal to the bytes the X window pins before ROUTE. Core renders it from the pinned `gc` binary and city paths, and gct-mbg6 shows the value.
+  - **The expected skill map is pinned before any worker runs**, from sources no lane can write (inventory section 8):
+    - `gc skill list --agent <lane>` at each window's PREP must list exactly the eight pinned names and `SKILL.md` paths, the same for both lanes. They are `core.gc-{agents,city,dashboard,dispatch,mail,rigs,work}` under `…/cache/repos/69fe9a2e…/internal/bootstrap/packs/core/skills/`, and `gascity.mayor` under `…/cache/repos/954ed149…/gascity/skills/`;
+    - it must equal the gct-mbg6 codex sink, which Core wrote before this handover.
+  - **Sink rules**, all against that pinned map, never against worker output:
+    - the link names are exactly the eight pinned names;
+    - each link's target string is exactly the pinned absolute path, with no `.` or `..` component. Its `realpath` equals that string, which requires the cache path to hold no symlink, as it holds today. The target is an existing operator-owned directory holding a `SKILL.md`;
+    - the ownership file's bytes are exactly the compact, key-sorted JSON `{"targets":{…}}` of the pinned map, as Core wrote them on gct-mbg6;
+    - the catalog file decodes to exactly the pinned catalog value (the gct-mbg6 value: the eight entries with name, origin, source and description, the two owned roots, and a null `Shadowed`);
     - the tool records links by their lstat target string and never follows them.
-  - **Pinning.** The Claude lane's exact name set, and its ownership and catalog bytes, are pinned by image 1, the first Claude write. The codex lane's are pinned by image 2. From then on they must stay byte-equal and target-equal:
-    - C2's restart may rewrite them only with identical bytes;
+  - **Directories.** The `RUNTIME` parent directories are recorded with owner and mode, and must be operator-owned with the modes Core creates: `.gc` 0700, `.gc/tmp` 0700, `.gc/scripts` 0755, and 0755 for the sink directories and `.codex`. A worker cannot freeze a stale catalog by making `.gc/tmp` unwritable.
+  - **Across images.** Every `RUNTIME` entry must equal its pinned value in every image and in the final export:
     - X must not touch the Claude entries;
     - C2 must not touch the codex entries.
   - **Refused:**
@@ -192,7 +197,8 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
 
      **Snapshots.**
      - Each snapshot includes issues, ephemeral and wisp rows, dependencies, labels, comments and metadata.
-     - The inventory pins the method, its completeness (wisps and events included) and its normalisation of volatile fields and ordering, and proves it deterministic on two consecutive reads.
+     - **The method** is `bd export --all` per store (inventory section 5). It covers the issues table, including ephemeral rows, labels, dependencies, comments and metadata. It needs no normalisation, and it is deterministic: the Template store over two reads, and the city store over three reads spanning 28 minutes.
+     - **The events table is not exported**, so no gate relies on event rows. That is a stated limit.
      - **The anchor** is the chain's first snapshot. The split package's verification snapshot is the first of the settle pair, so the anchor's rows for `gct-oak5`, C1, X, C2, H1, H2, their edges and the closed `gct-wn1m` members equal the package's verified end state.
      - **A pre-package versus post-settle diff** of the chained scope must map every changed row to one of:
        - a package write;
@@ -204,12 +210,20 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
        - each window's PREP asserts the overlay's order skip;
        - each gate checks `gc order history` for every order: no run since the anchor other than `nudge-on-route` inside a window;
        - **no maintenance write is admitted.** Any reaper, wisp-compact, orphan-sweep or other order write in the chained scope refuses.
+     - **Controller tick phases still run while suspended** (`cmd/gc/city_runtime.go:1105-1176, 1232, 1279, 1341-1344`). Only desired-state building stops. The phases are:
+       - the order-tracking and nudge-mail sweep watchdogs, which act on city-store tracking and nudge rows outside the projection;
+       - `recoverUnroutedWorkRoutes` (`route_recovery.go:73-137`), which restores `gc.routed_to` on open, unassigned, kind-less rows carrying `gc.run_target`. Every gate asserts that no row in the chained scope has that shape. The inventory found none in either store;
+       - session corpse and stale reaping, bead sync and bead reconcile.
+
+       The city-store export was byte-identical over 28 minutes on 2026-09-27, so these write nothing today, and any write they make in scope refuses.
+       - The closed-step worktree reaper (`city_runtime.go:1155-1176`) is off: `daemon.auto_reap_closed_bead_worktrees` is unset, so the default applies (`config.go:2645-2650`). PREP asserts it stays unset, because it could remove the handover worktree.
+     - **MCP projection is a no-op.** `gc mcp list --agent <lane>` reports no projected MCP servers for either lane, and PREP asserts it. Otherwise stage-2 projection would write `.mcp.json` or rewrite `.codex/config.toml`, which rule 3 refuses.
      - **Settled** means two identical snapshots taken at least 5 minutes apart, together with that order-history check.
      - **Orphan release** (Core's reset of an `in_progress` step whose session died) is not admitted either. It fails closed.
      - Each window then takes BIND-before. It takes CLOSE-after only once:
        - CLOSE's session close is done;
        - the session Bead is in its inventory-pinned final state;
-       - two identical snapshots have been taken a pinned interval apart.
+       - two identical snapshots have been taken at least 5 minutes apart, the same interval as the settle rule.
      - **Comparison.** It is set equality over row ids, plus field equality. A row that enters or leaves the projection between snapshots is therefore a change, and is caught.
      - **The projection** is one fixed function. Its identity set is the union of every target and identity pinned so far: the lane names and aliases, the deterministic session names, and the census session ids once known.
        - Every snapshot also retains the raw rows of every reachable store, so the function can be re-applied.
@@ -268,14 +282,15 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
          - A worker could forge these keys or pre-write a matching signature. Nothing proven depends on them; the mark only informs the operator.
        - **`gc.last_heartbeat_at`** is a worker write, through `gc bd heartbeat` (`cmd/gc/cmd_bd.go:22-28, 206-214`), not Core attention. It is forbidden by the briefs and refused unless the inventory shows a lane prompt calling heartbeat. In that case it is admitted on the current step only, never on the root, a holder or another step, with a timestamp shape.
      - **The session Bead:** exactly one new session Bead per window for the lane template in the city store (type `session`, label `gc:session`). Its key set is not fixed per lifecycle, because optional keys depend on events. So:
-       - the metadata keys must be a subset of the lane template's observed union in `inventory-data.json`;
-       - the identity keys listed there are pinned by value;
-       - its end state is the lane's source-window teardown state: Claude `drained` with the reconciler drain reason, codex `awake` and closed with no reason;
+       - the metadata keys must be a subset of the union over every session Bead in the city store: 96 Core-written keys over 1972 rows, recorded in `inventory-data.json`. The union includes the custom-provider keys (`provider_kind`, `builtin_ancestor`, `resume_command`) and the wake-request keys;
+       - the identity keys are pinned by value, including `provider` (`claude-template-candidate` or `codex`), `provider_kind` and `builtin_ancestor` where Core writes them, and `work_dir`;
+       - other values inside the union are not pinned. A worker's unsandboxed `bd update` could change them on its own session Bead; the census catches the effect, and this is a stated limit;
+       - **its end state is the drain-ack teardown**, the path a worker takes when it closes its step and runs `gc runtime drain-ack`, as every brief requires: `closed`, `state=drained`, `state_reason=drain-ack-stop-pending`, and `close_reason` either `session drained: pool slot retired by reconciler` or none. That is 302 of the city's pool sessions. Any other end state refuses, including gct-mbg6's `awake` with no close reason, which followed an orphan release;
        - the same applies through the agent-level hold and the rig suspend and resume the windows use. The default `on_death` and `on_boot` hooks (`internal/config/workquery.go:603-662`) act on work Beads, not the session Bead. `on_death` selects in_progress rows assigned to the qualified name, not the session-name claim assignee, so it is expected to be a no-op. The inventory pins that. It also confirms that Core creates a new session Bead per start for this pool lane, not a reused slot Bead. Its name and id values, not only its key set, equal the census and the claim's `gc.session_name` and `gc.session_id`. A second session Bead, a foreign-template session, or a reused or reopened existing session Bead refuses. The same inventory pins any other city-store bookkeeping a session lifecycle and a controller poke write.
-     - **The second-route negative (C1's window only):** one same-value `gc.routed_to` write on C1, with its `updated_at` and event row. The coordinator's exact `PROBE DONE` or `PROBE SKIPPED` note on C1 is the only non-worker note.
+     - **The second-route negative (C1's window only):** one same-value `gc.routed_to` write on C1, with its `updated_at`. The coordinator's exact `PROBE DONE` or `PROBE SKIPPED` note on C1 is the only non-worker note.
      - **The next step (at X's and C2's ROUTE):** its BIND stamps, with pinned values.
      - **The holder:** the coordinator's image write.
-     - **Accompanying:** the `updated_at` and event rows of the above.
+     - **Accompanying:** the `updated_at` of the above.
 
      Any other change refuses. In particular, any `opt_*` or `template_override*` key on any step, holder or the root refuses.
    - **Queue: the lane-eligible set.** This follows Core's claim scope (`cmd/gc/cmd_hook_claim.go:216-344, 1205-1225`; identities from `cmd/gc/cmd_hook.go:445-468`).
@@ -331,7 +346,7 @@ Each segment is one reviewed window. Each is a successor package generated with 
 
 **Every window:**
 - **ROUTE** uses exactly `gc sling <lane> <step> --no-formula --no-convoy --json`, target first, with no `--nudge` and no `--reassign`. With `relates-to` edges, no `gc.root_bead_id` and no convoy, a step close then triggers no Core auto-close cascade (`cmd_convoy.go:1854-1880`; `molecule_autoclose.go:142-166`).
-- **BIND** stamps `gc.work_dir` (the handover worktree). For C1 and C2 it also stamps `gc.check_path`, the Template launch check pinned in P12/P13 (the pack `build-artifact-valid.sh`). A missing stamp refuses; Core's start preflight requires it.
+- **BIND** stamps `gc.work_dir`, exactly `/home/loucmane/gas-city-template-candidate-worktrees/gct-oak5`, byte-equal to the session's canonical `work_dir`. `stampRunSessionIdentity` rewrites a differing `gc.work_dir` or `gc.session_name` on in_progress work (`build_desired_state.go:4202-4245`), and rule 5 refuses such a rewrite. For C1 and C2 it also stamps `gc.check_path`, the Template launch check pinned in P12/P13 (the pack `build-artifact-valid.sh`). A missing stamp refuses; Core's start preflight requires it.
 - **Common snapshot.** It uses the gct-e8ex `common-snapshot-r1.py` (the full Template `.git` walk, not ga-3oa7's narrower one), chained: each window's `before` must equal the previous window's `after`.
   - One admitted change: the linked worktree's admin `index` may be rewritten by a session's own startup git. That would be the Claude harness or the codex harness, unsandboxed, for example Claude Code's git context. It is admitted only if:
     - the index stays a regular, single-link, operator-owned file;
@@ -398,7 +413,7 @@ It uses the reviewed target-first argument order, and never `--nudge` or `--reas
 **Evidence, each pinned:**
 - the sling JSON with `"routed": true` and the "routed … but assigned to …" warning in `"warnings"`;
 - the dispatch gate passed, with no `ManagedProductDispatchRefused` event. The sling is a second gc invocation in the window, so the window's guarded environment and cache disposition cover it;
-- C1's status, assignee, `gc.routed_to`, `gc.work_dir` and `gc.check_path` values unchanged. Only `updated_at` and the event row move, and rule 5 and CLOSE admit exactly these;
+- C1's status, assignee, `gc.routed_to`, `gc.work_dir` and `gc.check_path` values unchanged. Only `updated_at` moves, and rule 5 and CLOSE admit exactly that;
 - no new session Bead;
 - no start or refusal event after the poke;
 - the census still shows one session and one worker cgroup through the rest of WATCH.
@@ -680,3 +695,25 @@ The inventory (`INVENTORY.md`, `inventory-data.json`) contradicted or completed 
 - **The hook store list** is {Template rig store, city store} for both lanes.
 
 Two inventory items remain as live probes before the C1 window package: startup git (probe A) and the C2 test command (probe B), in a scratch clone.
+
+## r11 (answers the r10 reviews of `943b94b6`: A and B HOLD)
+
+- **A must_fix: the skill sink could smuggle a link, with worker-set pins.**
+  - The expected map now comes from `gc skill list --agent` at PREP, cross-checked with the gct-mbg6 sink, never from worker output.
+  - Targets must be exact clean absolute paths whose real path is an existing skill directory.
+  - The ownership bytes and the catalog value are derived from the map.
+  - The `RUNTIME` parent directories are pinned by owner and mode.
+- **B must_fix 1: the Claude session keys came from four stale rows.** The admissible set is now the union over every session Bead in the city (96 keys), which includes the custom-provider and wake keys. `provider`, `provider_kind` and `builtin_ancestor` are pinned by value.
+- **B must_fix 2: the codex end state came from an abnormal teardown.** Both lanes now pin the drain-ack end state, and every brief ends with drain-ack.
+- **Should_fix taken:**
+  - the controller tick writers are named, with a route-recovery shape assertion and an assertion that `auto_reap_closed_bead_worktrees` stays unset (A 1, B 1);
+  - the inventory is corrected: the sweep watchdogs do run while suspended (B 1);
+  - no event rows, the snapshot method and determinism are stated, and the CLOSE-after interval is 5 minutes (A 3, A 4);
+  - the single-link rule applies to every `RUNTIME` file (A 5);
+  - `.gc/settings.json` is pinned at CLOSE (A 6);
+  - lexical equals real path (A 7);
+  - `stampRunSessionIdentity` and BIND's exact `work_dir` (B 2);
+  - the MCP no-op is asserted (B 4);
+  - `gc bd close` keeps the assignee for the codex lane too (B 5; inventory section 2);
+  - drain and exit is in every brief (B 6);
+  - the unpinned session values are a stated limit (B 7).

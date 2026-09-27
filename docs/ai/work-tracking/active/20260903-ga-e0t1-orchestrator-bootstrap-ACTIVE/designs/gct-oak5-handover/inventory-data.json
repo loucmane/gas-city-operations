@@ -1,8 +1,70 @@
 {
+ "catalog_value": {
+  "Entries": [
+   {
+    "Description": "Managing agents \u2014 list, peek, nudge, suspend, drain",
+    "Name": "core.gc-agents",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-agents"
+   },
+   {
+    "Description": "City lifecycle \u2014 status, start, stop, init",
+    "Name": "core.gc-city",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-city"
+   },
+   {
+    "Description": "API server and web dashboard \u2014 config, start, monitor",
+    "Name": "core.gc-dashboard",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dashboard"
+   },
+   {
+    "Description": "Routing work to agents with gc sling and formulas",
+    "Name": "core.gc-dispatch",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dispatch"
+   },
+   {
+    "Description": "Sending and reading messages between agents",
+    "Name": "core.gc-mail",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-mail"
+   },
+   {
+    "Description": "Managing rigs \u2014 add, list, status, suspend, resume",
+    "Name": "core.gc-rigs",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-rigs"
+   },
+   {
+    "Description": "Finding, creating, claiming, and closing work items (beads)",
+    "Name": "core.gc-work",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-work"
+   },
+   {
+    "Description": "Coordinate requirements, implementation plans, bead creation, and formula workflow launches for a Gas City rig. Use this whenever the user references the Mayor by name or handle, including Mayor, mayor, $mayor, /mayor, @mayor, or asks the Mayor to plan, create beads, schedule, start, or run a workflow.",
+    "Name": "gascity.mayor",
+    "Origin": "gascity",
+    "Source": "/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills/mayor"
+   }
+  ],
+  "OwnedRoots": [
+   "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills",
+   "/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills"
+  ],
+  "Shadowed": null
+ },
  "city_files": {
   ".gc/scripts/mol-dog-stale-db.sh": "f201cd2894ad6250d2a5093085b5a136dcc0c4d37299d0af9acc428c4a635522",
   ".gc/settings.json": "fdd32781975c43c69687c5a9a6ad470f88d2ca54c211a045164a52173d1ef136"
  },
+ "city_store_export_sha256": "373548106bd0aabb0849d9eb412b9575713be84ca2508db1a4de0f1359f4c6b3",
+ "city_store_export_times": [
+  "2026-09-27T13:15Z",
+  "2026-09-27T13:43Z"
+ ],
  "city_store_rows": 2648,
  "claim_keys": [
   "gc.work_branch",
@@ -16,11 +78,24 @@
   "close_reason"
  ],
  "core": "f45a6262",
+ "mcp_projected": {
+  "gas-city-template/codex": [],
+  "gas-city-template/gc.implementation-worker": []
+ },
  "observed_at": "2026-09-27T13:35Z",
  "orphan_release_keys": [
   "gc.continuation_group",
   "gc.session_affinity"
  ],
+ "ownership_bytes_sha256": "f51ef6490bbc3ae9c595b2fe0aaf5a4d825c0db4e5edbc56c59d315e6dc3cf10",
+ "runtime_dir_modes": {
+  ".agents": "0o755",
+  ".agents/skills": "0o755",
+  ".codex": "0o755",
+  ".gc": "0o700",
+  ".gc/scripts": "0o755",
+  ".gc/tmp": "0o700"
+ },
  "runtime_observed": {
   "claude_ga_3oa7_manifest_ignored": [
    ".claude/scripts/__pycache__/brief_lib.cpython-312.pyc",
@@ -397,19 +472,30 @@
   }
  },
  "session_end_states": {
-  "claude": {
-   "close_reason": "session drained: pool slot retired by reconciler",
-   "source": "ci-yi6m4 (ga-3oa7 window)",
+  "both_lanes_pinned": {
+   "close_reason_one_of": [
+    "session drained: pool slot retired by reconciler",
+    null
+   ],
    "state": "drained",
    "state_reason": "drain-ack-stop-pending",
    "status": "closed"
   },
-  "codex": {
-   "close_reason": null,
-   "source": "ci-sg37g (gct-mbg6 window)",
-   "state": "awake",
-   "state_reason": "creation_complete",
-   "status": "closed"
+  "superseded_r10": {
+   "claude": {
+    "close_reason": "session drained: pool slot retired by reconciler",
+    "source": "ci-yi6m4 (ga-3oa7 window)",
+    "state": "drained",
+    "state_reason": "drain-ack-stop-pending",
+    "status": "closed"
+   },
+   "codex": {
+    "close_reason": null,
+    "source": "ci-sg37g (gct-mbg6 window)",
+    "state": "awake",
+    "state_reason": "creation_complete",
+    "status": "closed"
+   }
   }
  },
  "session_identity_keys": [
@@ -425,6 +511,114 @@
   "currently_processing_bead_id",
   "provider"
  ],
+ "session_metadata_key_union_all": [
+  "agent_name",
+  "alias",
+  "alias_history",
+  "attached_config_drift_deferred_at",
+  "attached_config_drift_deferred_key",
+  "awake_started_at",
+  "builtin_ancestor",
+  "canonical_instance_name",
+  "canonical_pool_slot",
+  "churn_count",
+  "close_reason",
+  "closed_at",
+  "command",
+  "config_drift_deferred_at",
+  "config_drift_deferred_key",
+  "configured_named_identity",
+  "configured_named_mode",
+  "configured_named_session",
+  "continuation_epoch",
+  "continuation_reset_pending",
+  "core_hash_breakdown",
+  "creation_complete_at",
+  "currently_processing_bead_id",
+  "detached_at",
+  "drain_at",
+  "effective_sleep_after_idle",
+  "gc.native_task_attempt_token",
+  "gc.trigger_bead_id",
+  "gc.trigger_bead_store_ref",
+  "gc.work_dir",
+  "generation",
+  "held_until",
+  "idle_claim_nudge_at",
+  "idle_claim_nudge_count",
+  "idle_claim_nudge_trigger",
+  "instance_token",
+  "invocation_usage_cursor",
+  "last_nudge_delivered_at",
+  "last_woke_at",
+  "live_hash",
+  "pending_create_claim",
+  "pending_create_started_at",
+  "pin_awake",
+  "pool_alias_conflict",
+  "pool_alias_conflict_at",
+  "pool_alias_conflict_count",
+  "pool_managed",
+  "pool_slot",
+  "primed_at",
+  "priming_attempted_at",
+  "prompt_hash",
+  "provider",
+  "provider_kind",
+  "quarantined_until",
+  "requested_sleep_after_idle",
+  "reset_committed_at",
+  "restart_requested",
+  "resume_command",
+  "resume_flag",
+  "resume_style",
+  "session_circuit_last_observed",
+  "session_circuit_last_progress",
+  "session_circuit_last_restart",
+  "session_circuit_open_restart_count",
+  "session_circuit_opened_at",
+  "session_circuit_progress_signature",
+  "session_circuit_reset_generation",
+  "session_circuit_restarts",
+  "session_circuit_state",
+  "session_key",
+  "session_name",
+  "session_name_explicit",
+  "session_origin",
+  "sleep_capability",
+  "sleep_intent",
+  "sleep_policy_fingerprint",
+  "sleep_policy_source",
+  "sleep_reason",
+  "slept_at",
+  "started_config_hash",
+  "started_launch_hash",
+  "started_live_hash",
+  "started_provision_hash",
+  "startup_dialog_verified",
+  "state",
+  "state_reason",
+  "stranded_event_emitted_at",
+  "synced_at",
+  "template",
+  "usage_compute_emitted_at",
+  "usage_model_swept_at",
+  "wait_hold",
+  "wake_attempts",
+  "wake_request",
+  "wake_requested_at",
+  "work_dir"
+ ],
+ "skill_map": {
+  "core.gc-agents": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-agents",
+  "core.gc-city": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-city",
+  "core.gc-dashboard": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dashboard",
+  "core.gc-dispatch": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dispatch",
+  "core.gc-mail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-mail",
+  "core.gc-rigs": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-rigs",
+  "core.gc-work": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-work",
+  "gascity.mayor": "/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills/mayor"
+ },
  "template_store_export_sha256": "a5c44757eee08df4ae8b6ffd47f4d63c5cf9d31502270a1b86db53d24babc8fe",
  "template_store_rows": 261
 }
