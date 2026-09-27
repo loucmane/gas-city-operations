@@ -33,9 +33,11 @@ The wrapper:
 
 The reviews, checked before any host git command runs:
 - Two reviewer subagent transcripts are filed for the commit.
-- The first prompt line of each is `candidate=<commit>`, and each names the wrapper.
-- Each has exactly one SubagentHandback report, and that report's first line is
-  `SOURCE_PASS <commit>`.
+- Each request starts with `candidate=<commit>` and names the wrapper. Claude binds its initial
+  plaintext prompt; a native Codex envelope binds a frozen request by a final-answer digest attestation
+  (Codex's stored task prompt is encrypted). The exact native rollout is retained, not translated.
+- Claude has one SubagentHandback; Codex has one completed subagent turn and one matching native final
+  answer. Each report's first line is `SOURCE_PASS <commit>`.
 - The two come from different reviewers.
 - Every transcript filed for the commit passes it.
 
@@ -70,6 +72,9 @@ PREFIX = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-A
 WRAPPER = re.compile(re.escape(PREFIX) + r'(?!gct-jobrunner/)[a-z0-9][a-z0-9-]{0,63}/operator/[A-Z0-9][A-Z0-9-]{0,63}\.sh')
 JOB_ID = re.compile(r'[a-z0-9][a-z0-9-]{0,47}')
 AGENT_ID = re.compile(r'[a-z0-9]{8,64}')
+CODEX_ID = re.compile(r'[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}')
+CODEX_SCHEMA = 'gc.codex-review.v1'
+CODEX_KEYS = {'schema', 'request', 'request_sha256', 'rollout', 'rollout_sha256'}
 HEX40 = re.compile(r'[0-9a-f]{40}')
 HEX64 = re.compile(r'[0-9a-f]{64}')
 KEYS = {'job_id', 'commit', 'wrapper', 'wrapper_sha256', 'reviews'}
@@ -193,9 +198,123 @@ def strict_json(raw):
         raise Refuse('job is not valid JSON: %s' % exc)
 
 
+def codex_review(value, path, commit):
+    """Validate a lossless native rollout plus a reviewer-attested frozen request.
+
+    Like the existing Claude transcript, this is operator-owned evidence, not a cryptographic
+    provider signature. Hashes bind bytes; native lineage and completion bind the actual report.
+    We do not decrypt the task, treat ciphertext as its plaintext, or synthesize Claude events.
+    Unknown/incomplete/multi-turn evidence is not admitted by this one-shot protocol.
+    """
+    if set(value) != CODEX_KEYS or value.get('schema') != CODEX_SCHEMA \
+            or not all(isinstance(value[k], str) for k in CODEX_KEYS):
+        raise Refuse('Codex review envelope has an invalid shape')
+    for key in ('request', 'rollout'):
+        try:
+            digest = hashlib.sha256(value[key].encode('utf-8')).hexdigest()
+        except UnicodeError as exc:
+            raise Refuse('Codex review is not UTF-8') from exc
+        if value[key + '_sha256'] != digest:
+            raise Refuse('Codex review %s digest differs' % key)
+    request = value['request']
+    if request.split('\n')[:1] != ['candidate=' + commit] or request.count('candidate=') != 1:
+        raise Refuse('Codex review request is not bound to its only candidate')
+    rows = [strict_json(line) for line in value['rollout'].split('\n') if line.strip()]
+    if not rows or any(not isinstance(r, dict) or type(r.get('ordinal')) is not int
+                       or r['ordinal'] != i or not isinstance(r.get('payload'), dict)
+                       for i, r in enumerate(rows)):
+        raise Refuse('Codex review has invalid or discontinuous native records')
+    if rows[0].get('type') != 'session_meta' \
+            or sum(r.get('type') == 'session_meta' for r in rows) != 1:
+        raise Refuse('Codex review must start with one native session identity')
+    meta = rows[0]['payload']
+    agent, parent = meta.get('id'), meta.get('parent_thread_id')
+    spawn = meta.get('source')
+    for key in ('subagent', 'thread_spawn'):
+        spawn = spawn.get(key) if isinstance(spawn, dict) else None
+    if not isinstance(spawn, dict) or not all(isinstance(s, str) and CODEX_ID.fullmatch(s)
+                                            for s in (agent, parent)) \
+            or agent == parent or spawn.get('parent_thread_id') != parent \
+            or type(spawn.get('depth')) is not int or spawn['depth'] < 1 \
+            or meta.get('thread_source') != 'subagent' or meta.get('model_provider') != 'openai':
+        raise Refuse('Codex review is not a native spawned reviewer identity')
+    agent_path = spawn.get('agent_path')
+    if not isinstance(agent_path, str) or not re.fullmatch(r'/root(?:/[a-z0-9_]+)+', agent_path) \
+            or meta.get('agent_path', agent_path) != agent_path \
+            or os.path.basename(path) != 'codex-%s.json' % agent:
+        raise Refuse('Codex review filename or agent path differs from its native identity')
+
+    def one(kind, subtype=None, **fields):
+        matches = [(i, r['payload']) for i, r in enumerate(rows) if r.get('type') == kind
+                   and (subtype is None or r['payload'].get('type') == subtype)
+                   and all(r['payload'].get(k) == v for k, v in fields.items())]
+        if len(matches) != 1:
+            raise Refuse('Codex review needs exactly one %s %s' % (kind, subtype or ''))
+        return matches[0]
+
+    started_i, started = one('event_msg', 'task_started')
+    context_i, context = one('turn_context')
+    task_i, task = one('response_item', 'agent_message')
+    final_i, final = one('response_item', 'message', role='assistant', phase='final_answer')
+    complete_i, complete = one('event_msg', 'task_complete')
+    turn = started.get('turn_id')
+    if not isinstance(turn, str) or not CODEX_ID.fullmatch(turn) \
+            or not 0 < started_i < context_i < task_i < final_i < complete_i == len(rows) - 1 \
+            or context.get('turn_id') != turn or complete.get('turn_id') != turn:
+        raise Refuse('Codex review has an incomplete or unordered native turn')
+    if context.get('model') != 'gpt-6-astra' \
+            or context.get('effort') not in ('low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
+        raise Refuse('Codex review model or effort is not in the approved Astra profile')
+    for index, row in enumerate(rows):
+        payload = row['payload']
+        if ('thread_id' in payload and payload['thread_id'] != agent) \
+                or ('turn_id' in payload and payload['turn_id'] != turn):
+            raise Refuse('Codex review mixes native thread or turn identities')
+        passthrough = payload.get('internal_chat_message_metadata_passthrough', {})
+        if not isinstance(passthrough, dict) \
+                or ('turn_id' in passthrough and passthrough['turn_id'] != turn):
+            raise Refuse('Codex review mixes message turn identities')
+        if row.get('type') == 'event_msg' and payload.get('type') in ('turn_aborted', 'task_failed'):
+            raise Refuse('Codex review contains an aborted task')
+        if row.get('type') == 'response_item' and payload.get('type') == 'message' \
+                and payload.get('role') == 'user':
+            # Desktop records launch instructions/environment as a user message before NEW_TASK.
+            # They are not another request. No user message is allowed after the actual task.
+            bootstrap = payload.get('content')
+            if index >= task_i or not isinstance(bootstrap, list) or not bootstrap \
+                    or any(not isinstance(x, dict) or x.get('type') != 'input_text'
+                           or not isinstance(x.get('text'), str)
+                           or not (x['text'].startswith('# AGENTS.md instructions for ')
+                                   or x['text'].startswith('<environment_context>')) for x in bootstrap):
+                raise Refuse('Codex subagent review contains an additional user request')
+    if task.get('author') != agent_path.rsplit('/', 1)[0] or task.get('recipient') != agent_path \
+            or not isinstance(task.get('content'), list) or not task['content']:
+        raise Refuse('Codex review task does not match its native parent and recipient')
+    content = final.get('content')
+    if not isinstance(content, list) or not content \
+            or any(not isinstance(x, dict) or x.get('type') != 'output_text'
+                   or not isinstance(x.get('text'), str) for x in content):
+        raise Refuse('Codex review final answer is not native output text')
+    report = ''.join(x['text'] for x in content)
+    if not report.strip() or complete.get('last_agent_message') != report:
+        raise Refuse('Codex review completion does not confirm its final answer')
+    attestations = [line for line in report.split('\n') if line.startswith('Review-Request-SHA256:')]
+    if attestations != ['Review-Request-SHA256: ' + value['request_sha256']]:
+        raise Refuse('Codex reviewer did not attest the exact frozen request')
+    return 'codex:' + agent, request, report.split('\n')[0].strip()
+
+
 def read_review(path, commit, uid):
     """Parse one reviewer transcript. Returns (agent id, first prompt, first report line) or refuses."""
     raw = read_owned(path, uid, TRANSCRIPT_LIMIT, 'review')
+    if os.path.basename(path).startswith('codex-'):
+        try:
+            value = strict_json(raw)
+            if not isinstance(value, dict):
+                raise Refuse('Codex review envelope is not an object')
+            return codex_review(value, path, commit)
+        except (UnicodeError, RecursionError) as exc:
+            raise Refuse('Codex review is not bounded valid JSON') from exc
     try:
         records = [strict_json(line) for line in raw.splitlines() if line.strip()]
     except Refuse as exc:
