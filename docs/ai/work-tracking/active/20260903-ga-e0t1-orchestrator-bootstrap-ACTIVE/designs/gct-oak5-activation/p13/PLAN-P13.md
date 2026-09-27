@@ -96,4 +96,19 @@ Adoption constants:
 | `READY_BEFORE_SHA` | `432559c3` |
 | `READY_PINS_SHA` | `82a4a70c` |
 
-`READY_RESULT_SHA` is byte-identical to P12's: `result.json` holds no root or digest that differs between the two runs. `READY_PINS_SHA` is also unchanged, because the provider pins carry no atime.
+`READY_RESULT_SHA` is byte-identical to P12's; see the note after the adoption record.
+
+## Adoption (2026-09-27)
+
+Adoption-binding reviews: two independent SOURCE_PASS verdicts of `64a0981f`. `git diff --stat b723b246 64a0981f` shows only `p13-adopt.py` (five constants) and this plan changed. The committed `p13-adopt.py` hashes to `059e4086`, the digest the run was launched with.
+
+`p13-adopt.py` ran once at about 14:10 CEST (12:10 UTC). It returned ok, rollback not-needed and worker_launched false.
+- **Receipt:** `7125be84` became `7185414e`, self `c78b3a24`, mode 0600, one link.
+- **Provisioner:** check found drift exactly `receipt.sha256`; apply and verify returned ok with drift [], runner `3beeedb2`.
+- **Witness:** `c284a9f4` binds the M12 acceptance `fc841bf3` (manifest `3f3b51eb`, receipt `8b89ec30`) and gc `207a78e2` at `f45a6262`, tree `f1011ada`.
+- **Revision:** `a61666b3`, controller 2800348.
+- **Snapshots:** with the receipt pin removed, before and after are equal. The coordinator recomputed this, and the provider pins are byte-equal.
+
+Readback: two independent ADOPT_PASS verdicts of `64a0981f`, no must_fix.
+
+Note on `READY_RESULT_SHA`: `result.json` holds no root or digest that differs between the two runs. `READY_PINS_SHA` is also unchanged, because the provider pins carry no atime.
