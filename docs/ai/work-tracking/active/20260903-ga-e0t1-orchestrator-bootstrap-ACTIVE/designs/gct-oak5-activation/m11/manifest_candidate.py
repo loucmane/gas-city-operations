@@ -58,6 +58,13 @@ AUTHORITY = '/home/loucmane/gas-city-template-worktrees/ga-e0t1-15-pr71-authorit
 AUTHORITY_NAME = 'template-pr71-authority'
 AUTHORITY_COMMIT = 'cfd353f30f465cdf67bbd41fab48812fe5b9617e'
 RELEASE_ID = 'gct-oak5-template-candidate-lane-metadata-m11-20260927'
+# r2 (review B must_fix 1): P12 moves the receipt's template_commit to 3474abfa, and Core's dispatch gate and
+# `gc platform canary` (cmd/gc/managed_product_dispatch_gate.go containsRepositoryCommit) refuse unless some pinned
+# repository carries exactly that commit. The canonical checkout is that authority: HEAD is pinned exactly and its
+# .git is a pinned tree; allow_dirty only skips the status check, because the checkout carries the two known
+# untracked directories (deploy/, gas_city_template.egg-info/). A clean separate authority worktree would need about
+# twenty more tree rows, which the frame cannot hold.
+TEMPLATE_AUTHORITY = dict(name='template-pr72-canonical', path=TEMPLATE, commit=TEMPLATE_COMMIT, allow_dirty=True)
 
 GC = '/home/loucmane/gascity/bin/gc'
 ARTIFACT = '/var/tmp/ga-bebv-build-20260927/gc-a'
@@ -195,14 +202,17 @@ def assemble(old, closure, host, parents, transaction, attempt):
     md['namespaces'].update(host['namespaces'])
     md.update(transaction=transaction, attempt=attempt, parents=copy.deepcopy(parents), evidence=ROOT+'/t')
 
-    # Superseded rows move in place (see SUPERSEDED_INPUTS); each old path must be referenced nowhere else.
-    referenced = ({out['core']['source'], out['backup_path']} | {f['source'] for f in out['managed_files']}
-                  | {p['path'] for p in out['integrity']['providers']})
+    # Superseded rows move in place (see SUPERSEDED_INPUTS); each old path must be referenced nowhere else in the
+    # predecessor (r2, review A should_fix 1: computed from the untouched predecessor, including every managed-file
+    # backup and integrity file), except the two predecessor backups M11 itself replaces.
+    referenced = ({old['core']['source'], old['backup_path']} | {f['source'] for f in old['managed_files']}
+                  | {f['backup_path'] for f in old['managed_files']} | {f['path'] for f in old['integrity']['files']}
+                  | {p['path'] for p in old['integrity']['providers']} | {r['path'] for r in old['integrity']['repositories']})
     successors = {BACKUP: (NEW, 0o755), CITY_SOURCE: (CITY_NEW, 0o644), WRAPPER: (WRAPPER_SHA, 0o755),
                   WRAPPER_LIB: (WRAPPER_LIB_SHA, 0o644)}
     for old_path, new_path in SUPERSEDED_INPUTS:
         row = _one(md['inputs'], 'path', old_path, 'superseded input cardinality: ' + old_path)
-        require(old_path not in referenced - {OLD_BACKUP}, 'superseded input still referenced: ' + old_path)
+        require(old_path not in referenced - {OLD_BACKUP, CITY_OLD_BACKUP}, 'superseded input still referenced: ' + old_path)
         require(not any(p['path'] == new_path for p in md['inputs']), 'successor already present: ' + new_path)
         digest, mode = successors[new_path]
         require(pins[new_path]['sha256'] == digest and pins[new_path]['mode'] == mode, 'successor bytes: ' + new_path)
@@ -254,6 +264,8 @@ def assemble(old, closure, host, parents, transaction, attempt):
 
     repos = out['integrity']['repositories']
     require(repos[-1] == dict(name=AUTHORITY_NAME, path=AUTHORITY, commit=AUTHORITY_COMMIT), 'unchanged last authority')
+    require(not any(r['path'] == TEMPLATE or r['commit'] == TEMPLATE_COMMIT for r in repos), 'authority already pinned')
+    repos.append(dict(TEMPLATE_AUTHORITY))
     for path, (before, after) in EXACT_TREES.items():
         pin = _one(md['trees'], 'path', path, 'exact tree cardinality: ' + path)
         require(pin['sha256'] == before and trees[path]['sha256'] == after, 'captured tree: ' + path)

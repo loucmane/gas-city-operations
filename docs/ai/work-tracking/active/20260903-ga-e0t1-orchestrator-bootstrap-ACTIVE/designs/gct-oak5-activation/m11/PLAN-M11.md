@@ -25,11 +25,13 @@ and the M9 provider pattern, over the installed M10 manifest (`2b902a83`).
 | four `templates/claude/*` inputs (signing and Operations candidate policy and provider) | pinned | removed | the tree covers them, strictly |
 | inputs: the Template wrapper `229d3355` (0755) and library `17f54bca` (0644) | none | moved in place into the two superseded ga-e0t1.15 `b2760ea4` image rows | the provider's version dependencies must be mounted |
 | integrity providers | 4 | 5: `claude` at `bin/gct-claude-template-candidate-worker`, `229d3355`, version `…dependencies_sha256=3cd85706…` | P12's typed Template candidate receipt profile matches by (name, path) (M9 pattern) |
-| suspension record | `6d89f537` | `a3306567` | the gct-mbg6 window lifecycle rewrote `updated_at`; everything is still suspended |
+| integrity repositories | 7 | 8: `template-pr72-canonical` at `/home/loucmane/gas-city-template`, `3474abfa`, `allow_dirty` | r2: P12's `template_commit` must be a pinned repository commit |
 | release, transaction, attempt, parents, evidence, host, namespaces, previous metadata | M10 | fresh, `reports/m11` | the M6–M10 pattern |
 
-Everything else is unchanged: the core image and writer, the managed files other than city-config, the repositories
-(the last authority stays PR 71 at `cfd353f3`), every other tree and link, and the cache. There is no new broker
+Everything else is unchanged: the core image and writer, the managed files other than city-config, the existing
+repositories (PR 71 stays pinned at `cfd353f3`), every other tree and link, and the cache. The suspension record is not a
+manifest field: the capture and the executor bind it through `SUSPENSION_SHA` (`6d89f537` → `a3306567`; the window
+lifecycle rewrote `updated_at`, and everything is still suspended). There is no new broker
 receipt; sequence 16's `1108b724` still binds the image.
 
 **Why a tree for `templates/claude`.** The Template wrapper's `--version` hashes seven dependencies:
@@ -44,8 +46,8 @@ replaces the four existing inputs there and covers the two new files. It is also
 directory is drift. The wrapper and its library take over the two superseded ga-e0t1.15 image rows, which are
 referenced nowhere else (a test checks). The same two libraries import only the stdlib modules M9 already pins.
 
-**Counts and frame.** 692 inputs, 50 trees, 23 links, 5 providers. The synthetic build's bound is 130,358 of
-131,072 bytes, leaving 714 spare. `FRAME_FLOOR` is 256; only the fresh parents' device and inode vary at
+**Counts and frame.** 692 inputs, 50 trees, 23 links, 5 providers, 8 repositories. The synthetic build's bound is
+130,506 of 131,072 bytes, leaving 566 spare. `FRAME_FLOOR` is 256; only the fresh parents' device and inode vary at
 `prepare`, by at most 72 bytes.
 
 ## The prerequisite and the capture
@@ -114,6 +116,40 @@ staging `gct-oak5-m11`. The extract adds `new_trees`, `removed_inputs_absent`, `
 **Then P12**, bound to M11. It refreshes the worker receipt: `template_commit` and `member_heads[template]` move to
 `3474abfa`, the permission revision moves to the activation's, and it publishes the typed Template candidate profile
 (`signer_identity: "none"`, the Template launch-check path).
+
+## r2 (answers the r1 reviews of `ce109302`: A SOURCE_PASS, B HOLD)
+
+**B must_fix 1: the Template authority.**
+- **The problem.** P12 moves the receipt's `template_commit` to `3474abfa`. Core's dispatch gate and
+  `gc platform canary` refuse unless a pinned repository carries exactly that commit (`containsRepositoryCommit`).
+  r1 kept only PR 71 at `cfd353f3`.
+- **The fix.** M11 appends `{template-pr72-canonical, /home/loucmane/gas-city-template, 3474abfa,
+  allow_dirty: true}`.
+  - `HEAD` is inspected exactly, and the `.git` is a pinned tree.
+  - `allow_dirty` only skips the status check, because of the two known untracked directories.
+- **Why not a clean authority worktree.** A separate clean worktree would be stronger, but its tree rows do not fit
+  the frame.
+- **The test.** A test binds this authority to the P12 commit and to the Core source lines.
+
+**Should_fix taken:**
+- **The reference guard** (A 1). `assemble()` now computes it from the untouched predecessor. It includes every
+  managed-file backup, integrity file and repository path, and exempts only the two predecessor backups M11
+  replaces.
+- **The wrapper's `--version` test** (A 2, B 1) runs in the writer's environment (`HOME=/nonexistent`,
+  `PATH=/usr/bin:/bin`) and reports the pinned version.
+  - All seven dependencies are mounted in the confined writer.
+  - The first in-sandbox proof is `prepare`'s pinned-integrity inspection. A mismatch there fails closed before any
+    mutation, but it consumes that window.
+- **Wording** (A 3-4, B 3-4).
+  - The suspension record is a capture binding, not a manifest field.
+  - The moved rows are the ga-e0t1.18 `gc-b`, the M6 city backup and the two ga-e0t1.15 images.
+  - The inspector (`InspectIntegrity`) does not examine metadata trees or inputs. The Template `.git` change and the
+    input-to-tree swap are proven by the capture and the writer only, so "zero drift" after the inspector rebind
+    does not cover them.
+- **Carried.** The tree root mode stays 0755 in two places (B 2); the capture and the executor both check it
+  live.
+
+`test_m11.py`: 27 pass and 2 are skipped until the capture and the binding.
 
 ## Stop conditions
 

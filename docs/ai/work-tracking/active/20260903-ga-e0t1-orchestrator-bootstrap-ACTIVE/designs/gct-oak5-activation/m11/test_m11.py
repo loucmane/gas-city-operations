@@ -103,8 +103,9 @@ def test_template_lane_files_and_version(m):
                                 m.TEMPLATE_COMMIT + ':' + path[len(m.TEMPLATE) + 1:]], capture_output=True, check=True,
                                env={'PATH': '/usr/bin:/bin', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null'})
         assert hashlib.sha256(shown.stdout).hexdigest() == sha(path)
+    # r2: the confined writer's environment (clearenv, HOME=/nonexistent, PATH=/usr/bin:/bin).
     version = subprocess.run([m.WRAPPER, '--version'], capture_output=True, text=True, check=True,
-                             env={'HOME': '/home/loucmane', 'PATH': '/home/loucmane/gascity/bin:/usr/bin:/bin'})
+                             env={'HOME': '/nonexistent', 'PATH': '/usr/bin:/bin'})
     assert version.stdout.strip() == m.WRAPPER_VERSION
     names = sorted(os.listdir(m.POLICY_DIR))
     assert names == ['candidate-control-policy.json', 'candidate-provider.toml', 'core-signing-control-policy.json',
@@ -196,10 +197,29 @@ def test_only_reviewed_fields_change(m, cap, old, base):
     files_after = {f['path']: f for f in out['integrity']['files']}
     assert [p for p in files_before if files_before[p] != files_after[p]] == [p for p, _, _ in m.CHANGED_INPUTS]
     assert out['integrity']['providers'][:4] == old['integrity']['providers']
-    assert out['integrity']['repositories'] == old['integrity']['repositories']
+    assert out['integrity']['repositories'] == old['integrity']['repositories'] + [m.TEMPLATE_AUTHORITY]
     top = {k for k in old if old[k] != out[k]}
     assert top == {'release_id', 'metadata', 'activation', 'managed_files', 'previous_metadata', 'manifest_sha256',
                    'previous_sha256', 'backup_path', 'integrity'}
+
+
+def test_template_commit_is_a_pinned_repository(m, cap, old, base):
+    # r2 (review B must_fix 1): P12 moves template_commit to 3474abfa; Core's dispatch gate and platform canary
+    # require a pinned repository at exactly that commit.
+    gate = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', CORE_SOURCE, 'show',
+                           m.COMMIT + ':cmd/gc/managed_product_dispatch_gate.go'], capture_output=True, check=True).stdout.decode()
+    assert 'func containsRepositoryCommit(repositories []platforminstall.GitPin, commit string) bool {' in gate
+    integrity = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', CORE_SOURCE, 'show',
+                                m.COMMIT + ':internal/platforminstall/integrity.go'], capture_output=True, check=True).stdout.decode()
+    assert 'AllowDirty bool   `json:"allow_dirty,omitempty"`' in integrity and '\tif pin.AllowDirty {\n\t\treturn\n\t}' in integrity
+    out, _ = build(m, old, synthetic(m, cap, base))
+    repos = out['integrity']['repositories']
+    assert repos[-1] == dict(name='template-pr72-canonical', path=m.TEMPLATE, commit=m.TEMPLATE_COMMIT, allow_dirty=True)
+    assert [r for r in repos if r['commit'] == m.TEMPLATE_COMMIT] == [repos[-1]]
+    head = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', m.TEMPLATE, 'rev-parse', 'HEAD'], capture_output=True,
+                          text=True, check=True, env={'PATH': '/usr/bin:/bin', 'GIT_CONFIG_NOSYSTEM': '1',
+                                                      'GIT_CONFIG_GLOBAL': '/dev/null'}).stdout.strip()
+    assert head == m.TEMPLATE_COMMIT
 
 
 def test_superseded_rows_are_referenced_nowhere_else(m, old):
