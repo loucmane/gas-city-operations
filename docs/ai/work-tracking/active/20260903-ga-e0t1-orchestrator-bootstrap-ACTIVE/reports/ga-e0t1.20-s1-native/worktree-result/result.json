@@ -1,0 +1,16 @@
+{
+  "admin": "/home/loucmane/gas-city-ops/.git/worktrees/ga-e0t1.20",
+  "base": "c6b789bbe6ff677dd04336803dbf2c2e017812ba",
+  "branch": "codex/ga-e0t1.20-c1-close-admission",
+  "default_rules_unchanged": true,
+  "execution_authorized_by_this_result": false,
+  "executor_sha256": "21a3e4270ab05c68cf1ae9795f42e2302ed3c9fa5bd839c6467de879d941ec6f",
+  "local_rules": {
+    ".codex/rules/gas-city-native-control.rules": "0a2c32485d71ef31875010ea810deffb0f2936e8c89bb5da2f7f2aeed5044123",
+    ".codex/rules/window-restrictions.rules": "ea2645785163d3f9b6d5ddfe8a08c5ff40b97a8cb1739bca94dd4b2844f15773"
+  },
+  "ok": true,
+  "tracked_clean": true,
+  "worker_launched": false,
+  "worktree": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20"
+}

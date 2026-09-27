@@ -1,0 +1,11 @@
+== context umask=0022 cgroup=0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-ga-e0t1-20-s1-worktree-r3.service
+== ns ipc=ipc:[4026532219]
+== ns mnt=mnt:[4026532221]
+== ns net=net:[4026531840]
+== ns pid=pid:[4026532223]
+== ns time=time:[4026531834]
+== ns user=user:[4026531837]
+== worktree 20:57:47Z
+{"ok": true, "worktree": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20", "worker_launched": false, "preparation_only": true}
+== WORKTREE PASS
+== end 20:57:49Z

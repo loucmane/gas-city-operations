@@ -1,0 +1,21 @@
+== context umask=0022 cgroup=0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-ga-e0t1-20-s1-worktree-r2.service
+== ns ipc=ipc:[4026532219]
+== ns mnt=mnt:[4026532221]
+== ns net=net:[4026531840]
+== ns pid=pid:[4026532223]
+== ns time=time:[4026531834]
+== ns user=user:[4026531837]
+== worktree 20:50:07Z
+Traceback (most recent call last):
+  File "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6/source-launch.py", line 23, in <module>
+    exec(compile(raw, path, 'exec', dont_inherit=True),
+  File "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1.20-astra-bootstrap/worktree.py", line 192, in <module>
+    main()
+  File "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1.20-astra-bootstrap/worktree.py", line 133, in main
+    read(DEFAULT, DEFAULT_SHA)
+  File "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1.20-astra-bootstrap/worktree.py", line 57, in read
+    assert before == os.fstat(fd) and before == path.lstat() and len(raw) == before.st_size
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError
+== WORKTREE REFUSED rc=1: read this log and /var/tmp/ga-e0t1.20-worktree-20260927-r1 before any further step
+== end 20:50:07Z
