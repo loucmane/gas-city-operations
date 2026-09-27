@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r17
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r18
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, r16 answered the reviews of the split package at `4cb2b80e`, and r17 records the applied split, the chain anchor and the image tool; see the last eight sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, r16 answered the reviews of the split package at `4cb2b80e`, r17 recorded the applied split, the chain anchor and the image tool, and r18 answers the image tool reviews of `c985f6c5` (A HOLD, B SOURCE_PASS); see the last nine sections.
 
 ## Decisions this plan relies on
 
@@ -857,3 +857,21 @@ The plan part of r11 closed the three r10 must_fix items (both reviews verified 
   - `compare` implements route-gate rules 2 to 4 between two images;
   - `holder` renders the `DIGEST` lines.
   - The Bead-state part of each image and the chained snapshot digest are added by the window packages, which own those reads.
+
+## r18 (answers the image tool reviews of `c985f6c5`: A HOLD, B SOURCE_PASS)
+
+- **A must_fix 1: the catalog was not pinned to the exact value.** The tool now compares the decoded catalog with the exact recorded value, including every entry's name, origin, source and description and their order. The value lives in `image/pins.json`, generated from `inventory-data.json` by `image/make_pins.py`, and the tool pins that file by digest.
+- **A must_fix 2: the tamper negative was not implemented.** `image_tool.py verify --image I --copy D --clone C` exports the content of a copy of the worktree (no git metadata; the copy's own path is normalised) and requires every content field to equal the image. A test shows the unchanged copy passing and a one-byte change to A1 refusing, with only `entries` differing.
+- **Should_fix taken:**
+  - `compare --step C1|X|C2` carries each step's exact contract, its carried paths and its lane progression. For C1, image 0 must be the empty baseline, and the next image must hold exactly the contract and carried paths (A 1, A 2, B 2);
+  - a leftover `.oak5-c2-tmp` refuses in every image (A 3);
+  - the `.claude/skills` sink mode is checked, and the RUNTIME directory modes are recorded (A 4, B 4);
+  - `.gc/settings.json` is pinned per image to the live city file and exempt from cross-image equality. The scripts copy stays equal across images (A 5, B 6);
+  - the handover branch must be at BASE, and the gitfile must name exactly the canonical admin directory (A 6, B 7);
+  - the walk is bounded in entries and depth, ignored bytes count toward the total, and every error is a refusal with rc 2 (A 7, B 8, B 9);
+  - a second walk must match the first path set and stat data, and every read checks the walk's lstat (B 1);
+  - each pinned skill target tree is digested into the image, and a change between images refuses (B 5);
+  - O_NOATIME is used for every read (B 10);
+  - control paths are matched at any depth, and stop names are checked before ignored status (B 11);
+  - the tests are hermetic: the pins, skill targets and city files are all under `tmp_path`. There are 26 tests, including a negative for every refusal the reviews listed (A 9, B 12);
+  - the limit wording is corrected (A 8).

@@ -1,0 +1,74 @@
+{
+ "catalog_value": {
+  "Entries": [
+   {
+    "Description": "Managing agents \u2014 list, peek, nudge, suspend, drain",
+    "Name": "core.gc-agents",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-agents"
+   },
+   {
+    "Description": "City lifecycle \u2014 status, start, stop, init",
+    "Name": "core.gc-city",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-city"
+   },
+   {
+    "Description": "API server and web dashboard \u2014 config, start, monitor",
+    "Name": "core.gc-dashboard",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dashboard"
+   },
+   {
+    "Description": "Routing work to agents with gc sling and formulas",
+    "Name": "core.gc-dispatch",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dispatch"
+   },
+   {
+    "Description": "Sending and reading messages between agents",
+    "Name": "core.gc-mail",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-mail"
+   },
+   {
+    "Description": "Managing rigs \u2014 add, list, status, suspend, resume",
+    "Name": "core.gc-rigs",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-rigs"
+   },
+   {
+    "Description": "Finding, creating, claiming, and closing work items (beads)",
+    "Name": "core.gc-work",
+    "Origin": "core",
+    "Source": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-work"
+   },
+   {
+    "Description": "Coordinate requirements, implementation plans, bead creation, and formula workflow launches for a Gas City rig. Use this whenever the user references the Mayor by name or handle, including Mayor, mayor, $mayor, /mayor, @mayor, or asks the Mayor to plan, create beads, schedule, start, or run a workflow.",
+    "Name": "gascity.mayor",
+    "Origin": "gascity",
+    "Source": "/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills/mayor"
+   }
+  ],
+  "OwnedRoots": [
+   "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills",
+   "/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills"
+  ],
+  "Shadowed": null
+ },
+ "owned_roots": [
+  "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills",
+  "/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills"
+ ],
+ "ownership_sha256": "f51ef6490bbc3ae9c595b2fe0aaf5a4d825c0db4e5edbc56c59d315e6dc3cf10",
+ "skill_map": {
+  "core.gc-agents": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-agents",
+  "core.gc-city": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-city",
+  "core.gc-dashboard": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dashboard",
+  "core.gc-dispatch": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dispatch",
+  "core.gc-mail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-mail",
+  "core.gc-rigs": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-rigs",
+  "core.gc-work": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-work",
+  "gascity.mayor": "/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills/mayor"
+ }
+}
