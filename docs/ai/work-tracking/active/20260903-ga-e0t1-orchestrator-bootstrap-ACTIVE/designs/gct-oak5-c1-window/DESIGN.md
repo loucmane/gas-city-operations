@@ -1,9 +1,9 @@
-# gct-oak5 C1 window — design (d8)
+# gct-oak5 C1 window — design (d9)
 
 C1 is the first segment of the gct-oak5 handover (accepted plan `designs/gct-oak5-handover/PLAN.md`, r18). It routes the
 open step **gct-9s1c** to the Template Claude candidate lane `gas-city-template/gc.implementation-worker` in the new
 handover worktree. This document fixes *what* the window package does before it is generated. d2 answered the d1
-reviews of `32e95862`, d3 answered the d2 reviews of `9b8f22ad`, d4 answered the d3 reviews of `cc51beed`, d5 answered the d4 reviews of `e8bbc592`, d6 answered the d5 reviews of `84bfeac4`, d7 answered the d6 reviews of `7d2d7b84` with code, and d8 answers the d7 reviews of `a2112650` (A and B HOLD): the next-job rule is `slots/slots.py`, tested in `slots/test_slots.py`; see §9 to §15.
+reviews of `32e95862`, d3 answered the d2 reviews of `9b8f22ad`, d4 answered the d3 reviews of `cc51beed`, d5 answered the d4 reviews of `e8bbc592`, d6 answered the d5 reviews of `84bfeac4`, d7 answered the d6 reviews of `7d2d7b84` with code, d8 answered the d7 reviews of `a2112650`, and d9 answers the d8 reviews of `b73ce77a` (A and B HOLD): the next-job rule is `slots/slots.py`, tested in `slots/test_slots.py`; see §9 to §16.
 
 ## 1. Source and method
 
@@ -163,21 +163,30 @@ Each asserted with its count in the generator:
        mapping the lane session's pane pid to its cgroup scope, in the same observation as the census. The operator
        keeps **no tmux pane on any socket** from PREP to TERMINAL (the ga-6utp constraint, `ga-6utp-activation-r10/PLAN.md:405-406`):
        systemd-enabled tmux 3.4 moves every pane of every server into a `tmux-spawn-*.scope` (`PLAN.md:377-379`), so
-       PREP, ROUTE and every tick require every `tmux-spawn-*.scope` anywhere under the `user@1000` slice (any path
-       component, as ga-6utp walks it) to be empty except the one lane scope, and any other non-empty scope is a
-       trigger (the "second pane scope" below). CLOSE's residue proof then applies the same rule, so WATCH-LOOP and
+       every gate (PREP, BIND, OBSERVE, PREFLIGHT, STAGE, ROUTE, RESUME, CLOSE, ADMIT, RESTORE, TERMINAL) and every
+       tick require every `tmux-spawn-*.scope` anywhere under the `user@1000` slice (any path component, as ga-6utp
+       walks it) to be empty except the one lane scope, and any other non-empty scope is a trigger (the "second pane
+       scope" below). The operator steps state the constraint at PREP. WATCH-LOOP accepts the lane scope only in the
+       placement CLOSE accepts (a `tmux-spawn-*.scope` directly under the pinned `user@1000` app slice); any other
+       placement is a trigger. CLOSE's residue proof then applies the same rule, so WATCH-LOOP and
        CLOSE cannot disagree. The tmux 3.4 answers for a server with no session ("no current target", `close-r11.py:14-20`) and for no
        server read as an empty pane list, not as a failed call; any other non-zero answer is a failed call (a bound).
-     - **The controller cgroup** may hold only: the members of the ga-6utp process record (the controller, the dolt
-       watchdog and dolt, `ga-6utp-activation-r10/PLAN.md:363, 400-402`); the one city tmux server, identified by
-       SO_PEERCRED on `/tmp/tmux-1000/city` (it daemonizes, so it is not a descendant, `PLAN.md:380-385`); and
-       descendants of the controller pid 2800348 bounded by exe and argv to the order executions (`/bin/sh` running
-       the pinned `nudge-on-route.sh`, and its `gc`, `bd` and tmux client calls) and by lifetime (each at most the
-       order's 60 s timeout). Every admitted pid is bound to its `/proc/<pid>/stat` start time; a dolt or watchdog
-       restart (a new pid outside the record) is a trigger. A pane process in the controller cgroup (a failed scope
-       move, `PLAN.md:377-379, 412-413`) is a trigger, but only after ga-6utp's reread (up to five reads 0.2 s apart,
-       `preroute.py:30-31`), since a pane child sits in the server's cgroup between fork and its scope move and tmux
-       server jobs run there too. s1 pins from Core source whether the controller itself ever runs worker-influenced
+     - **The controller cgroup** is checked with ga-6utp's own rule (`preroute.py:22-31, 434-461`,
+       `PLAN.md:386-387`). The **stable members** are the ga-6utp process record (the controller, the dolt watchdog
+       and dolt, `PLAN.md:363, 400-402`) and the one city tmux server, identified by SO_PEERCRED on
+       `/tmp/tmux-1000/city` (it daemonizes, so it is not a descendant, `PLAN.md:380-385`), each bound by pid and
+       `/proc/<pid>/stat` start time; a missing stable member or a dolt or watchdog restart (a new pid) is a
+       trigger. **Every other member** is transient: the controller's own children (tmux clients, `pgrep` and `ps`
+       probes, `bd`, `git`: `internal/runtime/tmux/tmux.go:209-229, 871, 2591-2617`,
+       `internal/runtime/tmux/state_cache.go:471-483`, `internal/beads/bdstore.go:485`, `internal/git/git.go:420`),
+       the order executions (`nudge-on-route.sh` and its calls), a pane child between fork and its scope move, and
+       tmux server jobs. A tick that sees any extra member rereads up to five times 0.2 s apart; an extra member still
+       present in all five reads is a trigger, except exactly one long-lived hidden client of the pinned
+       `script … tmux attach-session` form (`tmux.go:1388-1405`) with the controller as parent, which Core starts only
+       on its interrupt paths and which the tick records. A pane process (a failed scope move,
+       `PLAN.md:377-379, 412-413`) present in all five reads is a trigger. s1 pins every exe and argv shape above
+       from the Core source at the deployed commit and tests the rule on a live-session census shape from the
+       ga-3oa7 and gct-mbg6 records. s1 pins from Core source whether the controller itself ever runs worker-influenced
        code (for example the `gc.check_path` script or hooks); if it does, that code is named here as unsandboxed and
        admitted only by the same exe and argv bounds.
      - **Stated gap:** a worker can move a process into another cgroup it owns under `user@1000`, which the census does
@@ -205,7 +214,9 @@ Each asserted with its count in the generator:
        open and C1 is claimed and not closed is a trigger. A process that double-forks away from the provider (git's
        detached `gc --auto`, a gpg-agent or keyboxd autostart, a backgrounded shell job) is a trigger too; s1 pins
        from the ga-3oa7 Claude-lane evidence whether such processes occurred there, and the worker brief tells the
-       worker not to background processes.
+       worker not to background processes. An in-session provider respawn (`--resume` in the same session) breaks the
+       recorded chain and the provider pid, and is a trigger; s1 pins from the ga-3oa7 and gct-mbg6 records that none
+       occurred.
    - **Containment triggers** (inline CONTAIN, then exit): any change to a non-current Bead, `gct-oak5` or a holder; a
      C1 regression (status back to open, or the assignee cleared or moved: orphan release or re-assignment); a second
      lane session Bead at any time, concurrent or sequential; a second pane scope; a provider argv other than the
@@ -214,22 +225,24 @@ Each asserted with its count in the generator:
      - every gc, bd and census call has a timeout: 60 s, and 120 s for the sling. An expiry is a containment trigger;
      - a tick over 60 s is recorded, and three in a row are a trigger;
      - no claim within 20 minutes of RESUME (a silent start) is a trigger;
-     - **the loop deadline** comes from the window `before.json` clock that PREFLIGHT starts (`budget-r11.py`): its
-       four-hour bound minus ADMIT's reserve, minus CLOSE's budget (the 10-minute session wait plus the image and
-       snapshot exports, 30 minutes), minus a 15-minute margin. The wrapper budgets become: TERMINAL 20 minutes (from 8,
+     - **the loop deadline** comes from the window `before.json` clock that PREFLIGHT starts (`budget-r11.py`), by
+       the one derivation below. The wrapper budgets become: TERMINAL 20 minutes (from 8,
        for the settle pair and its exports); RESTORE 60 (from 45: its worst case, the 20-minute trace wait plus the
        reload, transition and snapshots, about 37 minutes, plus TERMINAL's 20 and a margin; s1 lists each RESTORE
        phase's timeout from `window-r11.py` and the test sums them rather than trusting the estimate); ADMIT 75 (from 60, at
        least RESTORE + 15); CLOSE gains a budget gate of 90 (ADMIT's 75 plus its 15-minute export budget), checked
        after its teardown. `budget-r11.py:46-49` refuses when less than the gate's minutes remain of the 4 h, so the
        gate must be reached by PREFLIGHT + 150 min. Before it come, after the loop deadline: a tick overrun (3), the
-       containment (7), CLOSE's wait (10), its drain, close and residue steps with the inherited loop's overrun (7), and
-       the job gaps of a fallback chain (18): 45 minutes. The deadline is therefore PREFLIGHT + 240 − 90 − 45 min =
-       **PREFLIGHT + 1 h 45 min**. WATCH-LOOP computes it itself from the window `before.json`
+       containment (7), CLOSE's wait (10), its drain, close and residue steps from the inherited timeouts (16: the
+       90 s phases, the 60 s poll with one phase overrun, the close phase, the 120 s residue loop with three 90 s
+       overruns, `close-r11.py:116-176`), and the job gaps of a fallback chain (19): 55 minutes. The deadline is
+       therefore PREFLIGHT + 240 − 90 − 55 min = **PREFLIGHT + 1 h 35 min**. WATCH-LOOP computes it itself from the window `before.json`
        `cache_access_clock.start` (CLOCK_BOOTTIME, with the boot-id check of `budget-r11.py`) and refuses to start if
        fewer than 30 minutes of worker time remain before it. WATCH-LOOP-2 never refuses on the deadline: started past
        it with a worker possibly live, it runs the containment pair at once. A test pins the chain: RESTORE ≥ its worst
-       case + TERMINAL, ADMIT ≥ RESTORE + 15, the CLOSE gate = ADMIT + 15, the 45-minute sum and the deadline;
+       case + TERMINAL, ADMIT ≥ RESTORE + 15, the CLOSE gate = ADMIT + 15, CLOSE's 16 from the inherited timeouts,
+       the 55-minute sum and the deadline. A C1 close within the normal-end bounds (4 and 8 minutes) of the deadline
+       becomes a containment and a failed segment; that is stated, not a gap;
      - an operator stop file `~/.local/share/gas-city-staging/gct-oak5-handover/STOP-C1` is a trigger.
      The abnormal branch (a containment at the deadline, CLOSE's full wait and the gaps between jobs) is covered only by
      the margin. If ADMIT then refuses on its budget, the overlay and receipt image stay installed until a reviewed
@@ -245,8 +258,11 @@ Each asserted with its count in the generator:
      The containment runs at most once per process: an in-process "containment attempted" flag, set before the
      first lifecycle call, stops the `finally` from trying again after a step that refused before its intent. The
      exit status is informational only; the next-job rule never reads it (§6.5 fallback slots). Every watcher writes
-     its final observation (`final-observation.json`: C1 closed, session Bead closed in a drain-ack end state, empty
-     census, orphan decision) in its own root before it exits.
+     its final observation in its own root before it exits: `final-observation.json` with `window` (the window
+     root path), `written_ns` (CLOCK_BOOTTIME), `c1_closed`, `drain_ack_pending` (the stop-pending mark on an open
+     session Bead), `session_drain_ack_closed`, `census_empty` and `orphan_decision`. The generated holds write
+     `result.json` with the inherited keys plus `window`. A package test runs `read_state()` on the generated
+     writers' own outputs.
      **Stated gap:** the runner halts after every job, so between RESUME's end and WATCH-LOOP's first tick the city is
      resumed and the worker can start unwatched for the minutes the coordinator takes to clear and queue. Nothing is
      lost to detection: WATCH-LOOP's first tick checks every session Bead and census member since RESUME, not since
@@ -330,18 +346,24 @@ Each asserted with its count in the generator:
      applies if the window stops before RESUME.
    - **Fallback slots: the next-job rule is code.** `slots/slots.py` `select()` is the one rule. The coordinator runs it
      (read-only, no gc, bd or git call) after RESUME and after every WATCH-LOOP, fallback and hold job. Every job's own
-     admission is `select(**read_state(..., own_job_id=<its runner job id>))` equal to its own name, and it refuses
-     before any mutation otherwise. Inputs, all bound by the package: the window root's lifecycle records per action
-     (absent, complete, incomplete, failed, plus a stray-phase `stranded` flag); which jobs the runner started (a
-     `<id>.started.json` in the runner's done directory, finished or not, is a used job, except the caller's own run,
-     which must be started and unfinished), matched on the full wrapper path the runner records
-     (`<repo>/docs/ai/…/gct-oak5-c1-window/operator/<JOB>.sh`); whether a hold of this window passed (the hold roots
-     by CLOSE's own glob, `close-r11.py:103-104`, retargeted, each result naming this window); and the newest final
-     observation naming this window from the watcher roots (missing reads as not quiet). Refused, resolved and
-     cleared-halt runner files are ignored; a missing done directory, an unparseable record or an unknown file name
-     is `broken`, which selects STOP (fail closed; the real done directory, 674 files, parses clean). Because the
-     runner is halted between jobs and records change only through jobs, the coordinator and the next job read the
-     same state. The rule, first match wins:
+     admission is `select(**read_state(..., own_job=<its name>, own_job_id=<its runner job id>))` equal to its own
+     name, and it refuses before any mutation otherwise; the job id comes from its own unit name
+     `gc-job-<id>.service` in `/proc/self/cgroup` (`own_job_id_from_cgroup`, the runner's `--unit`,
+     `jobrunner.py:338`). Inputs, all bound by the package: the window root's lifecycle records per action (absent,
+     complete, incomplete, failed, plus a stray-phase `stranded` flag); which jobs the runner started **at this
+     package commit** (a `<id>.started.json`, finished or not, is a used job), matched on the wrapper exactly as the
+     runner records it, **relative to the repository** (`WRAPPER_PREFIX`, `jobrunner.py:69-71, 311, 437-438`), except
+     the caller's own run, whose record must be started, unfinished, and name its own wrapper and this commit;
+     whether a hold of this window passed (the hold roots by CLOSE's own glob, `close-r11.py:103-104`, retargeted,
+     each result naming this window); and the newest final observation naming this window from the watcher roots
+     (missing reads as not quiet). Every record is read like the runner's `read_owned`: no link, a regular
+     single-link file owned by the operator, at most 1 MiB. Refused, resolved and cleared-halt runner files are
+     ignored; a missing done directory, an unreadable record or an unknown file name (a `.rejected-*` entry
+     included) is `broken`, which selects **HOLD-1** (only a hold, which only suspends, may act when `used` is
+     unknown); a passing hold still selects CLOSE. The real done directory (674 files) reads clean under these
+     guards. Whenever `select()` names a job the runner has already run at this commit, the runner refuses it and the
+     coordinator stops (STOP). Because the runner is halted between jobs and records change only through jobs, the
+     coordinator and the next job read the same state. The rule, first match wins:
      1. a passing hold: **CLOSE**, whose inherited admission accepts it (`close-r11.py:103-105`) and whose teardown
         (drain, session close, residue proof) handles a live worker;
      2. any incomplete or failed record, or a completed-action sequence the permitted order cannot produce: the first
@@ -368,8 +390,9 @@ Each asserted with its count in the generator:
      successor exists.
 6. **CLOSE:** besides the gct-e8ex CLOSE:
    - **Never pre-empts the drain-ack teardown.** CLOSE waits up to 10 minutes for the lane session Bead to close only
-     when the newest final observation shows C1 closed with the drain-ack mark; otherwise (the hold path, a trigger or
-     drift, no observation) it drains and closes at once. A session Bead that carries `state_reason=drain-ack-stop-pending` is
+     when no hold of this window passed and the newest final observation has `c1_closed` and either
+     `drain_ack_pending` or `session_drain_ack_closed` true; a passing hold, a trigger or drift, or no observation
+     drains and closes at once. The inherited drain then runs once, then the close (`close-r11.py:128-152`). A session Bead that carries `state_reason=drain-ack-stop-pending` is
      not drained or closed by the coordinator while the bound runs. At the bound the run is no longer normal: CLOSE
      then uses the inherited `gc runtime drain` and `gc session close` (`close-r11.py:124-152`) and records a **failed
      segment**. On the drift or trigger path, where the worker may still hold an `in_progress` claim, CLOSE uses the
@@ -626,3 +649,23 @@ image); `holder` checking the image's lanes.
 - **B should_fix 9: the quiescent rule, restated.** From PREFLIGHT to TERMINAL no `workflow.py`, no Bead note and no
   unguarded gc; runner outcomes between jobs go to a local run log only, and to the Beads after TERMINAL
   (`gct-e8ex-window/README.md:360`).
+
+## 16. d9 (answers the d8 reviews of `b73ce77a`: A and B HOLD)
+
+- **Both must_fix 1: the wrapper form.** The runner records the wrapper relative to the repository. `slots.py` pins
+  `WRAPPER_PREFIX` to that exact form, counts only records at the package commit, and requires the caller's own
+  started record to name its own wrapper and commit, else `broken`. The test fixture uses a real record's key set,
+  and a test refuses the absolute form.
+- **B must_fix 2: the controller cgroup.** ga-6utp's rule: stable members by pid and start time, every other member
+  transient and a trigger only when present in all five rereads, with Core's one long-lived hidden client admitted
+  by its pinned form. s1 pins Core's child shapes and tests a live-session census.
+- **Should_fix taken:** the job id from the unit name, tested (A 1, B 6); guarded reads like `read_owned`, tested
+  with a link and an oversize record (A 2, B 4); commit binding (A 3, B 5); `broken` selects HOLD-1, and a passing
+  hold still wins (B 6); `.rejected-*` named (A 5); one deadline derivation with CLOSE's 16 minutes from the
+  inherited timeouts, deadline PREFLIGHT + 1 h 35 min (B 1, B 2); the observation and hold-result keys, and a test
+  on the generated writers' outputs (B 3); the lane placement check in WATCH-LOOP (B 7); CLOSE's wait precedence
+  (B 8); a close near the deadline as a stated failed segment (B 9); the respawn pin (B 10); the tmux constraint at
+  every gate and in the operator steps (B 11).
+- **Not taken:** A 4 (`close_held` does not model `stage-pass.json`): `select()` runs only after RESUME, which
+  requires STAGE's pass, so the comment is narrowed instead. A 6 (the model never produces the stray-phase state):
+  it is covered by the unit test, and the model's states are the lifecycle records only.

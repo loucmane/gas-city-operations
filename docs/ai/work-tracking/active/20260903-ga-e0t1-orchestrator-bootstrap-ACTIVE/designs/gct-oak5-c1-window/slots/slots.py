@@ -6,13 +6,23 @@ the refusal marks it used.
 
 Inputs, and nothing else:
 - the window root's lifecycle records (the inherited window-base-r11 names);
-- which jobs the runner started (a started record, finished or not, is a used job), except the caller's own run;
+- which jobs the runner started at this package commit (a started record, finished or not, is a used job), except
+  the caller's own run, whose record must name its own wrapper and this commit;
 - whether a hold of this window passed (`result.json` naming this window with ok true);
 - the newest final observation a watcher of this window recorded (absent or unreadable means "not quiet").
-Exit statuses are never read. Anything unreadable in the runner's done directory is `broken`, which stops.
+Exit statuses are never read. Anything unreadable in the runner's done directory is `broken`: a hold, never a job
+that could act on a live worker.
 """
 import json
+import os
+import stat
 from pathlib import Path
+
+# The runner records `job.wrapper` exactly as queued, relative to the repository (gct-jobrunner/jobrunner.py:69-71,
+# 311, 437-438); only `argv` carries the absolute path.
+RUNNER_PREFIX = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/'
+WRAPPER_PREFIX = RUNNER_PREFIX + 'gct-oak5-c1-window/operator/'
+RECORD_LIMIT = 1024 * 1024  # jobrunner.py RECORD_LIMIT
 
 ACTIONS = ('rig-resume', 'city-resume', 'city-suspend', 'rig-suspend')
 ABSENT, COMPLETE, INCOMPLETE, FAILED = 'absent', 'complete', 'incomplete', 'failed'
@@ -68,11 +78,13 @@ def select(lifecycle, used, hold_passed, obs, stranded=False, broken=False):
             and all(v in (ABSENT, COMPLETE, INCOMPLETE, FAILED) for v in lifecycle.values())
             and set(used) <= set(JOBS)):
         raise ValueError('select: malformed state')
-    if broken:
-        return STOP
     if hold_passed:
         # The inherited CLOSE admits a passing hold (close-r11.py:103-105) and tears down.
         return CLOSE
+    if broken:
+        # The runner's records cannot be read, so `used` is unknown: only a hold, which only suspends, may act.
+        # HOLD-1 is the broken-state hold; if the runner has already run it, the coordinator stops.
+        return HOLD_1
     if stranded or any(lifecycle[a] in (INCOMPLETE, FAILED) for a in ACTIONS):
         return _hold(used)
     seq = completed(lifecycle)
@@ -102,7 +114,8 @@ def contain_steps(lifecycle):
 
 
 def close_held(lifecycle, hold_passed):
-    """close-r11.py:95-105: a rig-suspend event, a never-resumed window, or a passing hold."""
+    """close-r11.py:95-105: a rig-suspend event, a never-resumed window, or a passing hold. The never-resumed branch
+    also needs STAGE's `stage-pass.json` (close-r11.py:100-102), which RESUME requires before select() ever runs."""
     return hold_passed or lifecycle['rig-suspend'] == COMPLETE or all(lifecycle[a] == ABSENT for a in ACTIONS)
 
 
@@ -135,25 +148,41 @@ def stray_phases(root):
 
 
 def _load(path):
-    value = json.loads(Path(path).read_text())
+    """Read like the runner's read_owned (jobrunner.py:157-171): no links, a regular single-link file owned by the
+    caller, at most RECORD_LIMIT bytes."""
+    fd = os.open(str(path), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+    try:
+        info = os.fstat(fd)
+        if not stat.S_ISREG(info.st_mode) or info.st_uid != os.getuid() or info.st_nlink != 1 \
+                or info.st_size > RECORD_LIMIT:
+            raise ValueError('not a small regular owned file: %s' % path)
+        chunks = []
+        while chunk := os.read(fd, 1 << 20):
+            chunks.append(chunk)
+    finally:
+        os.close(fd)
+    raw = b''.join(chunks)
+    if len(raw) > RECORD_LIMIT:
+        raise ValueError('record grew past the limit')
+    value = json.loads(raw)
     if not isinstance(value, dict):
         raise ValueError('not an object')
     return value
 
 
-def _wrapper(value):
-    wrapper = value['job']['wrapper']
-    if not isinstance(wrapper, str):
-        raise ValueError('wrapper')
-    return wrapper
+def _job(value):
+    job = value['job']
+    if not (isinstance(job, dict) and isinstance(job.get('wrapper'), str) and isinstance(job.get('commit'), str)):
+        raise ValueError('job')
+    return job['wrapper'], job['commit']
 
 
-def read_used(done, wrapper_prefix, own_job_id=None):
-    """Return (used jobs, broken). A job is used once the runner wrote its started record."""
+def read_used(done, commit, own_job=None, own_job_id=None):
+    """Return (used jobs, broken). A job is used once the runner wrote its started record at this commit."""
     done = Path(done)
-    if not wrapper_prefix.endswith('/operator/') or not done.is_dir():
+    if (own_job is None) != (own_job_id is None) or own_job not in (None,) + JOBS or not done.is_dir():
         return set(), True
-    used, started, final = set(), set(), set()
+    used, started, final, own = set(), set(), set(), None
     try:
         for entry in sorted(done.iterdir()):
             name = entry.name
@@ -165,24 +194,38 @@ def read_used(done, wrapper_prefix, own_job_id=None):
                 job_id, kind = name[:-len('.json')], final
             else:
                 return set(), True
-            wrapper = _wrapper(_load(entry))
+            wrapper, job_commit = _job(_load(entry))
             kind.add(job_id)
             if job_id == own_job_id and kind is started:
+                own = (wrapper, job_commit)
+                continue
+            if job_commit != commit:
                 continue
             for job in JOBS:
-                if wrapper == wrapper_prefix + job + '.sh':
+                if wrapper == WRAPPER_PREFIX + job + '.sh':
                     used.add(job)
     except (OSError, ValueError, KeyError, TypeError):
         return set(), True
-    if own_job_id is not None and (own_job_id not in started or own_job_id in final):
+    if own_job_id is not None and (own_job_id in final or own != (WRAPPER_PREFIX + own_job + '.sh', commit)):
         return set(), True
     return used, False
 
 
-def read_state(window, done, wrapper_prefix, hold_roots, watcher_roots, own_job_id=None):
+def own_job_id_from_cgroup(text):
+    """The runner launches every job as the unit gc-job-<id>.service (jobrunner.py:338)."""
+    lines = [line for line in text.splitlines() if line.startswith('0::/')]
+    if len(lines) != 1:
+        raise ValueError('cgroup')
+    leaf = lines[0].rsplit('/', 1)[-1]
+    if not (leaf.startswith('gc-job-') and leaf.endswith('.service')):
+        raise ValueError('not a runner job unit')
+    return leaf[len('gc-job-'):-len('.service')]
+
+
+def read_state(window, done, commit, hold_roots, watcher_roots, own_job=None, own_job_id=None):
     window = Path(window)
     lifecycle = {a: action_state(window, a) for a in ACTIONS}
-    used, broken = read_used(done, wrapper_prefix, own_job_id)
+    used, broken = read_used(done, commit, own_job, own_job_id)
     hold_passed = False
     for root in hold_roots:
         try:

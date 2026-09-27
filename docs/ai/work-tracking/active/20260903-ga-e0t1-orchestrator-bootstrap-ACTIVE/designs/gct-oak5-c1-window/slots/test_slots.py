@@ -182,15 +182,28 @@ def full(action):
             '%s-started.json' % action, '%s-phase.json' % action)
 
 
-PREFIX = '/home/loucmane/gas-city-ops-worktrees/x/docs/ai/work-tracking/active/y/designs/gct-oak5-c1-window/operator/'
+COMMIT = 'c' * 40
 
 
-def runner(done, job_id, job, final=True, exit_code=0):
-    record = dict(job_id=job_id, admitted=True, job=dict(job_id=job_id, wrapper=PREFIX + job + '.sh', commit='c' * 40))
+def runner(done, job_id, job, final=True, exit_code=0, commit=COMMIT, wrapper=None):
+    """The runner's record shape, keys as in a real pair (done/ga-nibd-s2r2-watch-1.started.json and .json):
+    started has admitted, argv, job, job_file, received, started; job has commit, job_id, reviews, wrapper,
+    wrapper_sha256 with the wrapper RELATIVE to the repository; the final record adds ended, exit, stderr, stdout,
+    unit_state_after."""
+    wrapper = wrapper or S.WRAPPER_PREFIX + job + '.sh'
+    record = dict(admitted=True, argv=['/usr/bin/systemd-run', '--unit=gc-job-' + job_id, '/abs/' + wrapper, commit],
+                  job=dict(commit=commit, job_id=job_id, reviews=[], wrapper=wrapper, wrapper_sha256='0' * 64),
+                  job_file=job_id + '.json', received='r', started='s')
     (done/(job_id + '.started.json')).write_text(json.dumps(record))
     if final:
-        (done/(job_id + '.json')).write_text(json.dumps(dict(record, exit=exit_code)))
+        (done/(job_id + '.json')).write_text(json.dumps(dict(record, ended='e', exit=exit_code, stderr='', stdout='',
+                                                              unit_state_after='inactive')))
         (done/(job_id + '.halted-cleared.json')).write_text('job finished, not json')
+
+
+def test_wrapper_prefix_is_the_runner_relative_form():
+    assert S.WRAPPER_PREFIX.startswith('docs/ai/work-tracking/active/') and not S.WRAPPER_PREFIX.startswith('/')
+    assert S.WRAPPER_PREFIX.endswith('/gct-oak5-c1-window/operator/')
 
 
 def test_read_state(tmp_path):
@@ -198,6 +211,8 @@ def test_read_state(tmp_path):
     w.mkdir(), d.mkdir()
     touch(w, *full('rig-resume'), *full('city-resume'), 'suspension-city-suspend-intent.json')
     runner(d, 'oak5-c1-watch', S.WATCH_LOOP, exit_code=137)
+    runner(d, 'old-attempt', S.WATCH_LOOP_2, commit='d' * 40)                    # another commit: not this package
+    runner(d, 'other-window', S.WATCH_LOOP_2, wrapper='docs/ai/x/designs/gct-e8ex-window/operator/WATCH-1.sh')
     (d/'x.refused-1.json').write_text('{}')
     h = tmp_path/'hold'
     h.mkdir()
@@ -206,7 +221,7 @@ def test_read_state(tmp_path):
     o1.mkdir(), o2.mkdir()
     (o1/'final-observation.json').write_text(json.dumps(dict(QUIET, window=str(w), written_ns=2)))
     (o2/'final-observation.json').write_text(json.dumps(dict(LIVE, window=str(w), written_ns=1)))
-    st = S.read_state(w, d, PREFIX, [h], [o2, o1])
+    st = S.read_state(w, d, COMMIT, [h], [o2, o1])
     assert st['lifecycle'] == lc(rig_resume=S.COMPLETE, city_resume=S.COMPLETE, city_suspend=S.INCOMPLETE)
     assert st['used'] == {S.WATCH_LOOP} and st['hold_passed'] is False and S.quiet(st['obs'])
     assert not st['broken'] and not st['stranded']
@@ -222,50 +237,81 @@ def test_each_job_passes_its_own_admission_with_the_runner_layout(tmp_path):
     d.mkdir()
     for n, job in enumerate([S.WATCH_LOOP, S.WATCH_LOOP_2, S.HOLD_1, S.HOLD_2]):
         runner(d, 'job%d' % n, job, final=False)
-        st = S.read_state(w, d, PREFIX, [], [], own_job_id='job%d' % n)
+        st = S.read_state(w, d, COMMIT, [], [], own_job=job, own_job_id='job%d' % n)
         assert not st['broken'] and S.select(**st) == job, job
-        coordinator = S.read_state(w, d, PREFIX, [], [])
+        coordinator = S.read_state(w, d, COMMIT, [], [])
         assert job in coordinator['used']                      # started, unfinished: used for everyone else
         (d/('job%d.json' % n)).write_text((d/('job%d.started.json' % n)).read_text())
-    # CONTAIN-2 at the partial RESUME.
     w2 = tmp_path/'w2'
     w2.mkdir()
     touch(w2, *full('rig-resume'))
     d2 = tmp_path/'done2'
     d2.mkdir()
     runner(d2, 'c2', S.CONTAIN_2, final=False)
-    assert S.select(**S.read_state(w2, d2, PREFIX, [], [], own_job_id='c2')) == S.CONTAIN_2
+    assert S.select(**S.read_state(w2, d2, COMMIT, [], [], own_job=S.CONTAIN_2, own_job_id='c2')) == S.CONTAIN_2
 
 
-def test_broken_inputs_stop(tmp_path):
+def test_own_record_must_name_its_own_wrapper_and_commit(tmp_path):
     w = tmp_path/'w'
     w.mkdir()
     d = tmp_path/'done'
-    assert S.read_state(w, d, PREFIX, [], [])['broken']                          # no done directory
     d.mkdir()
-    assert S.read_state(w, d, 'relative/', [], [])['broken']                     # wrong prefix shape
+    runner(d, 'a', S.WATCH_LOOP_2, final=False)
+    assert S.read_state(w, d, COMMIT, [], [], own_job=S.HOLD_1, own_job_id='a')['broken']       # another job's run
+    assert S.read_state(w, d, 'e' * 40, [], [], own_job=S.WATCH_LOOP_2, own_job_id='a')['broken']  # another commit
+    runner(d, 'b', S.WATCH_LOOP, final=False, wrapper='/abs/' + S.WRAPPER_PREFIX + 'WATCH-LOOP.sh')
+    assert S.read_state(w, d, COMMIT, [], [], own_job=S.WATCH_LOOP, own_job_id='b')['broken']   # absolute form
+    assert S.read_state(w, d, COMMIT, [], [], own_job_id='a')['broken']                         # job id without name
+
+
+def test_broken_inputs_hold(tmp_path):
+    w = tmp_path/'w'
+    w.mkdir()
+    touch(w, *full('rig-resume'), *full('city-resume'))
+    d = tmp_path/'done'
+    assert S.read_state(w, d, COMMIT, [], [])['broken']                          # no done directory
+    d.mkdir()
     (d/'bad.json').write_text('not json')
-    st = S.read_state(w, d, PREFIX, [], [])
-    assert st['broken'] and S.select(**st) == S.STOP
+    st = S.read_state(w, d, COMMIT, [], [])
+    assert st['broken'] and S.select(**st) == S.HOLD_1                         # only a hold may act
     (d/'bad.json').unlink()
     (d/'odd.name.json').write_text('{}')
-    assert S.read_state(w, d, PREFIX, [], [])['broken']                          # unknown record shape
+    assert S.read_state(w, d, COMMIT, [], [])['broken']                          # unknown record shape
     (d/'odd.name.json').unlink()
+    (d/'big.json').write_text(json.dumps(dict(job=dict(wrapper='w', commit=COMMIT), pad='x' * S.RECORD_LIMIT)))
+    assert S.read_state(w, d, COMMIT, [], [])['broken']                          # over the size limit
+    (d/'big.json').unlink()
+    (tmp_path/'target.json').write_text(json.dumps(dict(job=dict(wrapper='w', commit=COMMIT))))
+    (d/'link.json').symlink_to(tmp_path/'target.json')
+    assert S.read_state(w, d, COMMIT, [], [])['broken']                          # a link
+    (d/'link.json').unlink()
     runner(d, 'j', S.WATCH_LOOP)
-    assert S.read_state(w, d, PREFIX, [], [], own_job_id='j')['broken']          # own run already final
-    assert S.read_state(w, d, PREFIX, [], [], own_job_id='missing')['broken']    # own run never started
+    assert S.read_state(w, d, COMMIT, [], [], own_job=S.WATCH_LOOP, own_job_id='j')['broken']        # already final
+    assert S.read_state(w, d, COMMIT, [], [], own_job=S.WATCH_LOOP, own_job_id='missing')['broken']  # never started
+    held = S.read_state(w, tmp_path/'none', COMMIT, [], [])
+    assert held['broken'] and S.select(**dict(held, hold_passed=True)) == S.CLOSE      # a passing hold still wins
 
 
-def test_hold_result_counts_only_for_this_window(tmp_path):
+def test_hold_result_and_observation_links_are_refused(tmp_path):
     w = tmp_path/'w'
     w.mkdir()
     d = tmp_path/'done'
     d.mkdir()
-    h = tmp_path/'h'
-    h.mkdir()
-    (h/'result.json').write_text(json.dumps(dict(ok=True, window=str(w))))
-    st = S.read_state(w, d, PREFIX, [h], [])
-    assert st['hold_passed'] and S.select(**st) == S.CLOSE
+    real, h = tmp_path/'real', tmp_path/'h'
+    real.mkdir(), h.mkdir()
+    (real/'result.json').write_text(json.dumps(dict(ok=True, window=str(w))))
+    (h/'result.json').symlink_to(real/'result.json')
+    assert not S.read_state(w, d, COMMIT, [h], [])['hold_passed']
+    assert S.read_state(w, d, COMMIT, [real], [])['hold_passed']
+
+
+def test_own_job_id_from_cgroup():
+    import pytest
+    text = '0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-oak5-c1-hold-1.service\n'
+    assert S.own_job_id_from_cgroup(text) == 'oak5-c1-hold-1'
+    for bad in ('0::/user.slice/x.scope\n', '', text + text):
+        with pytest.raises(ValueError):
+            S.own_job_id_from_cgroup(bad)
 
 
 def test_select_rejects_malformed_state():
@@ -282,12 +328,12 @@ def test_read_state_failure_and_stray_phases(tmp_path):
     d = tmp_path/'done'
     d.mkdir()
     touch(w, *full('rig-resume'), 'city-resume-started.json')
-    st = S.read_state(w, d, PREFIX, [], [tmp_path/'missing'])
+    st = S.read_state(w, d, COMMIT, [], [tmp_path/'missing'])
     assert st['obs'] is None and st['used'] == set() and st['stranded']
     assert S.select(**st) == S.HOLD_1
     w2 = tmp_path/'w2'
     w2.mkdir()
     touch(w2, *full('rig-resume'), 'other-phase.json')                          # a phase without its start
-    assert S.read_state(w2, d, PREFIX, [], [])['stranded']
+    assert S.read_state(w2, d, COMMIT, [], [])['stranded']
     touch(w, 'suspension-city-resume-refused-after.json')
-    assert S.read_state(w, d, PREFIX, [], [])['lifecycle']['city-resume'] == S.FAILED
+    assert S.read_state(w, d, COMMIT, [], [])['lifecycle']['city-resume'] == S.FAILED
