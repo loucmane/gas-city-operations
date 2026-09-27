@@ -69,6 +69,12 @@ def test_possibly_live_worker_is_watched_or_held():
                     assert r in (S.CONTAIN_2,) + S.HOLDS + (S.STOP,)
                 else:
                     assert r in S.WATCHERS + S.HOLDS + (S.STOP,)
+    # City suspended, rig not: a lane row may still run; the rig suspend (CONTAIN-2) or a hold, never CLOSE.
+    between = lc(rig_resume=S.COMPLETE, city_resume=S.COMPLETE, city_suspend=S.COMPLETE)
+    for n in range(len(S.JOBS) + 1):
+        for used in itertools.combinations(S.JOBS, n):
+            for obs in OBS:
+                assert S.select(between, set(used), False, obs) in (S.CONTAIN_2,) + S.HOLDS + (S.STOP,)
 
 
 def test_named_states():
@@ -103,7 +109,8 @@ def attempt(life, action):
     seq = S.completed(life)
     if any(v == S.FAILED for v in life.values()) or action not in PERMITTED.get(seq, []):
         return [None]
-    return [dict(life, **{action: o}) for o in (S.COMPLETE, S.FAILED, S.INCOMPLETE)]
+    # A permitted step can still refuse before its intent (digests, active_epoch, the chain: window-base-r11.py:644-665).
+    return [None] + [dict(life, **{action: o}) for o in (S.COMPLETE, S.FAILED, S.INCOMPLETE)]
 
 
 def run_steps(life, steps):
@@ -131,7 +138,10 @@ def effects(job, life):
 
 
 def resume_outcomes():
-    return run_steps(lc(), ['rig-resume', 'city-resume'])
+    # RESUME: rig-resume, the queue audit (which can refuse: modelled by city-resume's None branch), city-resume.
+    out = run_steps(lc(), ['rig-resume', 'city-resume'])
+    assert lc() in out and lc(rig_resume=S.COMPLETE) in out
+    return out
 
 
 def test_every_run_ends_at_close_or_stop_and_repeats_nothing():
@@ -156,6 +166,8 @@ def test_every_run_ends_at_close_or_stop_and_repeats_nothing():
             for nxt, passed in effects(r, life):
                 frontier.append((nxt, used | {r}, hold or passed))
     assert ends == {S.CLOSE, S.STOP} and len(visited) > 50
+    between = lc(rig_resume=S.COMPLETE, city_resume=S.COMPLETE, city_suspend=S.COMPLETE)
+    assert any(dict(k[0]) == between for k in visited)
 
 
 # ---- reading records from disk ----
@@ -170,31 +182,112 @@ def full(action):
             '%s-started.json' % action, '%s-phase.json' % action)
 
 
+PREFIX = '/home/loucmane/gas-city-ops-worktrees/x/docs/ai/work-tracking/active/y/designs/gct-oak5-c1-window/operator/'
+
+
+def runner(done, job_id, job, final=True, exit_code=0):
+    record = dict(job_id=job_id, admitted=True, job=dict(job_id=job_id, wrapper=PREFIX + job + '.sh', commit='c' * 40))
+    (done/(job_id + '.started.json')).write_text(json.dumps(record))
+    if final:
+        (done/(job_id + '.json')).write_text(json.dumps(dict(record, exit=exit_code)))
+        (done/(job_id + '.halted-cleared.json')).write_text('job finished, not json')
+
+
 def test_read_state(tmp_path):
     w, d = tmp_path/'w', tmp_path/'done'
     w.mkdir(), d.mkdir()
     touch(w, *full('rig-resume'), *full('city-resume'), 'suspension-city-suspend-intent.json')
-    prefix = 'designs/gct-oak5-c1-window/operator/'
-    (d/'a.json').write_text(json.dumps(dict(job=dict(wrapper=prefix + 'WATCH-LOOP.sh'), exit=137)))
-    (d/'b.json').write_text(json.dumps(dict(job=dict(wrapper='elsewhere/CONTAIN-2.sh'), exit=1)))
-    (d/'c.json').write_text('not json')
+    runner(d, 'oak5-c1-watch', S.WATCH_LOOP, exit_code=137)
+    (d/'x.refused-1.json').write_text('{}')
     h = tmp_path/'hold'
     h.mkdir()
-    (h/'result.json').write_text(json.dumps(dict(ok=False)))
-    o = tmp_path/'obs.json'
-    o.write_text(json.dumps(QUIET))
-    st = S.read_state(w, d, prefix, [h], o)
+    (h/'result.json').write_text(json.dumps(dict(ok=True, window='/elsewhere')))
+    o1, o2 = tmp_path/'o1', tmp_path/'o2'
+    o1.mkdir(), o2.mkdir()
+    (o1/'final-observation.json').write_text(json.dumps(dict(QUIET, window=str(w), written_ns=2)))
+    (o2/'final-observation.json').write_text(json.dumps(dict(LIVE, window=str(w), written_ns=1)))
+    st = S.read_state(w, d, PREFIX, [h], [o2, o1])
     assert st['lifecycle'] == lc(rig_resume=S.COMPLETE, city_resume=S.COMPLETE, city_suspend=S.INCOMPLETE)
     assert st['used'] == {S.WATCH_LOOP} and st['hold_passed'] is False and S.quiet(st['obs'])
+    assert not st['broken'] and not st['stranded']
     assert S.select(**st) == S.HOLD_1
 
 
-def test_read_state_failure_stray_and_missing_obs(tmp_path):
+def test_each_job_passes_its_own_admission_with_the_runner_layout(tmp_path):
+    """The runner writes <id>.started.json before launching (jobrunner.py:438); the caller excludes its own."""
     w = tmp_path/'w'
     w.mkdir()
+    touch(w, *full('rig-resume'), *full('city-resume'))
+    d = tmp_path/'done'
+    d.mkdir()
+    for n, job in enumerate([S.WATCH_LOOP, S.WATCH_LOOP_2, S.HOLD_1, S.HOLD_2]):
+        runner(d, 'job%d' % n, job, final=False)
+        st = S.read_state(w, d, PREFIX, [], [], own_job_id='job%d' % n)
+        assert not st['broken'] and S.select(**st) == job, job
+        coordinator = S.read_state(w, d, PREFIX, [], [])
+        assert job in coordinator['used']                      # started, unfinished: used for everyone else
+        (d/('job%d.json' % n)).write_text((d/('job%d.started.json' % n)).read_text())
+    # CONTAIN-2 at the partial RESUME.
+    w2 = tmp_path/'w2'
+    w2.mkdir()
+    touch(w2, *full('rig-resume'))
+    d2 = tmp_path/'done2'
+    d2.mkdir()
+    runner(d2, 'c2', S.CONTAIN_2, final=False)
+    assert S.select(**S.read_state(w2, d2, PREFIX, [], [], own_job_id='c2')) == S.CONTAIN_2
+
+
+def test_broken_inputs_stop(tmp_path):
+    w = tmp_path/'w'
+    w.mkdir()
+    d = tmp_path/'done'
+    assert S.read_state(w, d, PREFIX, [], [])['broken']                          # no done directory
+    d.mkdir()
+    assert S.read_state(w, d, 'relative/', [], [])['broken']                     # wrong prefix shape
+    (d/'bad.json').write_text('not json')
+    st = S.read_state(w, d, PREFIX, [], [])
+    assert st['broken'] and S.select(**st) == S.STOP
+    (d/'bad.json').unlink()
+    (d/'odd.name.json').write_text('{}')
+    assert S.read_state(w, d, PREFIX, [], [])['broken']                          # unknown record shape
+    (d/'odd.name.json').unlink()
+    runner(d, 'j', S.WATCH_LOOP)
+    assert S.read_state(w, d, PREFIX, [], [], own_job_id='j')['broken']          # own run already final
+    assert S.read_state(w, d, PREFIX, [], [], own_job_id='missing')['broken']    # own run never started
+
+
+def test_hold_result_counts_only_for_this_window(tmp_path):
+    w = tmp_path/'w'
+    w.mkdir()
+    d = tmp_path/'done'
+    d.mkdir()
+    h = tmp_path/'h'
+    h.mkdir()
+    (h/'result.json').write_text(json.dumps(dict(ok=True, window=str(w))))
+    st = S.read_state(w, d, PREFIX, [h], [])
+    assert st['hold_passed'] and S.select(**st) == S.CLOSE
+
+
+def test_select_rejects_malformed_state():
+    import pytest
+    with pytest.raises(ValueError):
+        S.select({'rig-resume': S.ABSENT}, set(), False, None)
+    with pytest.raises(ValueError):
+        S.select(lc(), {'CLOSE'}, False, None)
+
+
+def test_read_state_failure_and_stray_phases(tmp_path):
+    w = tmp_path/'w'
+    w.mkdir()
+    d = tmp_path/'done'
+    d.mkdir()
     touch(w, *full('rig-resume'), 'city-resume-started.json')
-    st = S.read_state(w, tmp_path/'none', 'p/', [], tmp_path/'missing.json')
-    assert st['obs'] is None and st['used'] == set()
+    st = S.read_state(w, d, PREFIX, [], [tmp_path/'missing'])
+    assert st['obs'] is None and st['used'] == set() and st['stranded']
     assert S.select(**st) == S.HOLD_1
+    w2 = tmp_path/'w2'
+    w2.mkdir()
+    touch(w2, *full('rig-resume'), 'other-phase.json')                          # a phase without its start
+    assert S.read_state(w2, d, PREFIX, [], [])['stranded']
     touch(w, 'suspension-city-resume-refused-after.json')
-    assert S.read_state(w, tmp_path/'none', 'p/', [], None)['lifecycle']['city-resume'] == S.FAILED
+    assert S.read_state(w, d, PREFIX, [], [])['lifecycle']['city-resume'] == S.FAILED
