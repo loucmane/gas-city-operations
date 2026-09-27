@@ -8,9 +8,9 @@ S=/home/loucmane/.local/share/gas-city-staging/gct-oak5-handover
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-oak5-handover/split
-STAGE=$S/split-r1
+STAGE=$S/split-r2
 COMMIT=${1:?usage: SPLIT.sh <reviewed commit>}
-APPLY_SHA=4961594b428f101260822edd64f269c966707080ee1a696de96f75eb5e634788
+APPLY_SHA=e9ca41f4ad7867280ed177bee65e0f6883e61d01588453d42faa47104b6616f7
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

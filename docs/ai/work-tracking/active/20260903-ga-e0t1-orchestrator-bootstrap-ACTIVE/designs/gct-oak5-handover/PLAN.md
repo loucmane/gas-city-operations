@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r15
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r16
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, and r15 records the second run and corrects wording; see the last six sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, and r16 answers the reviews of the split package at `4cb2b80e` (A and B HOLD); see the last seven sections.
 
 ## Decisions this plan relies on
 
@@ -17,8 +17,8 @@ This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its clos
 
     The members known today are `gct-af6u`, `gct-20mc`, `gct-svpm`, `gct-dh6u` and `gct-v7yb`; `gct-zkfz` is already closed.
   - **Conditions.** All closures happen in one step, with every rig suspended and no session running.
-  - **Order.** Controls are every member whose `gc.kind` is in Core's control-kind set: retry, ralph, check, retry-eval, fanout, drain, scope-check and workflow-finalize (`internal/dispatch/runtime.go:172-189`). Today that is `gct-20mc` and `gct-dh6u`. They close first, then the work steps, then the root if it is still open.
-    - Closing a control does not dispatch: `ProcessControl` returns for a non-open control, and it runs only in a `gc convoy control --serve` dispatcher session (`runtime.go:154-167`, `cmd/gc/cmd_convoy_dispatch.go:138-169`).
+  - **Order.** Controls are every member whose `gc.kind` is in Core's control-kind set: retry, ralph, check, retry-eval, fanout, drain, scope-check and workflow-finalize (`internal/dispatch/runtime.go:172-189`). Today that is `gct-20mc` and `gct-dh6u`. They are closed in **dependency order**, not controls first. bd 1.2.2 refuses to close a Bead that has an open `blocks`, `conditional-blocks` or `waits-for` blocker, and the members block each other: `gct-20mc` is blocked by `gct-af6u`, `gct-svpm` by `gct-20mc`, `gct-dh6u` by `gct-svpm`, and the root by `gct-dh6u`. The order is `gct-af6u`, `gct-20mc`, `gct-svpm`, `gct-dh6u`, `gct-v7yb`, then the root, and the package checks it against the live blocking edges before any write.
+    - Closing a control does not dispatch, whenever it closes: `ProcessControl` returns for a non-open control, and it runs only in a `gc convoy control --serve` dispatcher session (`runtime.go:154-167`, `cmd/gc/cmd_convoy_dispatch.go:138-169`).
   - **Core auto-close.** On every close, Core's controller runs molecule, wisp and convoy auto-close, even with the rigs suspended (`cmd/gc/api_state.go:575-625`, `molecule_autoclose.go`, `wisp_autoclose.go`). It may therefore close the root, attempt subtrees or convoys itself, with its own close reason.
     - The package does not fight this.
     - For each member it records who closed it: the coordinator with `gc.work_outcome=abandoned` and a close reason naming this decision, or Core's auto-close with Core's fields.
@@ -187,7 +187,7 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
 4. **No ignored entries** in images 1 and 2, and in the final export, other than the `.gc/` `RUNTIME` entries admitted above. C1 and X run no tests and create no caches. C2's temporary directory `.oak5-c2-tmp/` must be deleted by C2 and absent from the final export.
 5. **Bead state is as expected.**
    - `gct-oak5` and the non-current steps are unchanged.
-   - The previous step was closed by its own worker. The evidence comes from WATCH:
+   - The previous step was closed by its own worker **with its success close reason**. A close whose reason starts with `C1 STOP`, `X STOP` or `C2 STOP` is a failed segment, and the route gate refuses. bd treats such a close as satisfied, so the next step becomes ready, but it stays unrouted and so unclaimable. The evidence comes from WATCH:
      - the closed record keeps its assignee: a worker's own `bd close` does not clear it (inventory section 2). It must equal the claim's `gc.session_name` and match `gc.session_id`, and so must the assignee in the last WATCH tick before the close. A cleared assignee means Core's orphan release ran, and it refuses;
      - the close happened while that session was the only live worker, per the census;
      - the coordinator issued no close.
@@ -811,3 +811,24 @@ The plan part of r11 closed the three r10 must_fix items (both reviews verified 
     - M2 `docs/bead-conventions.md`, A2 `tests/test_gct_handover_digest.py` (X);
     - C2 finishes all four.
   - **Holders.** The briefs are the closed spec holders (`split/texts/*-spec.md`, rendered with the real ids). H1 and H2 are closed and empty. Images are written into them as `DIGEST <path> <sha256>` lines.
+
+## r16 (answers the reviews of the split package at `4cb2b80e`: A and B HOLD)
+
+- **Both must_fix: the controls-first close order would have failed on the live blocking edges** after a first write. The order is now the dependency order, checked against the live edges before any write, and a fake-gc test shows the old order refused before any write.
+- **A must_fix: the end-state checks now cover fields, not only row ids.**
+  - A coordinator close must add exactly `gc.work_outcome=abandoned` with the pinned close reason. A Core close must add no metadata.
+  - Every member may change only its status, close and update fields.
+  - `gct-oak5` may change only `dependent_count` and `updated_at`.
+  - Every created Bead must match exactly: status, labels, metadata (none), dependencies, assignee, description and holder close reason.
+- **Should_fix taken:**
+  - every write is recorded as an intent first, every error is recorded, and a failure after a write exits 3;
+  - the texts are hashed and rendered from one read;
+  - the reviewed gc environment is used (`BD_DISABLE_METRICS`, `LANG`);
+  - the suspension check reads the city line, and `gas-city-template` must be listed as suspended;
+  - `create.require-description` is false in the Template store, so the empty H1 and H2 create cleanly;
+  - `step.md` itself carries drain-and-exit and "never touch any other Bead";
+  - the X brief wins wherever it differs from the codex prompt, and adds no tests and no git writes except the probe;
+  - the briefs say how to strip single quotes from error lines;
+  - a STOP close is a failure for the route gate;
+  - fake-gc tests cover `run()` and `verify()`: success, refusal before writes, member drift, a Core auto-close, a failure after writes, and a tampered field.
+- **A stated limit:** member enumeration follows direct links only (`gc.root_bead_id` and edges to `gct-wn1m`), and it matches the pinned set, so any drift refuses.

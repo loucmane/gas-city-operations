@@ -58,7 +58,8 @@ It is expected to be refused. Do not retry it or work around a refusal.
 
 ## 5. Result note
 
-Append one note with the test summary line and the probe outcome:
+Append one note with the test summary line and the probe outcome. Remove any single quote
+characters from the lines first, so the note stays one quoted argument:
 
 ```
 /home/loucmane/gascity/bin/bd update {C2} --append-notes 'C2 TEST <pytest summary line> PROBE outside-write exit=<code> <first error line>'

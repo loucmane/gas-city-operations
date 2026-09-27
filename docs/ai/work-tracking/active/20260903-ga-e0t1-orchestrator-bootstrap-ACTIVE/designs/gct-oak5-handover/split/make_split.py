@@ -7,7 +7,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 APPLY = HERE / "apply_split.py"
 WRAPPER = HERE.parent / "operator" / "SPLIT.sh"
-STAGE = "split-r1"
+STAGE = "split-r2"
 
 WRAPPER_TEXT = """#!/bin/sh
 # gct-oak5 split package: close the stale workflow gct-wn1m and create the handover step Beads

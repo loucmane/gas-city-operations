@@ -1,25 +1,28 @@
-"""gct-oak5 split package: close the stale workflow gct-wn1m and create the handover step Beads.
+"""gct-oak5 split package r2: close the stale workflow gct-wn1m and create the handover step Beads.
 
-One quiet step (plan r15, sections "Decisions" and "Beads"):
-1. preconditions: the city and every rig suspended, no open session Bead, the gct-wn1m member set
-   exactly as pinned, no handover Bead yet;
-2. before-snapshots of the Template and city stores (`bd export --all`);
-3. close gct-wn1m: controls first, then work steps, then the root if Core has not closed it, each
-   with gc.work_outcome=abandoned and a close reason naming the operator decision;
-4. create the closed spec holders, the closed empty image holders H1 and H2, then the open,
-   unrouted steps C1, X and C2 (label handover), with step -> gct-oak5 relates-to edges and the
-   C1 blocks X blocks C2 chain;
-5. after-snapshots, an attribution check of every changed row, the end-state checks and the
-   lane-eligible queue audit.
+One quiet step (plan r16, sections "Decisions" and "Beads"):
+1. preconditions: the city line and the gas-city-template rig suspended (and every other rig), no
+   open session Bead, the gct-wn1m member set, kinds, states and blocking edges exactly as pinned,
+   and no handover Bead yet;
+2. before-exports of the Template and city stores (`bd export --all`);
+3. close gct-wn1m in dependency order (bd 1.2.2 refuses to close a Bead with an open `blocks`,
+   `conditional-blocks` or `waits-for` blocker): gct-af6u, gct-20mc, gct-svpm, gct-dh6u, gct-v7yb,
+   then the root. Each open member gets gc.work_outcome=abandoned and CLOSE_REASON; a member Core
+   closed first is attributed to Core. Every write is recorded as an intent before it is made;
+4. create the closed spec holders, the closed empty image holders H1 and H2, and the open, unrouted
+   steps C1, X and C2 (label handover), with step -> gct-oak5 relates-to edges and the C1 blocks X
+   blocks C2 chain;
+5. after-exports and exact checks: field deltas on every member and on gct-oak5, exact rows for
+   every created Bead, no other change in either store, an empty lane-eligible audit, and a ready
+   set holding C1 and neither X nor C2.
 
-Refuses before any write on a failed precondition. After the first write it never retries: a
-failure records what happened and exits non-zero for the coordinator (the runner halts).
+Exit 0: done and verified. 1: refused before any write. 2: every write made, verification found
+problems. 3: an error after the first write (the record names the last intent).
 Output: <stage>/record.json (always written once the stage exists) and the snapshots.
 Entry: source-launch.py <this file> <sha256> <stage directory that must not exist>.
 """
 import hashlib
 import json
-import os
 import re
 import subprocess
 import sys
@@ -27,25 +30,30 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 TEXTS = HERE / "texts"
-TEXT_SHA = {"C1-spec.md": "81d4cd9902ca482bf21f37c46ad58f5814236daa8ef2aafcb4b67558bfdc4f49", "C2-spec.md": "a7d07602eda935cebf78d94dbe495036d6d380b118393e60b1ac7665ffed2509", "X-spec.md": "e5f48c052e409d18f19a0aaca973d81af0f762e81f6e373f1530f5c565cb83cd", "step.md": "a318e6e5e093584eecd6294e203714b2ec61011803fe4a12c82471fd6f92108f"}
+TEXT_SHA = {"C1-spec.md": "81d4cd9902ca482bf21f37c46ad58f5814236daa8ef2aafcb4b67558bfdc4f49", "C2-spec.md": "444c6db2c763b652031a56ff35e79c289c9e54bb7f9114ebb6e1b58134de6d91", "X-spec.md": "0940ec187f2b61ef69ea1366acd4bbd88723f7f19704bb93f65a9054260896cc", "step.md": "20889fa155558f35b60facfc10e7ac4ac16b444ee3fe88a315824fb92b928df8"}
 GC = "/home/loucmane/gascity/bin/gc"
 CITY = "/home/loucmane/gascity/city"
 RIG = "gas-city-template"
-ENV = {
-    "GC_HOME": "/home/loucmane/gascity/home",
-    "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin",
-    "GIT_OPTIONAL_LOCKS": "0",
+ENV = {  # the reviewed ga-6utp gc environment
     "HOME": "/home/loucmane",
+    "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin",
+    "GC_HOME": "/home/loucmane/gascity/home",
+    "GIT_OPTIONAL_LOCKS": "0",
+    "BD_DISABLE_METRICS": "1",
+    "LANG": "C",
 }
 ROOT = "gct-oak5"
 WN1M = "gct-wn1m"
-CONTROLS = ("gct-20mc", "gct-dh6u")
-WORK = ("gct-af6u", "gct-svpm", "gct-v7yb")
+ORDER = ("gct-af6u", "gct-20mc", "gct-svpm", "gct-dh6u", "gct-v7yb", WN1M)
 ALREADY_CLOSED = ("gct-zkfz",)
-MEMBERS = frozenset((WN1M,) + CONTROLS + WORK + ALREADY_CLOSED)
-CONTROL_KINDS = frozenset({"retry", "ralph", "check", "retry-eval", "fanout", "drain", "scope-check", "workflow-finalize"})
+MEMBERS = frozenset(ORDER + ALREADY_CLOSED)
+KINDS = {"gct-af6u": None, "gct-20mc": "ralph", "gct-svpm": None, "gct-dh6u": "workflow-finalize",
+         "gct-v7yb": "spec", WN1M: "workflow"}
+BLOCKING = frozenset({"blocks", "conditional-blocks", "waits-for"})
 CLOSE_REASON = ("Obsolete: stale 2026-08 do-work workflow gct-wn1m, closed before the gct-oak5 handover "
                 "on the operator decision of 2026-09-27 (Close as obsolete; ga-e0t1).")
+HOLDER_REASON = "gct-oak5 handover holder (closed by design)"
+CLOSE_FIELDS = frozenset({"status", "closed_at", "updated_at", "close_reason", "metadata"})
 LANE_TARGETS = frozenset({
     "gas-city-template/gc.implementation-worker", "gc.implementation-worker",
     "gas-city-template/gc.implementation-worker-1",
@@ -57,6 +65,7 @@ STEPS = (
     ("X", "Template codex", "/home/loucmane/gascity/bin/gc bd show"),
     ("C2", "Claude", "/home/loucmane/gascity/bin/bd show"),
 )
+HOLDERS = ("C1-spec", "X-spec", "C2-spec", "H1", "H2")
 ID = re.compile(r"^gct-[a-z0-9]{2,12}$")
 MAX_VIEW = 9000
 
@@ -83,17 +92,48 @@ def export(store_rig):
     return out, rows
 
 
+def show(bead):
+    data = json.loads(gc("bd", "show", bead, "--json").stdout)
+    return data[0] if isinstance(data, list) else data
+
+
 def meta(row):
     return row.get("metadata") or {}
 
 
-def verify_texts():
-    for name, want in TEXT_SHA.items():
-        got = hashlib.sha256((TEXTS / name).read_bytes()).hexdigest()
-        if got != want:
-            raise Refused(f"text {name} digest {got} != {want}")
-    if set(TEXT_SHA) != {p.name for p in TEXTS.iterdir()}:
+def load_texts():
+    """Hash and return the pinned texts from one read of each file."""
+    names = {p.name for p in TEXTS.iterdir()}
+    if names != set(TEXT_SHA):
         raise Refused("text set differs from the pinned set")
+    texts = {}
+    for name in sorted(names):
+        raw = (TEXTS / name).read_bytes()
+        if hashlib.sha256(raw).hexdigest() != TEXT_SHA[name]:
+            raise Refused(f"text {name} digest mismatch")
+        texts[name] = raw.decode("utf-8")
+    return texts
+
+
+def render(texts, ids):
+    subst = {"{C1}": ids["C1"], "{X}": ids["X"], "{C2}": ids["C2"], "{H1}": ids["H1"], "{H2}": ids["H2"]}
+    rendered = {}
+    for name, lane, show_cmd in STEPS:
+        spec = texts[f"{name}-spec.md"]
+        for key, value in subst.items():
+            spec = spec.replace(key, value)
+        step = texts["step.md"]
+        for key, value in (("{NAME}", name), ("{LANE}", lane), ("{SPEC}", ids[name + "-spec"]),
+                           ("{SHOW}", show_cmd), ("{STEP}", ids[name])):
+            step = step.replace(key, value)
+        for text in (spec, step):
+            if re.search(r"\{[A-Z0-9]+\}", text):
+                raise Refused(f"unrendered placeholder in {name}")
+            if len(text.encode()) > MAX_VIEW:
+                raise Refused(f"{name} text over {MAX_VIEW} bytes")
+        rendered[name + "-spec"] = spec.rstrip("\n")
+        rendered[name] = step.rstrip("\n")
+    return rendered
 
 
 def wn1m_members(rows):
@@ -108,6 +148,20 @@ def wn1m_members(rows):
     return found
 
 
+def blockers(row):
+    return {d.get("depends_on_id") for d in row.get("dependencies") or [] if d.get("type") in BLOCKING}
+
+
+def check_order(rows):
+    """Every blocker of each member is closed before the run or closed earlier in ORDER."""
+    done = {k for k, r in rows.items() if r.get("status") == "closed"}
+    for bead in ORDER:
+        missing = blockers(rows[bead]) - done
+        if missing:
+            raise Refused(f"{bead} would still be blocked by {sorted(missing)}")
+        done.add(bead)
+
+
 def lane_eligible(template_rows, city_rows, identities):
     hits = []
     for store, rows in (("template", template_rows), ("city", city_rows)):
@@ -117,23 +171,31 @@ def lane_eligible(template_rows, city_rows, identities):
             m = meta(row)
             routed = m.get("gc.routed_to") or ""
             if routed in LANE_TARGETS:
-                hits.append((store, row["id"], "routed", routed))
+                hits.append([store, row["id"], "routed", routed])
             if m.get("gc.kind") == "workflow" and not routed and (m.get("gc.run_target") or "") in LANE_TARGETS:
-                hits.append((store, row["id"], "run_target", m.get("gc.run_target")))
+                hits.append([store, row["id"], "run_target", m.get("gc.run_target")])
             if row.get("issue_type") != "message" and (row.get("assignee") or "") in identities:
-                hits.append((store, row["id"], "assigned", row.get("assignee")))
+                hits.append([store, row["id"], "assigned", row.get("assignee")])
     return hits
 
 
+def city_suspended(status):
+    head = status.split("\nAgents:", 1)[0]
+    lines = head.splitlines()
+    return bool(lines) and lines[0].startswith("city ") and any(
+        re.fullmatch(r"\s+Suspended:\s+yes\s*", line) for line in lines[1:])
+
+
 def preconditions(record):
-    status = gc("status", rig=False, check=False).stdout
-    if not re.search(r"^\s*Suspended:\s+yes\s*$", status, re.M):
-        raise Refused("city is not suspended")
+    if not city_suspended(gc("status", rig=False, check=False).stdout):
+        raise Refused("the city line does not show Suspended: yes")
     rigs = json.loads(gc("rig", "list", "--json", rig=False).stdout)["rigs"]
+    record["rigs"] = {r["name"]: r.get("suspended") for r in rigs}
+    if record["rigs"].get(RIG) is not True:
+        raise Refused(f"{RIG} is not listed as suspended")
     awake = [r["name"] for r in rigs if r.get("name") != "city" and not r.get("suspended")]
     if awake:
         raise Refused(f"rigs not suspended: {awake}")
-    record["rigs"] = {r["name"]: r.get("suspended") for r in rigs}
 
 
 def main(stage_arg):
@@ -141,19 +203,26 @@ def main(stage_arg):
     if stage.exists() or stage.is_symlink():
         raise SystemExit(f"stage already exists: {stage}")
     stage.mkdir(mode=0o700)
-    record = {"schema": "gct-oak5.split.v1", "phase": "preconditions", "writes": []}
+    record = {"schema": "gct-oak5.split.v2", "phase": "preconditions", "writes": []}
     try:
         return run(stage, record)
-    except Refused as exc:
-        record["refused"] = str(exc)
-        print(f"REFUSED in {record['phase']}: {exc}")
-        return 1
+    except Exception as exc:  # every failure is recorded; after a write it is never a plain refusal
+        record["error"] = f"{type(exc).__name__}: {exc}"
+        wrote = bool(record["writes"])
+        print(f"{'FAILED AFTER WRITES' if wrote else 'REFUSED'} in {record['phase']}: {record['error']}")
+        return 3 if wrote else 1
     finally:
         (stage / "record.json").write_text(json.dumps(record, indent=1, sort_keys=True) + "\n")
 
 
+def write(record, intent, *args):
+    record["writes"].append(dict(intent, state="intent"))
+    gc(*args)
+    record["writes"][-1]["state"] = "done"
+
+
 def run(stage, record):
-    verify_texts()
+    texts = load_texts()
     preconditions(record)
     t_raw, t_before = export(True)
     c_raw, c_before = export(False)
@@ -167,100 +236,84 @@ def run(stage, record):
     members = wn1m_members(t_before)
     if members != MEMBERS:
         raise Refused(f"gct-wn1m members {sorted(members)} != pinned {sorted(MEMBERS)}")
-    for bead in CONTROLS:
-        if meta(t_before[bead]).get("gc.kind") not in CONTROL_KINDS:
-            raise Refused(f"{bead} is not a control")
-    for bead in WORK + (WN1M,):
-        if meta(t_before[bead]).get("gc.kind") in CONTROL_KINDS:
-            raise Refused(f"{bead} is a control")
-    for bead in CONTROLS + WORK + (WN1M,):
-        if t_before[bead].get("status") != "open" or t_before[bead].get("assignee"):
-            raise Refused(f"{bead} is not open and unassigned")
+    for bead, kind in KINDS.items():
+        row = t_before[bead]
+        if meta(row).get("gc.kind") != kind or row.get("status") != "open" or row.get("assignee"):
+            raise Refused(f"{bead} is not an open, unassigned {kind or 'work'} Bead")
     for bead in ALREADY_CLOSED:
         if t_before[bead].get("status") != "closed":
             raise Refused(f"{bead} is not closed")
-    if t_before[ROOT].get("status") != "open":
+    check_order(t_before)
+    if t_before.get(ROOT, {}).get("status") != "open":
         raise Refused("gct-oak5 is not open")
-    if any("handover" in (r.get("labels") or []) for r in t_before.values()):
-        raise Refused("a handover-labelled Bead already exists")
+    if any(set(r.get("labels") or []) & {"handover", "handover-holder"} for r in t_before.values()):
+        raise Refused("a handover Bead already exists")
     identities = set(LANE_TARGETS) | {
         meta(r).get("session_name") for r in c_before.values()
         if r.get("issue_type") == "session" and meta(r).get("template") in LANE_TEMPLATES} - {None}
     before_hits = lane_eligible(t_before, c_before, identities)
-    if [h for h in before_hits if h[1] != "gct-af6u"]:
+    if before_hits != [["template", "gct-af6u", "routed", "gas-city-template/gc.implementation-worker"]]:
         raise Refused(f"unexpected lane-eligible rows before: {before_hits}")
     record["lane_eligible_before"] = before_hits
 
-    # Writes start here: never retried, every one recorded.
     record["phase"] = "close gct-wn1m"
-    for bead in CONTROLS + WORK + (WN1M,):
-        live = json.loads(gc("bd", "show", bead, "--json").stdout)
-        live = live[0] if isinstance(live, list) else live
-        if live.get("status") == "closed":
-            record["writes"].append({"bead": bead, "closed_by": "core", "close_reason": live.get("close_reason")})
+    closed_by = {}
+    for bead in ORDER:
+        if show(bead).get("status") == "closed":
+            closed_by[bead] = "core"
             continue
-        gc("bd", "update", bead, "--set-metadata", "gc.work_outcome=abandoned")
-        gc("bd", "close", bead, "--reason", CLOSE_REASON)
-        record["writes"].append({"bead": bead, "closed_by": "coordinator"})
+        write(record, {"bead": bead, "op": "set gc.work_outcome=abandoned"},
+              "bd", "update", bead, "--set-metadata", "gc.work_outcome=abandoned")
+        try:
+            write(record, {"bead": bead, "op": "close"}, "bd", "close", bead, "--reason", CLOSE_REASON)
+            closed_by[bead] = "coordinator"
+        except Refused:
+            if show(bead).get("status") == "closed":
+                closed_by[bead] = "core-race"
+                record["writes"][-1]["state"] = "closed by core first"
+            else:
+                raise
+    record["closed_by"] = closed_by
 
-    record["phase"] = "create holders"
+    record["phase"] = "create"
     ids = {}
-    for name in ("C1", "X", "C2", "H1", "H2"):
-        title = f"gct-oak5 handover {name} spec" if name[0] != "H" else f"gct-oak5 handover image {name}"
-        args = ["bd", "create", title, "--type", "task", "--priority", "P2", "--labels", "handover-holder", "--silent"]
-        if name[0] != "H":
-            args += ["--description", "placeholder"]
-        new = gc(*args).stdout.strip()
-        if not ID.match(new):
-            raise Refused(f"create {name} spec returned {new!r}")
-        ids[name + ("-spec" if name[0] != "H" else "")] = new
-        record["writes"].append({"bead": new, "created": name})
-    record["phase"] = "create steps"
-    for name, lane, _ in STEPS:
+    for key in HOLDERS:
+        title = f"gct-oak5 handover {key} brief" if key[0] != "H" else f"gct-oak5 handover image {key}"
+        record["writes"].append({"create": key, "state": "intent"})
+        new = gc("bd", "create", title, "--type", "task", "--priority", "P2",
+                 "--labels", "handover-holder", "--silent").stdout.strip()
+        if not ID.fullmatch(new):
+            raise Refused(f"create {key} returned {new!r}")
+        ids[key] = new
+        record["writes"][-1].update(state="done", bead=new)
+    for name, _, _ in STEPS:
+        record["writes"].append({"create": name, "state": "intent"})
         new = gc("bd", "create", f"gct-oak5 handover step {name}", "--type", "task", "--priority", "P2",
-                 "--labels", "handover", "--description", "placeholder", "--silent").stdout.strip()
-        if not ID.match(new):
+                 "--labels", "handover", "--silent").stdout.strip()
+        if not ID.fullmatch(new):
             raise Refused(f"create step {name} returned {new!r}")
         ids[name] = new
-        record["writes"].append({"bead": new, "created": f"step {name}"})
+        record["writes"][-1].update(state="done", bead=new)
     record["ids"] = ids
 
-    record["phase"] = "render and write descriptions"
-    subst = {"{C1}": ids["C1"], "{X}": ids["X"], "{C2}": ids["C2"], "{H1}": ids["H1"], "{H2}": ids["H2"]}
-    rendered = {}
-    for name, lane, show in STEPS:
-        spec = (TEXTS / f"{name}-spec.md").read_text()
-        for key, value in subst.items():
-            spec = spec.replace(key, value)
-        step = (TEXTS / "step.md").read_text()
-        for key, value in (("{NAME}", name), ("{LANE}", lane), ("{SPEC}", ids[name + "-spec"]), ("{SHOW}", show)):
-            step = step.replace(key, value)
-        for text in (spec, step):
-            if "{" in text and re.search(r"\{[A-Z0-9]+\}", text):
-                raise Refused(f"unrendered placeholder in {name}")
-            if len(text.encode()) > MAX_VIEW:
-                raise Refused(f"{name} text over {MAX_VIEW} bytes")
-        rendered[name + "-spec"] = spec
-        rendered[name] = step
+    record["phase"] = "descriptions"
+    rendered = render(texts, ids)
     for key, text in rendered.items():
         path = stage / f"{key}.md"
         path.write_text(text)
-        gc("bd", "update", ids[key], "--body-file", str(path))
-        record["writes"].append({"bead": ids[key], "description_sha256": hashlib.sha256(text.encode()).hexdigest()})
+        write(record, {"bead": ids[key], "op": "description", "sha256": hashlib.sha256(text.encode()).hexdigest()},
+              "bd", "update", ids[key], "--body-file", str(path))
 
     record["phase"] = "close holders"
-    for key in ("C1-spec", "X-spec", "C2-spec", "H1", "H2"):
-        gc("bd", "close", ids[key], "--reason", "gct-oak5 handover holder (closed by design)")
-        record["writes"].append({"bead": ids[key], "closed_by": "coordinator"})
+    for key in HOLDERS:
+        write(record, {"bead": ids[key], "op": "close holder"}, "bd", "close", ids[key], "--reason", HOLDER_REASON)
 
     record["phase"] = "edges"
     for name, _, _ in STEPS:
-        gc("bd", "dep", "add", ids[name], ROOT, "--type", "relates-to")
-        record["writes"].append({"edge": [ids[name], ROOT, "relates-to"]})
-    gc("bd", "dep", "add", ids["X"], ids["C1"], "--type", "blocks")
-    gc("bd", "dep", "add", ids["C2"], ids["X"], "--type", "blocks")
-    record["writes"].append({"edge": [ids["X"], ids["C1"], "blocks"]})
-    record["writes"].append({"edge": [ids["C2"], ids["X"], "blocks"]})
+        write(record, {"edge": [ids[name], ROOT, "relates-to"]},
+              "bd", "dep", "add", ids[name], ROOT, "--type", "relates-to")
+    write(record, {"edge": [ids["X"], ids["C1"], "blocks"]}, "bd", "dep", "add", ids["X"], ids["C1"], "--type", "blocks")
+    write(record, {"edge": [ids["C2"], ids["X"], "blocks"]}, "bd", "dep", "add", ids["C2"], ids["X"], "--type", "blocks")
 
     record["phase"] = "verify"
     t_raw2, t_after = export(True)
@@ -269,67 +322,72 @@ def run(stage, record):
     (stage / "city-after.jsonl").write_text(c_raw2)
     record["after_sha256"] = {"template": hashlib.sha256(t_raw2.encode()).hexdigest(),
                               "city": hashlib.sha256(c_raw2.encode()).hexdigest()}
-    problems = verify(record, ids, rendered, t_before, t_after, c_before, c_after, identities)
+    ready = {r.get("id") for r in json.loads(gc("bd", "ready", "--json", "--limit", "0").stdout or "[]")}
+    problems = verify(record, ids, rendered, closed_by, t_before, t_after, c_before, c_after, identities, ready)
     record["problems"] = problems
     record["phase"] = "done" if not problems else "verify failed"
-    print(json.dumps({"ids": ids, "problems": problems}, sort_keys=True))
+    print(json.dumps({"ids": ids, "closed_by": closed_by, "problems": problems}, sort_keys=True))
     return 0 if not problems else 2
 
 
-def verify(record, ids, rendered, t_before, t_after, c_before, c_after, identities):
+def changed_fields(before, after):
+    return {f for f in set(before) | set(after) if before.get(f) != after.get(f)}
+
+
+def verify(record, ids, rendered, closed_by, t_before, t_after, c_before, c_after, identities, ready):
     problems = []
-    for bead in MEMBERS:
-        if t_after[bead].get("status") != "closed":
-            problems.append(f"{bead} not closed")
     created = set(ids.values())
-    expected_changed = (MEMBERS - set(ALREADY_CLOSED)) | created | {ROOT}
     changed = {k for k in set(t_before) | set(t_after) if t_before.get(k) != t_after.get(k)}
     record["template_changed"] = sorted(changed)
-    unexplained = sorted(changed - expected_changed)
-    root_fields = sorted(f for f in set(t_before[ROOT]) | set(t_after[ROOT])
-                         if t_before[ROOT].get(f) != t_after[ROOT].get(f))
-    record["root_changed_fields"] = root_fields
-    if set(root_fields) - {"dependent_count", "updated_at"}:
-        problems.append(f"gct-oak5 changed fields {root_fields}")
-    if unexplained:
-        problems.append(f"unexplained Template changes: {unexplained}")
+    extra = sorted(changed - set(ORDER) - created - {ROOT})
+    if extra:
+        problems.append(f"unexplained Template changes: {extra}")
     c_changed = sorted(k for k in set(c_before) | set(c_after) if c_before.get(k) != c_after.get(k))
     record["city_changed"] = c_changed
     if c_changed:
         problems.append(f"city store changed: {c_changed}")
-    for key, text in rendered.items():
+
+    for bead in ORDER:
+        before, after = t_before[bead], t_after[bead]
+        fields = changed_fields(before, after)
+        delta = {k: meta(after).get(k) for k in set(meta(before)) | set(meta(after)) if meta(before).get(k) != meta(after).get(k)}
+        who = closed_by.get(bead)
+        if after.get("status") != "closed" or fields - CLOSE_FIELDS:
+            problems.append(f"{bead}: status {after.get('status')}, fields {sorted(fields)}")
+        if who == "coordinator" and (delta != {"gc.work_outcome": "abandoned"} or after.get("close_reason") != CLOSE_REASON):
+            problems.append(f"{bead}: coordinator close fields {delta} {after.get('close_reason')!r}")
+        if who in ("core", "core-race") and delta not in ({}, {"gc.work_outcome": "abandoned"}):
+            problems.append(f"{bead}: core close changed metadata {delta}")
+        record.setdefault("member_close", {})[bead] = {"by": who, "close_reason": after.get("close_reason"), "metadata_delta": delta}
+    root_fields = changed_fields(t_before[ROOT], t_after[ROOT])
+    record["root_changed_fields"] = sorted(root_fields)
+    if root_fields - {"dependent_count", "updated_at"}:
+        problems.append(f"gct-oak5 changed fields {sorted(root_fields)}")
+
+    for key in HOLDERS:
         row = t_after[ids[key]]
-        if (row.get("description") or "") != text:
-            problems.append(f"{key} description differs")
-    for key in ("C1-spec", "X-spec", "C2-spec", "H1", "H2"):
-        row = t_after[ids[key]]
-        if row.get("status") != "closed":
-            problems.append(f"{key} not closed")
-        if key[0] == "H" and (row.get("description") or ""):
-            problems.append(f"{key} not empty")
+        want_desc = rendered.get(key, "")
+        if (row.get("status") != "closed" or row.get("close_reason") != HOLDER_REASON or meta(row)
+                or (row.get("labels") or []) != ["handover-holder"] or row.get("dependencies")
+                or row.get("assignee") or (row.get("description") or "") != want_desc):
+            problems.append(f"holder {key} not exactly as created")
     for name, _, _ in STEPS:
         row = t_after[ids[name]]
-        m = meta(row)
-        if row.get("status") != "open" or row.get("assignee") or m.get("gc.routed_to") or m.get("gc.root_bead_id"):
-            problems.append(f"step {name} not open, unassigned and unrouted")
-        if row.get("labels") != ["handover"]:
-            problems.append(f"step {name} labels {row.get('labels')}")
-        deps = {(d.get("depends_on_id"), d.get("type")) for d in row.get("dependencies") or []}
-        want = {(ROOT, "relates-to")}
+        deps = sorted((d.get("depends_on_id"), d.get("type")) for d in row.get("dependencies") or [])
+        want = [(ROOT, "relates-to")]
         if name == "X":
-            want.add((ids["C1"], "blocks"))
+            want.append((ids["C1"], "blocks"))
         if name == "C2":
-            want.add((ids["X"], "blocks"))
-        if deps != want:
-            problems.append(f"step {name} edges {sorted(deps)} != {sorted(want)}")
-    root = t_after[ROOT]
-    if root.get("status") != "open" or meta(root) != meta(t_before[ROOT]) or root.get("assignee"):
-        problems.append("gct-oak5 changed beyond edges")
+            want.append((ids["X"], "blocks"))
+        if (row.get("status") != "open" or meta(row) or row.get("assignee")
+                or (row.get("labels") or []) != ["handover"] or deps != sorted(want)
+                or (row.get("description") or "") != rendered[name]):
+            problems.append(f"step {name} not exactly as created")
+
     after_hits = lane_eligible(t_after, c_after, identities)
     record["lane_eligible_after"] = after_hits
     if after_hits:
         problems.append(f"lane-eligible rows after: {after_hits}")
-    ready = {r.get("id") for r in json.loads(gc("bd", "ready", "--json", "--limit", "0").stdout or "[]")}
     record["ready_has"] = {name: ids[name] in ready for name, _, _ in STEPS}
     if record["ready_has"] != {"C1": True, "X": False, "C2": False}:
         problems.append(f"ready set {record['ready_has']} != C1 only")
