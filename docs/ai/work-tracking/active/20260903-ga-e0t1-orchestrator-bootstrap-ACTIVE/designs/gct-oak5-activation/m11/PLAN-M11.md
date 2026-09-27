@@ -185,6 +185,36 @@ namespaces, with candidate C = `44786b31`:
   pin is covered by `checkout_state`: HEAD `3474abfa` and the exact untracked set.
 - **Wording** (B 3). The docstring now says r2 appends one repository row.
 
+## Accepted (2026-09-27)
+
+Two binding reviews passed `fb846153`. The executor then ran from `fb846153` (source pins `8f0174d5`), with two
+independent reviews at each gate:
+- **prepare.** Package `1cd9f439`, manifest file `9f60c3bf`, 552 spare frame bytes, timer paused.
+- **SOURCE_PASS.**
+- **pause.** Window `62a98c55`.
+- **observe.** The native dry run passed with 21 steps, exactly 4 of them MUTATE; plan `322ce6dc`.
+- **PAIRING_PASS.**
+- **paired.** `result=installed`, manifest self digest `599ccc58`. The commit took 63.1 s.
+- **verify.**
+- **COMMIT_PASS.**
+- **restore-accepted.** The timer was restored.
+
+The accepted pair is:
+- the live manifest file `9f60c3bf`, byte-equal to `q/manifest.json`;
+- the receipt file `746644c7`, self `66bf96e2`;
+- the acceptance `cc21edc1`.
+
+The COMMIT_PASS reviewers could not hash files, so the coordinator recomputed the five whole-file digests afterwards,
+and all five were equal.
+
+**Inspector.** `inspector/make_inspector_m11.py` rebinds the M10 inspector. The manifest pin moves from `2b902a83` to
+`9f60c3bf`, the root is fresh, and the Core source (`f45a6262`, tree `f1011ada`) is unchanged. It was built offline as
+`d9fe419a` (build-result `03ecd4ea`). One read-only live run, `/var/tmp/gct-oak5-platform-inspector-m11-20260927/`
+`post-m11-inspect.json`, returned ok with zero drift. It does not examine the metadata trees; the capture and the
+writer proved those.
+
+Quiescence is lifted. **Next: P12.**
+
 ## Stop conditions
 
 Stop on any of these:
