@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="1" skipped="0" tests="1" time="0.034" timestamp="2026-09-27T20:04:56.814669" hostname="spaceship"><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_native_new_task_header_and_encrypted_structure_are_mandatory" time="0.003"><failure message="AssertionError: Refuse not raised">self = &lt;test_codex_reviews.CodexReviews testMethod=test_native_new_task_header_and_encrypted_structure_are_mandatory&gt;
+
+    def test_native_new_task_header_and_encrypted_structure_are_mandatory(self):
+        for change in ('null', 'empty_object', 'message', 'wrong_name', 'wrong_sender',
+                       'missing_cipher', 'empty_cipher', 'non_string_cipher', 'extra_item', 'reversed'):
+            with self.subTest(change=change):
+                value = bundle()
+                rows = [json.loads(x) for x in value['rollout'].split('\n') if x]
+                task = rows[3]['payload']
+                content = task['content']
+                if change == 'null':
+                    task['content'] = [None]
+                elif change == 'empty_object':
+                    task['content'] = [{}]
+                elif change == 'message':
+                    content[0]['text'] = content[0]['text'].replace('NEW_TASK', 'MESSAGE')
+                elif change == 'wrong_name':
+                    content[0]['text'] = content[0]['text'].replace(task['recipient'], '/root/unrelated')
+                elif change == 'wrong_sender':
+                    content[0]['text'] = content[0]['text'].replace('Sender: /root', 'Sender: /other')
+                elif change == 'missing_cipher':
+                    content.pop()
+                elif change == 'empty_cipher':
+                    content[1]['encrypted_content'] = ''
+                elif change == 'non_string_cipher':
+                    content[1]['encrypted_content'] = {'arbitrary': 'object'}
+                elif change == 'extra_item':
+                    content.append({'type': 'input_text', 'text': 'another request'})
+                else:
+                    content.reverse()
+&gt;               with self.assertRaises(J.Refuse):
+E               AssertionError: Refuse not raised
+
+test_codex_reviews.py:220: AssertionError</failure></testcase></testsuite></testsuites>

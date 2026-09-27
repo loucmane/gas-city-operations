@@ -14,7 +14,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 J=$D/gct-jobrunner
 COMMIT=${1:?usage: JOBRUNNER.sh <reviewed commit>}
-RUNNER_SHA=3c5d1d8feedac6a7ff1a1df84788fd0485cf328c9e6b7404ab8ef0e0eec4bcc1
+RUNNER_SHA=b5cdfeefb79f982f52bb0deee20729c4772bdc75f39950911a4eeb71e793199f
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

@@ -31,7 +31,8 @@ def bundle(agent=AGENT, verdict='SOURCE_PASS', request=None):
         ('event_msg', {'type': 'task_started', 'turn_id': TURN}),
         ('turn_context', {'turn_id': TURN, 'model': 'gpt-6-astra', 'effort': 'high'}),
         ('response_item', {'type': 'agent_message', 'author': '/root', 'recipient': path,
-                           'content': [{'type': 'input_text', 'text': 'Message Type: NEW_TASK\n'},
+                           'content': [{'type': 'input_text', 'text':
+                                        'Message Type: NEW_TASK\nTask name: %s\nSender: /root\nPayload:\n' % path},
                                        {'type': 'encrypted_content', 'encrypted_content': 'synthetic-ciphertext'}]}),
         ('response_item', {'type': 'message', 'role': 'assistant', 'phase': 'final_answer',
                            'content': [{'type': 'output_text', 'text': report}],
@@ -187,6 +188,37 @@ class CodexReviews(Fixture):
         raw = ''.join(json.dumps(row, ensure_ascii=False) + '\n' for row in rows)
         value.update(rollout=raw, rollout_sha256=sha(raw))
         self.assertEqual(J.read_review(self.file_codex(value), COMMIT, os.getuid())[2], 'SOURCE_PASS ' + COMMIT)
+
+    def test_native_new_task_header_and_encrypted_structure_are_mandatory(self):
+        for change in ('null', 'empty_object', 'message', 'wrong_name', 'wrong_sender',
+                       'missing_cipher', 'empty_cipher', 'non_string_cipher', 'extra_item', 'reversed'):
+            with self.subTest(change=change):
+                value = bundle()
+                rows = [json.loads(x) for x in value['rollout'].split('\n') if x]
+                task = rows[3]['payload']
+                content = task['content']
+                if change == 'null':
+                    task['content'] = [None]
+                elif change == 'empty_object':
+                    task['content'] = [{}]
+                elif change == 'message':
+                    content[0]['text'] = content[0]['text'].replace('NEW_TASK', 'MESSAGE')
+                elif change == 'wrong_name':
+                    content[0]['text'] = content[0]['text'].replace(task['recipient'], '/root/unrelated')
+                elif change == 'wrong_sender':
+                    content[0]['text'] = content[0]['text'].replace('Sender: /root', 'Sender: /other')
+                elif change == 'missing_cipher':
+                    content.pop()
+                elif change == 'empty_cipher':
+                    content[1]['encrypted_content'] = ''
+                elif change == 'non_string_cipher':
+                    content[1]['encrypted_content'] = {'arbitrary': 'object'}
+                elif change == 'extra_item':
+                    content.append({'type': 'input_text', 'text': 'another request'})
+                else:
+                    content.reverse()
+                with self.assertRaises(J.Refuse):
+                    J.read_review(self.file_codex(pack(value['request'], rows)), COMMIT, os.getuid())
 
     def test_unsupported_effort_duplicate_attestation_and_invalid_unicode_refuse(self):
         for change in ('effort', 'attestation', 'unicode'):

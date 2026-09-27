@@ -287,8 +287,17 @@ def codex_review(value, path, commit):
                            or not (x['text'].startswith('# AGENTS.md instructions for ')
                                    or x['text'].startswith('<environment_context>')) for x in bootstrap):
                 raise Refuse('Codex subagent review contains an additional user request')
-    if task.get('author') != agent_path.rsplit('/', 1)[0] or task.get('recipient') != agent_path \
-            or not isinstance(task.get('content'), list) or not task['content']:
+    parent_path = agent_path.rsplit('/', 1)[0]
+    task_content = task.get('content')
+    expected_header = 'Message Type: NEW_TASK\nTask name: %s\nSender: %s\nPayload:\n' % (agent_path, parent_path)
+    if task.get('author') != parent_path or task.get('recipient') != agent_path \
+            or not isinstance(task_content, list) or len(task_content) != 2 \
+            or task_content[0] != {'type': 'input_text', 'text': expected_header} \
+            or not isinstance(task_content[1], dict) \
+            or set(task_content[1]) != {'type', 'encrypted_content'} \
+            or task_content[1]['type'] != 'encrypted_content' \
+            or not isinstance(task_content[1]['encrypted_content'], str) \
+            or not task_content[1]['encrypted_content'].strip():
         raise Refuse('Codex review task does not match its native parent and recipient')
     content = final.get('content')
     if not isinstance(content, list) or not content \
