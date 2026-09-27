@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r18
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r19
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, r16 answered the reviews of the split package at `4cb2b80e`, r17 recorded the applied split, the chain anchor and the image tool, and r18 answers the image tool reviews of `c985f6c5` (A HOLD, B SOURCE_PASS); see the last nine sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, r16 answered the reviews of the split package at `4cb2b80e`, r17 recorded the applied split, the chain anchor and the image tool, r18 answered the image tool reviews of `c985f6c5`, and r19 records where the C1 window design supersedes plan wording; see the last ten sections.
 
 ## Decisions this plan relies on
 
@@ -875,3 +875,20 @@ The plan part of r11 closed the three r10 must_fix items (both reviews verified 
   - control paths are matched at any depth, and stop names are checked before ignored status (B 11);
   - the tests are hermetic: the pins, skill targets and city files are all under `tmp_path`. There are 26 tests, including a negative for every refusal the reviews listed (A 9, B 12);
   - the limit wording is corrected (A 8).
+
+## r19 (the C1 window design, `designs/gct-oak5-c1-window/DESIGN.md` d4, supersedes plan wording)
+
+- **The agent-level hold.** The plan's "agent-level hold" on the observed close has no mechanism in the source windows.
+  The C1 design uses the reviewed CONTAIN (city suspend, then rig suspend), run by the one WATCH-LOOP job only after
+  Core has closed the session on the drain-ack path with an empty census. In the abnormal end it runs at the 4- or
+  8-minute bound. TEARDOWN-1 covers a lane process that outlives it.
+- **The rig suspend** comes after the session has closed in the normal path, as this plan requires. In the abnormal
+  path it may come earlier, and that segment is failed.
+- **Order history.** `nudge-on-route` fires on every `bead.updated`. Its runs inside a window are admitted, and its
+  effect is pinned: at most one nudge row and no other change in the chained scope.
+- **Admin index.** C1 admits no change to the Template `.git` at all, which is stricter than the stat-only index rule
+  above. C2, rebased from C1, keeps that unless a later revision says otherwise.
+- **H1** is written after C1's TERMINAL PASS by its own job, for an accepted segment only. X's route gate requires the
+  C1 TERMINAL PASS record, the image 1 record and H1 equal to the ledger entry.
+- **The race outcome.** A worker's close keeps the assignee (inventory section 2), so a racing close shows in the
+  post-sling read as C1 closed, not as an empty assignee.
