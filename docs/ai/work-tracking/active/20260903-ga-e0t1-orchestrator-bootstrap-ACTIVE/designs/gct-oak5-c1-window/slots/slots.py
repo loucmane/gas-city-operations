@@ -15,6 +15,7 @@ that could act on a live worker.
 """
 import json
 import os
+import re
 import stat
 from pathlib import Path
 
@@ -23,6 +24,10 @@ from pathlib import Path
 RUNNER_PREFIX = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/'
 WRAPPER_PREFIX = RUNNER_PREFIX + 'gct-oak5-c1-window/operator/'
 RECORD_LIMIT = 1024 * 1024  # jobrunner.py RECORD_LIMIT
+HEX40 = re.compile(r'[0-9a-f]{40}')  # jobrunner.py HEX40
+JOB_ID = re.compile(r'[a-z0-9][a-z0-9-]{0,47}')  # jobrunner.py JOB_ID
+# The runner's own unit sits here, and so does every job unit it launches (jobrunner.py:67, 338).
+UNIT_PARENT = '0::/user.slice/user-1000.slice/user@1000.service/app.slice/'
 
 ACTIONS = ('rig-resume', 'city-resume', 'city-suspend', 'rig-suspend')
 ABSENT, COMPLETE, INCOMPLETE, FAILED = 'absent', 'complete', 'incomplete', 'failed'
@@ -55,10 +60,10 @@ def completed(lifecycle):
 
 def quiet(obs):
     """The quiet end: C1 closed, the session Bead closed in a drain-ack end state, an empty census, no orphan
-    probe decision. Anything missing reads as not quiet."""
+    probe decision and no containment reason. Anything missing reads as not quiet."""
     return isinstance(obs, dict) and all(
         obs.get(k) is True for k in ('c1_closed', 'session_drain_ack_closed', 'census_empty')) \
-        and obs.get('orphan_decision') is False
+        and obs.get('orphan_decision') is False and 'contained_reason' in obs and obs['contained_reason'] is None
 
 
 def _first_unused(names, used):
@@ -83,7 +88,9 @@ def select(lifecycle, used, hold_passed, obs, stranded=False, broken=False):
         return CLOSE
     if broken:
         # The runner's records cannot be read, so `used` is unknown: only a hold, which only suspends, may act.
-        # HOLD-1 is the broken-state hold; if the runner has already run it, the coordinator stops.
+        # HOLD-1 is the broken-state hold, admitted even when its own record is what is broken. If the runner has
+        # already run it, the runner refuses the repeat and the coordinator stops: one hold fewer than the readable
+        # path, a stated stop with the operator told.
         return HOLD_1
     if stranded or any(lifecycle[a] in (INCOMPLETE, FAILED) for a in ACTIONS):
         return _hold(used)
@@ -164,7 +171,18 @@ def _load(path):
     raw = b''.join(chunks)
     if len(raw) > RECORD_LIMIT:
         raise ValueError('record grew past the limit')
-    value = json.loads(raw)
+
+    def pairs(items):
+        seen = {}
+        for key, value in items:
+            if key in seen:
+                raise ValueError('duplicate key %r' % key)  # jobrunner.py strict_json
+            seen[key] = value
+        return seen
+    try:
+        value = json.loads(raw, object_pairs_hook=pairs)
+    except RecursionError:
+        raise ValueError('record nested too deeply')
     if not isinstance(value, dict):
         raise ValueError('not an object')
     return value
@@ -180,7 +198,13 @@ def _job(value):
 def read_used(done, commit, own_job=None, own_job_id=None):
     """Return (used jobs, broken). A job is used once the runner wrote its started record at this commit."""
     done = Path(done)
-    if (own_job is None) != (own_job_id is None) or own_job not in (None,) + JOBS or not done.is_dir():
+    try:
+        info = os.lstat(done)
+    except OSError:
+        return set(), True
+    if (own_job is None) != (own_job_id is None) or own_job not in (None,) + JOBS \
+            or not (stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()) \
+            or not (isinstance(commit, str) and HEX40.fullmatch(commit)):
         return set(), True
     used, started, final, own = set(), set(), set(), None
     try:
@@ -213,16 +237,19 @@ def read_used(done, commit, own_job=None, own_job_id=None):
 
 def own_job_id_from_cgroup(text):
     """The runner launches every job as the unit gc-job-<id>.service (jobrunner.py:338)."""
-    lines = [line for line in text.splitlines() if line.startswith('0::/')]
-    if len(lines) != 1:
+    lines = [line for line in text.splitlines() if line.startswith('0::')]
+    if len(lines) != 1 or not lines[0].startswith(UNIT_PARENT):
         raise ValueError('cgroup')
-    leaf = lines[0].rsplit('/', 1)[-1]
+    leaf = lines[0][len(UNIT_PARENT):]
     if not (leaf.startswith('gc-job-') and leaf.endswith('.service')):
         raise ValueError('not a runner job unit')
-    return leaf[len('gc-job-'):-len('.service')]
+    job_id = leaf[len('gc-job-'):-len('.service')]
+    if not JOB_ID.fullmatch(job_id):
+        raise ValueError('job id')
+    return job_id
 
 
-def read_state(window, done, commit, hold_roots, watcher_roots, own_job=None, own_job_id=None):
+def read_state(window, done, commit, hold_roots, watcher_roots, boot_id, own_job=None, own_job_id=None):
     window = Path(window)
     lifecycle = {a: action_state(window, a) for a in ACTIONS}
     used, broken = read_used(done, commit, own_job, own_job_id)
@@ -240,7 +267,9 @@ def read_state(window, done, commit, hold_roots, watcher_roots, own_job=None, ow
         except (OSError, ValueError):
             continue
         written = value.get('written_ns')
-        if value.get('window') == str(window) and isinstance(written, int) and written > newest:
+        # CLOCK_BOOTTIME restarts at boot, so only this boot's observations are ordered.
+        if value.get('window') == str(window) and value.get('boot_id') == boot_id and isinstance(written, int) \
+                and written > newest:
             obs, newest = value, written
     return dict(lifecycle=lifecycle, used=used, hold_passed=hold_passed, obs=obs,
                 stranded=bool(stray_phases(window)), broken=broken)
