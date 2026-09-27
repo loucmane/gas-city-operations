@@ -51,6 +51,13 @@ launch scripts pin the new source digest.
 - Source guard initially refused inherited daily evidence. That refusal is not
   overridden. After the separately approved bounded reconciliation and supported
   plan sync, source guard and all six workflow verification checks pass.
+- Staging the raw RED/intermediate JUnit reports exposed trailing whitespace in
+  their captured tracebacks. The initial signed checkpoint
+  `1730016a994762008582d4d23eb3e4926c0adbb2` preserves those raw bytes, as do the
+  original `/tmp` reports. The repository copies now encode only trailing spaces
+  and tabs as XML character references. An XML parse/serialization comparison
+  proves identical decoded evidence. No production source changed for this
+  formatting correction; the full candidate diff check must pass before delivery.
 - Read-only parsing of the genuine prior Astra B rollout confirms its native
   Desktop identity, launch context and completion shape. It correctly refuses at
   the missing frozen-request acknowledgment, rather than converting that historical

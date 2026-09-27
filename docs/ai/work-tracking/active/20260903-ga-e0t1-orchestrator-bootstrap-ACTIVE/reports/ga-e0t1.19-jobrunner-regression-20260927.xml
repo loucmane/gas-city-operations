@@ -17,13 +17,13 @@ self = &lt;test_codex_reviews.Export testMethod=test_input_link_and_output_link_
         with self.assertRaises(J.Refuse):
 &gt;           self.run_export()
 
-test_codex_reviews.py:218: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_codex_reviews.py:218:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 test_codex_reviews.py:194: in run_export
     return E.export(str(self.request), str(self.rollout), str(self.output), COMMIT)
 export_codex_review.py:15: in export
     request_bytes = J.read_owned(request_path, os.getuid(), J.JOB_LIMIT, 'frozen request')
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 
     def read_owned(path, uid, limit, name):
         """Open without following links or blocking on a FIFO, then check the opened file itself."""
@@ -40,17 +40,17 @@ jobrunner.py:167: Refuse</failure></testcase><testcase classname="docs.ai.work-t
         with self.assertRaises(J.Refuse):
 &gt;           self.run_export()
 
-test_codex_reviews.py:210: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_codex_reviews.py:210:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 test_codex_reviews.py:194: in run_export
     return E.export(str(self.request), str(self.rollout), str(self.output), COMMIT)
 export_codex_review.py:32: in export
     J.codex_review(value, output, commit)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 
     def codex_review(value, path, commit):
         """Validate a lossless native rollout plus a reviewer-attested frozen request.
-    
+&#32;&#32;&#32;&#32;
         Like the existing Claude transcript, this is operator-owned evidence, not a cryptographic
         provider signature. Hashes bind bytes; native lineage and completion bind the actual report.
         We do not decrypt the task, treat ciphertext as its plaintext, or synthesize Claude events.
@@ -93,7 +93,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
                 or meta.get('agent_path', agent_path) != agent_path \
                 or os.path.basename(path) != 'codex-%s.json' % agent:
             raise Refuse('Codex review filename or agent path differs from its native identity')
-    
+&#32;&#32;&#32;&#32;
         def one(kind, subtype=None, **fields):
             matches = [(i, r['payload']) for i, r in enumerate(rows) if r.get('type') == kind
                        and (subtype is None or r['payload'].get('type') == subtype)
@@ -101,7 +101,7 @@ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _
             if len(matches) != 1:
                 raise Refuse('Codex review needs exactly one %s %s' % (kind, subtype or ''))
             return matches[0]
-    
+&#32;&#32;&#32;&#32;
         started_i, started = one('event_msg', 'task_started')
         context_i, context = one('turn_context')
         task_i, task = one('response_item', 'agent_message')
@@ -194,11 +194,11 @@ self = &lt;test_codex_reviews.Export testMethod=test_lossless_create_only_export
         with self.assertRaises(J.Refuse):
 &gt;           self.run_export()
 
-test_codex_reviews.py:203: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_codex_reviews.py:203:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 test_codex_reviews.py:194: in run_export
     return E.export(str(self.request), str(self.rollout), str(self.output), COMMIT)
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 
     def export(request_path, rollout_path, output_dir, commit):
         if not J.HEX40.fullmatch(commit):

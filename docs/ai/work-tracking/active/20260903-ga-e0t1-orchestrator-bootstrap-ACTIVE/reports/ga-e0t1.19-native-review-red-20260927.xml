@@ -4,13 +4,13 @@
         self.reviews = [self.file_codex(), self.reviews[1]]
 &gt;       self.assertEqual(J.admit(self.cfg, self.job(), self.deps)['job_id'], 'canary-r2')
 
-test_codex_reviews.py:58: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_codex_reviews.py:58:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 jobrunner.py:314: in admit
     check_reviews(cfg, commit, wrapper, job['reviews'])
 jobrunner.py:237: in check_reviews
     filed = {os.path.join(directory, name): read_review(os.path.join(directory, name), commit, cfg['uid'])
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 
 path = '/tmp/tmp6wqih51f/stage/reviews/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/codex-11111111-1111-7111-8111-111111111111.json'
 commit = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', uid = 1000
@@ -37,8 +37,8 @@ jobrunner.py:209: Refuse</failure></testcase><testcase classname="docs.ai.work-t
         path = self.file_codex(bundle(verdict='HOLD'))
 &gt;       self.assertEqual(J.read_review(path, COMMIT, os.getuid())[2], 'HOLD ' + COMMIT)
 
-test_codex_reviews.py:64: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_codex_reviews.py:64:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 
 path = '/tmp/tmpht80deyb/stage/reviews/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/codex-11111111-1111-7111-8111-111111111111.json'
 commit = 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', uid = 1000
@@ -65,8 +65,8 @@ jobrunner.py:209: Refuse</failure></testcase><testcase classname="docs.ai.work-t
         path = self.file_codex()
 &gt;       self.refused(self.job(reviews=[path, path]), 'same reviewer')
 
-test_codex_reviews.py:69: 
-_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ 
+test_codex_reviews.py:69:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
 test_jobrunner.py:89: in refused
     self.assertIn(reason, str(caught.exception))
 E   AssertionError: 'same reviewer' not found in 'review /tmp/tmp74x233cd/stage/reviews/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/codex-11111111-1111-7111-8111-111111111111.json does not start as a reviewer subagent transcript'</failure></testcase><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_wrong_candidate_wrapper_and_request_attestation_refuse" time="0.003" /></testsuite></testsuites>
