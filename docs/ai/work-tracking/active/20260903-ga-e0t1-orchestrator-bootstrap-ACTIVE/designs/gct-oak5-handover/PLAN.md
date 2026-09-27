@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r4
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r5
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 and r3 answered the r1 and r2 reviews, and r4 answers the r3 reviews of `02d53871` (A and B HOLD); see the last three sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r4 answered the r1 to r3 reviews, and r5 answers the r4 reviews of `6cb8cf18` (A HOLD, B SOURCE_PASS); see the last four sections.
 
 ## Decisions this plan relies on
 
@@ -47,7 +47,7 @@ This rests on the brief, and each CLOSE verifies it (see Windows).
 | --- | --- |
 | C1 | Implement the first half of a small bounded Template change: a documented helper module plus its test file. It must end with exactly the declared set: one modified tracked file `M1` and one new untracked file `A1`. It runs no tests and creates no cache files. |
 | X | First verify the worktree against H1's per-path digests; on mismatch, note `IMAGE MISMATCH` and stop. Do not redo C1's edits. Add exactly one modified tracked file `M2` and one new untracked file `A2`; run no tests and create no caches. Then record the note. Only after that, run the negative probes. Then close X. The vault worklog the codex prompt asks for is waived for this segment: X writes nothing in the vault. |
-| C2 | Verify H2 the same way. Finish the change in `M1`, `M2`, `A1` and `A2` only. Run the pinned test command sandboxed and record the result. Run the negative probe. Close C2. |
+| C2 | Verify H2 the same way. Finish the change in `M1`, `M2`, `A1` and `A2` only. Record the per-path sha256 of `M1`, `M2`, `A1` and `A2` in a note before the test. Then run the pinned test command sandboxed and record the result. Run the negative probe. Close C2. |
 
 **The X brief overrides the codex prompt explicitly** on four points:
 - "stage and verify the reviewed tree": X does not stage;
@@ -70,14 +70,19 @@ No step stages, commits, pushes, signs or touches git state, apart from the one 
 **The C2 test command** is pinned by the inventory, not chosen by the worker:
 - the interpreter and virtual environment, never the canonical `.venv`, which carries a stale editable `.pth` and coverage `.pth` files;
 - `PYTHONDONTWRITEBYTECODE=1`, pytest `-p no:cacheprovider`, no coverage, and no network;
-- `TMPDIR` and pytest `--basetemp` at the declared path `<worktree>/.oak5-c2-tmp/`, inside the lane's existing write root, so no policy or receipt change is needed. The inventory confirms the path is neither tracked nor ignored at BASE.
-- After the test and before its note, C2 deletes `.oak5-c2-tmp/`.
+- **Temporary paths.** Two distinct subdirectories under the declared `<worktree>/.oak5-c2-tmp/`, both inside the lane's existing write root, so no policy or receipt change is needed:
+  - `.oak5-c2-tmp/tmp` for `TMPDIR`;
+  - `.oak5-c2-tmp/basetemp` for pytest `--basetemp`, which pytest removes and recreates.
+
+  C2 creates both before running the command, so Python's `tempfile` never falls back to `/tmp`. The inventory confirms the path is neither tracked nor ignored at BASE, and that pytest's default `norecursedirs` skips it.
+- **The inventory runs the exact command,** including its env-variable form, under the live lane policy and sandbox, and proves it is permitted.
+- **Cleanup.** After the test and before its note, C2 deletes `.oak5-c2-tmp/`.
 
 **Checks on the test run.**
-- CLOSE's final export (rules 2 to 4 and 6) must show that `.oak5-c2-tmp/` is gone and that `M1`, `A1`, `M2` and `A2` hold exactly what C2 recorded after its edits.
+- CLOSE's final export (rules 2 to 4 and 6) must show that `.oak5-c2-tmp/` is gone and that `M1`, `A1`, `M2` and `A2` hold exactly the digests C2 recorded before the test.
 - The test run executes code X wrote, and under this policy its sandbox can write the whole candidate root. Any file it plants or rewrites is caught by that export check, not prevented.
 - The inventory proves that the tests import the worktree's code.
-- The sandbox has no network allowlist. Test code could still invoke the five excluded unsandboxed commands (`gc hook --claim`, `gc runtime drain-ack`, `bd close|show|update`). Any Bead change they make is caught by the store-wide diff (rule 5).
+- The sandbox has no network allowlist. Test code runs as a child of the sandboxed command, so it stays sandboxed. The five excluded commands run unsandboxed only when the agent invokes them directly, and any Bead change they make is caught by the store diff (rule 5).
 
 ## The worktree
 
@@ -129,22 +134,35 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
    - the stop names.
 
    `.codex/hooks.json` and `.agents/**` must be absent in image 1, unless an entry is a pinned Claude-lane runtime entry: no codex session has run there yet.
-4. **No ignored entries at all** in images 1 and 2, and in the final export. C1 and X run no tests and create no caches, and C2's temporary files live outside the worktree.
+4. **No ignored entries at all** in images 1 and 2, and in the final export. C1 and X run no tests and create no caches. C2's temporary directory `.oak5-c2-tmp/` must be deleted by C2 and absent from the final export.
 5. **Bead state is as expected.**
    - `gct-oak5` and the non-current steps are unchanged.
    - The previous step was closed by its own worker. The evidence comes from WATCH:
-     - the step's assignee at close equals the session that held the claim;
+     - the assignee at close is read from the last WATCH tick before the close, not from the closed record, because Core clears it on close. It must equal the claim's `gc.session_name` and match `gc.session_id`;
      - the close happened while that session was the only live worker, per the census;
      - the coordinator issued no close.
 
      If the inventory shows that the bd close event's actor records the session identity, that actor is also required to match.
-   - A store-wide diff of Template Beads since the previous window's BIND shows only the allowlisted changes:
-     - on the current step: status, assignee, appended notes, and `gc.*` routing and claim keys, set only by BIND, ROUTE and the claim;
-     - on the holder: the coordinator's image write;
-     - `updated_at` and event rows accompanying these.
+   - **The store diff.** A diff of every Bead store that unsandboxed `bd` can reach (the city store and every rig store), since the previous window's BIND, shows only the allowlist below. Every key and value is pinned; a diff cannot tell who wrote a key.
+     - **The current step:**
+       - BIND's `gc.work_dir` and, for C1 and C2, `gc.check_path`, with their pinned values;
+       - ROUTE's `gc.routed_to`, the lane identity;
+       - the claim's `gc.work_branch`, `gc.session_id` and `gc.session_name`, whose exact key set is from the inventory. The session values must match the census;
+       - status open to in_progress to closed, with the assignee set by the claim and cleared on close;
+       - the fields a real `bd close` writes in bd 1.2.2, such as `closed_at`, `close_reason` or `closed_by_session`, exactly as the inventory records them;
+       - appended notes.
+     - **The second-route negative (C1's window only):** one same-value `gc.routed_to` write on C1, with its `updated_at` and event row.
+     - **The next step (at X's and C2's ROUTE):** its BIND stamps, with pinned values.
+     - **The holder:** the coordinator's image write.
+     - **Accompanying:** the `updated_at` and event rows of the above.
 
-     Any `opt_*` or `template_override*` key on any step, holder or the root refuses.
-   - **Queue.** Before ROUTE, the lane's routed set (Beads with `gc.routed_to` equal to the lane) is empty, and the rig's ready set holds exactly the step about to be routed. After ROUTE, the routed set is exactly that step (the s3 pre-route and post-route queue audits, for both lanes).
+     Any other change refuses. In particular, any `opt_*` or `template_override*` key on any step, holder or the root refuses.
+   - **Queue: the lane-eligible set.** Before ROUTE, the Beads routed to the lane (`gc.routed_to` equal to the lane identity, or any of its aliases) are none. After ROUTE, they are exactly the step. The s3 per-row stop conditions for both stores also hold, for the aliases of each lane:
+     - no open, in_progress or ephemeral row routed to the lane;
+     - no legacy-targeted row;
+     - no row assigned to a lane alias.
+
+     `gct-oak5` and the other open, unrouted Template Beads are in `bd ready` but are not claimable by the lane: its claim takes only routed work. That claim scope is an inventory item, and the design stops if the inventory shows otherwise.
 6. **The candidate root is clean.** An lstat-only audit, with no git, requires:
    - the candidate root is operator-owned, mode 0755, and holds exactly `gct-oak5`;
    - no `CLAUDE*.md` or `AGENTS*.md` in any directory above the worktree that a lane can write;
@@ -195,11 +213,20 @@ Each segment is one reviewed window. Each is a successor package generated with 
   - runs the rule 6 audit of the candidate root;
   - checks that the probe target stays empty;
   - verifies `gct-oak5`, the non-current steps and the holders are unchanged;
-  - takes a store-wide diff of Template Beads since BIND, which must show only the expected changes;
+  - takes the rule 5 store diff since BIND, which must show exactly its allowlist and nothing else;
   - re-runs the audit that no default-choice codex route targets the candidate root (from A2).
 - **Cache disposition.** It needs the operator's approval per window.
 
-**Second-route negative.** During C1's WATCH, once C1's assignee equals the live session, a guarded re-sling of the live step is issued:
+**Second-route negative.** During C1's WATCH, a guarded re-sling of the live step is issued only when all three hold:
+- C1 is `in_progress`;
+- its assignee equals its `gc.session_name`;
+- no agent-level hold is in place.
+
+The C1 brief tells the worker to wait for a coordinator note `PROBE DONE` before closing, so the window is certain. If C1 is closed anyway before the sling, the negative is recorded as unproven in C1's window and runs in C2's window under the same preconditions.
+
+If the result is unexpectedly idempotent (the assignee equals the target), that means the configuration or Core has drifted, and the window stops.
+
+**Preconditions, from the inventory:** the lane has no custom `sling_query`, and the default `session_template` applies. Otherwise both the warning path and the session-name argument below differ. The command:
 
 `gc sling gas-city-template/gc.implementation-worker <C1> --no-formula --no-convoy --json`
 
@@ -207,11 +234,16 @@ It uses the reviewed target-first argument order, and never `--nudge` or `--reas
 
 **Core behaviour (f45a6262), as the source shows it:**
 - **Not idempotent.** A claimed step's assignee is the session name, set by `gc hook --claim` at `cmd/gc/cmd_hook.go:445-448`. Session names contain no `/` (`internal/agent/session_name.go:53-59`), so the assignee never equals the target identity. `CheckBeadStateWithOptions` (`internal/sling/sling_attachment.go:454-461`) therefore returns only the warning "routed to X but assigned to Y", and `resolveIdempotentShortCircuit` (`internal/sling/sling_core.go:178-213`) returns false.
-- **The plain route runs.** `slingPlainBead`, then `finalize`, then `cliBeadRouter.Route` (`internal/sling/sling_core.go:605-713`, `cmd/gc/cmd_sling.go:770-776`) rewrite `gc.routed_to` with the same value. That bumps `updated_at` and may add an event row. `finalize` pokes the controller (`sling_core.go:703-706`), and the JSON reports `Routed: true`.
+- **The call path.** The CLI enters through `doSlingBatchWithJSON`, then `ExpandConvoy`, then `DoSlingBatch`, then `DoSling` for a non-container Bead (`cmd/gc/cmd_sling.go:547, 984-999`; `internal/sling/sling.go:353-367`; `sling_core.go:1413-1474`).
+- **The dispatch gate runs first.** It is the managed-product `DispatchGate` (`VerifyProfile`; `cmd_sling.go:502-507`, `sling_core.go:1417-1422, 60-65`). It reads the receipts, runs `InspectIntegrity`, including git with `--no-optional-locks` on the pinned repositories, and records an event only on refusal (`managed_product_dispatch_gate.go:51-70, 135-146`).
+- **The plain route runs.** `slingPlainBead`, then `finalize`, then `cliBeadRouter.Route` (`internal/sling/sling_core.go:605-713`, `cmd/gc/cmd_sling.go:770-776`) rewrite `gc.routed_to` with the same value. That bumps `updated_at` and may add an event row. `finalize` pokes the controller (`sling_core.go:703-706`).
+- **The JSON.** It reports `"routed": true` (`cmd_sling.go:1106, 1144`), with the bead warning in `"warnings"` (`cmd_sling.go:1110, 1162-1176`).
+- **The claim cannot move.** `stampHookClaimIdentity` compares before writing and skips unchanged keys (`cmd/gc/cmd_hook_claim.go:513-552`).
 - **What it does not do.** With no `--reassign` there is no reopen and no assignee clear (`sling_core.go:144-148, 341-343`). `--no-convoy` creates no convoy, and `--no-formula` attaches nothing. No nudge is signalled, because a nudge is honoured only with `--nudge`.
 
 **Evidence, each pinned:**
-- the sling JSON with `Routed: true` and the "routed … but assigned to …" warning;
+- the sling JSON with `"routed": true` and the "routed … but assigned to …" warning in `"warnings"`;
+- the dispatch gate passed, with no `ManagedProductDispatchRefused` event. The sling is a second gc invocation in the window, so the window's guarded environment and cache disposition cover it;
 - C1's status, assignee, `gc.routed_to`, `gc.work_dir` and `gc.check_path` values unchanged. Only `updated_at` and the event row move, and rule 5 and CLOSE admit exactly these;
 - no new session Bead;
 - no start or refusal event after the poke;
@@ -257,7 +289,7 @@ The gct-mbg6 intake runs unchanged in method:
   - **The root directory.** Containment of the candidate root directory itself, as well as of entries inside it, rests on the rule 6 audits at ROUTE, RESUME and CLOSE. X's write roots include the whole root.
   - **The close-then-route tick.** A worker's unsandboxed `bd update` can route a later step before its own close. The gap is bounded by one WATCH tick, detected and fail-closed.
   - **The negative's controller poke.** The second-route negative's same-value route write triggers one controller reconcile during C1's window. This is expected and recorded.
-  - **`/tmp`.** X's `/tmp` is the host `/tmp`, so a survivor could plant files there. The C2 tests use a private staging temp, and ROUTE's `city_problems` checks the tmux socket, as in the gct-e8ex Known scope.
+  - **`/tmp`.** X's `/tmp` is the host `/tmp`, so a survivor could plant files there. The C2 tests use a declared temp inside the worktree, which C2 deletes and the final export checks. ROUTE's `city_problems` checks the tmux socket, as in the gct-e8ex Known scope.
   - **Core git through a redirected gitfile.** Core runs plain git in worktrees, as the operator, during a window. A gitfile redirected by X is detected only after X's window, by the gitfile bytes and `verify_linked`.
   - **The vault.** It is an X write root. No Claude lane, intake or later window reads it, and X is told to write nothing there. Any vault write X makes is recorded, not prevented.
   - **Claim scope.** Whether `gc hook --claim` can take ready but unrouted work in the rig is confirmed from Core source before C1. WATCH detects any claim other than the routed step, and that is a stop.
@@ -273,7 +305,9 @@ The gct-mbg6 intake runs unchanged in method:
    - the pinned Template test command offline;
    - the claim scope of `gc hook --claim`, from Core source;
    - whether the bd close event's actor records the session identity or the OS user, in each lane;
-   - that `.oak5-c2-tmp/` is neither tracked nor ignored at BASE.
+   - the exact field set that a real `bd close` and a real claim write in bd 1.2.2;
+   - that neither lane has a custom `sling_query`, and that the default `session_template` applies;
+   - that `.oak5-c2-tmp/` is neither tracked nor ignored at BASE, and that the exact pinned C2 test command, env-variable form included, runs under the live lane policy and sandbox.
 3. The split package (steps, holders, the empty `H1` and `H2` placeholders, `blocks` and `relates-to` edges), then two reviews, then applied.
 4. The image tool, then two reviews.
 5. WORKTREE, as part of C1.
@@ -363,3 +397,26 @@ Codex quota for X is re-checked immediately before X's ROUTE. If it is short, th
     - the close evidence, with the actor as an inventory item;
     - the queue as routed set and ready set, before and after ROUTE (A 2, A 3).
   - **The other holder.** H2 must be empty at X's ROUTE (A 4).
+
+## r5 (answers the r4 reviews of `6cb8cf18`: A HOLD, B SOURCE_PASS)
+
+- **A must_fix 1: the whole-rig ready set.** This could never hold: `gct-oak5` and about 109 other open Template Beads are ready. The queue term is now the lane-eligible set:
+  - the Beads routed to the lane are none before ROUTE and exactly the step after it;
+  - the s3 per-row stop conditions hold, for the aliases of both lanes;
+  - `gct-oak5` and other unrouted Beads are stated as not claimable, tied to the claim-scope inventory.
+- **Should_fix taken from A:**
+  - the negative's same-value write is in the allowlist, and CLOSE uses the same list (A 1);
+  - the stale rule 4 sentence is fixed (A 2);
+  - C2 records digests before the test (A 3);
+  - the negative's race and fallback outcomes are pinned (A 4);
+  - JSON field names (A 5);
+  - the full call path and the dispatch gate are cited (A 6).
+- **Should_fix taken from B:**
+  - the allowlist is pinned key by key and value by value, including BIND stamps, claim keys, close fields and the next step's BIND (B 1);
+  - the store diff covers every store `bd` can reach, and the test-code reach is corrected (B 2);
+  - the negative's preconditions, the `PROBE DONE` wait and the fallback are set (B 3);
+  - the dispatch gate is part of the evidence (B 4);
+  - distinct pre-created temp subdirectories, with the exact command proven by the inventory (B 5);
+  - both stale temp lines are fixed (B 6);
+  - the close evidence is read from the last tick and cross-checked with `gc.session_*` (B 7);
+  - the `sling_query` and `session_template` preconditions (B 8).
