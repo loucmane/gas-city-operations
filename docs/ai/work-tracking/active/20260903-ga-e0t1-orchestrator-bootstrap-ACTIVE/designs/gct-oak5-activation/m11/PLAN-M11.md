@@ -151,6 +151,40 @@ staging `gct-oak5-m11`. The extract adds `new_trees`, `removed_inputs_absent`, `
 
 `test_m11.py`: 27 pass and 2 are skipped until the capture and the binding.
 
+## Binding (2026-09-27)
+
+**r2 `04ec50be` received two SOURCE_PASS verdicts with no must_fix.** Then, from a clean worktree, in the supervisor
+namespaces, with candidate C = `44786b31`:
+- **`prereqs_m11.py C`.** It wrote `reports/m11-inputs/city.toml` (`b0eeb168`, 0644). Quiescence began.
+- **`capture_m11.py C`.** `reports/m11-capture/baseline.json` is `4000f7f3`:
+  - zero drifts;
+  - pin changes exactly the four admitted pairs;
+  - cache bookkeeping only the known `954ed149…/.git` entry.
+- **Frame.** The build against the frozen baseline leaves 566 spare bytes, the same as the synthetic build.
+
+**The binding commit:**
+- `manifest_candidate.py` pins `BASELINE_SHA`, which moves its digest from `44786b31` to `f933ca57`.
+- `source-pins.json` is added.
+- It applies the r2 wording items below.
+- All 29 tests pass, including the frozen-baseline build and the source inventory.
+
+**r2 review items taken into the binding (no must_fix):**
+- **`allow_dirty` is required in the writer** (B 1). The working tree is not mounted in the confined writer, so
+  `git status` there would list every unmounted tracked file as deleted. It must never be turned off to "tighten"
+  the pin. It skips the status check entirely (A 2): a modified tracked file elsewhere in the canonical checkout is
+  not detected by this pin. The executed lane bytes are covered by the provider pins and the wrapper's dependency
+  digest.
+- **The checkout is now coupled to the metadata** (A 1, B 4). Core's dispatch gate runs the full integrity
+  inspection on every managed-product route and canary. So from M11 on, any HEAD move in
+  `/home/loucmane/gas-city-template` refuses all managed dispatch until a new metadata successor is installed. This
+  fails closed. A later Template merge therefore needs its own successor, as this one does. The P12 and handover
+  packages must not move the canonical checkout.
+- **Tests and quiescence** (A 3, B 2). The two tests that run read-only git in the canonical Template skip those
+  calls once `BASELINE_SHA` is pinned. The capture's `checkout_state` is the quiescent proof of HEAD `3474abfa`.
+- **Capture coverage of the new pin** (A 4). The capture iterates the installed M10 repositories. The new canonical
+  pin is covered by `checkout_state`: HEAD `3474abfa` and the exact untracked set.
+- **Wording** (B 3). The docstring now says r2 appends one repository row.
+
 ## Stop conditions
 
 Stop on any of these:

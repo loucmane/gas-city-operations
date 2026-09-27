@@ -3,8 +3,9 @@
   python3 -m pytest -q designs/gct-oak5-activation/m11/test_m11.py
 
 Offline except for read-only reads of the installed M10 pair, the M10 baseline, the build roots, the canonical
-Template files (and one `--version` of the Template wrapper), and the sequence 16 reproduction clone. Nothing runs
-git in a repository the capture pins, and nothing runs gc.
+Template files (and one `--version` of the Template wrapper), and the sequence 16 reproduction clone. Nothing runs gc.
+Two tests run read-only git (`show`, `rev-parse`, no optional locks) in the canonical Template; once BASELINE_SHA is
+pinned (the capture has run, so quiescence holds) they skip those calls.
 """
 import copy
 import hashlib
@@ -98,7 +99,7 @@ def test_predecessor_and_live_bytes(m):
 
 def test_template_lane_files_and_version(m):
     assert sha(m.WRAPPER) == m.WRAPPER_SHA and sha(m.WRAPPER_LIB) == m.WRAPPER_LIB_SHA
-    for path in (m.WRAPPER, m.WRAPPER_LIB):
+    for path in (m.WRAPPER, m.WRAPPER_LIB) if m.BASELINE_SHA is None else ():
         shown = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', m.TEMPLATE, 'show',
                                 m.TEMPLATE_COMMIT + ':' + path[len(m.TEMPLATE) + 1:]], capture_output=True, check=True,
                                env={'PATH': '/usr/bin:/bin', 'GIT_CONFIG_NOSYSTEM': '1', 'GIT_CONFIG_GLOBAL': '/dev/null'})
@@ -216,6 +217,8 @@ def test_template_commit_is_a_pinned_repository(m, cap, old, base):
     repos = out['integrity']['repositories']
     assert repos[-1] == dict(name='template-pr72-canonical', path=m.TEMPLATE, commit=m.TEMPLATE_COMMIT, allow_dirty=True)
     assert [r for r in repos if r['commit'] == m.TEMPLATE_COMMIT] == [repos[-1]]
+    if m.BASELINE_SHA is not None:
+        return  # quiescence: the capture proved HEAD 3474abfa (checkout_state)
     head = subprocess.run(['/usr/bin/git', '--no-optional-locks', '-C', m.TEMPLATE, 'rev-parse', 'HEAD'], capture_output=True,
                           text=True, check=True, env={'PATH': '/usr/bin:/bin', 'GIT_CONFIG_NOSYSTEM': '1',
                                                       'GIT_CONFIG_GLOBAL': '/dev/null'}).stdout.strip()

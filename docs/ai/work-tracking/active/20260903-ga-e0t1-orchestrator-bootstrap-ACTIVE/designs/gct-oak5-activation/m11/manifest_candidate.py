@@ -22,8 +22,8 @@ hashes seven dependencies, so every one must be mounted:
   regular files, nothing generated) replaces its four M10 inputs (the signing and Operations candidate policies
   and provider templates) and also covers the two new files. Pinning the directory is stricter than the four
   files: an added file there is drift.
-Frame: M10 left 613 spare bytes; the provider row alone costs about 580. So no row is appended: the two new
-inputs take over, in place, the two M10 rows that pin superseded ga-e0t1.15 Core images (b2760ea4, no longer any
+Frame: M10 left 613 spare bytes; the provider row alone costs about 580. So no input row is appended (r2 appends one
+repository row, below): the two new inputs take over, in place, the two M10 rows that pin superseded ga-e0t1.15 Core images (b2760ea4, no longer any
 backup or source since M8), the new city source takes over the superseded M6 city backup row, and the new Core
 backup takes over the superseded ga-e0t1.18 backup row. The superseded files stay on disk, unchanged.
 
@@ -49,8 +49,10 @@ OLD_MANIFEST_SHA = '2b902a83577acf71f9dd93a97d43d8478f7c4b291b0992e8ba5a5e44fe66
 OLD_RECEIPT_SHA = 'c0853ca321bd56fdead3443ff8a529a4b3b1a88ed52eca70e5fe5a4327bc0e6a'
 OLD_RELEASE_ID = 'ga-bebv-core-seq16-city-metadata-m10-20260927'
 BASELINE_PATH = O + '/reports/m11-capture/baseline.json'
-# Frozen by the capture and pinned in the binding commit; None refuses until then.
-BASELINE_SHA = None
+# Frozen by the 2026-09-27 capture (candidate 44786b31 at 04ec50be, after prereqs_m11.py; zero drifts, exactly the four
+# admitted pin changes, the Template .git pair and the known cache Git bookkeeping). Nobody runs gc, workflow.py, a Bead
+# write or git in a pinned repository until restore-accepted.
+BASELINE_SHA = '4000f7f3d37a2a572fc210ba201f0b6dedb08661f0c878c896f34a0426548a97'
 SUSPENSION_SHA = 'a3306567b3cf77e6371a870e6df239194574fab8f2dc3090ea55a5eeb14b4817'
 TEMPLATE = '/home/loucmane/gas-city-template'
 TEMPLATE_COMMIT = '3474abfaec255f7ea4266ce8aa35218afcfc89b0'
@@ -62,8 +64,12 @@ RELEASE_ID = 'gct-oak5-template-candidate-lane-metadata-m11-20260927'
 # `gc platform canary` (cmd/gc/managed_product_dispatch_gate.go containsRepositoryCommit) refuse unless some pinned
 # repository carries exactly that commit. The canonical checkout is that authority: HEAD is pinned exactly and its
 # .git is a pinned tree; allow_dirty only skips the status check, because the checkout carries the two known
-# untracked directories (deploy/, gas_city_template.egg-info/). A clean separate authority worktree would need about
-# twenty more tree rows, which the frame cannot hold.
+# untracked directories (deploy/, gas_city_template.egg-info/). r2 binding (review B should_fix 1): allow_dirty is
+# required whatever the host checkout looks like, because inside the confined writer the working tree is not mounted
+# (only .git, templates/claude and the pinned bin/lib inputs), so `git status` there would list every other tracked
+# file as deleted. It skips the status check entirely, so a modified tracked file elsewhere in the checkout is not
+# detected by this pin; the executed lane bytes are covered by the provider pins and the wrapper's dependency
+# digest. A clean separate authority worktree would need about twenty more tree rows, which the frame cannot hold.
 TEMPLATE_AUTHORITY = dict(name='template-pr72-canonical', path=TEMPLATE, commit=TEMPLATE_COMMIT, allow_dirty=True)
 
 GC = '/home/loucmane/gascity/bin/gc'
