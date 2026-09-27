@@ -40,6 +40,21 @@ worker's worktree. The window README forbids this before the intake has signed.
 - It is recorded here and on ga-e0t1.
 - The export does not depend on those reads.
 
+## Signing and PR (2026-09-27)
+
+**Signed commit.** Two independent SOURCE_PASS reviews of `a82f541a` are filed. `stage` in a fresh clone from
+GitHub at BASE gave tree `23b06247`, equal to the reviewed tree. The signed commit is `37586267`: good signature,
+key `2ECF4432C7E7982D`. It is pushed as `codex/gct-mbg6-template-candidate-lane`, and Template PR #72 is open.
+
+**CI timeout.** The CI tests all passed (795 passed, 61 skipped in 9m29s). The job was still cancelled by its
+10-minute `timeout-minutes`.
+
+**Timeout fix.** The operator approved a coordinator fix on 2026-09-27: one signed commit on PR #72 that changes
+only `timeout-minutes` from 10 to 20.
+- It is `68ffb689` (tree `55d7a9df`), recorded as `ci-timeout.patch`, with both commits' identities in
+  `ci-timeout-commits.txt`.
+- Two reviews bind to the Operations commit that carries this record.
+
 ## Next
 
 1. Two aegis-reviewer runs bind to the Operations commit that carries this package.
