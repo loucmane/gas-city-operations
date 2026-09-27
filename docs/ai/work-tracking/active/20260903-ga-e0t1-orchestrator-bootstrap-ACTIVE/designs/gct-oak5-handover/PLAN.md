@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r5
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r6
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r4 answered the r1 to r3 reviews, and r5 answers the r4 reviews of `6cb8cf18` (A HOLD, B SOURCE_PASS); see the last four sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r5 answered the r1 to r4 reviews, and r6 answers the r5 reviews of `11523ead` (A and B HOLD) with two operator decisions of 2026-09-27; see the last five sections.
 
 ## Decisions this plan relies on
 
@@ -8,6 +8,8 @@ This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its clos
   - **Within a lane:** by the claim and `max_active_sessions = 1`.
   - **Across the two agents:** by the window gates only, namely the suspension overlay and the session and cgroup census. The per-agent cap cannot exclude a concurrent Claude and codex session, so the gates are the cross-agent proof.
 - **2026-09-27, "New codex choice".** The Template codex agent gets `classified-vault-and-template-candidate-worktrees`. Its write roots are the vault and the whole candidate root, with no `.git`. A2, M12 and P13 are live.
+- **2026-09-27, "Close as obsolete".** Before C1 the coordinator closes the stale August `do-work` workflow `gct-wn1m`, with a note on each Bead: `gct-af6u`, `gct-20mc`, `gct-svpm`, `gct-dh6u` and `gct-v7yb`. `gct-af6u` was open, unassigned, ready and routed to the Claude lane. A pre-route queue audit then confirms the lane is empty.
+- **2026-09-27, "Keep, C1 only".** The second-route negative runs in C1's window only. There is no fallback. If it cannot run cleanly, it is recorded as unproven.
 - **2026-09-27, "Adapt acceptance".**
   - The handover images cover HEAD, unstaged and untracked work, and Bead evidence.
   - Staged work is recorded as not provable, because neither lane can write `.git`.
@@ -82,7 +84,10 @@ No step stages, commits, pushes, signs or touches git state, apart from the one 
 - CLOSE's final export (rules 2 to 4 and 6) must show that `.oak5-c2-tmp/` is gone and that `M1`, `A1`, `M2` and `A2` hold exactly the digests C2 recorded before the test.
 - The test run executes code X wrote, and under this policy its sandbox can write the whole candidate root. Any file it plants or rewrites is caught by that export check, not prevented.
 - The inventory proves that the tests import the worktree's code.
-- The sandbox has no network allowlist. Test code runs as a child of the sandboxed command, so it stays sandboxed. The five excluded commands run unsandboxed only when the agent invokes them directly, and any Bead change they make is caught by the store diff (rule 5).
+- The sandbox has no network allowlist. Test code runs as a child of the sandboxed command, so it stays sandboxed.
+- The five excluded commands are `gc hook --claim --json`, `gc runtime drain-ack`, and `bd close`, `bd show` and `bd update`. They run unsandboxed only when the agent invokes them directly.
+- Files the tests plant in the worktree could still influence those later unsandboxed `bd` calls, through cwd discovery of a `.beads/` directory or config, or a nested `CLAUDE.md` or `.claude/`. This is a stated known limit. It is detected afterwards by the final export (rules 2 to 4) and the store diff (rule 5), not prevented.
+- The inventory checks the effective pytest `norecursedirs`, from the Template's pytest configuration and not just the default. It also proves that deleting `.oak5-c2-tmp/`, including read-only files pytest may leave under `basetemp`, is permitted under the live policy and sandbox.
 
 ## The worktree
 
@@ -143,26 +148,39 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
      - the coordinator issued no close.
 
      If the inventory shows that the bd close event's actor records the session identity, that actor is also required to match.
-   - **The store diff.** A diff of every Bead store that unsandboxed `bd` can reach (the city store and every rig store), since the previous window's BIND, shows only the allowlist below. Every key and value is pinned; a diff cannot tell who wrote a key.
+   - **The store diff, chained.** Each window takes a full snapshot of every Bead store that unsandboxed `bd` can reach (the city store and every rig store) at BIND-before and CLOSE-after. Between windows, the next window's BIND-before must equal the previous window's CLOSE-after, except for coordinator writes named in a between-window ledger by Bead id and resulting digest:
+     - the `gct-wn1m` closures before C1;
+     - the holder writes;
+     - the review-verdict and `workflow.py` notes the orchestrator records.
+
+     Within a window, CLOSE-after minus BIND-before shows only the allowlist below. Every key and value is pinned; a diff cannot tell who wrote a key.
      - **The current step:**
-       - BIND's `gc.work_dir` and, for C1 and C2, `gc.check_path`, with their pinned values;
+       - BIND's `gc.work_dir` in every window, and `gc.check_path` in C1 and C2 only, with their pinned values. X's BIND stamps `gc.work_dir` only;
        - ROUTE's `gc.routed_to`, the lane identity;
        - the claim's `gc.work_branch`, `gc.session_id` and `gc.session_name`, whose exact key set is from the inventory. The session values must match the census;
        - status open to in_progress to closed, with the assignee set by the claim and cleared on close;
        - the fields a real `bd close` writes in bd 1.2.2, such as `closed_at`, `close_reason` or `closed_by_session`, exactly as the inventory records them;
-       - appended notes.
-     - **The second-route negative (C1's window only):** one same-value `gc.routed_to` write on C1, with its `updated_at` and event row.
+       - appended notes by the worker;
+       - the step Beads never gain `gc.work_outcome` or other work-record keys. The briefs forbid them, and the inventory checks whether a lane prompt sets them. If one does, the allowlist pins the value instead.
+     - **The session Bead:** exactly one new session Bead per window for the lane template in the city store (type `session`, label `gc:session`). Its key set and state sequence (create, update, close at postflight) are pinned by the inventory from one real session lifecycle. Its name and id equal the census and the claim's `gc.session_name` and `gc.session_id`. The same inventory pins any other city-store bookkeeping a session lifecycle and a controller poke write.
+     - **The second-route negative (C1's window only):** one same-value `gc.routed_to` write on C1, with its `updated_at` and event row. The coordinator's exact `PROBE DONE` or `PROBE SKIPPED` note on C1 is the only non-worker note.
      - **The next step (at X's and C2's ROUTE):** its BIND stamps, with pinned values.
      - **The holder:** the coordinator's image write.
      - **Accompanying:** the `updated_at` and event rows of the above.
 
      Any other change refuses. In particular, any `opt_*` or `template_override*` key on any step, holder or the root refuses.
-   - **Queue: the lane-eligible set.** Before ROUTE, the Beads routed to the lane (`gc.routed_to` equal to the lane identity, or any of its aliases) are none. After ROUTE, they are exactly the step. The s3 per-row stop conditions for both stores also hold, for the aliases of each lane:
-     - no open, in_progress or ephemeral row routed to the lane;
-     - no legacy-targeted row;
-     - no row assigned to a lane alias.
+   - **Queue: the lane-eligible set.** This follows Core's claim scope (`cmd/gc/cmd_hook_claim.go:216-344, 1205-1225`; identities from `cmd/gc/cmd_hook.go:445-468`). For the lane being routed, the set is the union of:
+     - open or in_progress rows (including ephemeral) whose `gc.routed_to` is a route target of the lane, meaning its qualified name, pool name or any alias;
+     - `gc.kind=workflow` rows with an empty `gc.routed_to` whose `gc.run_target` is a route target;
+     - open or in_progress non-message rows assigned to any identity candidate of the lane: the deterministic session name (`internal/agent/session_name.go:53-59`), session ids of the census, aliases and the agent name.
 
-     `gct-oak5` and the other open, unrouted Template Beads are in `bd ready` but are not claimable by the lane: its claim takes only routed work. That claim scope is an inventory item, and the design stops if the inventory shows otherwise.
+     Before ROUTE this set is empty. After ROUTE it is exactly the step; this is the step exception, as in `audit-queue-r3.py:61-63`. Closed rows that keep `gc.routed_to` are not in the set.
+
+     The concrete target, alias and identity sets are pinned per lane in each window package:
+     - the Claude lane, `gas-city-template/gc.implementation-worker`, and its session-name form;
+     - the codex lane, as in the gct-e8ex s3 audit.
+
+     `gct-oak5` and the holders are unrouted, unassigned or closed, so they are not in the set. `hookCandidateClaimable` requires an empty assignee and a route match.
 6. **The candidate root is clean.** An lstat-only audit, with no git, requires:
    - the candidate root is operator-owned, mode 0755, and holds exactly `gct-oak5`;
    - no `CLAUDE*.md` or `AGENTS*.md` in any directory above the worktree that a lane can write;
@@ -217,14 +235,24 @@ Each segment is one reviewed window. Each is a successor package generated with 
   - re-runs the audit that no default-choice codex route targets the candidate root (from A2).
 - **Cache disposition.** It needs the operator's approval per window.
 
-**Second-route negative.** During C1's WATCH, a guarded re-sling of the live step is issued only when all three hold:
+**Second-route negative (C1 only, operator decision).** During C1's WATCH, a guarded re-sling of the live step is issued only when all three hold:
 - C1 is `in_progress`;
 - its assignee equals its `gc.session_name`;
 - no agent-level hold is in place.
 
-The C1 brief tells the worker to wait for a coordinator note `PROBE DONE` before closing, so the window is certain. If C1 is closed anyway before the sling, the negative is recorded as unproven in C1's window and runs in C2's window under the same preconditions.
+**The release.** The C1 brief tells the worker to wait before closing, polling its step at most once a minute for at most 20 minutes, for exactly one of two coordinator notes:
+- `PROBE DONE gct-oak5 C1`, written after the sling and its evidence;
+- `PROBE SKIPPED gct-oak5 C1`, written if the preconditions do not hold.
 
-If the result is unexpectedly idempotent (the assignee equals the target), that means the configuration or Core has drifted, and the window stops.
+Each note is written by one pinned command (`bd update <C1> --append-notes '<text>'`) in the window's guarded environment, with `GIT_OPTIONAL_LOCKS=0`, under the window's cache disposition. It is admitted by rule 5 as the only non-worker note. If 20 minutes pass without either note, the brief says to continue and close.
+
+A worker that releases itself early, by writing the text itself, can only make the negative unproven; it cannot fake it. The sling evidence is the coordinator's own record, and CLOSE checks that the sling happened while C1 was `in_progress` and claimed.
+
+**Outcomes:**
+- The sling ran with the preconditions held: the negative is proven or refused on its pinned evidence.
+- Preconditions unmet, a timeout, or C1 closed first: the negative is recorded as unproven. There is no fallback.
+- **The race.** If C1 closes between the precondition check and the sling, Core sees `gc.routed_to` equal to the target with an empty assignee and takes the convoy-recovery or idempotent branch (`internal/sling/sling_attachment.go:417-430, 454-458`). That is recorded as the race and as unproven, not as drift.
+- **Drift.** Only an idempotent result while C1 is still `in_progress` and assigned, or an assignee equal to the target identity, counts as configuration or Core drift, and the window stops.
 
 **Preconditions, from the inventory:** the lane has no custom `sling_query`, and the default `session_template` applies. Otherwise both the warning path and the session-name argument below differ. The command:
 
@@ -280,7 +308,7 @@ The gct-mbg6 intake runs unchanged in method:
 - **Negatives refused:**
   - writes outside each lane's write roots (X and C2);
   - a codex `git commit`, with the pinned lock refusal;
-  - a second route issued against the live segment: the same-value route write is accepted, but it neither moves the claim nor starts a second worker, as described above;
+  - a second route issued against the live C1 segment: the same-value route write is accepted, but it neither moves the claim nor starts a second worker, as described above. If it cannot run cleanly in C1, it is recorded as unproven, per the operator decision;
   - an image mismatch on a tampered copy, with a positive control.
 
   Containment inside the candidate root rests on the rule 6 audit at ROUTE and RESUME and at CLOSE, not on the sandbox.
@@ -307,8 +335,10 @@ The gct-mbg6 intake runs unchanged in method:
    - whether the bd close event's actor records the session identity or the OS user, in each lane;
    - the exact field set that a real `bd close` and a real claim write in bd 1.2.2;
    - that neither lane has a custom `sling_query`, and that the default `session_template` applies;
-   - that `.oak5-c2-tmp/` is neither tracked nor ignored at BASE, and that the exact pinned C2 test command, env-variable form included, runs under the live lane policy and sandbox.
-3. The split package (steps, holders, the empty `H1` and `H2` placeholders, `blocks` and `relates-to` edges), then two reviews, then applied.
+   - that `.oak5-c2-tmp/` is neither tracked nor ignored at BASE; that the exact pinned C2 test command, env-variable form included, runs under the live lane policy and sandbox; that deleting the directory is permitted; and the effective `norecursedirs`;
+   - the city-store writes of one real lane session lifecycle and of a controller poke;
+   - whether either lane prompt sets `gc.work_outcome` or other work-record keys before close.
+3. The split package (steps, holders, the empty `H1` and `H2` placeholders, `blocks` and `relates-to` edges), then two reviews, then applied. The same package closes `gct-wn1m` as obsolete, per the operator decision, and records the pre-route queue audit showing the Claude lane's eligible set empty.
 4. The image tool, then two reviews.
 5. WORKTREE, as part of C1.
 6. The C1 window, then two reviews, then run.
@@ -420,3 +450,28 @@ Codex quota for X is re-checked immediately before X's ROUTE. If it is short, th
   - both stale temp lines are fixed (B 6);
   - the close evidence is read from the last tick and cross-checked with `gc.session_*` (B 7);
   - the `sling_query` and `session_template` preconditions (B 8).
+
+## r6 (answers the r5 reviews of `11523ead`: A and B HOLD; operator decisions of 2026-09-27)
+
+- **A must_fix 1: the live stale workflow.** The operator chose "Close as obsolete".
+  - The split package closes `gct-wn1m` (`gct-af6u`, `gct-20mc`, `gct-svpm`, `gct-dh6u`, `gct-v7yb`) with notes, before C1.
+  - The lane-eligible set and its pinned target, alias and identity sets are checked before each ROUTE.
+- **A must_fix 2 and B must_fix 1: legitimate writes the store diff refused.**
+  - Exactly one session Bead lifecycle per window is admitted, with the inventory-pinned key set, state sequence and bookkeeping.
+  - The store diff is now chained per window.
+  - Coordinator writes between windows are admitted only by id and digest in a between-window ledger.
+- **A must_fix 3 and B must_fix 2: the C2 fallback.** It is removed by the operator decision "Keep, C1 only".
+  - The negative has a bounded wait and `PROBE DONE` / `PROBE SKIPPED` release notes with pinned text and command.
+  - The race outcome is separated from drift.
+  - Unproven is an allowed recorded outcome.
+- **Should_fix taken:**
+  - "routed" means open or in_progress rows, closed rows excluded; the step exception after ROUTE; per-lane alias and identity sets (A 1-3);
+  - the `PROBE` notes are pinned in text, author, command, environment and place (A 4, B 2);
+  - the wait is bounded, with its timeout outcome and self-release handling (A 5, B 3);
+  - temp deletion is proven by the inventory (A 6);
+  - X's BIND is `gc.work_dir` only (A 7);
+  - the claim-scope branches, workflow `gc.run_target` rows and identity-assigned rows including the deterministic session name, are in the eligible set (B 1);
+  - the race versus drift distinction (B 4);
+  - `gc.work_outcome` is forbidden or pinned (B 5);
+  - the excluded commands are named, and the planted-file influence on unsandboxed `bd` is a stated limit (B 6);
+  - the effective `norecursedirs` is checked (B 7).
