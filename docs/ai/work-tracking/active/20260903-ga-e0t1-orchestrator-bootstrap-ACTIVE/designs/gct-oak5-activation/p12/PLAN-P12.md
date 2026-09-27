@@ -109,3 +109,34 @@ Each step runs once, as
 ## After P12
 
 The canary receipts are stale after P12, as they were after P11. This is a known follow-up, not a precondition for the gct-oak5 handover window.
+
+## Read-only run and adoption binding (2026-09-27)
+
+Source reviews: two independent SOURCE_PASS of 1ab5af55, no must_fix. The should_fix items are follow-ups:
+- bind `allow_dirty` and pin the M11 acceptance digests in `m11_acceptance()`, with negative tests;
+- check the Template `main_sha256` in the observer;
+- drop the unreachable Template-profile-absent check.
+
+Known limit: the Template check path is proven only as `receipt-input-not-routed-bead`. It is first proven at the live start.
+
+Runs, 2026-09-27 at 12:19 CEST (10:19 UTC), each once:
+- **Input:** result d9f91a33, draft 8d241195, revision 06076790.
+- **Composition:** ok and unchanged at `/var/tmp/gct-oak5-p12-compose-20260927`.
+- **Readiness:** ok and unchanged, with all ten phases done.
+  - The signing, Operations candidate and Template preflights passed all twelve checks. The candidates show `no_signer`.
+  - The three negatives stop at `worker_profile_sha256 mismatch` after exactly receipt, profile, permission_revision and check_path_stamp.
+  - The subscription posture is claude.ai, max.
+
+Finalized receipt: file 7125be84, self 4204aef0. Its profiles, sorted by name, are Template 2341a9a0, signing ad0c695b and Operations candidate e641dc17.
+
+Adoption constants:
+
+| Constant | Value |
+| --- | --- |
+| `NEW_SHA` | 7125be84 |
+| `NEW_SELF` | 4204aef0 |
+| `READY_RESULT_SHA` | eaabc9f3 |
+| `READY_BEFORE_SHA` | ffecfc13 |
+| `READY_PINS_SHA` | 82a4a70c |
+
+`test_p12.py` passes 26.
