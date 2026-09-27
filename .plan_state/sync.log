@@ -3976,5 +3976,17 @@
     "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
     "tracker_hash": "a4865c0707934ff503739748b82da3767443e17246b3c225126c9c97d762a15a",
     "synced_at": "2026-09-27T20:12:18.907299+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "976168162458284a3dda02a0cc719ed1a04eb4ad1185941bdd7166d89c05176a",
+    "synced_at": "2026-09-27T21:03:55.344274+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "976168162458284a3dda02a0cc719ed1a04eb4ad1185941bdd7166d89c05176a",
+    "synced_at": "2026-09-27T21:14:12.942328+02:00"
   }
 ]
