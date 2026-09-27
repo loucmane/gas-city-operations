@@ -36,11 +36,11 @@ PROVISIONER = Path('/home/loucmane/gas-city-template/bin/gct-managed-worker-prov
 WITNESS = Path('/var/tmp/ga-bebv-p11-adoption-20260927/typed-support.json')
 WITNESS_SHA = 'a2016797ca0c91dadaa770b9496dc93c919ebffd4f22290da0309087f0c9c675'
 CITY_SHA = ('e5b68c40a422225ae7b246fb0c579363c1167b4e4fac466717b0ee0237073077',
-            '0e583359552b9c765ae0da5cf971397d6cf0e96b03613238721cc797aad64940')
+            '1dc5c539982656be664b447d6e9ade344c0975cf0625b185e60df2c2ece69b40')
 RECEIPT_SHA = ('06a3f58a060a20b28d0bea86105e22278ef8983f0f80cba4d725788cd3a8bbd5',
-               '62041d275870f6ea5d04860d9c40821c78313bd802706f22dce6a9660f50369a')
+               '7a1e2ed1df4a652fe31fe361d3fcf017e71c32f539d5e2b4a62b1e802ba3f06c')
 REVISION = ('03f16ea2f9d46393f749c93a397f5a6020210d0f2252fe0a45205ee4263ce712',
-            '2a88522aea8912c454204a99942fea748807604c8a640a3612d130e6c83cb28a')
+            '480c2dd891073a3a798b2747961e68a94d5717a950ef1e219c11b15acb1efab6')
 INPUT = (Path('/var/tmp/ga-bebv-p11-input-20260927/receipt.input.draft.json'), PREP/'receipt.input.json')
 INPUT_SHA = ('68fb232e0c940140db9f5a41bf62652eca19115240a18a1b118698f5884611c1',
              None)  # The isolated input is compared to the exact native-finalized wire below.
@@ -120,7 +120,7 @@ def load_support():
 
 def pins():
     # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.
-    read(PREP/'result.json', 'a99403becaec1b8255e753828f21cb806fe91642ba5290caa93805e5e567b2da')
+    read(PREP/'result.json', '983e77f482732c4545dc3a7d0e4b425f11e8f2d9c386d0f570670812e53b9a2f')
     read(LAUNCH, '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea')
     read(PROVISIONER, '64425a728fc06a082865f2d53afcc6e4793974f5aadab49492d95f5e0a9f4a35')
     read(WITNESS, WITNESS_SHA)
@@ -241,10 +241,10 @@ def approved_coordinator_cache_image(prior):
     return value
 
 CACHE_PREV_NS = 1790468581253506370
-CACHE_PINNED_NS = None
+CACHE_PINNED_NS = 1790470648629115669
 
 def approved_candidate_cache_image(prior):
-    # gct-mbg6 disposition, operator-approved 2026-09-26, for independent review: after the
+    # gct-mbg6 disposition, operator-approved 2026-09-27, for independent review: after the
     # P11 after-snapshot, the coordinator recorded the P11 adoption and the s1 r8 package on ga-e0t1 through
     # the canonical workflow.py, whose Bead reads run bd without GIT_OPTIONAL_LOCKS=0. That advances only
     # the pack cache repository's .git directory mtime and ctime. s2 pins the value after the last note;

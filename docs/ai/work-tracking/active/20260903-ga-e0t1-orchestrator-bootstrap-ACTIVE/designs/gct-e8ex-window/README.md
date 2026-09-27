@@ -340,6 +340,33 @@ What the deployment adds to the Known scope above:
 `test_successor.py`: 27 tests, 24 run at s1 (the three s2 pins skip). Adds `test_rebase_moves_every_baseline_binding`
 and `test_accepted_image_is_the_p11_adoption_snapshot`.
 
+## s2 (2026-09-27)
+
+Two job-bound SOURCE_PASS reviews of s1 r8 `354221e3`, which named WORKTREE and PREP, are filed with the job
+runner. A scratch dry run of PREP's overlay checks under the confined gc passed first (r8 reviews should_fix 2 and
+1). Then:
+- **WORKTREE** (job mbg6-r8-worktree) passed. The worktree `/home/loucmane/gas-city-template-worktrees/gct-mbg6`
+  is at cfd353f3 on `codex/gct-mbg6-template-candidate-lane`, clean.
+- **PREP** (job mbg6-r8-prep) passed read-only:
+  - overlay `1dc5c539`;
+  - receipt image file `7a1e2ed1` (self `815ffa23`);
+  - revision `03f16ea2` → `480c2dd8`;
+  - result `983e77f4`;
+  - orders.isolated `b57082cf`, unchanged from ga-3oa7, with the nudge-on-route script still `7f49bf8b`.
+
+s2 pins the four changed PREP outputs through `PREP_PINS`. It also pins `CACHE_PINNED_NS` to 1790470648629115669,
+the live pack-cache `.git` value after the last coordinator note (the PREP outcome, 00:57:17Z). The operator
+approved this window's one-field disposition on 2026-09-27, per window and not as a standing rule. From this pin
+until TERMINAL there is no workflow.py, no Bead note and no unguarded gc. Wording fixes: the disposition date, and
+"P11 provider pins" in the integrity observer.
+
+The pre-BIND checks:
+- **The PREFLIGHT access-time gate** (four paths: atime newer than mtime and ctime, and under 19 h old). The
+  provisioning directory failed it, because P11's receipt rename moved its mtime. One plain read of the directory
+  (FRESHEN, reads only) refreshed it on relatime, and all four now pass. The suspension state is the tightest,
+  about 13.3 h old at 01:03Z, so PREFLIGHT must run before about 06:40Z.
+- **The pinned-cache lstat** and **`common-snapshot-r1.py before`** run immediately before BIND is queued.
+
 ## Tests
 
 `test_successor.py` is run at s1; the three s2 pins skip until then: the PREP outputs, the live `pins()` and the

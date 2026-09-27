@@ -247,7 +247,18 @@ PROVIDER = ('/var/tmp/ga-bebv-p11-adoption-20260927/after.json.provider-pins',
 SPLIT_COMMIT = '0e4b67080b7816d703f81d9559124b256f22fe1f'
 HOLDERS = ('gct-v1nl', 'gct-q6a4', 'gct-t54b', 'gct-2fax', 'gct-ilmv', 'gct-i852')
 # s2: the gct-mbg6 PREP outputs replace the ga-3oa7 ones in window-base (empty until PREP has run).
-PREP_PINS = []
+# s2 (2026-09-27): job mbg6-r8-prep passed at 354221e3; /var/tmp/gct-mbg6-prep-20260926-r1. orders.isolated.json
+# is byte-identical to ga-3oa7's (b57082cf) and the nudge-on-route script is unchanged (7f49bf8b), so those stay.
+PREP_PINS = [
+    ('0e583359552b9c765ae0da5cf971397d6cf0e96b03613238721cc797aad64940',   # city.isolated.toml (the overlay)
+     '1dc5c539982656be664b447d6e9ade344c0975cf0625b185e60df2c2ece69b40'),
+    ('62041d275870f6ea5d04860d9c40821c78313bd802706f22dce6a9660f50369a',   # receipt.final.json (self 815ffa23)
+     '7a1e2ed1df4a652fe31fe361d3fcf017e71c32f539d5e2b4a62b1e802ba3f06c'),
+    ('2a88522aea8912c454204a99942fea748807604c8a640a3612d130e6c83cb28a',   # the overlay revision
+     '480c2dd891073a3a798b2747961e68a94d5717a950ef1e219c11b15acb1efab6'),
+    ('a99403becaec1b8255e753828f21cb806fe91642ba5290caa93805e5e567b2da',   # PREP result.json
+     '983e77f482732c4545dc3a7d0e4b425f11e8f2d9c386d0f570670812e53b9a2f'),
+]
 
 
 # s1 r7: the four codex choice blocks (TOML bytes of the pinned city.toml 4f7e170f) that grant more than the window's
@@ -372,7 +383,9 @@ ACCEPTED_NEW = ('/var/tmp/ga-bebv-p11-adoption-20260927/after.json',
 # The pack-cache .git mtime and ctime in the P11 after-snapshot; s2 pins the value after the last note.
 CACHE_OLD = (1790419645618740930, 1790431776352453342)
 CACHE_PREV_NS = 1790468581253506370
-CACHE_PINNED_NS = None
+# s2: the operator approved this window's one-field disposition on 2026-09-27 (about 03:00 CEST); the value is
+# the live one after the last coordinator note (the PREP outcome, 00:57:17Z).
+CACHE_PINNED_NS = 1790470648629115669
 
 
 def window_base(text):
@@ -430,6 +443,9 @@ REBASE = {
         ("value['controller']['pid']==995924", "value['controller']['pid']==2800348", 1),
         ("newest['controller_pid']==995924", "newest['controller_pid']==2800348", 1),
         (GC_OLD, GC_NEW, 1),
+        # s2 wording (r8 reviews A and B should_fix): this window's disposition was approved on 2026-09-27.
+        ("# gct-mbg6 disposition, operator-approved 2026-09-26, for independent review: after the",
+         "# gct-mbg6 disposition, operator-approved 2026-09-27, for independent review: after the", 1),
     ],
     'window-r11.py': [("newest['controller_pid']==995924", "newest['controller_pid']==2800348", 1),
                       ("INSPECTOR_SHA='9e29e45dd465dd0397525c5a2d8aa929e65a32bffa7a69787842a23c99a55549'",
@@ -487,6 +503,8 @@ for _name in ('observe-integrity-r11.py', 'observe-terminal-r11.py'):
 
 
 REBASE['observe-integrity-r11.py'].insert(0, ("post-P10 baseline (M9)", "post-P11 baseline (M10)", 1))
+REBASE['observe-integrity-r11.py'].append(("    # (four keys) and the P10 provider pins, through approved_candidate_cache_image only.",
+                                          "    # (four keys) and the P11 provider pins, through approved_candidate_cache_image only.", 1))
 
 
 def rebase(name, text):
