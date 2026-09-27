@@ -106,6 +106,41 @@ Use P10's order, each step once, as
 - a pinentry prompt;
 - drift outside the receipt.
 
+## Read-only run and adoption binding (r2, 2026-09-27)
+
+r1 `ccd1eec0` received two SOURCE_PASS verdicts with no must_fix. Steps 2 to 4 then ran once each, all passing,
+at the reviewed commit:
+- **input:** result `7ccb7b82`, draft `68fb232e`, and the traced revision is `03f16ea2`.
+- **compose:** ok and unchanged. Both profiles' observed argv, environment and revision equal the draft.
+- **readiness:** ok and unchanged, with no inference, signing or worker. All eight modes completed:
+  - the finalized receipt is `06a3f58a`, self `7363291e`, with revision `03f16ea2` and core `f45a6262`;
+  - the profile digests are still `ad0c695b` and `e641dc17`;
+  - Core preflight passed for signing (ending in `signer`) and for the candidate (ending in `no_signer`);
+  - both negatives stopped at `worker_profile_sha256 mismatch` after `check_path_stamp`;
+  - subscription posture: claude.ai, max.
+  These are exactly the dry proof's results.
+
+r2 fills the five adoption constants:
+- `NEW_SHA` `06a3f58a` and `NEW_SELF` `7363291e`;
+- `READY_RESULT_SHA` `ebccc145`, `READY_BEFORE_SHA` `71473463` and `READY_PINS_SHA` `82a4a70c`.
+
+**Review notes carried (no must_fix):**
+- **Profiles (A 1, A 2, B 2).** "Both profiles unchanged" holds by construction: `RECEIPT_OLD_SHA` pins the
+  input bytes, `derive()` leaves the signing profile untouched and compares the candidate in full, and
+  readiness shows both digests unchanged. The scripts do not re-assert the signing check path or the two
+  digests at run time; the adoption reviews check them in the evidence.
+- **Interop evidence (A 3, B 4).** `typed-interoperability.json` is historical wire-compatibility evidence at
+  Core 796d9a7a, carried forward as in P8 to P10. The live wire proof at f45a6262 is the readiness finalize.
+- **Core diff (A 4).** The claim that the extracted functions did not change is backed by the extraction's eight
+  function digests and the `environment_sha256` `f17f520f`, both identical to P10's build.
+- **Tests (A 5, B 3).** The builder-diff test is by set membership; byte-exact regeneration covers order. The
+  unchanged boot, signer and broker pins were checked by hand against the sequence 16 postflight.
+- **Canary receipts (B 1).** P11 changes the revision and the receipt digest, so every existing canary receipt
+  goes stale. Any managed-product dispatch needs a canary minted after P11.
+- **Composition equivalence (B 5).** The diagnostic builds the argv with `BuildProviderLaunchCommand`; production
+  uses the resolved command plus default and settings args. They agree while neither wrapper provider carries
+  schema flags in its base command, as today.
+
 **Carried from P10.** The receipt is bound to the config revision, so any later city.toml change makes it
 stale again. This includes the `title_model` follow-up from M10, which will need its own receipt refresh. The
 adoption pins controller pid 2800348 and fails closed on a supervisor restart.
