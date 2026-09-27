@@ -12,7 +12,7 @@ D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE
 C=$D/gct-oak5-handover/probe
 STAGE=$S/probe-ab-r2
 COMMIT=${1:?usage: PROBE-AB.sh <reviewed commit>}
-PROBE_SHA=64d0a2ab7be92551d1b9ede85fb9c08d7bcfc9cdd38f1bb7203632d23a3777b6
+PROBE_SHA=95c6b1751542363597029006e04a488429076dd6eeb65621fb070882138829da
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

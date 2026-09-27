@@ -1,5 +1,7 @@
 """Tests for the gct-oak5 probe A/B helpers (no provider launch, no network)."""
+import hashlib
 import importlib.util
+import struct
 import json
 import os
 import subprocess
@@ -102,19 +104,49 @@ def test_truncated_index_is_reported_not_raised(linked):
     assert probe.classify_index(raw, raw[:-30]).startswith("unparsed")
 
 
+def with_extension(raw, payload):
+    body = raw[:-20] + b"UNTR" + struct.pack(">I", len(payload)) + payload
+    return body + hashlib.sha1(body).digest()
+
+
 def test_extension_change_detected(linked):
-    worktree, index = linked
-    git("update-index", "--untracked-cache", cwd=worktree)
-    git("status", "--porcelain", cwd=worktree)
-    before = index.read_bytes()
-    (worktree / "new-untracked").write_text("x")
-    git("status", "--porcelain", "--untracked-files=all", cwd=worktree)
-    result = probe.classify_index(before, index.read_bytes())
-    assert result.startswith("extensions changed") or result == "identical"
+    _, index = linked
+    raw = index.read_bytes()
+    _, _, extensions, _ = probe.parse_index(raw)
+    assert [sig for sig, _ in extensions] == [b"TREE"]
+    before = with_extension(raw, b"\x00-1 0\n")
+    after = with_extension(raw, b"\x00-1 1\n")
+    assert probe.classify_index(before, after) == "extensions changed: bytes"
+    assert probe.classify_index(raw, before) == "extensions changed: UNTR"
+
+
+def test_v4_index_is_unparsed(linked):
+    _, index = linked
+    raw = bytearray(index.read_bytes())
+    raw[4:8] = struct.pack(">I", 4)
+    assert probe.classify_index(index.read_bytes(), bytes(raw)).startswith("unparsed")
+
+
+def test_name_length_mismatch_is_unparsed(linked):
+    _, index = linked
+    raw = bytearray(index.read_bytes())
+    raw[12 + 60:12 + 62] = struct.pack(">H", 3)  # first entry is a.txt, length 5
+    assert probe.classify_index(index.read_bytes(), bytes(raw)).startswith("unparsed")
+
+
+def live_policy_bytes():
+    fd = os.open(probe.LIVE_POLICY, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        with os.fdopen(fd, "rb", closefd=False) as handle:
+            raw = handle.read()
+    finally:
+        os.close(fd)
+    assert hashlib.sha256(raw).hexdigest() == probe.LIVE_POLICY_SHA
+    return raw
 
 
 def test_probe_policy_retargets_and_drops_hooks(tmp_path):
-    raw = Path(probe.LIVE_POLICY).read_bytes()
+    raw = live_policy_bytes()
     policy = probe.probe_policy(raw, tmp_path)
     assert "hooks" not in policy
     text = json.dumps(policy)
@@ -132,7 +164,7 @@ def test_probe_policy_retargets_and_drops_hooks(tmp_path):
 
 
 def test_probe_policy_refuses_unexpected_root_count(tmp_path):
-    raw = Path(probe.LIVE_POLICY).read_bytes().replace(probe.LIVE_ROOT.encode(), b"/elsewhere", 1)
+    raw = live_policy_bytes().replace(probe.LIVE_ROOT.encode(), b"/elsewhere", 1)
     with pytest.raises(RuntimeError):
         probe.probe_policy(raw, tmp_path)
 

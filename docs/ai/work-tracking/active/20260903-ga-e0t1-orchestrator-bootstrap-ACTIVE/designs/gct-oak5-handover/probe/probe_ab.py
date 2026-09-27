@@ -17,9 +17,13 @@ subscription authentication step is skipped (the auth-override environment refus
 
 Nothing here writes to the canonical Template (its policy file is read with O_NOATIME), the live
 city or any store. The session itself writes normal Claude project and transcript state under
-~/.claude, as any Claude run does. The clone comes from GitHub. Codex startup git is not probed
-here; the plan takes it from the gct-mbg6 window's byte-identical common snapshot. Output: <stage>/report.json and the Claude stream in <stage>/claude-stream.jsonl.
-Usage: probe_ab.py <stage directory that must not exist>
+~/.claude and updates ~/.claude.json, as any Claude run does. --strict-mcp-config with no
+--mcp-config starts no MCP server from the operator's configuration; the init event's server list
+is recorded, and a non-empty local server list is flagged. The clone comes from GitHub. Codex
+startup git is not probed here; the plan takes it from the gct-mbg6 window's byte-identical common
+snapshot. Output: <stage>/report.json and the Claude stream in <stage>/claude-stream.jsonl.
+Entry: source-launch.py <this file> <its sha256> <stage directory that must not exist>, from
+operator/PROBE-AB.sh; main() takes the stage directory.
 """
 import hashlib
 import json
@@ -155,8 +159,10 @@ def parse_index(raw):
                 raise ValueError("extended flag in a v2 index")
             extended = raw[pos:pos + 2]
             pos += 2
-        end = raw.index(b"\0", pos)
+        end = raw.index(b"\0", pos, min(len(raw), pos + 4096))
         name = raw[pos:end]
+        if (flags & 0xFFF) != min(len(name), 0xFFF):
+            raise ValueError("entry name length does not match its flags")
         total = 62 + len(extended) + len(name)
         pos = start + total + (8 - total % 8)
         entries.append((name, mode, oid, flags, extended))
@@ -256,6 +262,7 @@ def main(stage_arg):
     stage = Path(stage_arg)
     if stage.exists() or stage.is_symlink():
         raise SystemExit(f"stage already exists: {stage}")
+    environment = child_environment(os.environ)
     stage.mkdir(mode=0o700, parents=False)
     report = {"schema": "gct-oak5.probe-ab.v1", "base": BASE, "stage": str(stage), "deviations": [
         "scratch root replaces the candidate root in --add-dir and the two Edit rules",
@@ -264,8 +271,11 @@ def main(stage_arg):
         "clone from GitHub, not a linked worktree of the canonical Template",
         "the five native control commands removed from permissions.allow and sandbox.excludedCommands",
         "subscription authentication step of the real launch skipped",
+        "--strict-mcp-config with no --mcp-config: no MCP server from the operator configuration starts",
     ], "not_covered": [
         "codex startup git (taken from the gct-mbg6 window common snapshot instead)",
+        "claim-time git (ResolveWorkBranch under gc hook --claim), removed with the control commands; the gct-mbg6 snapshot covers it for the same gc binary",
+        "the plain rm -r failure on a read-only directory under the sandbox (the live run uses chmod first; the local test shows the failure)",
     ]}
     fd = os.open(LIVE_POLICY, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
     try:
@@ -299,19 +309,27 @@ def main(stage_arg):
 
     argv = [CLAUDE, "--add-dir", str(root), "--permission-mode", "dontAsk", "--effort", "max",
             "--model", MODEL, "--setting-sources", "", "--settings", str(policy_path),
+            "--strict-mcp-config",
             "-p", "--output-format", "stream-json", "--verbose", prompt(commands)]
     report["argv"] = argv[:-1] + ["<prompt>"]
     stream = stage / "claude-stream.jsonl"
     started = time.time()
     with open(stream, "wb") as out, open(stage / "claude-stderr.txt", "wb") as err:
-        proc = subprocess.Popen(argv, cwd=worktree, env=child_environment(os.environ), stdin=subprocess.DEVNULL,
+        proc = subprocess.Popen(argv, cwd=worktree, env=environment, stdin=subprocess.DEVNULL,
                                 stdout=out, stderr=err, start_new_session=True)
         try:
             report["claude_exit"] = proc.wait(timeout=TIMEOUT)
         except subprocess.TimeoutExpired:
-            os.killpg(proc.pid, signal.SIGKILL)
-            proc.wait()
             report["claude_exit"] = "timeout"
+        finally:
+            # Kill whatever is left in the session's process group on every path, before measuring.
+            # Children that left the group (sandbox helpers) die with the oneshot unit's cgroup.
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            proc.wait()
+            time.sleep(2)
     report["seconds"] = round(time.time() - started, 1)
 
     admin_after = admin_state(admin)
@@ -348,6 +366,11 @@ def main(stage_arg):
                 if isinstance(content, list):
                     content = " ".join(c.get("text", "") for c in content if isinstance(c, dict))
                 results[part.get("tool_use_id")] = {"is_error": bool(part.get("is_error")), "content": str(content)[:4000]}
+        if event.get("type") == "system" and event.get("subtype") == "init":
+            servers = event.get("mcp_servers") or []
+            report["init_mcp_servers"] = servers
+            report["local_mcp_servers_started"] = [
+                s for s in servers if isinstance(s, dict) and not str(s.get("name", "")).startswith("claude.ai")]
         if event.get("type") == "result":
             report["final"] = {k: event.get(k) for k in ("subtype", "is_error", "result", "num_turns", "total_cost_usd")}
     report["tool_calls"] = [dict(call, result=results.get(call["id"])) for call in calls]

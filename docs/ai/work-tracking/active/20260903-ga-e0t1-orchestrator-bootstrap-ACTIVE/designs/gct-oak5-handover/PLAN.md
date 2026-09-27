@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r12
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r13
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, and r12 answers the r11 reviews of `27ae54fc` (A and B HOLD); see the last three sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, and r13 answers the r12 reviews of `e2384515` (A HOLD, B SOURCE_PASS); see the last four sections.
 
 ## Decisions this plan relies on
 
@@ -95,7 +95,7 @@ No step stages, commits, pushes, signs or touches git state, apart from the one 
 
   C2 creates both before running the command, so Python's `tempfile` never falls back to `/tmp`. The inventory confirms the path is neither tracked nor ignored at BASE, and that pytest's default `norecursedirs` skips it.
 - **The inventory runs the exact command,** including its env-variable form, under the live lane policy and sandbox, and proves it is permitted.
-- **Cleanup.** After the test and before its note, C2 deletes `.oak5-c2-tmp/` with exactly two commands: `/usr/bin/chmod -R u+w -- .oak5-c2-tmp`, then `/usr/bin/rm -r -- .oak5-c2-tmp`. Plain `rm -r` fails on a read-only directory that pytest's `tmp_path` may leave behind, and the probe proves both the failure and the two-step deletion.
+- **Cleanup.** After the test and before its note, C2 deletes `.oak5-c2-tmp/` with exactly two commands: `/usr/bin/chmod -R u+w -- .oak5-c2-tmp`, then `/usr/bin/rm -r -- .oak5-c2-tmp`. Plain `rm -r` fails on a read-only directory that pytest's `tmp_path` may leave behind, The probe's local test shows the plain failure. The live probe runs the two-step deletion under the retargeted policy and sandbox.
 
 **Checks on the test run.**
 - CLOSE's final export (rules 2 to 4 and 6) must show that `.oak5-c2-tmp/` is gone and that `M1`, `A1`, `M2` and `A2` hold exactly the digests C2 recorded before the test.
@@ -369,9 +369,9 @@ Each segment is one reviewed window. Each is a successor package generated with 
 - **WATCH** records, on every tick, the routing (`gc.routed_to`) and assignee of the non-current steps, the holders and the root. Any change triggers CONTAIN at once.
   - **When WATCH first observes the current step closed**, it switches to a 15-second poll of the census session Bead and holds the lane at the agent level at the first of:
     - the session Bead shows `state_reason=drain-ack-stop-pending`, which Core writes before it queues the stop, so the hold cannot turn the teardown into a "suspended" drain;
-    - 4 minutes after the observed close.
+    - 4 minutes after the step's `closed_at`, the time of the close itself, not of WATCH's observation.
 
-    An agent-level hold on a live session with no open work begins a "suspended" drain that sends Ctrl-C (`cmd/gc/session_reconciler.go:2032-2106`). If the hold lands before the drain-ack mark, the session ends "suspended" and the window refuses: the worker did not drain within the bound. The 4 minutes stay inside the idle restart bound, which runs 5 minutes from the worker's last provider activity, and the close is itself such activity. Nothing else changes in the lane during the wait: the next step is unrouted, and `max_active_sessions = 1`.
+    An agent-level hold on a live session with no open work begins a "suspended" drain that sends Ctrl-C (`cmd/gc/session_reconciler.go:2032-2106`). If the hold lands before the worker has run drain-ack, the session ends "suspended" and the window refuses: the worker did not drain within the bound. A drain-ack that Core recorded but has not yet marked still takes the drain-ack path, because that check comes before the suspended drain (`session_reconciler.go:1933-1998`). The 4 minutes, counted from `closed_at`, stay inside the idle restart bound, which runs 5 minutes from the worker's last provider activity, and the close is itself such activity. Nothing else changes in the lane during the wait: the next step is unrouted, and `max_active_sessions = 1`.
   - A worker with unsandboxed `bd update` could route a later step before closing its own, and the reconciler could start a session inside one tick. That tick-bounded gap is stated as a known limit, and it is detected by the store-wide diff and fails closed.
 - **CLOSE:**
   - runs `verify_linked` on the worktree;
@@ -464,6 +464,7 @@ The gct-mbg6 intake runs unchanged in method:
 
   Containment inside the candidate root rests on the rule 6 audit at ROUTE and RESUME and at CLOSE, not on the sandbox.
 - **Known limits, stated on gct-oak5:**
+  - **Account-level connectors in the Claude lane.** Real Claude-lane sessions launched with `--setting-sources ""` load no local user-scope MCP server: the ga-3oa7, ga-x7lx and ga-sh3w transcripts show none of the `~/.claude.json` servers. They do list the account-level claude.ai connectors (Docs, Gmail, Calendar, Drive, Exa, Crypto.com) as deferred tools. The lane policy allows none of them, so `dontAsk` refuses every call. This is recorded as a limit, with a hardening follow-up to switch the connectors off for worker lanes.
   - **The RESUME gap.** Between the last rule 6 audit before RESUME and the session reading its files.
   - **The root directory.** Containment of the candidate root directory itself, as well as of entries inside it, rests on the rule 6 audits at ROUTE, RESUME and CLOSE. X's write roots include the whole root.
   - **The close-then-route tick.** A worker's unsandboxed `bd update` can route a later step before its own close. The gap is bounded by one WATCH tick, detected and fail-closed.
@@ -489,7 +490,7 @@ The gct-mbg6 intake runs unchanged in method:
    - that `.oak5-c2-tmp/` is neither tracked nor ignored at BASE; that the exact pinned C2 test command, env-variable form included, runs under the live lane policy and sandbox; that deleting the directory is permitted; and the effective `norecursedirs`;
    - the city-store writes of one real lane session lifecycle, `on_death` and `on_boot` included, and of a controller poke;
    - Core's progress-stall attention write set on a claimed Bead, and whether any lane prompt calls `gc bd heartbeat`;
-   - the claimless idle case: `sessionProgressStalled` is suppressed while a claim is held, so there is no restart during C1's PROBE wait or C2's test. After the close, the 5-minute threshold is measured from the worker's last provider activity, not from the close (`cmd/gc/session_progress.go:66-74`; `session_reconciler.go:2525-2535`). So WATCH's agent-level hold must land less than 5 minutes after the worker's last provider activity. It lands on the drain-ack mark, or at the latest 4 minutes after the observed close (see WATCH). A restart refuses as off the pinned session sequence;
+   - the claimless idle case: `sessionProgressStalled` is suppressed while a claim is held, so there is no restart during C1's PROBE wait or C2's test. After the close, the 5-minute threshold is measured from the worker's last provider activity, not from the close (`cmd/gc/session_progress.go:66-74`; `session_reconciler.go:2525-2535`). So WATCH's agent-level hold must land less than 5 minutes after the worker's last provider activity. It lands on the drain-ack mark, or at the latest 4 minutes after the step's `closed_at` (see WATCH). A restart refuses as off the pinned session sequence;
    - the attention chain: the `orchestrator-attention-relay` order and its retry order, `watch-officer-mail-wake`, and the watch-officer and per-rig `orchestrator` named sessions. Each window's overlay must hold both named sessions;
    - the Core maintenance thresholds (wisp-compact, reaper) and orphan-sweep, from the deployed pack scripts;
    - the Core orders and patrols that can write the Template rig store, and their cadence;
@@ -751,3 +752,19 @@ The plan part of r11 closed the three r10 must_fix items (both reviews verified 
   - the policy is read with `O_NOATIME` and pinned by its full digest;
   - the `~/.claude` side effects are stated;
   - the result is labelled as a whole session, not only startup.
+
+## r13 (answers the r12 reviews of `e2384515`: A HOLD, B SOURCE_PASS)
+
+- **A must_fix: the probe did not control or record MCP servers.**
+  - The probe now passes `--strict-mcp-config` with no `--mcp-config`, declared as a deviation. It records the init event's `mcp_servers` and flags any local server.
+  - For the real lane, three real Claude-lane sessions under `--setting-sources ""` loaded no local user-scope server, only the account-level claude.ai connectors, which the policy refuses. That is a stated limit with a follow-up.
+- **Should_fix taken:**
+  - `inventory-data.json` now carries the r12 pins: both drain-ack end states, and the provider identity rules per lane (A 1);
+  - there is a deterministic extension-change test, a v4 refusal test and a name-length check (A 2, B 3, B 4);
+  - the tests read the policy with `O_NOATIME` and assert its digest (A 3);
+  - `killpg` runs on every path, the cgroup reliance is stated, and there is a short settle before measuring (A 4, B 5);
+  - the documentation is corrected: `~/.claude.json`, the same flags run directly, and what the probe proves about deletion (A 5, B 6);
+  - the race wording is exact (A 6);
+  - claim-time git is declared as not covered (A 7);
+  - the environment is checked before any work (B 1);
+  - the 4-minute bound runs from `closed_at` (B 2).

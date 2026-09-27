@@ -71,6 +71,22 @@
   "gc.session_id",
   "gc.session_name"
  ],
+ "claude_lane_mcp_observed": {
+  "deferred_tool_servers": [
+   "claude_ai_Claude_Docs",
+   "claude_ai_Crypto_com",
+   "claude_ai_Exa",
+   "claude_ai_Gmail",
+   "claude_ai_Google_Calendar",
+   "claude_ai_Google_Drive"
+  ],
+  "local_user_scope_servers": [],
+  "sessions": [
+   "ga-3oa7",
+   "ga-x7lx",
+   "ga-sh3w"
+  ]
+ },
  "close_fields": [
   "status",
   "closed_at",
@@ -473,11 +489,21 @@
  },
  "session_end_states": {
   "both_lanes_pinned": {
-   "close_reason_one_of": [
-    "session drained: pool slot retired by reconciler",
-    null
+   "one_of": [
+    {
+     "close_reason_one_of": [
+      "session drained: pool slot retired by reconciler",
+      null
+     ],
+     "state": "drained"
+    },
+    {
+     "close_reason_one_of": [
+      "session terminated: dead-runtime"
+     ],
+     "state": "dead-runtime"
+    }
    ],
-   "state": "drained",
    "state_reason": "drain-ack-stop-pending",
    "status": "closed"
   },
@@ -609,6 +635,20 @@
   "wake_requested_at",
   "work_dir"
  ],
+ "session_provider_identity": {
+  "claude": {
+   "builtin_ancestor": "claude",
+   "provider": "claude-template-candidate",
+   "provider_kind": "claude"
+  },
+  "codex": {
+   "absent": [
+    "provider_kind",
+    "builtin_ancestor"
+   ],
+   "provider": "codex"
+  }
+ },
  "skill_map": {
   "core.gc-agents": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-agents",
   "core.gc-city": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-city",
