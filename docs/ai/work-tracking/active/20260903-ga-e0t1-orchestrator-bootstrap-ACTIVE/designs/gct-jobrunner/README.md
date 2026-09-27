@@ -145,6 +145,55 @@ A Gas City worker builds it after the first successful worker window.
 
 ## What it does
 
+### Native Codex review evidence — ga-e0t1.19
+
+The original Claude transcript protocol remains unchanged. A review pair may also contain native
+Codex/Astra reviews, or one of each. Both still bind the exact signed commit and wrapper; every filed
+review must pass, and two distinct reviewer identities are required. This does not select worker
+models, authorize a job, activate this runner, or prove Claude/Codex worker handover.
+
+Codex Desktop currently stores the subagent task payload encrypted. The adapter does **not** claim
+to recover or verify that payload as plaintext. Instead it admits an explicit digest attestation:
+
+1. Freeze a UTF-8 request file whose first line is `candidate=<full commit>`, with exactly one such
+   token and an exact `Wrapper: <repository-relative path>` line for each reviewed wrapper.
+2. Ask a fresh independent Astra reviewer to read that file, verify the candidate, and include the
+   exact line `Review-Request-SHA256: <sha256 of the request bytes>` in its native final answer.
+   The final answer must begin `SOURCE_PASS <commit>` or `HOLD <commit>`. The hash acknowledgment
+   binds the request; it is not a review verdict by itself. One reviewer, one task, one final answer.
+3. After completion, run `export_codex_review.py --request <file> --rollout <native rollout JSONL>
+   --output-dir <existing evidence directory> --candidate <full commit>` using the reviewed source.
+   This create-only exporter reads the actual native rollout. It copies its exact UTF-8 bytes into
+   a `gc.codex-review.v1` JSON envelope with the frozen request and both SHA-256 digests. It never
+   queues or files a job. Existing exports are never overwritten; failed partial exports are preserved.
+4. File the resulting `codex-<native child thread UUID>.json` through the existing `submit_job.py file`
+   path, including HOLDs. No accompanying file belongs in the runner's commit review directory:
+   the single envelope contains all of its evidence. Keep the original request and rollout as well.
+
+The parser requires the native spawned-subagent identity and parent, OpenAI provider, approved Astra
+model/effort, contiguous native ordinals, one ordered task/turn/context, matching sender/recipient,
+one final answer, and a terminal task-complete record repeating that answer. Mixed identities,
+extra requests or turns, truncation, aborts, missing or duplicate attestations, changed request or
+rollout bytes, unsafe files, and filename/identity mismatches refuse. Tool output and commentary
+cannot supply the verdict. The request's candidate and wrapper are checked by the same admission
+gate as Claude reviews. A new native format requires reviewed support, not guessed interpretation.
+Native AGENTS instructions and environment messages are allowed only before the actual NEW_TASK;
+later user messages are additional requests and refuse. This matches the observed Desktop rollout.
+
+**Provenance boundary:** the final-answer digest is a reviewer attestation of a frozen request, not
+a plaintext initial-prompt comparison or provider-signed proof. Raw Codex records are preserved
+losslessly, never relabeled as Claude sidechain/handback events. As with Claude transcripts, the
+operator-owned files do not defend against a compromised coordinator. Independent review and honest
+filing remain mandatory. Historical reviews without this acknowledgment cannot be retroactively
+admitted by changing or inventing their reports. The existing C1 d10 HOLDs remain HOLDs.
+
+**Activation:** this source change is not live acceptance. Deliver the signed, independently reviewed
+candidate through the standing gates, then use the existing installer with exact before/after state,
+backups, and rollback. Keep the stage quiet and preserve PAUSE, HALTED, queue, done records and unrelated
+service epochs. Prove native and mixed-provider admission in isolated fixtures before any live job.
+
+### Execution loop
+
 `operator/JOBRUNNER.sh` starts it once as the transient user service `gas-city-jobrunner` and execs
 `jobrunner.py` through the reviewed `source-launch.py`, pinned by digest. Every 5 s the runner runs
 one `cycle()`:
@@ -169,7 +218,7 @@ one `cycle()`:
 3. **The wrapper.** It matches `designs/<package>/operator/<NAME>.sh` with the package not
    `gct-jobrunner`. It is a tracked regular blob at the commit, and the blob, the working file and
    `wrapper_sha256` agree. It is not a symlink, and it has never started at this commit.
-4. **The reviews.** They satisfy the rules in r2 above.
+4. **The reviews.** They satisfy the original Claude rules or the native Codex protocol above.
 
 The coordinator queues jobs with `submit_job.py`, which does the following:
 - copies the reviewer transcripts;
