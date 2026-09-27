@@ -67,3 +67,33 @@ Each step runs once, as `systemd-run --user --wait --collect --pipe --quiet -p U
 - drift outside the receipt.
 
 **Rollback.** `p13-adopt.py` restores the exact old bytes `7125be84` automatically, and only after clean containment.
+
+## Read-only run and adoption binding (2026-09-27)
+
+Source reviews: two independent SOURCE_PASS of `b723b246`, no must_fix. The should_fix items are follow-ups:
+- a duplicate-name refusal test;
+- refusal tests should assert `RuntimeError` with its reason;
+- wording: the signing profile and the canary runner are bound by the receipt digest and the provisioner runner pin, not field by field in `derive()`;
+- `m12_acceptance()` reads `restored.json` and `manifest.json` without a digest. This is inherited, and the manifest digest is cross-checked against the acceptance.
+
+Runs, at about 14:05 CEST (12:05 UTC), each once:
+- **Input:** result `2873fc7b`, draft `7b8472f6`, revision `a61666b3`.
+- **Composition:** ok and unchanged at `/var/tmp/gct-oak5-p13-compose-20260927`.
+- **Readiness:** ok and unchanged, with all ten phases done.
+  - The signing, Operations candidate and Template preflights passed all twelve checks.
+  - The three negatives stop at `worker_profile_sha256 mismatch` after exactly four checks.
+  - The auth posture is subscription, claude.ai max.
+
+Finalized receipt: file `7185414e`, self `c78b3a24`. Its profiles are Template `2341a9a0`, signing `ad0c695b` and Operations candidate `e641dc17`, all unchanged.
+
+Adoption constants:
+
+| Constant | Value |
+| --- | --- |
+| `NEW_SHA` | `7185414e` |
+| `NEW_SELF` | `c78b3a24` |
+| `READY_RESULT_SHA` | `eaabc9f3` |
+| `READY_BEFORE_SHA` | `432559c3` |
+| `READY_PINS_SHA` | `82a4a70c` |
+
+`READY_RESULT_SHA` is byte-identical to P12's: `result.json` holds no root or digest that differs between the two runs. `READY_PINS_SHA` is also unchanged, because the provider pins carry no atime.
