@@ -1,0 +1,32 @@
+{
+ "after": {
+  "controller": 2800348,
+  "rigs": [
+   "blog",
+   "gas-city-template",
+   "gascity",
+   "hpfetcher"
+  ],
+  "suspension_sha256": "a3306567b3cf77e6371a870e6df239194574fab8f2dc3090ea55a5eeb14b4817"
+ },
+ "bead": "gct-oak5",
+ "before": {
+  "controller": 2800348,
+  "rigs": [
+   "blog",
+   "gas-city-template",
+   "gascity",
+   "hpfetcher"
+  ],
+  "suspension_sha256": "a3306567b3cf77e6371a870e6df239194574fab8f2dc3090ea55a5eeb14b4817"
+ },
+ "binding": {
+  "executor_sha256": "048f43240c906e8054b34ce16b7ec71d1463862a9a8ede7bf00168c871a4f320",
+  "pins_sha256": "cb52e986b2f2e068b435b962bba860e524a4e9f6f5f1b5b02e5ac519445f8563"
+ },
+ "inputs": {
+  "city.toml": "bdcec2549fae330ed4aedc2c25563f1917e2bfd39e1caea4be443536f94c69b1"
+ },
+ "resumed": false,
+ "step": "inputs"
+}

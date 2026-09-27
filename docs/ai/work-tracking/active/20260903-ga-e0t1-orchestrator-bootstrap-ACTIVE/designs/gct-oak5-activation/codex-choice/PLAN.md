@@ -80,3 +80,24 @@ Each step runs once, as `python3 -I -B <pkg>/activate_codex.py <pkg> <pins-sha25
 - **P13.** P13 re-pins the receipt `permission_revision` to the revision the controller traces after `reload`. It is the P12 pattern with one leaf.
 - **No worker launches from `city` until P13.** The receipt revision mismatch makes Core's start preflight refuse, so this fails closed.
 - **The handover window package.** It selects the new choice for the X segment only.
+
+## Run record (2026-09-27)
+
+Reviews: two independent SOURCE_PASS of `cdcdaccd`, no must_fix. The window package must carry these accepted should_fix items:
+- **The `work_dir_roots` widening is live for every codex choice from `reload`.** That includes the default, which can write the Template `.git`. Rig suspension holds it. The window must pin and audit `work_dir` and prove that no default-choice codex route targets the candidate root.
+- **The new choice grants the whole candidate root.** That includes each worktree's `.git` pointer file. After X, the window must verify each linked worktree (`verify_linked`) and audit new top-level entries before any git runs.
+- **Minor follow-ups:**
+  - executor recovery gaps, which all fail closed;
+  - test gaps;
+  - the pyc and `sys.path` loading caveat inherited from r1 (no `__pycache__` existed at run time);
+  - `codex-attention` inherits the codex schema. It can be selected only by an `option_defaults` edit.
+
+Steps, each once, via `systemd-run --user --wait --collect --pipe -q -p UMask=0022 /usr/bin/python3 -I -B`, pins `cb52e986`, at about 13:27 CEST (11:27 UTC):
+- **`inputs`:** ok. It wrote the postimage `bdcec254`.
+- **`city`:** ok. The shadow validation passed, the backup is `b0eeb168`, and the live city.toml is now `bdcec254`.
+- **`reload`:** ok. The acknowledgement was `no_change`, synchronous and not soft, because the controller had already picked up the file. The revision is `a61666b3…f58f`.
+  - The composed Template codex agent is: provider codex; default `classified-vault-template-worktrees-and-git-metadata`; WorkDirRoots the Template worktrees root and the candidate root; cap 1.
+  - The live choice `classified-vault-and-template-candidate-worktrees` has exactly its flag_args.
+- **The quiet city was equal before and after every step.**
+
+The records, inputs and the backup are committed beside this plan.
