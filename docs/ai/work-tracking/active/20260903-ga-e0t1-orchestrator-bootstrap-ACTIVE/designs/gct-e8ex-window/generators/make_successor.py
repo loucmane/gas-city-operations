@@ -378,25 +378,29 @@ ACCEPTED_OLD = ('/var/tmp/ga-x7lx-terminal-20260926-r1/observed-after.json',
 # pair and the worker receipt after the ga-3oa7 TERMINAL. As ga-sh3w did after P10, the first window on the new
 # baseline is admitted against the adoption's own after-snapshot: the P11 adoption after.json (two readback
 # reviews, 2026-09-27), taken by the same observer on the sequence 16 epoch.
-ACCEPTED_NEW = ('/var/tmp/ga-bebv-p11-adoption-20260927/after.json',
+ACCEPTED_P11 = ('/var/tmp/ga-bebv-p11-adoption-20260927/after.json',
                 '3ea63446ab88f4c2e262fcce2770d37cf320f7b4dd2de233a0a7f9ba562d6a3c')
+# s4: the s2 window was restored at s3 (TERMINAL PASS 06:07Z, zero drift); the rerun is admitted against that
+# TERMINAL observed-after record, as each successor after ga-x7lx was.
+ACCEPTED_NEW = ('/var/tmp/gct-mbg6-terminal-20260926-r1/observed-after.json',
+                '959767c4dd0648bf882ac39b1ddb19330bfe8e6f94f69003a97f1908d888684a')
 # The pack-cache .git mtime and ctime in the P11 after-snapshot; s2 pins the value after the last note.
 CACHE_OLD = (1790419645618740930, 1790431776352453342)
-CACHE_PREV_NS = 1790468581253506370
-# s2: the operator approved this window's one-field disposition on 2026-09-27 (about 03:00 CEST); the value is
-# the live one after the last coordinator note (the PREP outcome, 00:57:17Z).
-CACHE_PINNED_NS = 1790470648629115669
+CACHE_PREV_NS = 1790470648629115669  # s4: the cache value in the gct-mbg6 TERMINAL record
+# s2 pinned 1790470648629115669 (approved 2026-09-27). s4 is a new window: the operator approved its one-field
+# disposition again on 2026-09-27 (about 08:45 CEST); the value is the live one after the last note (06:43:45Z).
+CACHE_PINNED_NS = 1790491430741191162
 
 
 def window_base(text):
     """Applied after the rename, so the P11 accepted path is inserted literally."""
     text = sub(text, "against the ga-x7lx TERMINAL record (eleventh successor).",
-               "against the P11 adoption after-snapshot (twelfth successor s1 r8, the first Template codex window,\n"
+               "against the gct-mbg6 s3 TERMINAL record (twelfth successor s4, the first Template codex window,\n"
                "on the ga-bebv baseline: gc 207a78e2, M10 metadata, receipt 06a3f58a).")
     text = sub(text, "# The accepted image is the ga-x7lx TERMINAL observed-after record: this same snapshot() after RESTORE on\n"
                      "# this epoch (TERMINAL PASS 2026-09-26 13:11Z, full native integrity).",
-               "# The accepted image is the P11 adoption after-snapshot (ga-bebv, two readback reviews, 2026-09-27): the same\n"
-               "# observer on the sequence 16 epoch after the receipt refresh, as ga-sh3w used the P10 one.")
+               "# The accepted image is the gct-mbg6 s3 TERMINAL observed-after record: this same snapshot() after RESTORE on\n"
+               "# this epoch (TERMINAL PASS 2026-09-27 06:07Z, full native integrity, window never resumed).")
     text = sub(text, "ACCEPTED = Path('%s')\nACCEPTED_SHA = '%s'\n" % ACCEPTED_OLD,
                "ACCEPTED = Path('%s')\nACCEPTED_SHA = '%s'\n" % ACCEPTED_NEW)
     for old, new in PREP_PINS:
@@ -404,9 +408,9 @@ def window_base(text):
     text = sub(text, "CACHE_PREV_NS = %d\nCACHE_PINNED_NS = %d\n" % CACHE_OLD,
                "CACHE_PREV_NS = %d\nCACHE_PINNED_NS = %s\n" % (CACHE_PREV_NS, CACHE_PINNED_NS))
     text = sub(text, "    # ga-x7lx TERMINAL record, the coordinator recorded the ga-x7lx outcome, the R3 intake and merge and the R4 brief on ga-e0t1 through\n",
-               "    # P11 after-snapshot, the coordinator recorded the P11 adoption and the s1 r8 package on ga-e0t1 through\n")
+               "    # gct-mbg6 TERMINAL record, the coordinator recorded the window outcome and the stale-Bead closures on ga-e0t1 through\n")
     return sub(text, "        # The ga-x7lx TERMINAL record was taken on this epoch after RESTORE; only the coordinator-cache\n",
-               "        # The P11 adoption after-snapshot was taken on this epoch; only the coordinator-cache\n")
+               "        # The gct-mbg6 TERMINAL record was taken on this epoch after RESTORE; only the coordinator-cache\n")
 
 
 # s1 r8: every other binding the ga-bebv deployment moved, per file, each asserted with its exact count.
@@ -530,6 +534,21 @@ REBASE['close-r11.py'] = [
      "        w.verified_lifecycle(terminal=True)\n"
      "    w.active_epoch(o)\n", 1),
 ]
+
+
+# s4: every window output root the s2 run consumed moves to -r2. PREP (-r1) and WORKTREE (-r1) are reused: the
+# worktree is unchanged and clean, and PREP's read-only outputs describe the same city (restored exactly at s3).
+FRESH_ROOTS = ('window-obs', 'window', 'bind', 'route', 'integrity', 'terminal', 'audit-route', 'audit-resume')
+
+
+def fresh_roots(text):
+    # The accepted image is the r1 TERMINAL record itself; it keeps its path.
+    keep = ACCEPTED_NEW[0]
+    assert text.count('\0') == 0
+    text = text.replace(keep, '\0')
+    for root in FRESH_ROOTS:
+        text = text.replace('/var/tmp/%s-%s-20260926-r1' % (TASK, root), '/var/tmp/%s-%s-20260926-r2' % (TASK, root))
+    return text.replace('\0', keep)
 
 
 def rebase(name, text):
@@ -863,6 +882,7 @@ def rebind(files):
             text = EDITS[name](text)
         text = fixup(name, text)
         text = rebase(name, text)
+        text = fresh_roots(text)
         out[name] = text.encode()
     history = {name: {hashlib.sha256(raw).hexdigest()} for name, raw in files.items()}
     while True:

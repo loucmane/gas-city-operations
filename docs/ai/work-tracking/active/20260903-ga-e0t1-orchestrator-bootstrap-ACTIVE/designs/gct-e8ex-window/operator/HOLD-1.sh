@@ -12,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-e8ex-window
 COMMIT=${1:?usage: HOLD-1.sh <reviewed commit>}
-HOLD_SHA=721b9e07ed3d51a57e4dba12dfbd01a215a9ee50769df36548757df301405daa
+HOLD_SHA=f569f899cf45ffa19a162eb8f0cbb24c1fc102157a0a04d18d17e17a15555177
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,7 +27,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/gct-mbg6-window-20260926-r1/stage-consumed.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }
+[ -e /var/tmp/gct-mbg6-window-20260926-r2/stage-consumed.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

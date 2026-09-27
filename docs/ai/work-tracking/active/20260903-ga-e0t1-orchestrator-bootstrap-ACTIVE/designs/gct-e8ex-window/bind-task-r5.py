@@ -20,9 +20,9 @@ import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-e8ex-window')
-ROOT=Path('/var/tmp/gct-mbg6-bind-20260926-r1')
+ROOT=Path('/var/tmp/gct-mbg6-bind-20260926-r2')
 HELPER=HERE/'window-base-r11.py'
-HELPER_SHA='2e924d722f3c785a241ff89cba9079b0c5068aa7256b1c865ecf5f4e5fb4f439'
+HELPER_SHA='eba3708e279884d7e0e8e0ff8e0eea9a05f103abac606e62c1155a6db55c506b'
 WORKTREE_RESULT=Path('/var/tmp/gct-mbg6-worktree-20260926-r1/result.json')
 WORKTREE_SHA='310f75d0d1e29e99a8305a03caa4245e81dd445045986b60eca50bc8bb0108aa'
 DESCRIPTION_SHA='c66bab3c40693762c54c998efa8b5f8bab2813391ba15a9318a00b7b33f2ef0c'

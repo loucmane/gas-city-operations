@@ -414,6 +414,38 @@ The exit sequence at s3:
 
 After TERMINAL, the Bead notes resume, the four stale Beads are closed, and a successor window reruns gct-mbg6.
 
+## s3 exit run and s4 rerun (2026-09-27)
+
+The s3 exit jobs all passed at `afa92ad8`, with two filed SOURCE_PASS reviews:
+- **CLOSE-1** at 06:04Z: no session, no process and no tmux session.
+- **The cgroup city check**: clean, before and after CLOSE.
+- **ADMIT**.
+- **RESTORE**: city.toml is back at e5b68c40 and the receipt at 06a3f58a.
+- **TERMINAL** at 06:07Z: full native integrity, zero drift and window preservation.
+- **`common-snapshot-r1.py after`**: no change to the Template `.git`.
+
+On operator decisions of 2026-09-27, twenty stale items routed to `gas-city-template/codex` were closed as
+obsolete, each with `gc.work_outcome=abandoned` and a reason naming ga-e0t1:
+- 17 Template Beads. Nine molecule roots were force-closed over open finalize or run-operator steps, which
+  stay untouched.
+- 3 city mail wisps.
+
+A read-only dry run of this package's queue audit (both stores, every query) then found no stopping row.
+gct-mbg6 was returned to its pre-window state by removing only the `gc.work_dir` and `gc.routed_to` keys the
+s2 window wrote; its view equals BIND's `task-before.json` except `updated_at`.
+
+**s4** is the rerun on the same design:
+- **Output roots.** Every window root the s2 run consumed moves to `-r2`: window, window-obs, bind, route,
+  integrity, terminal, audit-route and audit-resume.
+- **Reused r1 outputs.** WORKTREE (`-r1`) is reused, because the worktree is unchanged and clean. PREP (`-r1`)
+  is reused too: its read-only outputs describe the same city, which s3 restored exactly, and `PREP_PINS` stays.
+- **Accepted image.** The s3 TERMINAL `observed-after.json` (`959767c4`), with `CACHE_PREV_NS` its value
+  1790470648629115669.
+- **Cache disposition.** The operator approved it again for this window, pinning 1790491430741191162, the value
+  after the last note at 06:43:45Z.
+- **Pre-route check.** Before ROUTE is queued, the coordinator repeats the read-only queue-audit dry run, and it
+  must be empty.
+
 ## Tests
 
 `test_successor.py` is run at s1; the three s2 pins skip until then: the PREP outputs, the live `pins()` and the

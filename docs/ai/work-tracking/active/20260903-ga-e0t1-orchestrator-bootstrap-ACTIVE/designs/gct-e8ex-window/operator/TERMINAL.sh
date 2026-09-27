@@ -10,8 +10,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-e8ex-window
 COMMIT=${1:?usage: TERMINAL.sh <reviewed commit>}
-TERMINAL_SHA=fc2ec0a749e0c83fd2ee83834b7b79c1e2814e4596187ac0cc031ee2bfc4403d
-BUDGET_SHA=b4ca4dc896dd138d15433574cdaba7faf101fc27ef47344f854137b399628d96
+TERMINAL_SHA=37be23e50e552998bea727db963138b303696d027dd91831efd2b352c160bd85
+BUDGET_SHA=63930e5d0b65c394f44a252b3a4b3c5df6c4badc9aee5f32db38ffa758b430e0
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -26,7 +26,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/gct-mbg6-terminal-20260926-r1 ] && [ ! -L /var/tmp/gct-mbg6-terminal-20260926-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/gct-mbg6-terminal-20260926-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/gct-mbg6-terminal-20260926-r2 ] && [ ! -L /var/tmp/gct-mbg6-terminal-20260926-r2 ]; } || { echo "== STOP: output root already used: /var/tmp/gct-mbg6-terminal-20260926-r2"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

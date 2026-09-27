@@ -10,9 +10,9 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-e8ex-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
-ADMIT_SHA=dbc8665e1ac2670e81ddeb75ec76294dcfa4d980d5409d8028d3ea9301c50d91
-BUDGET_SHA=b4ca4dc896dd138d15433574cdaba7faf101fc27ef47344f854137b399628d96
-CLOSE_SHA=338e0074a63a7e626ee836d6b4cb2cad8b873f0013ad4ad12f9f4c7c71c7de6d
+ADMIT_SHA=b10502baa744bbf0bf0039664f1b992504f4ca515f26cc9fe9bdbfa4ef246e94
+BUDGET_SHA=63930e5d0b65c394f44a252b3a4b3c5df6c4badc9aee5f32db38ffa758b430e0
+CLOSE_SHA=6c202a4384cfb94ca66b5c627bb6e12726bc6d314f6081643e7a91f998c6d61c
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,8 +27,8 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/gct-mbg6-window-20260926-r1/stage-consumed.json ] && [ ! -e /var/tmp/gct-mbg6-window-20260926-r1/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/gct-mbg6-window-20260926-r1/restore-admission.json ] && [ ! -L /var/tmp/gct-mbg6-window-20260926-r1/restore-admission.json ]; } || { echo "== STOP: output root already used: /var/tmp/gct-mbg6-window-20260926-r1/restore-admission.json"; echo "== end"; exit 1; }
+[ -e /var/tmp/gct-mbg6-window-20260926-r2/stage-consumed.json ] && [ ! -e /var/tmp/gct-mbg6-window-20260926-r2/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/gct-mbg6-window-20260926-r2/restore-admission.json ] && [ ! -L /var/tmp/gct-mbg6-window-20260926-r2/restore-admission.json ]; } || { echo "== STOP: output root already used: /var/tmp/gct-mbg6-window-20260926-r2/restore-admission.json"; echo "== end"; exit 1; }
 find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/gct-mbg6-close-*/result.json" -exec grep -l '"ok": true' {} + | xargs -r grep -l "$CLOSE_SHA" | grep -q . || { echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
