@@ -1,0 +1,72 @@
+{
+ "candidate_path": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin",
+ "candidate_root": "/home/loucmane/gas-city-template-candidate-worktrees",
+ "city": "/home/loucmane/gascity/city",
+ "city_before": "e5b68c40a422225ae7b246fb0c579363c1167b4e4fac466717b0ee0237073077",
+ "claude_json": "/home/loucmane/.claude.json",
+ "env": {
+  "BD_DISABLE_METRICS": "1",
+  "GC_HOME": "/home/loucmane/gascity/home",
+  "GIT_OPTIONAL_LOCKS": "0",
+  "HOME": "/home/loucmane",
+  "LANG": "C",
+  "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
+ },
+ "executor": {
+  "activate.py": "f45a36f1fdb458e482140a4caf12478db573f17a5eda74774ae425c971c1038e",
+  "candidate_git.py": "d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe",
+  "preroute.py": "d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6"
+ },
+ "fragment_before": "df688a29446cb381b734847ec9a255e470c710498cbfe2b713a9e85b052575a5",
+ "gc": "/home/loucmane/gascity/bin/gc",
+ "inputs": {
+  "city.toml": "b0eeb168579f3e247cafa634af3e74d0eb8d57109c21f71f9b2bfa035cecf47b",
+  "rig-permissions.json": "0b0e6a87ee19f6e3a2e440d7389cc6abf28e1fabd1b08a892adab0f6c435df00"
+ },
+ "managed_mcp": "/etc/claude-code/managed-mcp.json",
+ "managed_settings": "/etc/claude-code/managed-settings.json",
+ "python_toolchain": {
+  "executable": {
+   "path": "/usr/bin/python3.12",
+   "resolved_path": "/usr/bin/python3.12",
+   "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
+   "version": "Python 3.12.3",
+   "version_args": [
+    "--version"
+   ]
+  },
+  "name": "python"
+ },
+ "registry_before": "1225b7c57ae69fd068ea35117431ae05e09ee493c01bc11a46ac45b77b950c8e",
+ "renderer_sha": "f98c9d99c70443232a5ac4a92a03d3b9794aa3fad32857d5ff49632446a412e0",
+ "sandbox_writable": [
+  "/tmp",
+  "/var/tmp",
+  "/dev/shm"
+ ],
+ "template": "/home/loucmane/gas-city-template",
+ "template_before": "cfd353f30f465cdf67bbd41fab48812fe5b9617e",
+ "template_changed": [
+  ".github/workflows/template-ci.yml",
+  "bin/gct-claude-template-candidate-worker",
+  "bin/gct-managed-rig-permissions",
+  "docs/managed-worker-provisioning.md",
+  "docs/native-city.md",
+  "lib/gct_claude_template_candidate_worker.py",
+  "managed/profiles/gas-city-template-candidate-claude.json",
+  "templates/claude/template-candidate-control-policy.json",
+  "templates/claude/template-candidate-provider.toml",
+  "tests/fixtures/template-candidate-render-golden/core-signing.toml",
+  "tests/fixtures/template-candidate-render-golden/operations-candidate.toml",
+  "tests/fixtures/unknown-candidate-control-policy.json",
+  "tests/interop/core_template_candidate_preflight_test.go",
+  "tests/test_managed_claude_include_composition.py",
+  "tests/test_template_candidate_core_interop.py",
+  "tests/test_template_candidate_worker.py"
+ ],
+ "template_commit": "3474abfaec255f7ea4266ce8aa35218afcfc89b0",
+ "template_status": "?? deploy/\n?? gas_city_template.egg-info/\n",
+ "template_tree": "55d7a9df30ef012e4ccc17170a5fca8a4d8f87f9",
+ "uid": 1000,
+ "user_slice": "/sys/fs/cgroup/user.slice/user-1000.slice"
+}
