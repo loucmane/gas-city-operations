@@ -16,7 +16,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-e8ex-window')
-BASE_SHA='bcea663b38313492cd39efb7ff173d4d12dad019b0ef99f482f4f167ad0f9e40'
+BASE_SHA='5c044d1e8439e78d3e6a260cd4b80a886fdbbcb3026555e75068d59db57a57a9'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):
@@ -124,10 +124,10 @@ def cache_preservation(before,after,city_pin,receipt_pin):
 routes=load(HERE/'restore-r9-routes-r3.py',
     '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2','window_routes')
 routes_policy=load(HERE/'route-chain-r1.py',
-    '8418cfb59650f276f633f90cf16135b9120d61dccd3c170bf232ac597b481f22','window_route_chain')
+    'c456230f7c51e0d7164c246501c1f7e1a94376a36e405cdb41c119245779e284','window_route_chain')
 INTEGRITY=Path('/var/tmp/gct-mbg6-integrity-20260926-r1')
-OBSERVER_SHA='381f6fbdd0d263d5d25545ae903ad5db4059f3cf3ef3e40a735c25330cba67eb'
-INSPECTOR_SHA='9e29e45dd465dd0397525c5a2d8aa929e65a32bffa7a69787842a23c99a55549'
+OBSERVER_SHA='7cd21de292da069d14e73e1f510d9233ee9c09c794253d8b1e49e0492820949b'
+INSPECTOR_SHA='e1bb4fc9ac4884b4ad96710b05006c1148349781e826976d3bfef868752beac8'
 
 def integrity_baseline(first):
     # The reviewed observer creates INTEGRITY exclusively (0700) and records its executor digest
@@ -255,7 +255,7 @@ def reload(name,i,b,owned):
         if newest:
             observed=time.time_ns()
             age=observed/10**9-datetime.fromisoformat(newest['ts'].replace('Z','+00:00')).timestamp()
-            w.require(newest['controller_pid']==995924 and 0<=age<=120,'stale/active controller revision')
+            w.require(newest['controller_pid']==2800348 and 0<=age<=120,'stale/active controller revision')
             fields=newest['fields']
             armed=(fields['active_template_count']==1
                 and fields.get('templates_touched')==['gas-city-template/codex']

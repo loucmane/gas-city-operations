@@ -14,12 +14,12 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-e8ex-window')
 ROOT=Path('/var/tmp/gct-mbg6-terminal-20260926-r1')
 WINDOW=Path('/var/tmp/gct-mbg6-window-20260926-r1')
-WINDOW_SHA='1cb433d19990314ab281bf5bec29101f7f45a77eaf3510fdb77a0f35ca6a462a'
-BUILD=Path('/var/tmp/ga-e0t1.18-platform-inspector-m9-20260926')
-W_SHA='e6759ab7e9a65ebf11b682814a056a2a704fbc552fcf85464a7d0ad256ee3f59'
-BINARY_SHA='9e29e45dd465dd0397525c5a2d8aa929e65a32bffa7a69787842a23c99a55549'
+WINDOW_SHA='41839c7cabf4fe3c93d6ae638cdc224fe20ea0b321a6df7d6c56a888314e4782'
+BUILD=Path('/var/tmp/ga-bebv-platform-inspector-m10-20260927')
+W_SHA='7d8dcdad0f47054ea2fb9065747a673adbed32a03df8337439d0a987514206e7'
+BINARY_SHA='e1bb4fc9ac4884b4ad96710b05006c1148349781e826976d3bfef868752beac8'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
-MANIFEST_SHA='5a29dc596af192e0f314391453d25d6be548695a0defd64bdfc2fa76554e4993'
+MANIFEST_SHA='2b902a83577acf71f9dd93a97d43d8478f7c4b291b0992e8ba5a5e44fe66f7f2'
 
 def load_window():
     import hashlib
@@ -39,7 +39,7 @@ def verify_preservation(r,before,after):
 def provider_pins(w,o):
     m=json.loads(w.read(MANIFEST,MANIFEST_SHA))
     providers=m['integrity']['providers']
-    # M9 (manifest file 5a29dc59) pins the candidate wrapper as a second claude provider, keyed by path.
+    # M9 pinned the candidate wrapper as a second claude provider, keyed by path; M10 (file 2b902a83) keeps it.
     w.require([p['name'] for p in providers]==['claude-native','codex','claude','claude'],'provider inventory')
     w.require([p['path'] for p in providers[2:]]==['/home/loucmane/gas-city-template/bin/gct-claude-signing-worker',
         '/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker']
@@ -58,10 +58,10 @@ def main():
     w.read(Path(__file__),_SOURCE_SHA)
     b,o,owned=w.load_support();w.pins()
     w.read(BUILD/'platform-inspect',BINARY_SHA)
-    result=json.loads(w.read(BUILD/'build-result.json','87e12b94b8f60d729826e7d8dd7ce96932e337a9f668ea686517339af0939e3a'))
-    w.require(result['binary_sha256']==BINARY_SHA and result['core_commit']=='deefb98b2aed07875df31351d081fbac195cb1cd'
-        and result['core_tree']=='af5c3f045c1f50cd62c859f6dc58fa613e5f2f99'
-        and result['entrypoint_sha256']=='1fa212cead41bbdb998ec24146d119b69edb9c5a446f8a9ac1ea9ad50af7b3a5',
+    result=json.loads(w.read(BUILD/'build-result.json','ab96575ef37b03e514c3c098a292dac8d7183946f5221b091cfa9cdc97a8bc62'))
+    w.require(result['binary_sha256']==BINARY_SHA and result['core_commit']=='f45a626213dc5b8d0b52f097d978cca56e506df0'
+        and result['core_tree']=='f1011adaf673937fbda1d254a53c8f0eadf17c5c'
+        and result['entrypoint_sha256']=='1f87b7b86afc322c385aed0dbc22491b511b6704f07bb5e9078f342aff7d0e3a',
         'build binding')
     provider_pins(w,o)
     if sys.argv[1:]==['inner']:

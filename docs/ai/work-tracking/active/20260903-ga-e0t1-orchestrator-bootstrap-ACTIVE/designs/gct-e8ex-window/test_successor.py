@@ -117,8 +117,8 @@ def test_every_output_root_is_fresh():
         roots |= set(re.findall(r"/var/tmp/gct-mbg6-[A-Za-z0-9%<>_-]*?-(\d{8})-r\d", raw.decode()))
     assert roots == {'20260926'}, roots
     for name, raw in package_files().items():
-        for root in re.findall(r"/var/tmp/ga-3oa7-[A-Za-z0-9_-]+", raw.decode()):
-            assert root == '/var/tmp/ga-3oa7-terminal-20260926-r1', (name, root)
+        # s1 r8: no ga-3oa7 root is read any more (the accepted image is the P11 adoption snapshot).
+        assert not re.findall(r"/var/tmp/ga-3oa7-[A-Za-z0-9_-]+", raw.decode()), name
 
 
 def test_wrappers_bind_their_scripts():
@@ -145,16 +145,43 @@ def test_identity(g):
     assert "OPS=Path('/home/loucmane/gas-city-template')" in worktree
 
 
-def test_accepted_image_is_the_3oa7_terminal_record(g):
+def test_accepted_image_is_the_p11_adoption_snapshot(g):
+    """s1 r8: as ga-sh3w after P10, the first window on the ga-bebv baseline is admitted against the P11
+    adoption after-snapshot (same observer, sequence 16 epoch), with the P11 provider pins."""
     base = (HERE/'window-base-r11.py').read_text()
     assert "ACCEPTED = Path('%s')\nACCEPTED_SHA = '%s'\n" % g.ACCEPTED_NEW in base
+    assert g.PROVIDER[0] == '/var/tmp/ga-bebv-p11-adoption-20260927/after.json.provider-pins'
     assert "PROVIDER = Path('%s')\nPROVIDER_SHA = '%s'\n" % g.PROVIDER in base
     assert sha(g.ACCEPTED_NEW[0]) == g.ACCEPTED_NEW[1] and sha(g.PROVIDER[0]) == g.PROVIDER[1]
-    entry = json.loads(Path(g.ACCEPTED_NEW[0]).read_bytes())['cache']['inventory'][CACHE_KEY]
+    record = json.loads(Path(g.ACCEPTED_NEW[0]).read_bytes())
+    assert set(record) == {'cache', 'host', 'pins', 'protected'}
+    entry = record['cache']['inventory'][CACHE_KEY]
     assert entry['mtime_ns'] == entry['ctime_ns'] == g.CACHE_PREV_NS
-    result = json.loads(Path('/var/tmp/ga-3oa7-terminal-20260926-r1/result.json').read_bytes())
-    assert result['ok'] is True and result['window_preservation'] is True and result['worker_launched'] is False
-    assert result['accepted_restoration_bound'] is True and result['report']['report'] == {'Drifts': None}
+    assert record['host']['core']['MainPID'] == '2800348' and record['host']['host']['pid'] == 2800348
+    assert record['pins'][RECEIPT]['sha256'] == '06a3f58a060a20b28d0bea86105e22278ef8983f0f80cba4d725788cd3a8bbd5'
+    assert record['pins']['/home/loucmane/gascity/city/city.toml']['sha256'] == \
+        'e5b68c40a422225ae7b246fb0c579363c1167b4e4fac466717b0ee0237073077'
+    result = json.loads(Path('/var/tmp/ga-bebv-p11-adoption-20260927/result.json').read_bytes())
+    assert result['ok'] is True and result['rollback'] == 'not-needed' and result['worker_launched'] is False
+
+
+def test_rebase_moves_every_baseline_binding(g):
+    """s1 r8: no code line keeps a pre-ga-bebv binding; the refreshed process record names the new controller."""
+    stale = ('fce2e9a0', '995924', '163987392096', 'p10-adoption', 'p10-input', 'p10-compose', 'p10-preflight',
+             '53dd4553', '3059c650', '5a29dc59', 'deefb98b', 'af5c3f04', '9e29e45d', '87e12b94', 'a6aa4b4c',
+             'platform-inspector-m9', 'ga-6utp-activation-r12-20260926/records')
+    for name, raw in package_files().items():
+        for number, line in enumerate(raw.decode().splitlines(), 1):
+            if any(token in line for token in stale):
+                # Only prep-r11.py's docstring history (r8, the ga-sh3w line) and its M5 baseline note may remain.
+                assert name == 'prep-r11.py' and number < 70, (name, number, line)
+    record = json.loads(Path(g.PROCESS_RECORD[0]).read_bytes())
+    assert sha(g.PROCESS_RECORD[0]) == g.PROCESS_RECORD[1]
+    assert record['controller']['pid'] == 2800348 and record['controller']['start'] == 22964291
+    assert sorted(m['role'] for m in record['controller_members']) == ['controller', 'dolt', 'dolt-watchdog']
+    inspector = json.loads(Path('/var/tmp/ga-bebv-platform-inspector-m10-20260927/build-result.json').read_bytes())
+    assert inspector['binary_sha256'] == 'e1bb4fc9ac4884b4ad96710b05006c1148349781e826976d3bfef868752beac8'
+    assert inspector['core_commit'] == 'f45a626213dc5b8d0b52f097d978cca56e506df0'
 
 
 def test_cache_disposition_moves_only_the_one_entry(g):
@@ -202,7 +229,9 @@ def test_deployed_codex_default_still_lists_the_git():
     raw = Path('/home/loucmane/gascity/city/city.toml').read_bytes()
     assert hashlib.sha256(raw).hexdigest() == base.CITY_SHA[0]
     city = tomllib.loads(raw.decode())
-    [codex] = [a for a in city['patches']['agent'] if a.get('dir') == 'gas-city-template' and a.get('name') == 'codex']
+    # s1 r8: M10 added a second codex patch (work_dir_roots only); the default is on the one with option_defaults.
+    [codex] = [a for a in city['patches']['agent'] if a.get('dir') == 'gas-city-template' and a.get('name') == 'codex'
+               and 'option_defaults' in a]
     choice = codex['option_defaults']['worklog_access']
     assert choice == 'classified-vault-template-worktrees-and-git-metadata'
     [schema] = [o for o in city['providers']['codex']['options_schema'] if o.get('key') == 'worklog_access']

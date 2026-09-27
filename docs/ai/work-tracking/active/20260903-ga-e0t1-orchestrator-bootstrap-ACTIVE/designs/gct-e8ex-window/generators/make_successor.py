@@ -237,9 +237,11 @@ OVERLAY_OLD = '0e583359552b9c765ae0da5cf971397d6cf0e96b03613238721cc797aad64940'
 # s1 r7: the overlay also removes the four wider codex choices (REMOVED_CHOICES); a confined `gc config show` on it
 # validates and is identical to the r5 overlay's, so the narrowing is proven by these bytes and Core f3856bd1's
 # schema check on opt_ values, not by config show.
-OVERLAY_NEW = '6ab01308fcd4eb4caf2aa601b2c82d52013d111197bd364f41e4d5a5610922d8'
-# The P10 provider pins the observers compare (unchanged from ga-3oa7).
-PROVIDER = ('/var/tmp/ga-e0t1.18-p10-adoption-20260926/after.json.provider-pins',
+# s1 r8: recomputed by the same build_overlay from the M10 city.toml e5b68c40 (replace-mode codex, the same four
+# removed choice blocks) and the confined gc config and order list of 2026-09-27.
+OVERLAY_NEW = '1dc5c539982656be664b447d6e9ade344c0975cf0625b185e60df2c2ece69b40'
+# The provider pins the observers compare: s1 r8, the P11 adoption record's (byte-identical to P10's).
+PROVIDER = ('/var/tmp/ga-bebv-p11-adoption-20260927/after.json.provider-pins',
             '82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b')
 # The split (designs/gct-e8ex-split r10 at 0e4b6708): holder ids in position order; gct-i852 replaced gct-icv2.
 SPLIT_COMMIT = '0e4b67080b7816d703f81d9559124b256f22fe1f'
@@ -361,22 +363,27 @@ def audit(text):
 
 ACCEPTED_OLD = ('/var/tmp/ga-x7lx-terminal-20260926-r1/observed-after.json',
                 '59e76bbfeb395759ec93a688ef4dfb81af89148d679eda7626a3a0e7c4f327d7')
-ACCEPTED_NEW = ('/var/tmp/ga-3oa7-terminal-20260926-r1/observed-after.json',
-                '3059c650ff43f5a492d193432f7c467240c017f38d635df1845ea3fec5a36307')
-# The pack-cache .git mtime and ctime in the ga-3oa7 TERMINAL record; s2 pins the value after the last note.
+# s1 r8: the ga-bebv deployment (sequence 16, M10, P11) moved the host epoch, gc, the city.toml, the platform
+# pair and the worker receipt after the ga-3oa7 TERMINAL. As ga-sh3w did after P10, the first window on the new
+# baseline is admitted against the adoption's own after-snapshot: the P11 adoption after.json (two readback
+# reviews, 2026-09-27), taken by the same observer on the sequence 16 epoch.
+ACCEPTED_NEW = ('/var/tmp/ga-bebv-p11-adoption-20260927/after.json',
+                '3ea63446ab88f4c2e262fcce2770d37cf320f7b4dd2de233a0a7f9ba562d6a3c')
+# The pack-cache .git mtime and ctime in the P11 after-snapshot; s2 pins the value after the last note.
 CACHE_OLD = (1790419645618740930, 1790431776352453342)
-CACHE_PREV_NS = 1790431776352453342
+CACHE_PREV_NS = 1790468581253506370
 CACHE_PINNED_NS = None
 
 
 def window_base(text):
-    """Applied after the rename, so the ga-3oa7 accepted path is inserted literally."""
+    """Applied after the rename, so the P11 accepted path is inserted literally."""
     text = sub(text, "against the ga-x7lx TERMINAL record (eleventh successor).",
-               "against the ga-3oa7 TERMINAL record (twelfth successor, the first Template codex window).")
+               "against the P11 adoption after-snapshot (twelfth successor s1 r8, the first Template codex window,\n"
+               "on the ga-bebv baseline: gc 207a78e2, M10 metadata, receipt 06a3f58a).")
     text = sub(text, "# The accepted image is the ga-x7lx TERMINAL observed-after record: this same snapshot() after RESTORE on\n"
                      "# this epoch (TERMINAL PASS 2026-09-26 13:11Z, full native integrity).",
-               "# The accepted image is the ga-3oa7 TERMINAL observed-after record: this same snapshot() after RESTORE on\n"
-               "# this epoch (TERMINAL PASS 2026-09-26 15:30Z, full native integrity).")
+               "# The accepted image is the P11 adoption after-snapshot (ga-bebv, two readback reviews, 2026-09-27): the same\n"
+               "# observer on the sequence 16 epoch after the receipt refresh, as ga-sh3w used the P10 one.")
     text = sub(text, "ACCEPTED = Path('%s')\nACCEPTED_SHA = '%s'\n" % ACCEPTED_OLD,
                "ACCEPTED = Path('%s')\nACCEPTED_SHA = '%s'\n" % ACCEPTED_NEW)
     for old, new in PREP_PINS:
@@ -384,9 +391,108 @@ def window_base(text):
     text = sub(text, "CACHE_PREV_NS = %d\nCACHE_PINNED_NS = %d\n" % CACHE_OLD,
                "CACHE_PREV_NS = %d\nCACHE_PINNED_NS = %s\n" % (CACHE_PREV_NS, CACHE_PINNED_NS))
     text = sub(text, "    # ga-x7lx TERMINAL record, the coordinator recorded the ga-x7lx outcome, the R3 intake and merge and the R4 brief on ga-e0t1 through\n",
-               "    # ga-3oa7 TERMINAL record, the coordinator recorded the R4 intake and merge and the gct-e8ex split on ga-e0t1 through\n")
+               "    # P11 after-snapshot, the coordinator recorded the P11 adoption and the s1 r8 package on ga-e0t1 through\n")
     return sub(text, "        # The ga-x7lx TERMINAL record was taken on this epoch after RESTORE; only the coordinator-cache\n",
-               "        # The ga-3oa7 TERMINAL record was taken on this epoch after RESTORE; only the coordinator-cache\n")
+               "        # The P11 adoption after-snapshot was taken on this epoch; only the coordinator-cache\n")
+
+
+# s1 r8: every other binding the ga-bebv deployment moved, per file, each asserted with its exact count.
+PROCESS_RECORD = ('/home/loucmane/.local/share/gas-city-staging/ga-bebv-process-record-20260927/process-record.json',
+                  'df765fd0e357925bab51891c72019018bb43b65fcd6e97addf0582c9bdf5e5d7')
+GC_OLD, GC_NEW = 'fce2e9a0bea6c79f257e55b6424cf9271405d58f916a1017f3c14e232ad5d13b', '207a78e27fe4b470ec5926ded186813543568683cf26d7d7487e6c185d8f3e8f'
+REBASE = {
+    'window-base-r11.py': [
+        ("post-P10 baseline (M9 metadata, receipt c833908f, gc fce2e9a0) and the Template codex task",
+         "post-P11 baseline (M10 metadata, receipt 06a3f58a, gc 207a78e2) and the Template codex task", 1),
+        ("WITNESS = Path('/var/tmp/ga-e0t1.18-p10-adoption-20260926/typed-support.json')\n"
+         "WITNESS_SHA = '53dd45539fad45816d62ecd9d4ee26bba380f5fedc1c4d363435471a9c201d30'\n",
+         "WITNESS = Path('/var/tmp/ga-bebv-p11-adoption-20260927/typed-support.json')\n"
+         "WITNESS_SHA = 'a2016797ca0c91dadaa770b9496dc93c919ebffd4f22290da0309087f0c9c675'\n", 1),
+        ("CITY_SHA = ('4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591',",
+         "CITY_SHA = ('e5b68c40a422225ae7b246fb0c579363c1167b4e4fac466717b0ee0237073077',", 1),
+        ("RECEIPT_SHA = ('c833908fe89ab180e57ef7164d687f01ae2052f8667360f04b73c5423902f0a4',",
+         "RECEIPT_SHA = ('06a3f58a060a20b28d0bea86105e22278ef8983f0f80cba4d725788cd3a8bbd5',", 1),
+        ("REVISION = ('83c41af65776eaa90f93b57158e8ad57141e19347a592ce509a19f56c2667add',",
+         "REVISION = ('03f16ea2f9d46393f749c93a397f5a6020210d0f2252fe0a45205ee4263ce712',", 1),
+        ("INPUT = (Path('/var/tmp/ga-e0t1.18-p10-input-20260926/receipt.input.draft.json'), PREP/'receipt.input.json')\n"
+         "INPUT_SHA = ('c6674ba5f494faeb8179b6e6d49a904e8fe5761a7bfa491ffb3c9d97c9b5ffe7',",
+         "INPUT = (Path('/var/tmp/ga-bebv-p11-input-20260927/receipt.input.draft.json'), PREP/'receipt.input.json')\n"
+         "INPUT_SHA = ('68fb232e0c940140db9f5a41bf62652eca19115240a18a1b118698f5884611c1',", 1),
+        ("# directories) are not part of the compared image; the provider pins stay the P10 adoption record's.\n",
+         "# directories) are not part of the compared image; the provider pins are the P11 adoption record's\n"
+         "# (byte-identical to P10's).\n", 1),
+        ("PROVIDER = Path('/var/tmp/ga-e0t1.18-p10-adoption-20260926/after.json.provider-pins')",
+         "PROVIDER = Path('/var/tmp/ga-bebv-p11-adoption-20260927/after.json.provider-pins')", 1),
+        ("    # The sequence 15 supervisor epoch; the broker and the signer are unchanged since S2.\n"
+         "    for name, pid, start in [('core','995924','163987392096'),",
+         "    # The sequence 16 supervisor epoch (ga-bebv S2); the broker and the signer are unchanged.\n"
+         "    for name, pid, start in [('core','2800348','229642910742'),", 1),
+        ("value['controller']['pid']==995924", "value['controller']['pid']==2800348", 1),
+        ("newest['controller_pid']==995924", "newest['controller_pid']==2800348", 1),
+        (GC_OLD, GC_NEW, 1),
+    ],
+    'window-r11.py': [("newest['controller_pid']==995924", "newest['controller_pid']==2800348", 1),
+                      ("INSPECTOR_SHA='9e29e45dd465dd0397525c5a2d8aa929e65a32bffa7a69787842a23c99a55549'",
+                       "INSPECTOR_SHA='e1bb4fc9ac4884b4ad96710b05006c1148349781e826976d3bfef868752beac8'", 1)],
+    'route-chain-r1.py': [("cycle['controller_pid']==995924", "cycle['controller_pid']==2800348", 1)],
+    'route-task-r5.py': [
+        ("RECORD=Path('/home/loucmane/.local/share/gas-city-staging/ga-6utp-activation-r12-20260926/records/process-record.json')\n"
+         "RECORD_SHA='a6aa4b4c3a33dd08ee46b27c7059201cc529eab1d99eb67af9ab05acc195a278'\n",
+         "# s1 r8: the reviewed preroute.py record refresh after the sequence 16 controller restart (pid 2800348).\n"
+         "RECORD=Path('%s')\nRECORD_SHA='%s'\n" % PROCESS_RECORD, 1),
+    ],
+    'prep-r11.py': [
+        ("GC_SHA = '%s'" % GC_OLD, "GC_SHA = '%s'" % GC_NEW, 1),
+        ("COMPOSE = Path('/var/tmp/ga-e0t1.18-p10-compose-diagnostic-20260926/compose')\n"
+         "COMPOSE_SHA = '53450168ef90fd8698688d25fb031e96b3295ff54132441cda72c593611f3111'\n"
+         "BUILD = Path('/var/tmp/ga-e0t1.18-p10-preflight-diagnostic-20260926')\n"
+         "FINALIZE_SHA = 'c6dd9ebbee33bc40579fc9b7f0af7e7a9c69500566870910f5361eb4b0e12824'\n",
+         "# s1 r8: the P11 diagnostics, built from Core f45a6262 (ga-bebv-deploy/p11).\n"
+         "COMPOSE = Path('/var/tmp/ga-bebv-p11-candidate-compose-diagnostic-20260927/compose')\n"
+         "COMPOSE_SHA = '8cb667dc8a65a858c9df2708a5e42ece79f59ce10a1372b817b8e656aa3ae207'\n"
+         "BUILD = Path('/var/tmp/ga-bebv-p11-preflight-diagnostic-20260927')\n"
+         "FINALIZE_SHA = '85a2cc6b575ff3fd4660e41241031a813f1264486b6d82084f93c7c9fddc96f5'\n", 1),
+        ("PRIOR = Path('/var/tmp/ga-e0t1.18-p10-input-20260926/receipt.input.draft.json')\n"
+         "PRIOR_SHA = 'c6674ba5f494faeb8179b6e6d49a904e8fe5761a7bfa491ffb3c9d97c9b5ffe7'\n"
+         "CITY_SHA = '4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591'\n"
+         "RECEIPT_SHA = 'c833908fe89ab180e57ef7164d687f01ae2052f8667360f04b73c5423902f0a4'\n"
+         "REVISION = '83c41af65776eaa90f93b57158e8ad57141e19347a592ce509a19f56c2667add'\n",
+         "# s1 r8: the ga-bebv baseline: the P11 input draft, the M10 city.toml, the P11 receipt and its revision.\n"
+         "PRIOR = Path('/var/tmp/ga-bebv-p11-input-20260927/receipt.input.draft.json')\n"
+         "PRIOR_SHA = '68fb232e0c940140db9f5a41bf62652eca19115240a18a1b118698f5884611c1'\n"
+         "CITY_SHA = 'e5b68c40a422225ae7b246fb0c579363c1167b4e4fac466717b0ee0237073077'\n"
+         "RECEIPT_SHA = '06a3f58a060a20b28d0bea86105e22278ef8983f0f80cba4d725788cd3a8bbd5'\n"
+         "REVISION = '03f16ea2f9d46393f749c93a397f5a6020210d0f2252fe0a45205ee4263ce712'\n", 1),
+    ],
+}
+for _name in ('observe-integrity-r11.py', 'observe-terminal-r11.py'):
+    REBASE[_name] = [
+        ("BUILD=Path('/var/tmp/ga-e0t1.18-platform-inspector-m9-20260926')\n",
+         "BUILD=Path('/var/tmp/ga-bebv-platform-inspector-m10-20260927')\n", 1),
+        ("BINARY_SHA='9e29e45dd465dd0397525c5a2d8aa929e65a32bffa7a69787842a23c99a55549'",
+         "BINARY_SHA='e1bb4fc9ac4884b4ad96710b05006c1148349781e826976d3bfef868752beac8'", 1),
+        ("w.read(BUILD/'build-result.json','87e12b94b8f60d729826e7d8dd7ce96932e337a9f668ea686517339af0939e3a')",
+         "w.read(BUILD/'build-result.json','ab96575ef37b03e514c3c098a292dac8d7183946f5221b091cfa9cdc97a8bc62')", 1),
+        ("MANIFEST_SHA='5a29dc596af192e0f314391453d25d6be548695a0defd64bdfc2fa76554e4993'",
+         "MANIFEST_SHA='2b902a83577acf71f9dd93a97d43d8478f7c4b291b0992e8ba5a5e44fe66f7f2'", 1),
+        ("result['core_commit']=='deefb98b2aed07875df31351d081fbac195cb1cd'\n"
+         "        and result['core_tree']=='af5c3f045c1f50cd62c859f6dc58fa613e5f2f99'\n"
+         "        and result['entrypoint_sha256']=='1fa212cead41bbdb998ec24146d119b69edb9c5a446f8a9ac1ea9ad50af7b3a5'",
+         "result['core_commit']=='f45a626213dc5b8d0b52f097d978cca56e506df0'\n"
+         "        and result['core_tree']=='f1011adaf673937fbda1d254a53c8f0eadf17c5c'\n"
+         "        and result['entrypoint_sha256']=='1f87b7b86afc322c385aed0dbc22491b511b6704f07bb5e9078f342aff7d0e3a'", 1),
+        ("# M9 (manifest file 5a29dc59) pins the candidate wrapper as a second claude provider, keyed by path.",
+         "# M9 pinned the candidate wrapper as a second claude provider, keyed by path; M10 (file 2b902a83) keeps it.", 1),
+    ]
+
+
+REBASE['observe-integrity-r11.py'].insert(0, ("post-P10 baseline (M9)", "post-P11 baseline (M10)", 1))
+
+
+def rebase(name, text):
+    for old, new, count in REBASE.get(name, ()):
+        text = sub(text, old, new, count)
+    return text
 
 
 def observer_integrity(text):
@@ -394,7 +500,8 @@ def observer_integrity(text):
                 "the accepted image is the ga-x7lx TERMINAL record (window-base).",
                 "compared exactly with the ga-x7lx TERMINAL record.",
                 "admits the live state against the ga-x7lx TERMINAL record\n"):
-        text = sub(text, old, old.replace('ga-x7lx', 'ga-3oa7'))
+        # s1 r8: the admission is the P11 adoption after-snapshot (window-base ACCEPTED_NEW).
+        text = sub(text, old, old.replace('the ga-x7lx TERMINAL record', 'the P11 adoption after-snapshot'))
     return text
 
 
@@ -712,6 +819,7 @@ def rebind(files):
         if name in EDITS:
             text = EDITS[name](text)
         text = fixup(name, text)
+        text = rebase(name, text)
         out[name] = text.encode()
     history = {name: {hashlib.sha256(raw).hexdigest()} for name, raw in files.items()}
     while True:

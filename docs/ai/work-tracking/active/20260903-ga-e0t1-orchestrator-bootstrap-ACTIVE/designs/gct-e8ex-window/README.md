@@ -305,6 +305,41 @@ Unchanged from ga-3oa7:
   - no `/tmp` or scratchpad artifacts;
   - the sandbox assumption named.
 
+## s1 r8 (rebased onto the ga-bebv baseline, 2026-09-27)
+
+After r7 the operator chose "Core fix first": the ga-6umo Core hotfix and the live city.toml codex fix were
+deployed together as ga-bebv (sequence 16, M10, P11, all accepted on 2026-09-27). This package is unchanged in
+design; `generators/make_successor.py` gains one asserted `REBASE` stage that moves every binding the deployment
+moved:
+- **Core and host.** gc `fce2e9a0` → `207a78e2` (f45a6262). The supervisor epoch moves from 995924/163987392096 to
+  2800348/229642910742, in `host()`, the controller-pid checks of window-base, window and route-chain; the signer
+  and broker are unchanged.
+- **City and receipt.** city.toml `4f7e170f` → `e5b68c40` (M10: replace-mode claude and codex schemas and the
+  `work_dir_roots` patches). The receipt moves `c833908f` → `06a3f58a` with revision `83c41af6` → `03f16ea2`, and
+  the witness `53dd4553` → `a2016797` (P11). The input is the P11 draft `68fb232e`, and PREP uses the P11
+  diagnostics built from f45a6262 (candidate compose `8cb667dc`, preflight `85a2cc6b`).
+- **Accepted image.** As ga-sh3w did after P10, the first window on the new baseline is admitted against the
+  adoption's own after-snapshot: the P11 `after.json` (`3ea63446`, two readback reviews). Its provider pins are
+  the P11 record, byte-identical to P10's `82a4a70c`. `CACHE_PREV_NS` is its pack-cache `.git` value;
+  s2 still pins the value after the last coordinator note, with the operator's approval.
+- **Platform.** The integrity and terminal observers use the M10 inspector (`e1bb4fc9`, Core f45a6262) and the M10
+  manifest file `2b902a83`.
+- **Process record.** The sequence 16 restart made the ga-6utp r12 record stale (controller 995924). The reviewed
+  `preroute.py record` refresh ran read-only on 2026-09-27. The new record is `df765fd0`, with controller 2800348
+  and the same dolt members and hidden pids; it is recorded on ga-e0t1.
+- **Overlay.** The same `build_overlay` recomputes it from the M10 city.toml as `1dc5c539`. The four removed codex
+  choice blocks exist byte-exact once each in the new city.toml; the schema narrowing assertions hold unchanged.
+- **The codex patch.** M10 added a second `gas-city-template/codex` patch (`work_dir_roots` only). The test that
+  reads the deployed default now selects the patch with `option_defaults`.
+
+What the deployment adds to the Known scope above:
+- Core f45a6262 refuses a work_dir outside the configured roots and keeps only benign metadata options. So an
+  `opt_` widening is now refused by Core itself as well as by the overlay's narrowed schema.
+- The codex `work_dir_roots` is the whole Template worktree root, as the write root already was.
+
+`test_successor.py`: 27 tests, 24 run at s1 (the three s2 pins skip). Adds `test_rebase_moves_every_baseline_binding`
+and `test_accepted_image_is_the_p11_adoption_snapshot`.
+
 ## Tests
 
 `test_successor.py` is run at s1; the three s2 pins skip until then: the PREP outputs, the live `pins()` and the

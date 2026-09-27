@@ -15,16 +15,17 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-e8ex-window')
 ROOT=Path('/var/tmp/gct-mbg6-route-20260926-r1')
 BIND=Path('/var/tmp/gct-mbg6-bind-20260926-r1')
-BIND_SHA='5ffcafd7388e76e1d76e12eca7f542830daecd2cc84012388ebbc9a894e5573a'
+BIND_SHA='23b30740eb9d8d7b23cb40102dc678b9c0a6dcf106e41ebd621d9f717a9037fa'
 DESCRIPTION_SHA='c66bab3c40693762c54c998efa8b5f8bab2813391ba15a9318a00b7b33f2ef0c'
 PREROUTE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/preroute.py')
 PREROUTE_SHA='d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6'
 CANDIDATE_GIT=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/candidate_git.py')
 CANDIDATE_GIT_SHA='d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe'
-RECORD=Path('/home/loucmane/.local/share/gas-city-staging/ga-6utp-activation-r12-20260926/records/process-record.json')
-RECORD_SHA='a6aa4b4c3a33dd08ee46b27c7059201cc529eab1d99eb67af9ab05acc195a278'
+# s1 r8: the reviewed preroute.py record refresh after the sequence 16 controller restart (pid 2800348).
+RECORD=Path('/home/loucmane/.local/share/gas-city-staging/ga-bebv-process-record-20260927/process-record.json')
+RECORD_SHA='df765fd0e357925bab51891c72019018bb43b65fcd6e97addf0582c9bdf5e5d7'
 HELPER=HERE/'window-r11.py'
-SHA='1cb433d19990314ab281bf5bec29101f7f45a77eaf3510fdb77a0f35ca6a462a'
+SHA='41839c7cabf4fe3c93d6ae638cdc224fe20ea0b321a6df7d6c56a888314e4782'
 TARGET='gas-city-template/codex'
 
 def main():

@@ -104,26 +104,28 @@ CITY = Path('/home/loucmane/gascity/city')
 RECEIPT = CITY/'.gc/runtime/provisioning/receipt.json'
 WORK = '/home/loucmane/gas-city-template-worktrees/gct-mbg6'
 GC = Path('/home/loucmane/gascity/bin/gc')
-GC_SHA = 'fce2e9a0bea6c79f257e55b6424cf9271405d58f916a1017f3c14e232ad5d13b'
-COMPOSE = Path('/var/tmp/ga-e0t1.18-p10-compose-diagnostic-20260926/compose')
-COMPOSE_SHA = '53450168ef90fd8698688d25fb031e96b3295ff54132441cda72c593611f3111'
-BUILD = Path('/var/tmp/ga-e0t1.18-p10-preflight-diagnostic-20260926')
-FINALIZE_SHA = 'c6dd9ebbee33bc40579fc9b7f0af7e7a9c69500566870910f5361eb4b0e12824'
+GC_SHA = '207a78e27fe4b470ec5926ded186813543568683cf26d7d7487e6c185d8f3e8f'
+# s1 r8: the P11 diagnostics, built from Core f45a6262 (ga-bebv-deploy/p11).
+COMPOSE = Path('/var/tmp/ga-bebv-p11-candidate-compose-diagnostic-20260927/compose')
+COMPOSE_SHA = '8cb667dc8a65a858c9df2708a5e42ece79f59ce10a1372b817b8e656aa3ae207'
+BUILD = Path('/var/tmp/ga-bebv-p11-preflight-diagnostic-20260927')
+FINALIZE_SHA = '85a2cc6b575ff3fd4660e41241031a813f1264486b6d82084f93c7c9fddc96f5'
 RUNNER_PHASE_SHA = 'eddf5e1174a7b275abe280e91ea5c8ea0762600d38524ba9631f53fb4874cdf3'
 PROVISIONER = Path('/home/loucmane/gas-city-template/bin/gct-managed-worker-provision')
 PROVISIONER_SHA = '64425a728fc06a082865f2d53afcc6e4793974f5aadab49492d95f5e0a9f4a35'
 CANARY = CITY/'.gc/runtime/provisioning/bin/gct-managed-worker-canary'
 CANARY_SHA = '3beeedb2e5ce0723e5f745a05f1e2fdfa3ec27bee468284860e587e63c63e2e2'
-PRIOR = Path('/var/tmp/ga-e0t1.18-p10-input-20260926/receipt.input.draft.json')
-PRIOR_SHA = 'c6674ba5f494faeb8179b6e6d49a904e8fe5761a7bfa491ffb3c9d97c9b5ffe7'
-CITY_SHA = '4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591'
-RECEIPT_SHA = 'c833908fe89ab180e57ef7164d687f01ae2052f8667360f04b73c5423902f0a4'
-REVISION = '83c41af65776eaa90f93b57158e8ad57141e19347a592ce509a19f56c2667add'
+# s1 r8: the ga-bebv baseline: the P11 input draft, the M10 city.toml, the P11 receipt and its revision.
+PRIOR = Path('/var/tmp/ga-bebv-p11-input-20260927/receipt.input.draft.json')
+PRIOR_SHA = '68fb232e0c940140db9f5a41bf62652eca19115240a18a1b118698f5884611c1'
+CITY_SHA = 'e5b68c40a422225ae7b246fb0c579363c1167b4e4fac466717b0ee0237073077'
+RECEIPT_SHA = '06a3f58a060a20b28d0bea86105e22278ef8983f0f80cba4d725788cd3a8bbd5'
+REVISION = '03f16ea2f9d46393f749c93a397f5a6020210d0f2252fe0a45205ee4263ce712'
 ORDER_COUNT = 34
 HEADER = '\n# gct-mbg6 bounded one-worker window; restore exact preserved baseline.\n'
 # s1 r7: the codex option choices the overlay removes from providers.codex.options_schema, byte-exact.
 REMOVED_CHOICES = (b'[[providers.codex.options_schema.choices]]\nvalue = "attended"\nlabel = "Attended approvals"\nflag_args = ["--ask-for-approval", "on-request"]\n\n', b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-and-blog-worktrees"\nlabel = "Classified GasCity vault and Blog worktrees"\nflag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\\"/home/loucmane/vaults/main/GasCity\\",\\"/home/loucmane/dev/blog-worktrees\\"]"]\n\n', b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-template-worktrees-and-git-metadata"\nlabel = "Classified vault, template worktrees, and template Git metadata"\nflag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\\"/home/loucmane/vaults/main/GasCity\\",\\"/home/loucmane/gas-city-template-worktrees\\",\\"/home/loucmane/gas-city-template/.git\\"]"]\n\n', b'[[providers.codex.options_schema.choices]]\nvalue = "classified-vault-hpfetcher-worktrees-and-git-metadata"\nlabel = "Classified vault, HPFetcher worktrees, and HPFetcher Git metadata"\nflag_args = ["--sandbox", "workspace-write", "-c", \'sandbox_workspace_write.writable_roots=["/home/loucmane/vaults/main/GasCity","/home/loucmane/dev/hpfetcher-worktrees","/home/loucmane/dev/hpfetcher/.git"]\']\n\n')
-OVERLAY_SHA = '6ab01308fcd4eb4caf2aa601b2c82d52013d111197bd364f41e4d5a5610922d8'
+OVERLAY_SHA = '1dc5c539982656be664b447d6e9ade344c0975cf0625b185e60df2c2ece69b40'
 # s1 r5: the codex choice without the Template .git (vault and Template worktrees only).
 NARROW_ACCESS = 'classified-vault-and-template-worktrees'
 LAUNCH = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
@@ -321,7 +323,7 @@ def main():
     write('config.baseline.json', baseline)
     write('orders.baseline.json', orders)
     candidate, patches, names, target, selected = build_overlay(city, baseline, orders)
-    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the derived 6ab01308'
+    assert sha(candidate) == OVERLAY_SHA, 'overlay bytes differ from the derived 1dc5c539'
     write('city.baseline.toml', city)
     write('city.isolated.toml', candidate)
     write('declared-delta.json', dict(patches=patches, order_skip=names, workspace_cap=1))
