@@ -199,6 +199,36 @@ The code items apply to a successor prerequisite; this one already ran as review
 The binding commit pins `BASELINE_SHA` (`manifest_candidate.py` moves from `5ebd17c0` to the digest in
 `source-pins.json`), adds `source-pins.json`, and fixes the wording above. No executed code changed.
 
+## Accepted (2026-09-27)
+
+Two independent binding reviews passed `759ae4c4`. The executor then ran from `759ae4c4` (source pins
+`92708718`), with two independent reviews at each gate:
+- **prepare.** Package `f2fd2406`, with 613 spare frame bytes.
+- **SOURCE_PASS.**
+- **pause.** Window `9cff2bea`.
+- **observe.** The dry run passed, with 21 steps, of which exactly 4 were MUTATE.
+- **PAIRING_PASS.**
+- **paired.** `result=installed`, manifest self digest `f6dd60df`. The commit took 63.1 s against the 65 s
+  outer bound (COMMIT_PASS review A should_fix 3).
+- **verify.**
+- **COMMIT_PASS.**
+- **restore-accepted.** The timer was restored.
+
+The accepted pair is:
+- the live manifest file `2b902a83`, which is byte-equal to `q/manifest.json`;
+- the receipt file `c0853ca3`, self `3ea85755`;
+- the acceptance `8354675b`.
+
+`inspector/make_inspector_m10.py` rebinds the M9 inspector. The manifest pin moves from `5a29dc59` to
+`2b902a83`, the Core source moves to the sequence 16 reproduction clone at f45a6262 (tree f1011ada), and the
+root is fresh. It was built offline as `e1bb4fc9`, and one read-only live run returned ok with zero drifts.
+
+Remaining should_fix wording from the binding reviews:
+- `selections()` is looser than Core when an override or patch names no provider, because it checks the union
+  of the family providers;
+- `resume inputs` succeeds when the interruption fell after the source write;
+- the test count now reads 43 run and 1 skipped.
+
 ## Stop conditions
 
 Stop on any of these:
