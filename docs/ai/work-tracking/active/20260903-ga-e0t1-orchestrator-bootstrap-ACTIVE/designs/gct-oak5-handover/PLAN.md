@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r8
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r9
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r7 answered the r1 to r6 reviews, and r8 answers the r7 reviews of `930ae89e` (A SOURCE_PASS, B HOLD); see the last seven sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r8 answered the r1 to r7 reviews, and r9 answers the r8 reviews of `4cbef00f` (A SOURCE_PASS, B HOLD); see the last eight sections.
 
 ## Decisions this plan relies on
 
@@ -170,14 +170,29 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
      **Snapshots.**
      - Each snapshot includes issues, ephemeral and wisp rows, dependencies, labels, comments and metadata.
      - The inventory pins the method, its completeness (wisps and events included) and its normalisation of volatile fields and ordering, and proves it deterministic on two consecutive reads.
-     - **The anchor** is the chain's first snapshot. It is taken after the split package, including the `gct-wn1m` closures and Core's auto-close reactions, has been applied and verified, and the chained scope has settled. That lets Core's own close writes land before the chain begins, instead of being guessed in a ledger.
-     - **Settled** means at least two identical snapshots taken across an interval longer than the longest order or patrol cadence that can touch the Template rig store. The inventory names those orders and patrols and their cadence.
+     - **The anchor** is the chain's first snapshot. The split package's verification snapshot is the first of the settle pair, so the anchor's rows for `gct-oak5`, C1, X, C2, H1, H2, their edges and the closed `gct-wn1m` members equal the package's verified end state.
+     - **A pre-package versus post-settle diff** of the chained scope must map every changed row to one of:
+       - a package write;
+       - a Core auto-close reaction from a named member (`wisp_autoclose.go:92-108, 165-198`; `molecule_autoclose.go:206-218`);
+       - a pinned maintenance write (below).
+
+       Anything else refuses, so nothing lands in the anchor unexplained.
+     - **Settled** means at least two identical snapshots taken across an interval longer than the longest order or patrol cadence (the reaper 30 m, wisp-compact 1 h, orphan-sweep 5 m, prune-branches 6 h).
+     - **Core maintenance writes.** Deferred maintenance acts on row age, not cadence, so the chain admits these, recomputed from the pinned thresholds:
+       - wisp-compact deletes closed ephemeral rows 24 h after `updated_at` (6 h for heartbeat or ping rows, 7 d for recovery, error or escalation rows) and promotes open wisps past their TTL;
+       - the reaper closes stale wisps with closed parents after 24 h, purges closed wisps 168 h after `closed_at`, and prunes drained session Beads after 24 h and closed ones after 720 h.
+
+       The inventory pins the thresholds from the deployed pack scripts. A maintenance write is admitted only where the rule's recomputation matches, row by row, and never on the root, a step or a holder.
+     - **Orphan-sweep** resets an in_progress step whose assignee is not a live session identity. It is not admitted. It fires only if a worker session dies mid-window, which fails closed.
      - Each window then takes BIND-before. It takes CLOSE-after only once:
        - CLOSE's session close is done;
        - the session Bead is in its inventory-pinned final state;
        - two identical snapshots have been taken a pinned interval apart.
      - **Comparison.** It is set equality over row ids, plus field equality. A row that enters or leaves the projection between snapshots is therefore a change, and is caught.
-     - **The projection** is one fixed function. Its identity set is the union of every target and identity pinned so far: the lane names and aliases, the deterministic session names, and the census session ids once known. Consecutive snapshots are comparable because the function is the same, and ids learned later are applied back to earlier snapshots before comparing.
+     - **The projection** is one fixed function. Its identity set is the union of every target and identity pinned so far: the lane names and aliases, the deterministic session names, and the census session ids once known.
+       - Every snapshot also retains the raw rows of every reachable store, so the function can be re-applied.
+       - At each gate the comparison uses the identity set known then.
+       - At C2's CLOSE-after, every chain comparison is re-run from the raw snapshots with the final identity set.
 
      **Between snapshots**, the next snapshot must equal the previous one, except for coordinator writes in a between-window ledger. The ledger is exhaustive for the chained scope. Each entry pins:
      - the Bead id;
@@ -211,15 +226,25 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
          - `gc.failure_owner=gc.session-reconciler` and `gc.failure_reason=progress_stall`, as literals;
          - `gc.failure_subject` equal to the census session Bead id;
          - `gc.progress_last_observed_at`, a timestamp;
-         - `gc.progress_attention_signature`, recomputed from session id, Bead id, status, assignee and `gc.progress_last_observed_at` (`session_reconciler.go:4016-4023`), which must match;
-         - `gc.controller_error`, matching Core's fixed template (`4029-4033`).
+         - `gc.progress_attention_signature`, recomputed from the values at write time (`session_reconciler.go:4016-4023`), which must match. The final closed row cannot supply them, so they come from:
+           - the session id: `gc.failure_subject`;
+           - the Bead id;
+           - the status: the literal `in_progress`;
+           - the assignee: the claim's session name from the last WATCH tick;
+           - the last progress: `gc.progress_last_observed_at`, in RFC3339Nano.
+         - `gc.controller_error`, matching Core's fixed template (`4029-4033`), whose embedded session name must equal the census session name.
+         - A mark can be re-armed after progress resumes. Only the last values survive, so the relay may send one mail per signature.
 
          It is recorded as a declared result, as ga-4z38 did.
-         - No automation acts on `needs/operator` for these lanes. Its other use, the provider-command failure path (`build_desired_state.go:3067-3081`), is refused by rule 5 if it fires.
+         - **Automation does act on `needs/operator`.** The city's `orchestrator-attention-relay` order fires on `bead.updated`, with a one-minute retry order. It picks up any non-closed rig Bead carrying the label, deduplicates on `gc.progress_attention_signature`, and sends durable mail to `watch-officer`. `watch-officer-mail-wake` then wakes the watch-officer, which routes to rig orchestrators; the city declares a rig-scoped on-demand `orchestrator` named session for every rig, gas-city-template included.
+           - Inside a window, the reused PREP overlay suspends every city and Template agent except the routed target, so the watch-officer and the Template orchestrator cannot start. Each window's PREP asserts this for exactly those two, and the census would detect a start.
+           - Between windows no step is claimed, so no mark can be written.
+           - The relay's city-store mail and its runtime state file are outside the chained scope and are recorded as a limit.
+           - The mark's other use, the provider-command failure path (`build_desired_state.go:3067-3081`), is refused by rule 5 if it fires.
          - Claim-holder recycling is off, because `claim_holder_stall_timeout` is unset (`config.go:1716-1718`).
          - The fixed ~60 s poll cadence makes the mark unlikely during C1's wait, but it is not relied on.
          - A worker could forge these keys or pre-write a matching signature. Nothing proven depends on them; the mark only informs the operator.
-       - **`gc.last_heartbeat_at`** is a worker write, through `gc bd heartbeat` (`cmd/gc/cmd_bd.go:22-28, 206-214`), not Core attention. It is forbidden by the briefs and refused unless the inventory shows a lane prompt calling heartbeat, in which case it is admitted on the current step with a timestamp shape.
+       - **`gc.last_heartbeat_at`** is a worker write, through `gc bd heartbeat` (`cmd/gc/cmd_bd.go:22-28, 206-214`), not Core attention. It is forbidden by the briefs and refused unless the inventory shows a lane prompt calling heartbeat. In that case it is admitted on the current step only, never on the root, a holder or another step, with a timestamp shape.
      - **The session Bead:** exactly one new session Bead per window for the lane template in the city store (type `session`, label `gc:session`). Its key set and state sequence (create, update, close at postflight) are pinned by the inventory from one real session lifecycle, and the agent-level hold and the rig suspend and resume the windows use. The default `on_death` and `on_boot` hooks (`internal/config/workquery.go:603-662`) act on work Beads, not the session Bead. `on_death` selects in_progress rows assigned to the qualified name, not the session-name claim assignee, so it is expected to be a no-op. The inventory pins that. It also confirms that Core creates a new session Bead per start for this pool lane, not a reused slot Bead. Its name and id values, not only its key set, equal the census and the claim's `gc.session_name` and `gc.session_id`. A second session Bead, a foreign-template session, or a reused or reopened existing session Bead refuses. The same inventory pins any other city-store bookkeeping a session lifecycle and a controller poke write.
      - **The second-route negative (C1's window only):** one same-value `gc.routed_to` write on C1, with its `updated_at` and event row. The coordinator's exact `PROBE DONE` or `PROBE SKIPPED` note on C1 is the only non-worker note.
      - **The next step (at X's and C2's ROUTE):** its BIND stamps, with pinned values.
@@ -278,6 +303,7 @@ Each segment is one reviewed window. Each is a successor package generated with 
 **X's PREP overlay** narrows the composed codex schema to `worklog_access` ∈ {`classified-vault`, `classified-vault-and-template-candidate-worktrees`}. It selects the latter and binds `work_dir` to the handover worktree. A composed-schema assertion checks this, as in `test_successor.py` of the gct-e8ex window.
 
 **Every window:**
+- **ROUTE** uses exactly `gc sling <lane> <step> --no-formula --no-convoy --json`, target first, with no `--nudge` and no `--reassign`. With `relates-to` edges, no `gc.root_bead_id` and no convoy, a step close then triggers no Core auto-close cascade (`cmd_convoy.go:1854-1880`; `molecule_autoclose.go:142-166`).
 - **BIND** stamps `gc.work_dir` (the handover worktree). For C1 and C2 it also stamps `gc.check_path`, the Template launch check pinned in P12/P13 (the pack `build-artifact-valid.sh`). A missing stamp refuses; Core's start preflight requires it.
 - **Common snapshot.** It uses the gct-e8ex `common-snapshot-r1.py` (the full Template `.git` walk, not ga-3oa7's narrower one), chained: each window's `before` must equal the previous window's `after`.
   - One admitted change: the linked worktree's admin `index` may be rewritten by a session's own startup git. That would be the Claude harness or the codex harness, unsandboxed, for example Claude Code's git context. It is admitted only if:
@@ -411,7 +437,9 @@ The gct-mbg6 intake runs unchanged in method:
    - that `.oak5-c2-tmp/` is neither tracked nor ignored at BASE; that the exact pinned C2 test command, env-variable form included, runs under the live lane policy and sandbox; that deleting the directory is permitted; and the effective `norecursedirs`;
    - the city-store writes of one real lane session lifecycle, `on_death` and `on_boot` included, and of a controller poke;
    - Core's progress-stall attention write set on a claimed Bead, and whether any lane prompt calls `gc bd heartbeat`;
-   - the claimless idle case: after a worker closes its step, an idle session can be restarted after the 5-minute threshold (`cmd/gc/session_progress.go:66-74`). So each window's CONTAIN runs within the pinned post-close bound, and a restart refuses as off the pinned session sequence;
+   - the claimless idle case: `sessionProgressStalled` is suppressed while a claim is held, so there is no restart during C1's PROBE wait or C2's test. After the close, the 5-minute threshold is measured from the worker's last provider activity, not from the close (`cmd/gc/session_progress.go:66-74`; `session_reconciler.go:2525-2535`). So WATCH's agent-level hold must land less than 5 minutes after the worker's last provider activity; in practice, on the first tick after the observed close. A restart refuses as off the pinned session sequence;
+   - the attention chain: the `orchestrator-attention-relay` order and its retry order, `watch-officer-mail-wake`, and the watch-officer and per-rig `orchestrator` named sessions. Each window's overlay must hold both named sessions;
+   - the Core maintenance thresholds (wisp-compact, reaper) and orphan-sweep, from the deployed pack scripts;
    - the Core orders and patrols that can write the Template rig store, and their cadence;
    - each lane's exact hook store list and route targets;
    - the Bead-store snapshot method, its completeness and its determinism;
@@ -594,3 +622,22 @@ Codex quota for X is re-checked immediately before X's ROUTE. If it is short, th
   - ledger composition, and an absent pre-image for creates (B 5);
   - the hook store list pinned from a real session's `agentForQuery` (B 6);
   - control classification by `gc.kind` (B 7).
+
+## r9 (answers the r8 reviews of `4cbef00f`: A SOURCE_PASS, B HOLD)
+
+- **B must_fix 1: automation acts on `needs/operator`.** The claim that none did is corrected.
+  - The attention relay, its retry, the mail wake and the watch-officer and Template orchestrator named sessions are in the inventory.
+  - Each window's overlay must hold both sessions, and PREP asserts it.
+  - Between windows no mark can arise.
+  - The relay's mail and state file are a stated limit outside the chained scope.
+- **Should_fix taken from B:**
+  - Core maintenance acts on row age, so its writes are admitted by recomputed pinned thresholds, never on the root, the steps or the holders (B 1);
+  - the anchor equals the package's verified end state, plus a pre-package versus post-settle diff that maps every changed row (B 2, A 3, A 4);
+  - raw snapshots are retained, with a final re-run under the final identity set (B 3, A 7);
+  - the signature's write-time inputs and the embedded session name (B 4, A 1);
+  - the restart bound runs from the last provider activity (B 5, A 5);
+  - orphan-sweep is named (B 6).
+- **Should_fix taken from A:**
+  - the ROUTE sling form `--no-formula --no-convoy` is pinned for every window. With `relates-to` edges, no `gc.root_bead_id` and no convoy, a step close triggers no Core auto-close cascade (A 2; see Windows);
+  - settle versus held orders: nothing is held by config, and maintenance is admitted by rule (A 6);
+  - heartbeat on the current step only (A 8).
