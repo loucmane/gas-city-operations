@@ -141,6 +141,30 @@ r2 fills the five adoption constants:
   uses the resolved command plus default and settings args. They agree while neither wrapper provider carries
   schema flags in its base command, as today.
 
+## Adopted (2026-09-27)
+
+Both adoption binding reviews of `cd55f3ee` passed. `READY_RESULT_SHA` and `READY_PINS_SHA` equal P10's values
+because both files are byte-identical to P10's: fixed flags and unchanged pins. `p11-adopt.py` (`d0e3355a`) then
+ran once:
+- **Phases.** before, check, revision, apply, verify, after. Each was cleanly contained. The check reported only
+  `receipt.sha256` drift, as intended: exit 0 with an embedded provisioner `ok: false`. The rollback was not
+  needed, and no worker was launched.
+- **Live receipt.** `06a3f58a` (self `7363291e`, revision `03f16ea2`, core `f45a6262`). The profiles `ad0c695b`
+  and `e641dc17` are unchanged. The receipt equals the readiness `receipt.final.json`, and only the three
+  intended leaves changed from `c833908f`.
+- **Result and witness.** Result `b60b4a90`; witness `a2016797`, bound to the M10 pair `f6dd60df` / `3ea85755`,
+  consumer gc 207a78e2 at f45a6262, tree f1011ada.
+
+Both readback reviews passed. Post-adoption evidence, kept beside the M10 inspector build:
+- `/var/tmp/ga-bebv-platform-inspector-m10-20260927/post-p11-inspect.json` (`948317ed`): ok, zero drifts.
+- `post-p11-cycle-trace.json` (`16e79b0c`): controller 2800348, gc_commit f45a6262, config_revision 03f16ea2,
+  completed.
+
+**Readback notes.**
+- "Both lanes pass start preflight" is an inference from the matching revision and profile bytes and the
+  readiness preflight. No launch has run: the city and the four rigs are still suspended.
+- The after-snapshot phase prints nothing, but `verify_snapshot` covers it.
+
 **Carried from P10.** The receipt is bound to the config revision, so any later city.toml change makes it
 stale again. This includes the `title_model` follow-up from M10, which will need its own receipt refresh. The
 adoption pins controller pid 2800348 and fails closed on a supervisor restart.
