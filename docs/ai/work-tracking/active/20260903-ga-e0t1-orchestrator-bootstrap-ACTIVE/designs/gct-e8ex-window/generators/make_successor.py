@@ -507,6 +507,31 @@ REBASE['observe-integrity-r11.py'].append(("    # (four keys) and the P10 provid
                                           "    # (four keys) and the P11 provider pins, through approved_candidate_cache_image only.", 1))
 
 
+# s3 (2026-09-27): the s2 window stopped after ROUTE (its post-route queue audit refused on four stale routed
+# Beads) with the overlay staged and no worker ever resumed. CONTAIN is then a no-op (no resume event), HOLD
+# refuses (nothing is stranded), and CLOSE refused because scheduling was never released: it only knew a
+# CONTAIN rig-suspend event or a passing HOLD. CLOSE now also accepts a window that was staged and never took a
+# lifecycle step, and then proves with the reviewed lineage (terminal) that the suspension state is still the
+# fully suspended baseline, before it runs anything.
+REBASE['close-r11.py'] = [
+    ("    held = (WINDOW/'suspension-rig-suspend-event.json').exists()\n",
+     "    held = (WINDOW/'suspension-rig-suspend-event.json').exists()\n"
+     "    # s3: a staged window that never took a lifecycle step never released scheduling (see below).\n"
+     "    never_resumed = ((WINDOW/'stage-pass.json').exists() and not list(WINDOW.glob('suspension-*-intent.json'))\n"
+     "                     and not list(WINDOW.glob('suspension-*-event.json')))\n"
+     "    held = held or never_resumed\n", 1),
+    ("    w.require(held, 'scheduling is not held (no CONTAIN rig-suspend event and no passing HOLD)')\n"
+     "    w.ROOT = WINDOW\n"
+     "    w.active_epoch(o)\n",
+     "    w.require(held, 'scheduling is not held (no CONTAIN rig-suspend event, no passing HOLD, and the window resumed)')\n"
+     "    w.ROOT = WINDOW\n"
+     "    if never_resumed:\n"
+     "        # The reviewed lineage with zero transitions: the live suspension state must be the baseline record.\n"
+     "        w.verified_lifecycle(terminal=True)\n"
+     "    w.active_epoch(o)\n", 1),
+]
+
+
 def rebase(name, text):
     for old, new, count in REBASE.get(name, ()):
         text = sub(text, old, new, count)

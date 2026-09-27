@@ -96,10 +96,17 @@ def main():
     b, o, owned = w.load_support()
     drain = VAR/'gct-mbg6-close-drain.requested'
     held = (WINDOW/'suspension-rig-suspend-event.json').exists()
+    # s3: a staged window that never took a lifecycle step never released scheduling (see below).
+    never_resumed = ((WINDOW/'stage-pass.json').exists() and not list(WINDOW.glob('suspension-*-intent.json'))
+                     and not list(WINDOW.glob('suspension-*-event.json')))
+    held = held or never_resumed
     for result in sorted(VAR.glob('gct-mbg6-hold-*/result.json')):
         held = held or json.loads(w.read(result)).get('ok') is True
-    w.require(held, 'scheduling is not held (no CONTAIN rig-suspend event and no passing HOLD)')
+    w.require(held, 'scheduling is not held (no CONTAIN rig-suspend event, no passing HOLD, and the window resumed)')
     w.ROOT = WINDOW
+    if never_resumed:
+        # The reviewed lineage with zero transitions: the live suspension state must be the baseline record.
+        w.verified_lifecycle(terminal=True)
     w.active_epoch(o)
     ROOT = VAR/('gct-mbg6-close-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     ROOT.mkdir(mode=0o700)

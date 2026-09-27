@@ -12,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-e8ex-window
 COMMIT=${1:?usage: CLOSE-2.sh <reviewed commit>}
-CLOSE_SHA=59aefce84e29f363f7febd5743f35d51ebe74c417781dfbc24a29ffdbf919d2e
+CLOSE_SHA=338e0074a63a7e626ee836d6b4cb2cad8b873f0013ad4ad12f9f4c7c71c7de6d
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

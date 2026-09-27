@@ -12,7 +12,7 @@ C=$D/gct-e8ex-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
 ADMIT_SHA=dbc8665e1ac2670e81ddeb75ec76294dcfa4d980d5409d8028d3ea9301c50d91
 BUDGET_SHA=b4ca4dc896dd138d15433574cdaba7faf101fc27ef47344f854137b399628d96
-CLOSE_SHA=59aefce84e29f363f7febd5743f35d51ebe74c417781dfbc24a29ffdbf919d2e
+CLOSE_SHA=338e0074a63a7e626ee836d6b4cb2cad8b873f0013ad4ad12f9f4c7c71c7de6d
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

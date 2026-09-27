@@ -367,6 +367,53 @@ The pre-BIND checks:
   about 13.3 h old at 01:03Z, so PREFLIGHT must run before about 06:40Z.
 - **The pinned-cache lstat** and **`common-snapshot-r1.py before`** run immediately before BIND is queued.
 
+## s2 run and stop (2026-09-27)
+
+Every job ran at s2 `78b69610`, with two filed SOURCE_PASS reviews naming every window wrapper:
+- The pre-BIND cache lstat equalled the pin 1790470648629115669.
+- `common-snapshot-r1.py before` was taken in the supervisor namespaces. The record is
+  `~/.local/share/gas-city-staging/gct-e8ex-window/common-snapshot-before.json` (`b2152144`, 6843 entries).
+- BIND passed at 04:52Z, and OBSERVE at 04:53Z with full native integrity (admitted against the P11 image with
+  the approved cache disposition).
+- PREFLIGHT passed at 04:53:36Z, which starts the four-hour bound.
+- STAGE passed at 04:55:47Z: the overlay and the receipt image are installed, and the rigs stay suspended.
+- ROUTE at 04:55:58Z slung gct-mbg6 to `gas-city-template/codex` exactly once, with no worker launched. Its
+  post-route queue audit (`audit-queue-r3.py`) then refused. Four stale open formula-step Beads were also routed
+  to `gas-city-template/codex`: gct-g1ck (2026-09-06), and gct-mmh3, gct-63h0 and gct-xkg (2026-08-19). A
+  resumed codex worker could have claimed them, so RESUME was not run. The runner's HALTED latch stays set.
+- The operator chose to close the four Beads as obsolete (2026-09-27). That happens after this window is
+  restored, and the rerun adds a pre-route queue audit.
+
+**Erratum to the s2 section above.** It says the suspension state was "about 13.3 h old at 01:03Z" and that
+PREFLIGHT had to run "before about 06:40Z". The forecast actually ran at about 04:42Z. The 19 h limit fell at
+about 10:25Z, and PREFLIGHT ran well inside it.
+
+## s3 (2026-09-27): the restore path for a window that never resumed
+
+The s2 exit jobs could not leave this state:
+- CONTAIN-1 is a no-op, because no resume event exists.
+- HOLD refuses, because nothing is stranded.
+- CLOSE refused, because scheduling was never released: it accepted only a CONTAIN rig-suspend event or a
+  passing HOLD.
+
+s3 changes only `close-r11.py`, through one asserted `REBASE` entry, and the digests that follow from it
+(CLOSE-1, CLOSE-2 and ADMIT's `CLOSE_SHA`). CLOSE also accepts a window that was staged and never took a
+lifecycle step (no `suspension-*-intent.json` or `-event.json`). Before it runs anything, it proves with the
+reviewed lineage (`verified_lifecycle(terminal=True)`, zero transitions) that the live suspension state is still
+the fully suspended baseline record. The rest of CLOSE is unchanged: no session is open, so none is closed, and
+the zero-residue proof runs.
+
+The exit sequence at s3:
+1. CLOSE-1.
+2. The operator-rule cgroup check. The coordinator runs the reviewed ga-6utp `preroute.city_problems` read-only
+   against the refreshed process record (r2 review B should_fix 1).
+3. ADMIT, which needs 60 minutes of the bound left: before about 07:53Z.
+4. RESTORE.
+5. TERMINAL.
+6. `common-snapshot-r1.py after`.
+
+After TERMINAL, the Bead notes resume, the four stale Beads are closed, and a successor window reruns gct-mbg6.
+
 ## Tests
 
 `test_successor.py` is run at s1; the three s2 pins skip until then: the PREP outputs, the live `pins()` and the
