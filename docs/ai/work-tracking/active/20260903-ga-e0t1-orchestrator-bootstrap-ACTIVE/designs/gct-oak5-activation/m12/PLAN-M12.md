@@ -106,3 +106,24 @@ The binding commit:
 - **`source-pins.json`** is `98deeaf2`: the same six names as M11. Only `manifest_candidate.py` differs from M11's pins.
 - **Frame:** against the frozen baseline, 567 spare bytes, with a floor of 256.
 - **Tests:** `test_m12.py` passes 23, including the frozen-baseline build and the source inventory.
+
+## Accepted (2026-09-27)
+
+Two binding reviews passed `ac8b1fdd`; `git diff --stat 572f3c7d ac8b1fdd` shows exactly three files. The executor then ran from `ac8b1fdd` with source pins `98deeaf2`. Each gate had two independent reviews:
+- **prepare.** Package `ce38d2ae`, manifest file `114b4a00`, 553 spare frame bytes, timer paused.
+- **SOURCE_PASS.**
+- **pause.** Window `f7c6a76e`.
+- **observe.** The native dry run had 21 steps, exactly 4 of them MUTATE.
+- **PAIRING_PASS.**
+- **paired.** `result=installed`, manifest self digest `3f3b51eb`. The commit took 63.1 s.
+- **verify.** Acceptance `fc841bf3`, receipt self digest `8b89ec30`, receipt file `de88f4e8`.
+- **COMMIT_PASS.**
+- **restore-accepted.** The timer was restored and quiescence ended.
+
+The live manifest is byte-equal to `Q/manifest.json`.
+
+**Inspector.** `inspector/make_inspector_m12.py` rebinds the M11 inspector to file `114b4a00` and a fresh root. The binary is `0da1ff14`, from Core `f45a6262`. Run read-only in the supervisor namespaces, it reports ok with zero drift. As before, `InspectIntegrity` does not examine metadata trees or inputs.
+
+Carried should_fix items:
+- the gate extract's restore check does not look for `restore-command.json`;
+- the `allow_dirty` waiver narrowing and the other package follow-ups listed under Binding.
