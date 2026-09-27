@@ -8,12 +8,17 @@ paths, and is deleting the temp directory permitted?
 
 The real wrapper cannot run here: it requires a direct child of the candidate root that is a linked
 worktree of the canonical Template. So this runs the same Claude binary with the same launch flags
-and the same policy bytes, with three declared deviations: the directory grant and Edit rules name
-the scratch root instead of the candidate root, the policy hooks are removed (they would call gc
-against the live city), and print mode (-p, stream-json) replaces the interactive session.
+and the same policy bytes, with declared deviations (listed in the report): the directory grant
+and Edit rules name the scratch root instead of the candidate root; the policy hooks are removed
+(they would call gc against the live city); the five native control commands are removed from
+permissions.allow and sandbox.excludedCommands, so every command the session can run is sandboxed
+or refused; print mode (-p, stream-json) replaces the interactive session; and the real launch's
+subscription authentication step is skipped (the auth-override environment refusal is mirrored).
 
-Nothing here touches the canonical Template, the live city or any store. The clone comes from
-GitHub. Output: <stage>/report.json and the Claude stream in <stage>/claude-stream.jsonl.
+Nothing here writes to the canonical Template (its policy file is read with O_NOATIME), the live
+city or any store. The session itself writes normal Claude project and transcript state under
+~/.claude, as any Claude run does. The clone comes from GitHub. Codex startup git is not probed
+here; the plan takes it from the gct-mbg6 window's byte-identical common snapshot. Output: <stage>/report.json and the Claude stream in <stage>/claude-stream.jsonl.
 Usage: probe_ab.py <stage directory that must not exist>
 """
 import hashlib
@@ -32,7 +37,19 @@ REMOTE = "https://github.com/loucmane/gas-city-template.git"
 BRANCH = "codex/gct-oak5-probe"
 CLAUDE = "/home/loucmane/gascity/bin/claude"
 LIVE_POLICY = "/home/loucmane/gas-city-template/templates/claude/template-candidate-control-policy.json"
-LIVE_POLICY_SHA = "6b2f160d4999781d"  # prefix of the P12/P13 pinned policy digest
+LIVE_POLICY_SHA = "6b2f160d4999781db17ddf117b482a9c20432032c1162fed453a06ba7376fec1"  # P12/P13 pin
+CONTROL_COMMANDS = (
+    "/home/loucmane/gascity/bin/gc hook --claim --json",
+    "/home/loucmane/gascity/bin/gc runtime drain-ack",
+    "/home/loucmane/gascity/bin/bd close *",
+    "/home/loucmane/gascity/bin/bd show *",
+    "/home/loucmane/gascity/bin/bd update *",
+)
+AUTH_OVERRIDE_PREFIXES = ("ANTHROPIC_", "CLAUDE_CODE_USE_")
+AUTH_OVERRIDE_NAMES = frozenset({
+    "CLAUDE_CODE_API_KEY_HELPER", "CLAUDE_CODE_API_KEY_HELPER_TTL_MS", "CLAUDE_CODE_FORCE_API_LOGIN",
+    "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR",
+})
 LIVE_ROOT = "/home/loucmane/gas-city-template-candidate-worktrees"
 MODEL = "claude-opus-5-5"
 TIMEOUT = 900
@@ -73,6 +90,15 @@ def test_digest(tmp_path):
     item = tmp_path / "a"
     item.write_bytes(b"x")
     assert digest.stable_digest([item]) == digest.stable_digest([str(item)])
+
+
+def test_leaves_read_only_entries(tmp_path):
+    locked = tmp_path / "locked"
+    locked.mkdir()
+    (locked / "inner").write_bytes(b"y")
+    (tmp_path / "ro").write_bytes(b"z")
+    (tmp_path / "ro").chmod(0o444)
+    locked.chmod(0o555)
 '''
 
 
@@ -87,15 +113,16 @@ def test_command(worktree):
 COMMANDS = (
     "/usr/bin/mkdir -p .oak5-c2-tmp/tmp .oak5-c2-tmp/basetemp",
     None,  # the test command, filled per worktree
+    "/usr/bin/chmod -R u+w -- .oak5-c2-tmp",
     "/usr/bin/rm -r -- .oak5-c2-tmp",
 )
 
 
 def prompt(commands):
     lines = [
-        "This is an inventory probe. Use the Bash tool to run exactly these three commands, one per",
+        f"This is an inventory probe. Use the Bash tool to run exactly these {len(commands)} commands, one per",
         "call, in this order, each exactly as written, from the current directory. Do not run any",
-        "other command, do not edit any file, and do not retry a refused command. After the third,",
+        "other command, do not edit any file, and do not retry a refused command. After the last,",
         "reply with one line per command: its number, whether it ran or was refused, and its exit code.",
     ]
     for index, command in enumerate(commands, 1):
@@ -104,7 +131,10 @@ def prompt(commands):
 
 
 def parse_index(raw):
-    """Split a v2/v3/v4 index into (header, entries without stat data, extensions, checksum)."""
+    """Split a v2 or v3 index into (header, entries without stat data, extensions, checksum).
+
+    v4 (path prefix compression) is refused. Truncation raises ValueError.
+    """
     if raw[:4] != b"DIRC" or len(raw) < 32:
         raise ValueError("not an index")
     version, count = struct.unpack(">II", raw[4:12])
@@ -147,7 +177,7 @@ def classify_index(before, after):
     try:
         hb, eb, xb, _ = parse_index(before)
         ha, ea, xa, _ = parse_index(after)
-    except ValueError as exc:
+    except (ValueError, struct.error, IndexError) as exc:
         return f"unparsed: {exc}"
     if hb != ha:
         return "header changed"
@@ -165,7 +195,7 @@ def admin_state(admin):
         for name in sorted(filenames):
             path = Path(dirpath) / name
             info = path.lstat()
-            record = {"mode": oct(info.st_mode), "size": info.st_size, "nlink": info.st_nlink}
+            record = {"mode": oct(info.st_mode), "uid": info.st_uid, "size": info.st_size, "nlink": info.st_nlink}
             if stat.S_ISREG(info.st_mode):
                 record["sha256"] = hashlib.sha256(path.read_bytes()).hexdigest()
             state[str(path.relative_to(admin))] = record
@@ -196,6 +226,13 @@ def probe_policy(raw, root):
     if "hooks" not in policy:
         raise RuntimeError("policy has no hooks section to remove")
     del policy["hooks"]
+    allow = [f"Bash({command})" for command in CONTROL_COMMANDS]
+    if [e for e in policy["permissions"]["allow"] if e in allow] != allow:
+        raise RuntimeError("policy allow list does not hold the five control commands")
+    if policy["sandbox"]["excludedCommands"] != list(CONTROL_COMMANDS):
+        raise RuntimeError("policy sandbox exclusions are not the five control commands")
+    policy["permissions"]["allow"] = [e for e in policy["permissions"]["allow"] if e not in allow]
+    policy["sandbox"]["excludedCommands"] = []
     return policy
 
 
@@ -204,7 +241,7 @@ def child_environment(parent):
     for name, value in parent.items():
         if name == "ANTHROPIC_API_KEY":
             continue
-        if name.startswith(("ANTHROPIC_", "CLAUDE_CODE_USE_", "GC_", "BEADS_")):
+        if name.startswith(AUTH_OVERRIDE_PREFIXES) or name in AUTH_OVERRIDE_NAMES or name.startswith(("GC_", "BEADS_")):
             raise RuntimeError(f"refusing inherited variable {name}")
         child[name] = value
     return child
@@ -225,10 +262,19 @@ def main(stage_arg):
         "policy hooks removed",
         "print mode: -p with --output-format stream-json --verbose",
         "clone from GitHub, not a linked worktree of the canonical Template",
+        "the five native control commands removed from permissions.allow and sandbox.excludedCommands",
+        "subscription authentication step of the real launch skipped",
+    ], "not_covered": [
+        "codex startup git (taken from the gct-mbg6 window common snapshot instead)",
     ]}
-    policy_raw = Path(LIVE_POLICY).read_bytes()
+    fd = os.open(LIVE_POLICY, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME | os.O_CLOEXEC)
+    try:
+        with os.fdopen(fd, "rb", closefd=False) as handle:
+            policy_raw = handle.read()
+    finally:
+        os.close(fd)
     report["live_policy_sha256"] = hashlib.sha256(policy_raw).hexdigest()
-    if not report["live_policy_sha256"].startswith(LIVE_POLICY_SHA):
+    if report["live_policy_sha256"] != LIVE_POLICY_SHA:
         raise SystemExit("live policy digest drift")
 
     run(GIT + ["clone", "--quiet", "--no-tags", "--single-branch", "--branch", "main", REMOTE, str(stage / "clone")])
@@ -243,10 +289,11 @@ def main(stage_arg):
 
     policy_path = stage / "probe-policy.json"
     policy_path.write_text(json.dumps(probe_policy(policy_raw, root), indent=1) + "\n")
-    commands = [COMMANDS[0], test_command(worktree), COMMANDS[2]]
+    commands = [COMMANDS[0], test_command(worktree), *COMMANDS[2:]]
     report["commands"] = commands
 
     admin_before = admin_state(admin)
+    git_before = admin_state(stage / "clone/.git")
     index_before = (admin / "index").read_bytes()
     tree_before = tree_state(worktree)
 
@@ -268,10 +315,15 @@ def main(stage_arg):
     report["seconds"] = round(time.time() - started, 1)
 
     admin_after = admin_state(admin)
+    git_after = admin_state(stage / "clone/.git")
     index_after = (admin / "index").read_bytes()
     report["probe_a"] = {
+        "scope": "the whole Claude session, startup included, not only startup",
         "index": classify_index(index_before, index_after),
         "admin_changed": sorted(k for k in set(admin_before) | set(admin_after) if admin_before.get(k) != admin_after.get(k)),
+        "git_changed_outside_admin": sorted(
+            k for k in set(git_before) | set(git_after)
+            if git_before.get(k) != git_after.get(k) and not k.startswith("worktrees/wt/")),
         "admin_before": admin_before,
         "admin_after": admin_after,
     }
@@ -302,6 +354,10 @@ def main(stage_arg):
     executed = [c["input"].get("command") for c in calls if c["tool"] == "Bash" and isinstance(c.get("input"), dict)]
     report["probe_b"] = {
         "exact_commands_only": executed == commands,
+        "sandbox_disable_requested": any(
+            isinstance(c.get("input"), dict) and c["input"].get("dangerouslyDisableSandbox")
+            for c in calls if c["tool"] == "Bash"),
+        "sandboxed_by_inference": "with the control commands removed, a command outside the allow list can run under dontAsk only through autoAllowBashIfSandboxed",
         "temp_absent_after": not (worktree / ".oak5-c2-tmp").exists(),
         "no_bytecode": not any("__pycache__" in k or k.endswith(".pyc") for k in tree_after),
         "no_pytest_cache": not any(k.startswith(".pytest_cache") for k in tree_after),

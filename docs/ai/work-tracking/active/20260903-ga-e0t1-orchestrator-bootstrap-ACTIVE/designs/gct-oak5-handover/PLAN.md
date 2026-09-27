@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r11
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r12
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, and r11 answers the r10 reviews of `943b94b6` (A and B HOLD); see the last two sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, and r12 answers the r11 reviews of `27ae54fc` (A and B HOLD); see the last three sections.
 
 ## Decisions this plan relies on
 
@@ -95,7 +95,7 @@ No step stages, commits, pushes, signs or touches git state, apart from the one 
 
   C2 creates both before running the command, so Python's `tempfile` never falls back to `/tmp`. The inventory confirms the path is neither tracked nor ignored at BASE, and that pytest's default `norecursedirs` skips it.
 - **The inventory runs the exact command,** including its env-variable form, under the live lane policy and sandbox, and proves it is permitted.
-- **Cleanup.** After the test and before its note, C2 deletes `.oak5-c2-tmp/`.
+- **Cleanup.** After the test and before its note, C2 deletes `.oak5-c2-tmp/` with exactly two commands: `/usr/bin/chmod -R u+w -- .oak5-c2-tmp`, then `/usr/bin/rm -r -- .oak5-c2-tmp`. Plain `rm -r` fails on a read-only directory that pytest's `tmp_path` may leave behind, and the probe proves both the failure and the two-step deletion.
 
 **Checks on the test run.**
 - CLOSE's final export (rules 2 to 4 and 6) must show that `.oak5-c2-tmp/` is gone and that `M1`, `A1`, `M2` and `A2` hold exactly the digests C2 recorded before the test.
@@ -283,10 +283,16 @@ One linked worktree of the canonical Template: `/home/loucmane/gas-city-template
        - **`gc.last_heartbeat_at`** is a worker write, through `gc bd heartbeat` (`cmd/gc/cmd_bd.go:22-28, 206-214`), not Core attention. It is forbidden by the briefs and refused unless the inventory shows a lane prompt calling heartbeat. In that case it is admitted on the current step only, never on the root, a holder or another step, with a timestamp shape.
      - **The session Bead:** exactly one new session Bead per window for the lane template in the city store (type `session`, label `gc:session`). Its key set is not fixed per lifecycle, because optional keys depend on events. So:
        - the metadata keys must be a subset of the union over every session Bead in the city store: 96 Core-written keys over 1972 rows, recorded in `inventory-data.json`. The union includes the custom-provider keys (`provider_kind`, `builtin_ancestor`, `resume_command`) and the wake-request keys;
-       - the identity keys are pinned by value, including `provider` (`claude-template-candidate` or `codex`), `provider_kind` and `builtin_ancestor` where Core writes them, and `work_dir`;
+       - the identity keys are pinned by value, including `provider` and `work_dir`:
+         - **Claude lane:** `provider=claude-template-candidate`, and `provider_kind=claude` and `builtin_ancestor=claude`, both required present, as on every custom Claude provider's rows;
+         - **codex lane:** `provider=codex`, with `provider_kind` and `builtin_ancestor` required absent, as on all 191 `codex` rows, because `builtin:codex` is its own ancestor;
        - other values inside the union are not pinned. A worker's unsandboxed `bd update` could change them on its own session Bead; the census catches the effect, and this is a stated limit;
-       - **its end state is the drain-ack teardown**, the path a worker takes when it closes its step and runs `gc runtime drain-ack`, as every brief requires: `closed`, `state=drained`, `state_reason=drain-ack-stop-pending`, and `close_reason` either `session drained: pool slot retired by reconciler` or none. That is 302 of the city's pool sessions. Any other end state refuses, including gct-mbg6's `awake` with no close reason, which followed an orphan release;
-       - the same applies through the agent-level hold and the rig suspend and resume the windows use. The default `on_death` and `on_boot` hooks (`internal/config/workquery.go:603-662`) act on work Beads, not the session Bead. `on_death` selects in_progress rows assigned to the qualified name, not the session-name claim assignee, so it is expected to be a no-op. The inventory pins that. It also confirms that Core creates a new session Bead per start for this pool lane, not a reused slot Bead. Its name and id values, not only its key set, equal the census and the claim's `gc.session_name` and `gc.session_id`. A second session Bead, a foreign-template session, or a reused or reopened existing session Bead refuses. The same inventory pins any other city-store bookkeeping a session lifecycle and a controller poke write.
+       - **its end state is a drain-ack teardown**, the path a worker takes when it closes its step and runs `gc runtime drain-ack`, as every brief requires. `markDrainAckStopPending` writes `state=draining` and `state_reason=drain-ack-stop-pending` (`DrainAckStopPendingPatch`, `internal/session/lifecycle_transition.go:397-408`), and the session then closes as exactly one of:
+         - `state=drained`, `close_reason` "session drained: pool slot retired by reconciler" or none: 302 pool rows, 132 of them codex, 15 on `gas-city-template/codex`;
+         - `state=dead-runtime`, `close_reason` "session terminated: dead-runtime": 39 codex rows, where the provider exited on its own after the stop-pending mark.
+
+         Both keep `state_reason=drain-ack-stop-pending`, the proof that drain-ack was recorded. Any other end state refuses, including gct-mbg6's `awake` with no close reason (after an orphan release) and the "suspended" teardown;
+       - **the hold never races the drain-ack** (WATCH below), and the rig suspend and resume the windows use come after the session has closed. The default `on_death` and `on_boot` hooks (`internal/config/workquery.go:603-662`) act on work Beads, not the session Bead. `on_death` selects in_progress rows assigned to the qualified name, not the session-name claim assignee, so it is expected to be a no-op. The inventory pins that. It also confirms that Core creates a new session Bead per start for this pool lane, not a reused slot Bead. Its name and id values, not only its key set, equal the census and the claim's `gc.session_name` and `gc.session_id`. A second session Bead, a foreign-template session, or a reused or reopened existing session Bead refuses. The same inventory pins any other city-store bookkeeping a session lifecycle and a controller poke write.
      - **The second-route negative (C1's window only):** one same-value `gc.routed_to` write on C1, with its `updated_at`. The coordinator's exact `PROBE DONE` or `PROBE SKIPPED` note on C1 is the only non-worker note.
      - **The next step (at X's and C2's ROUTE):** its BIND stamps, with pinned values.
      - **The holder:** the coordinator's image write.
@@ -361,7 +367,11 @@ Each segment is one reviewed window. Each is a successor package generated with 
   - **No git reads.** No gate, reviewer or intake step relies on `git status` or `git diff` in the handover worktree, because a stat-only rewrite could make a racy-clean entry hide a content change. The images and the export read files only.
   - **Scope.** The common snapshot covers the Template `.git` only. The candidate-root audit (rule 6), the image, and the stated vault and `/tmp` scope are the complementary parts.
 - **WATCH** records, on every tick, the routing (`gc.routed_to`) and assignee of the non-current steps, the holders and the root. Any change triggers CONTAIN at once.
-  - When WATCH first observes the current step closed, it holds the lane at the agent level before anything else.
+  - **When WATCH first observes the current step closed**, it switches to a 15-second poll of the census session Bead and holds the lane at the agent level at the first of:
+    - the session Bead shows `state_reason=drain-ack-stop-pending`, which Core writes before it queues the stop, so the hold cannot turn the teardown into a "suspended" drain;
+    - 4 minutes after the observed close.
+
+    An agent-level hold on a live session with no open work begins a "suspended" drain that sends Ctrl-C (`cmd/gc/session_reconciler.go:2032-2106`). If the hold lands before the drain-ack mark, the session ends "suspended" and the window refuses: the worker did not drain within the bound. The 4 minutes stay inside the idle restart bound, which runs 5 minutes from the worker's last provider activity, and the close is itself such activity. Nothing else changes in the lane during the wait: the next step is unrouted, and `max_active_sessions = 1`.
   - A worker with unsandboxed `bd update` could route a later step before closing its own, and the reconciler could start a session inside one tick. That tick-bounded gap is stated as a known limit, and it is detected by the store-wide diff and fails closed.
 - **CLOSE:**
   - runs `verify_linked` on the worktree;
@@ -479,7 +489,7 @@ The gct-mbg6 intake runs unchanged in method:
    - that `.oak5-c2-tmp/` is neither tracked nor ignored at BASE; that the exact pinned C2 test command, env-variable form included, runs under the live lane policy and sandbox; that deleting the directory is permitted; and the effective `norecursedirs`;
    - the city-store writes of one real lane session lifecycle, `on_death` and `on_boot` included, and of a controller poke;
    - Core's progress-stall attention write set on a claimed Bead, and whether any lane prompt calls `gc bd heartbeat`;
-   - the claimless idle case: `sessionProgressStalled` is suppressed while a claim is held, so there is no restart during C1's PROBE wait or C2's test. After the close, the 5-minute threshold is measured from the worker's last provider activity, not from the close (`cmd/gc/session_progress.go:66-74`; `session_reconciler.go:2525-2535`). So WATCH's agent-level hold must land less than 5 minutes after the worker's last provider activity; in practice, on the first tick after the observed close. A restart refuses as off the pinned session sequence;
+   - the claimless idle case: `sessionProgressStalled` is suppressed while a claim is held, so there is no restart during C1's PROBE wait or C2's test. After the close, the 5-minute threshold is measured from the worker's last provider activity, not from the close (`cmd/gc/session_progress.go:66-74`; `session_reconciler.go:2525-2535`). So WATCH's agent-level hold must land less than 5 minutes after the worker's last provider activity. It lands on the drain-ack mark, or at the latest 4 minutes after the observed close (see WATCH). A restart refuses as off the pinned session sequence;
    - the attention chain: the `orchestrator-attention-relay` order and its retry order, `watch-officer-mail-wake`, and the watch-officer and per-rig `orchestrator` named sessions. Each window's overlay must hold both named sessions;
    - the Core maintenance thresholds (wisp-compact, reaper) and orphan-sweep, from the deployed pack scripts;
    - the Core orders and patrols that can write the Template rig store, and their cadence;
@@ -717,3 +727,27 @@ Two inventory items remain as live probes before the C1 window package: startup 
   - `gc bd close` keeps the assignee for the codex lane too (B 5; inventory section 2);
   - drain and exit is in every brief (B 6);
   - the unpinned session values are a stated limit (B 7).
+
+## r12 (answers the r11 reviews of `27ae54fc`: A and B HOLD)
+
+The plan part of r11 closed the three r10 must_fix items (both reviews verified this). The holds were on the probe job (A) and the hold-versus-drain race (B).
+- **B must_fix: the agent-level hold on the observed close could pre-empt drain-ack.** It would then turn a correct segment into a "suspended" teardown, which refuses.
+  - WATCH now polls every 15 seconds after the close and holds on Core's `drain-ack-stop-pending` mark, or after at most 4 minutes, inside the idle restart bound.
+  - The admitted end states are the two drain-ack outcomes that real rows show, for both lanes.
+- **A must_fix: the probe's policy still unsandboxed the five control commands.** The probe now removes them from `permissions.allow` and `sandbox.excludedCommands`, declares it, and tests it; see the probe package.
+- **Should_fix taken:**
+  - the provider identity keys are pinned, present for Claude and absent for codex (B 1);
+  - the codex drain-ack evidence is 132 drained and 39 dead-runtime rows (B 2);
+  - the `.gc` modes are confirmed on Claude-lane Core worktrees (B 3; INVENTORY);
+  - the C2 cleanup is two pinned commands, and the probe seeds read-only entries (A 4, B 4).
+- **Probe should_fix taken:**
+  - the whole clone `.git` is snapshotted, not only the admin directory;
+  - the codex startup git is declared as not probed and taken from the gct-mbg6 snapshot;
+  - the sandbox flag is recorded and sandboxing stated as inferred;
+  - `struct.error` no longer crashes the report;
+  - the docstring is corrected and uid is recorded;
+  - a v3 skip-worktree test and truncated-index tests are added;
+  - the auth-override names are mirrored and the skipped subscription check is declared;
+  - the policy is read with `O_NOATIME` and pinned by its full digest;
+  - the `~/.claude` side effects are stated;
+  - the result is labelled as a whole session, not only startup.

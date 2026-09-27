@@ -79,6 +79,29 @@ def test_entry_change_is_not_stat_only(linked):
     assert probe.classify_index(before, index.read_bytes()) == "entries changed"
 
 
+def test_v3_index_with_skip_worktree(linked):
+    worktree, index = linked
+    before = index.read_bytes()
+    git("update-index", "--skip-worktree", "a.txt", cwd=worktree)
+    after = index.read_bytes()
+    assert after[4:8] == b"\x00\x00\x00\x03"
+    _, entries, _, _ = probe.parse_index(after)
+    assert [e[0] for e in entries] == [b"a.txt", b"lib/b.py", b"tests/c.py"]
+    assert entries[0][4] != b""
+    assert probe.classify_index(before, after) == "header changed"
+    stamp = (worktree / "lib/b.py").stat().st_mtime_ns + 5_000_000_000
+    os.utime(worktree / "lib/b.py", ns=(stamp, stamp))
+    git("update-index", "--refresh", cwd=worktree)
+    assert probe.classify_index(after, index.read_bytes()) == "stat-only"
+
+
+def test_truncated_index_is_reported_not_raised(linked):
+    _, index = linked
+    raw = index.read_bytes()
+    assert probe.classify_index(raw, raw[:40]).startswith("unparsed")
+    assert probe.classify_index(raw, raw[:-30]).startswith("unparsed")
+
+
 def test_extension_change_detected(linked):
     worktree, index = linked
     git("update-index", "--untracked-cache", cwd=worktree)
@@ -98,7 +121,14 @@ def test_probe_policy_retargets_and_drops_hooks(tmp_path):
     assert probe.LIVE_ROOT not in text
     assert f"Edit(/{tmp_path}/*/**)" in policy["permissions"]["allow"]
     assert f"Edit(/{tmp_path}/*/.git)" in policy["permissions"]["deny"]
-    assert policy["sandbox"] == json.loads(raw)["sandbox"]
+    live = json.loads(raw)
+    assert policy["sandbox"]["excludedCommands"] == []
+    assert {k: v for k, v in policy["sandbox"].items() if k != "excludedCommands"} == {
+        k: v for k, v in live["sandbox"].items() if k != "excludedCommands"}
+    assert not any(e.startswith("Bash(") for e in policy["permissions"]["allow"])
+    assert all(f"Bash({c})" not in text for c in probe.CONTROL_COMMANDS)
+    assert policy["permissions"]["deny"] == [
+        e.replace(probe.LIVE_ROOT, str(tmp_path)) for e in live["permissions"]["deny"]]
 
 
 def test_probe_policy_refuses_unexpected_root_count(tmp_path):
@@ -110,7 +140,8 @@ def test_probe_policy_refuses_unexpected_root_count(tmp_path):
 def test_child_environment():
     child = probe.child_environment({"PATH": "/usr/bin", "ANTHROPIC_API_KEY": "k", "HOME": "/h"})
     assert child == {"PATH": "/usr/bin", "HOME": "/h"}
-    for name in ("ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK", "GC_CITY", "BEADS_DIR"):
+    for name in ("ANTHROPIC_BASE_URL", "CLAUDE_CODE_USE_BEDROCK", "GC_CITY", "BEADS_DIR",
+                 "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CONFIG_DIR", "CLAUDE_CODE_API_KEY_HELPER"):
         with pytest.raises(RuntimeError):
             probe.child_environment({name: "x"})
 
@@ -118,9 +149,11 @@ def test_child_environment():
 def test_commands_and_prompt():
     command = probe.test_command("/w")
     assert command.startswith("/usr/bin/env PYTHONDONTWRITEBYTECODE=1 TMPDIR=/w/.oak5-c2-tmp/tmp /usr/bin/python3.12 -m pytest")
-    text = probe.prompt([probe.COMMANDS[0], command, probe.COMMANDS[2]])
+    text = probe.prompt([probe.COMMANDS[0], command, *probe.COMMANDS[2:]])
+    assert "exactly these 4 commands" in text
     assert "1. /usr/bin/mkdir -p .oak5-c2-tmp/tmp .oak5-c2-tmp/basetemp" in text
-    assert "3. /usr/bin/rm -r -- .oak5-c2-tmp" in text
+    assert "3. /usr/bin/chmod -R u+w -- .oak5-c2-tmp" in text
+    assert "4. /usr/bin/rm -r -- .oak5-c2-tmp" in text
 
 
 def test_seeded_test_passes_with_pinned_command(tmp_path):
@@ -132,7 +165,10 @@ def test_seeded_test_passes_with_pinned_command(tmp_path):
     subprocess.run(["/usr/bin/mkdir", "-p", ".oak5-c2-tmp/tmp", ".oak5-c2-tmp/basetemp"], cwd=worktree, check=True)
     result = subprocess.run(probe.test_command(worktree), shell=True, cwd=worktree, capture_output=True, text=True)
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "3 passed" in result.stdout
+    assert "4 passed" in result.stdout
+    plain = subprocess.run(["/usr/bin/rm", "-r", "--", ".oak5-c2-tmp"], cwd=worktree, capture_output=True)
+    assert plain.returncode != 0  # the read-only directory needs the chmod step first
+    subprocess.run(["/usr/bin/chmod", "-R", "u+w", "--", ".oak5-c2-tmp"], cwd=worktree, check=True)
     subprocess.run(["/usr/bin/rm", "-r", "--", ".oak5-c2-tmp"], cwd=worktree, check=True)
     assert not (worktree / ".oak5-c2-tmp").exists()
     assert not any(p.name == "__pycache__" for p in worktree.rglob("*"))

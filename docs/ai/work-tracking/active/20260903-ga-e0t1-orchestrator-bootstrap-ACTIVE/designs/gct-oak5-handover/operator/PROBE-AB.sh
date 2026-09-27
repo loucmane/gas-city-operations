@@ -10,9 +10,9 @@ S=/home/loucmane/.local/share/gas-city-staging/gct-oak5-handover
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/gct-oak5-handover/probe
-STAGE=$S/probe-ab-r1
+STAGE=$S/probe-ab-r2
 COMMIT=${1:?usage: PROBE-AB.sh <reviewed commit>}
-PROBE_SHA=f189f2c4e2168158683e88db899ae1d39b172c5b8bfe9724daa62ca717924419
+PROBE_SHA=64d0a2ab7be92551d1b9ede85fb9c08d7bcfc9cdd38f1bb7203632d23a3777b6
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

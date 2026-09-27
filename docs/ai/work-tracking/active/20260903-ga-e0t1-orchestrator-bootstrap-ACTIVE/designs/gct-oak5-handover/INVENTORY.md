@@ -170,7 +170,17 @@ This is resolved by plan r10.
 
 ## 9. PENDING live probes
 
-- **Probe A: startup git.** The real Claude wrapper argv and the real codex argv, each started once in a scratch linked worktree of a throwaway clone (never the canonical Template), with the admin `index` hashed before and after. This decides whether a harness rewrites index extensions. The claim's `ResolveWorkBranch` also runs git in the worktree unsandboxed.
+- **Codex probe A is resolved by existing evidence (r12).** In the real gct-mbg6 codex window, the full Template `.git` walk, `worktrees/gct-mbg6/index` included, was byte-identical before and after the session: 6843 entries, 0 changed (`gct-e8ex-window/common-snapshot-{before,after}-s4.json`). That covers a real managed codex session, the claim's git and gc's own git. The live probe below covers Claude only.
+- **Probe A: session git (Claude).** The real Claude wrapper argv, started once in a scratch linked worktree of a throwaway clone (never the canonical Template), with the admin `index` hashed before and after. This decides whether a harness rewrites index extensions. The claim's `ResolveWorkBranch` also runs git in the worktree unsandboxed.
 - **Probe B: the C2 test command.** Under the live Claude lane policy and sandbox in the same scratch clone: the exact env-variable form, the import of the worktree's code, and deletion of `.oak5-c2-tmp/`.
 
-Both need a reviewed job, because they launch provider sessions: Claude cost, and Codex quota for probe A. They run before the C1 window package is reviewed.
+Both run in one reviewed job (`operator/PROBE-AB.sh`, `probe/probe_ab.py`), because they launch a provider session. It is a declared lower bound: the real wrapper refuses to run outside the candidate root. The report records the whole clone `.git`, not only the admin directory, over the whole session.
+
+## 10. Evidence added for r12
+
+- **Session identity keys.** Every row of a custom Claude provider (`claude-signing`, `claude-candidate`, `claude-managed` and the others) carries `provider_kind=claude` and `builtin_ancestor=claude`. All 191 `provider=codex` rows carry neither.
+- **Codex drain-ack.** Of 191 codex sessions:
+  - 131 closed `drained`/`drain-ack-stop-pending` with the reconciler drain reason, and 1 with none. 15 of these are `gas-city-template/codex`;
+  - 39 closed `dead-runtime`/`drain-ack-stop-pending`, "session terminated: dead-runtime".
+- **Claude-lane directory modes.** The Core Claude worktrees `ga-4z38-typed-route-cycles` and `ga-5ot6-typed-route-cycles` both have `.gc` 0700, `.gc/tmp` 0700 and `.gc/scripts` 0755, operator-owned, the same as the codex lane. ga-5ot6's own directories are 0700 because of an older umask. The Template's `.claude/skills` is tracked, so its mode comes from checkout.
+- **The hold race** (Core `f45a6262`). An agent-level hold on a live session with no open assigned work begins a "suspended" drain that sends Ctrl-C (`session_reconciler.go:2032-2106`). The drain-ack fast path applies only when drain-ack was already recorded (`1956-1998`). `markDrainAckStopPending` writes `state=draining` and `state_reason=drain-ack-stop-pending` before it queues the stop.
