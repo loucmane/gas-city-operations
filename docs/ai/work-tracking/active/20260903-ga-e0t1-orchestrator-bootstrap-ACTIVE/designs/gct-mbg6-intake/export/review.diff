@@ -1,0 +1,1963 @@
+diff --git a/bin/gct-claude-template-candidate-worker b/bin/gct-claude-template-candidate-worker
+new file mode 100755
+index 0000000000000000000000000000000000000000..16751ea4a1e4065f4a1bb0dc742dd56dfecd02ab
+--- /dev/null
++++ b/bin/gct-claude-template-candidate-worker
+@@ -0,0 +1,14 @@
++#!/bin/sh
++# Start the pinned interpreter in isolated, no-site, source-only mode before
++# any Python import can run. The fixed exec preserves cwd, environment, argv,
++# stdio, and the process identity used by Gas City.
++case "$0" in
++  /*/bin/gct-claude-template-candidate-worker) entrypoint=$0 ;;
++  *)
++    printf '%s\n' 'gct-claude-template-candidate-worker: entrypoint must be absolute' >&2
++    exit 2
++    ;;
++esac
++root=${entrypoint%/bin/gct-claude-template-candidate-worker}
++exec /usr/bin/python3.12 -I -S -B \
++  "$root/lib/gct_claude_template_candidate_worker.py" "$@"
+diff --git a/bin/gct-managed-rig-permissions b/bin/gct-managed-rig-permissions
+index ad0cb290265e1ec173ea0cc847c26fa2f75392ff..5b99dec605c4db288a4796c4f197886b3a1e6273 100755
+--- a/bin/gct-managed-rig-permissions
++++ b/bin/gct-managed-rig-permissions
+@@ -25,13 +25,19 @@ SIGNING_CONTROL_POLICY_SCHEMA = "gc.worker-control-policy.v1"
+ CANDIDATE_CONTROL_POLICY_SCHEMA = "gc.candidate-control-policy.v1"
+ SIGNING_PROFILE_KIND = "signing"
+ CANDIDATE_PROFILE_KIND = "candidate"
+-# A Claude record with a typed control policy launches through that kind's
+-# closed wrapper provider, never through the generic claude-managed provider:
+-# the generic launch also loads the city's shared settings, whose broader grant
+-# would union with the typed policy instead of being replaced by it.
++# A Claude record with a typed control policy launches through one closed
++# wrapper provider, never through the generic claude-managed provider: the
++# generic launch also loads the city's shared settings, whose broader grant
++# would union with the typed policy instead of being replaced by it. Signing
++# remains kind-selected. Candidate policies are source-selected from this exact
++# literal vocabulary so a second candidate wrapper can never fall through to
++# the Operations wrapper merely because its marker has the same kind.
+ CLOSED_CLAUDE_PROVIDERS = {
+     SIGNING_PROFILE_KIND: "claude-signing",
+-    CANDIDATE_PROFILE_KIND: "claude-candidate",
++    "templates/claude/candidate-control-policy.json": "claude-candidate",
++    "templates/claude/template-candidate-control-policy.json": (
++        "claude-template-candidate"
++    ),
+ }
+ # What this renderer emits for an agent is a *requested patch selector*, never a
+ # resolved identity. It writes `[[patches.agent]] dir=<rig> name=<agent>` and the
+@@ -116,6 +122,9 @@ CLAUDE_SIGNING_PROVIDER_TEMPLATE = (
+ CLAUDE_CANDIDATE_PROVIDER_TEMPLATE = (
+     ROOT / "templates" / "claude" / "candidate-provider.toml"
+ )
++CLAUDE_TEMPLATE_CANDIDATE_PROVIDER_TEMPLATE = (
++    ROOT / "templates" / "claude" / "template-candidate-provider.toml"
++)
+ PROVIDER_MARKER = "# @managed-rig-choices@"
+ MODEL_CHOICES_MARKER = "# @managed-model-choices@"
+ EFFORT_CHOICES_MARKER = "# @managed-effort-choices@"
+@@ -487,6 +496,24 @@ def _load_control_policy(
+     return resolved, observed, kind
+ 
+ 
++def _closed_claude_provider(kind: str, source: str, field: str) -> str:
++    """Choose the one closed provider authorized for a typed policy.
++
++    Signing has one wrapper and remains keyed by profile kind. Candidate
++    wrappers are keyed by the literal declared source string: normalization is
++    deliberately not applied before this lookup, and an otherwise valid policy
++    copied to another path is not a runnable candidate policy.
++    """
++
++    key = SIGNING_PROFILE_KIND if kind == SIGNING_PROFILE_KIND else source
++    try:
++        return CLOSED_CLAUDE_PROVIDERS[key]
++    except KeyError as exc:
++        raise ProvisionError(
++            f"{field}.source is not an authorized {kind} control policy: {source}"
++        ) from exc
++
++
+ def _load_registry(path: Path) -> tuple[dict[str, Any], bytes]:
+     try:
+         raw = path.read_bytes()
+@@ -628,6 +655,9 @@ def _load_registry(path: Path) -> tuple[dict[str, Any], bytes]:
+             _policy_path, _policy_digest, policy_kind = _load_control_policy(
+                 declared["source"], declared["sha256"], f"{prefix}.control_policy"
+             )
++            _closed_claude_provider(
++                policy_kind, declared["source"], f"{prefix}.control_policy"
++            )
+             if (
+                 policy_kind == CANDIDATE_PROFILE_KIND
+                 and git_metadata_grant is not False
+@@ -890,6 +920,7 @@ def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+         "claude": CLAUDE_PROVIDER_TEMPLATE,
+         "claude-signing": CLAUDE_SIGNING_PROVIDER_TEMPLATE,
+         "claude-candidate": CLAUDE_CANDIDATE_PROVIDER_TEMPLATE,
++        "claude-template-candidate": CLAUDE_TEMPLATE_CANDIDATE_PROVIDER_TEMPLATE,
+     }
+     provider_records: dict[str, list[dict[str, Any]]] = {
+         "codex": [],
+@@ -898,6 +929,7 @@ def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+         "claude": [],
+         "claude-signing": [],
+         "claude-candidate": [],
++        "claude-template-candidate": [],
+     }
+     for record in registry["rigs"]:
+         render_provider = record.get("provider", "codex")
+@@ -908,7 +940,11 @@ def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+                 control_policy["sha256"],
+                 f"rig {record['name']} control_policy",
+             )
+-            render_provider = CLOSED_CLAUDE_PROVIDERS[policy_kind]
++            render_provider = _closed_claude_provider(
++                policy_kind,
++                control_policy["source"],
++                f"rig {record['name']} control_policy",
++            )
+         provider_records[render_provider].append(record)
+ 
+     # An empty registry retains the historical vault-only Codex fragment.
+@@ -921,6 +957,7 @@ def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+             "claude",
+             "claude-signing",
+             "claude-candidate",
++            "claude-template-candidate",
+         )
+         if provider_records[provider] or (provider == "codex" and not registry["rigs"])
+     ]
+@@ -986,6 +1023,7 @@ def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+         "claude": [],
+         "claude-signing": [],
+         "claude-candidate": [],
++        "claude-template-candidate": [],
+     }
+     patch_lines: list[str] = []
+     header = [
+@@ -1017,11 +1055,17 @@ def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+                 control_policy["sha256"],
+                 f"rig {record['name']} control_policy",
+             )
+-        render_provider = (
+-            CLOSED_CLAUDE_PROVIDERS[control_policy_kind]
+-            if provider == "claude" and control_policy_kind is not None
+-            else provider
+-        )
++        render_provider = provider
++        if (
++            provider == "claude"
++            and control_policy_kind is not None
++            and control_policy is not None
++        ):
++            render_provider = _closed_claude_provider(
++                control_policy_kind,
++                control_policy["source"],
++                f"rig {record['name']} control_policy",
++            )
+         git_metadata = str(Path(record["repository_path"]) / ".git")
+         if provider in {"codex", "codex-managed-worklog"}:
+             roots = [registry["classified_vault"], record["worktree_root"]]
+@@ -1097,7 +1141,7 @@ def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+                         f"model = {_toml_string(selection['model'])}",
+                         (
+                             'permission_mode = "full-auto"'
+-                            if control_policy_kind in CLOSED_CLAUDE_PROVIDERS
++                            if launch_provider in CLOSED_CLAUDE_PROVIDERS.values()
+                             else 'permission_mode = "auto-edit"'
+                         ),
+                     ]
+@@ -1152,7 +1196,7 @@ def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+                     "model": selection["model"],
+                     "permission_mode": (
+                         "full-auto"
+-                        if control_policy_kind in CLOSED_CLAUDE_PROVIDERS
++                        if launch_provider in CLOSED_CLAUDE_PROVIDERS.values()
+                         else "auto-edit"
+                     ),
+                     "provider": launch_provider,
+diff --git a/docs/managed-worker-provisioning.md b/docs/managed-worker-provisioning.md
+index 8e7c9b91d4f078fcb93ed6d8613d89fe71928749..e13ee870ffbb98001a709bb4f5a3fdb999662956 100644
+--- a/docs/managed-worker-provisioning.md
++++ b/docs/managed-worker-provisioning.md
+@@ -126,6 +126,72 @@ Rendering a policy file and publishing a receipt are source proofs. They are not
+ a permission receipt: actual effective permissions and fresh-session behaviour
+ are proven separately against a live client.
+ 
++### Template candidate lane
++
++The Template rig uses a second closed Claude candidate wrapper. The source
++record is `managed/profiles/gas-city-template-candidate-claude.json`; its sole
++record names `gas-city-template`, bare `implementation-worker`, the protected
++checkout `/home/loucmane/gas-city-template`, and the disjoint root
++`/home/loucmane/gas-city-template-candidate-worktrees`. It declares
++`git_metadata: false`, a PATH-only environment, the measured Python 3.12 pin,
++and `templates/claude/template-candidate-control-policy.json` with its exact
++digest.
++
++The renderer maps candidate sources by their literal declared string, without
++normalization. The Operations source selects `claude-candidate`; the Template
++source selects `claude-template-candidate`; a copied policy, `./` spelling, or
++any other candidate source is refused even if its `_gc` marker and digest are
++otherwise valid. Signing remains selected by the signing profile kind. Existing
++Core signing and Operations candidate inputs therefore retain their providers
++and rendered bytes.
++
++The Template wrapper loads no ambient setting sources and removes the generated
++shared settings argument. Its only settings file is the Template policy and its
++only `--add-dir` is the dedicated candidate root. At launch it requires a
++physical direct child whose regular `.git` file names one worktree admin
++directory under `/home/loucmane/gas-city-template/.git/worktrees/`; the admin
++`gitdir` must point back to the child and `commondir` must be `../..`. The root
++grant spans all children, so this is not isolation between Beads. The worker
++delivers uncommitted files; a coordinator outside this lane creates and checks
++the worktree, stages, signs, pushes, opens the PR, and merges.
++
++Activation is a separate reviewed coordinator package after merge. It must:
++
++1. create and validate the dedicated root and linked worktree before any
++   coordinator Git operation;
++2. inspect the imported role prompt/formulas at the pinned pack commit and
++   supply a lane-specific prompt, or record why no incompatible Git/PR action
++   remains;
++3. install the policy as a stable regular file with no group/world write bit,
++   remeasure the Python executable, and publish the typed `candidate` receipt
++   with `signer_identity: "none"`;
++4. pin the Template launch-check script in the receipt and stamp every routed
++   Template Bead's `gc.check_path` to that exact profile check path;
++5. remove the live `[[rigs.overrides]]` entry that rewrites
++   `implementation-worker` to plain `claude`, `auto-edit`, and
++   `template-worktrees-and-git-metadata`; then read the composed configuration
++   and refuse unless the worker resolves to `claude-template-candidate` with
++   `full-auto`; and
++6. preserve the unrelated `run-operator` override unchanged.
++
++The override check is a boundary condition, not cleanup: pack-rig overrides are
++applied after city-level agent patches, so a surviving override silently puts
++the worker back on generic Claude with shared settings and broad grants. The
++closed wrapper never runs in that state and therefore cannot refuse it.
++
++Core readiness recognizes the built-in provider name, so the receipt keeps
++`provider.name = "claude"` while pinning the Template wrapper's own path,
++resolved path, digest, and version. Core currently also indexes its platform
++provider manifest by name. Two different Claude wrappers in one receipt make
++the whole-environment check and platform canary refuse; do not borrow the Core
++signing wrapper's pin. No live rig sets `managed_product`, so this does not
++block live routing or the profile-scoped launch Preflight. The limitation is
++tracked by Core Bead `ga-qcwl`. There is no new canary scenario: use the
++existing `candidate-launcher` for the composed Template identity. Publishing a
++new receipt invalidates previous profile-scoped canary receipts, and no
++platform canary should be claimed green until the duplicate-name Core limit is
++resolved.
++
+ ### Typed receipt publication
+ 
+ `gct-managed-worker-provision` publishes candidate and explicit-signing typed
+diff --git a/docs/native-city.md b/docs/native-city.md
+index 0f82246d1dead860432e09feb9090916180ac0c9..d3d77e9d3dc0dcb9b36139dd8883034cf02ba8cf 100644
+--- a/docs/native-city.md
++++ b/docs/native-city.md
+@@ -545,6 +545,53 @@ no gate, no candidate, no allocation.
+    and rendered bytes; candidate records now render through `claude-candidate`
+    (gct-lagl, above).
+ 
++   The Template implementation worker has a separate candidate lane rather
++   than sharing the Operations wrapper. Its reviewed source record is
++   `managed/profiles/gas-city-template-candidate-claude.json`; it names only
++   `implementation-worker`, grants no Git metadata, and binds
++   `templates/claude/template-candidate-control-policy.json`. Candidate policy
++   selection is an exact literal map: the Operations policy renders through
++   `claude-candidate`, the Template policy through
++   `claude-template-candidate`, and any other candidate source spelling is
++   refused. The latter provider launches
++   `bin/gct-claude-template-candidate-worker`, removes shared settings, loads
++   only the Template policy, and grants one directory:
++   `/home/loucmane/gas-city-template-candidate-worktrees`. Each session must
++   start in a physical direct child linked to
++   `/home/loucmane/gas-city-template/.git`; the coordinator's ordinary
++   Template worktree root remains disjoint. This is root separation, not
++   per-Bead isolation: one worker can reach another child of the candidate
++   root, so intake must never assume candidate worktrees isolate Beads.
++
++   Activation is a separate coordinator operation after merge. It creates the
++   dedicated root and worktree, rechecks the `.git` gitfile plus admin
++   `gitdir`/`commondir` back-pointers before every coordinator Git operation,
++   installs the policy with no group/world write bit, publishes the typed
++   candidate receipt, and stamps each routed Bead's `gc.check_path` to the
++   receipt profile's exact check path. It must remove the live pack-rig
++   `[[rigs.overrides]]` mutation that currently forces
++   `implementation-worker` back to plain `claude` with `auto-edit` and the
++   coordinator worktree/Git grant. Pack overrides apply after city patches, so
++   a surviving override silently cancels this lane; activation must inspect
++   the composed configuration and refuse unless the provider is
++   `claude-template-candidate` and permission mode is `full-auto`. The
++   `run-operator` override and its current grant remain unchanged. Activation
++   must also inspect the imported implementation-worker prompt at the pinned
++   pack commit: prompts or formulas that ask the worker to create worktrees,
++   commit, push, or open PRs conflict with this uncommitted-delivery lane and
++   require a lane prompt or an explicit recorded justification.
++
++   Core currently keys provider pins by provider name while readiness accepts
++   only built-in names. The Template receipt therefore correctly keeps
++   `provider.name = "claude"` and pins its own wrapper path and digest, just as
++   the Operations candidate does. With two distinct Claude wrappers in one
++   receipt, Core's whole-environment comparison and platform canary cannot
++   pass; never reuse the signing wrapper pin as a workaround. Live dispatch is
++   unaffected because no live rig sets `managed_product`. This known limit is
++   tracked by Core Bead `ga-qcwl`; the profile-scoped launch Preflight and
++   existing `candidate-launcher` remain the applicable source proofs, while a
++   new receipt digest also makes prior profile-scoped canary receipts stale.
++
+    The `gct-claude-signing-worker` entrypoint owns both initial and resumed
+    launches. It recognizes and removes the Claude-family generated shared
+    settings path, selects an empty native setting-source list, and passes only
+diff --git a/lib/gct_claude_template_candidate_worker.py b/lib/gct_claude_template_candidate_worker.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..94660295347a34ff29ba776d92cd04ff089d2352
+--- /dev/null
++++ b/lib/gct_claude_template_candidate_worker.py
+@@ -0,0 +1,232 @@
++"""Launch the Template candidate Claude worker with subscription-only authority.
++
++The worker delivers an uncommitted candidate. Publication and signing stay
++with the coordinator. It reuses the Core signing worker's exact closed launch
++boundary while selecting only the Template candidate policy and dedicated
++candidate worktree root.
++"""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++from pathlib import Path
++import re
++import stat
++import sys
++import types
++from typing import Sequence
++
++VERSION = 1
++MAX_SOURCE_BYTES = 384 * 1024 * 1024
++
++
++def _stable_source_bytes(path: Path, name: str) -> bytes:
++    """Read one local module as the exact bounded source that will execute."""
++
++    try:
++        before = path.lstat()
++        descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
++    except OSError as exc:
++        raise RuntimeError(f"{name} source is unreadable") from exc
++    try:
++        opened_before = os.fstat(descriptor)
++        chunks: list[bytes] = []
++        remaining = MAX_SOURCE_BYTES + 1
++        while remaining:
++            chunk = os.read(descriptor, min(64 * 1024, remaining))
++            if not chunk:
++                break
++            chunks.append(chunk)
++            remaining -= len(chunk)
++        source = b"".join(chunks)
++        opened_after = os.fstat(descriptor)
++    finally:
++        os.close(descriptor)
++    try:
++        after = path.lstat()
++    except OSError as exc:
++        raise RuntimeError(f"{name} source changed while reading") from exc
++    if not (
++        stat.S_ISREG(before.st_mode)
++        and not stat.S_ISLNK(before.st_mode)
++        and len(source) <= MAX_SOURCE_BYTES
++        and os.path.samestat(before, opened_before)
++        and os.path.samestat(opened_before, opened_after)
++        and os.path.samestat(opened_after, after)
++        and before.st_mode == after.st_mode
++        and before.st_size == after.st_size == len(source)
++        and before.st_mtime_ns == after.st_mtime_ns
++    ):
++        raise RuntimeError(f"{name} source is not one stable bounded regular file")
++    return source
++
++
++_CANDIDATE_SOURCE = Path(__file__).resolve()
++
++if __name__ == "__main__" and "_GCT_EXECUTED_TEMPLATE_CANDIDATE_SOURCE" not in globals():
++    _source = _stable_source_bytes(_CANDIDATE_SOURCE, "Template candidate worker")
++    _namespace = {
++        "__name__": "__main__",
++        "__file__": str(_CANDIDATE_SOURCE),
++        "__package__": None,
++        "__builtins__": __builtins__,
++        "_GCT_EXECUTED_TEMPLATE_CANDIDATE_SOURCE": _source,
++    }
++    exec(compile(_source, str(_CANDIDATE_SOURCE), "exec", dont_inherit=True), _namespace)
++    raise SystemExit("gct-claude-template-candidate-worker: source bootstrap returned")
++
++
++_ROOT = _CANDIDATE_SOURCE.parents[1]
++_TEMPLATE_COMMON = _ROOT.parent / "gas-city-template" / ".git"
++_BOUNDARY_SOURCE = _ROOT / "lib/gct_claude_signing_worker.py"
++_EXECUTED_BOUNDARY_SOURCE = _stable_source_bytes(_BOUNDARY_SOURCE, "worker boundary")
++boundary = types.ModuleType("_gct_template_candidate_boundary")
++boundary.__file__ = str(_BOUNDARY_SOURCE)
++boundary.__package__ = ""
++sys.modules[boundary.__name__] = boundary
++boundary.__dict__["_GCT_EXECUTED_WORKER_SOURCE"] = _EXECUTED_BOUNDARY_SOURCE
++exec(
++    compile(_EXECUTED_BOUNDARY_SOURCE, str(_BOUNDARY_SOURCE), "exec", dont_inherit=True),
++    boundary.__dict__,
++)
++if "_GCT_EXECUTED_TEMPLATE_CANDIDATE_SOURCE" in globals():
++    _EXECUTED_CANDIDATE_SOURCE = globals()["_GCT_EXECUTED_TEMPLATE_CANDIDATE_SOURCE"]
++else:
++    _EXECUTED_CANDIDATE_SOURCE = _stable_source_bytes(
++        _CANDIDATE_SOURCE, "Template candidate worker"
++    )
++_EXECUTED_SOURCE_DIGESTS = {
++    _CANDIDATE_SOURCE: hashlib.sha256(_EXECUTED_CANDIDATE_SOURCE).hexdigest(),
++    _BOUNDARY_SOURCE: hashlib.sha256(_EXECUTED_BOUNDARY_SOURCE).hexdigest(),
++    **boundary._EXECUTED_SOURCE_DIGESTS,
++}
++
++CandidateWorkerError = boundary.SigningWorkerError
++
++
++def default_config() -> "boundary.LaunchConfig":
++    install_root = _ROOT.parent
++    return boundary.LaunchConfig(
++        claude=install_root / "gascity/bin/claude",
++        shared_settings=install_root / "gascity/city/.gc/settings.json",
++        control_policy=(
++            _ROOT / "templates/claude/template-candidate-control-policy.json"
++        ),
++        add_dirs=(install_root / "gas-city-template-candidate-worktrees",),
++        source_dependencies=(
++            _ROOT / "bin/gct-claude-template-candidate-worker",
++            _CANDIDATE_SOURCE,
++            _BOUNDARY_SOURCE,
++            boundary._SUBSCRIPTION_SOURCE,
++            _ROOT / "templates/claude/template-candidate-provider.toml",
++        ),
++    )
++
++
++def dependency_version(config: "boundary.LaunchConfig") -> str:
++    """Return the receipt-pinnable identity of every imported launch input."""
++
++    paths = (config.claude, config.control_policy, *config.source_dependencies)
++    if len(set(paths)) != len(paths):
++        raise CandidateWorkerError("dependency paths must be unique")
++    records = [
++        {
++            "path": str(path),
++            "sha256": _EXECUTED_SOURCE_DIGESTS.get(path)
++            or boundary._stable_file_digest(path, f"dependency[{index}]"),
++        }
++        for index, path in enumerate(paths)
++    ]
++    domain = json.dumps(
++        records, ensure_ascii=False, sort_keys=True, separators=(",", ":")
++    ).encode("utf-8")
++    return (
++        f"gct-claude-template-candidate-worker {VERSION} "
++        f"dependencies_sha256={hashlib.sha256(domain).hexdigest()}"
++    )
++
++
++def require_candidate_worktree(
++    cwd: Path, config: "boundary.LaunchConfig", common: Path
++) -> Path:
++    """Require one physical linked Template worktree directly below the root."""
++
++    (root,) = config.add_dirs
++    if Path(os.path.realpath(cwd)) != cwd or cwd.parent != root:
++        raise CandidateWorkerError("session must start in a candidate worktree")
++    text = _bounded_regular_text(cwd / ".git")
++    prefix = f"gitdir: {common}/worktrees/"
++    name = text[len(prefix) : -1] if text.startswith(prefix) and text.endswith("\n") else ""
++    if not _WORKTREE_NAME.fullmatch(name) or name in {".", ".."}:
++        raise CandidateWorkerError("candidate worktree must be a linked Template worktree")
++    admin = common / "worktrees" / name
++    for directory in (common / "worktrees", admin):
++        try:
++            directory_info = directory.lstat()
++        except OSError:
++            directory_info = None
++        if directory_info is None or not stat.S_ISDIR(directory_info.st_mode):
++            raise CandidateWorkerError(
++                "candidate worktree must be a linked Template worktree"
++            )
++    if (
++        _bounded_regular_text(admin / "gitdir") != f"{cwd}/.git\n"
++        or _bounded_regular_text(admin / "commondir") != "../..\n"
++    ):
++        raise CandidateWorkerError("candidate worktree must be a linked Template worktree")
++    return cwd
++
++
++_WORKTREE_NAME = re.compile(r"[A-Za-z0-9._-]+")
++_MAX_GITFILE_BYTES = 4096
++
++
++def _bounded_regular_text(path: Path) -> str:
++    """Return a small regular file's text, or an empty string for any refusal."""
++
++    try:
++        descriptor = os.open(
++            path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC
++        )
++    except OSError:
++        return ""
++    try:
++        info = os.fstat(descriptor)
++        if not stat.S_ISREG(info.st_mode) or info.st_size > _MAX_GITFILE_BYTES:
++            return ""
++        raw = os.read(descriptor, _MAX_GITFILE_BYTES + 1)
++    except OSError:
++        return ""
++    finally:
++        os.close(descriptor)
++    if len(raw) > _MAX_GITFILE_BYTES or b"\r" in raw:
++        return ""
++    try:
++        return raw.decode("utf-8")
++    except UnicodeDecodeError:
++        return ""
++
++
++def main(arguments: Sequence[str] | None = None) -> int:
++    values = list(sys.argv[1:] if arguments is None else arguments)
++    config = default_config()
++    try:
++        if values == ["--version"]:
++            print(dependency_version(config))
++            return 0
++        boundary.launch(
++            values,
++            parent_environment=os.environ,
++            cwd=require_candidate_worktree(Path.cwd(), config, _TEMPLATE_COMMON),
++            config=config,
++        )
++    except (OSError, CandidateWorkerError) as exc:
++        print(f"gct-claude-template-candidate-worker: {exc}", file=sys.stderr)
++        return 2
++    return 2
++
++
++if __name__ == "__main__":
++    raise SystemExit(main())
+diff --git a/managed/profiles/gas-city-template-candidate-claude.json b/managed/profiles/gas-city-template-candidate-claude.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..6598a51b3fb89a73f82679d885280986811dea01
+--- /dev/null
++++ b/managed/profiles/gas-city-template-candidate-claude.json
+@@ -0,0 +1,37 @@
++{
++  "schema": "gc.managed-rig-permissions.v2",
++  "classified_vault": "/home/loucmane/vaults/main/GasCity",
++  "rigs": [
++    {
++      "name": "gas-city-template",
++      "repository_path": "/home/loucmane/gas-city-template",
++      "worktree_root": "/home/loucmane/gas-city-template-candidate-worktrees",
++      "agents": [
++        "implementation-worker"
++      ],
++      "git_metadata": false,
++      "provider": "claude",
++      "control_policy": {
++        "source": "templates/claude/template-candidate-control-policy.json",
++        "sha256": "6b2f160d4999781db17ddf117b482a9c20432032c1162fed453a06ba7376fec1"
++      },
++      "environment": {
++        "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
++      },
++      "toolchains": [
++        {
++          "name": "python",
++          "executable": {
++            "path": "/usr/bin/python3.12",
++            "resolved_path": "/usr/bin/python3.12",
++            "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
++            "version_args": [
++              "--version"
++            ],
++            "version": "Python 3.12.3"
++          }
++        }
++      ]
++    }
++  ]
++}
+diff --git a/templates/claude/template-candidate-control-policy.json b/templates/claude/template-candidate-control-policy.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..8659b096aa0ed68449b8207b647e982f406eb0c0
+--- /dev/null
++++ b/templates/claude/template-candidate-control-policy.json
+@@ -0,0 +1,97 @@
++{
++  "_gc": {
++    "schema": "gc.candidate-control-policy.v1",
++    "profile_kind": "candidate"
++  },
++  "_comment": [
++    "Candidate-only native control policy for the Template implementation worker, applied through bin/gct-claude-template-candidate-worker.",
++    "The wrapper removes the generated shared settings and loads no ambient setting sources, so this file is the whole user/project/local permission set (host managed-policy settings still apply).",
++    "The native file tools are bound to the dedicated Template candidate worktree root. The worktree .git link, publication commands, network tools, classified vault, shared settings, and credential stores are denied.",
++    "Project shell work stays in the fail-closed sandbox; only the five native control commands leave it. Reviewed native hooks are the Core policy hooks byte-for-byte."
++  ],
++  "permissions": {
++    "allow": [
++      "Read",
++      "Glob",
++      "Grep",
++      "Edit(//home/loucmane/gas-city-template-candidate-worktrees/*/**)",
++      "Bash(/home/loucmane/gascity/bin/gc hook --claim --json)",
++      "Bash(/home/loucmane/gascity/bin/gc runtime drain-ack)",
++      "Bash(/home/loucmane/gascity/bin/bd close *)",
++      "Bash(/home/loucmane/gascity/bin/bd show *)",
++      "Bash(/home/loucmane/gascity/bin/bd update *)"
++    ],
++    "deny": [
++      "Edit(//home/loucmane/gas-city-template-candidate-worktrees/*/.git)",
++      "Read(//home/loucmane/vaults/**)",
++      "Read(//home/loucmane/.ssh/**)",
++      "Read(//home/loucmane/.gnupg/**)",
++      "Read(//home/loucmane/.config/gh/**)",
++      "Read(//home/loucmane/.claude/**)",
++      "Read(//home/loucmane/.claude.json)",
++      "Read(//home/loucmane/gascity/city/.gc/settings.json)",
++      "Read(//home/loucmane/.git-credentials)",
++      "Read(//home/loucmane/.netrc)",
++      "Read(//home/loucmane/.config/git/**)",
++      "Bash(git commit *)",
++      "Bash(git push *)",
++      "Bash(git merge *)",
++      "Bash(git config *)",
++      "Bash(gpg *)",
++      "WebFetch",
++      "WebSearch"
++    ]
++  },
++  "sandbox": {
++    "enabled": true,
++    "failIfUnavailable": true,
++    "autoAllowBashIfSandboxed": true,
++    "allowUnsandboxedCommands": false,
++    "excludedCommands": [
++      "/home/loucmane/gascity/bin/gc hook --claim --json",
++      "/home/loucmane/gascity/bin/gc runtime drain-ack",
++      "/home/loucmane/gascity/bin/bd close *",
++      "/home/loucmane/gascity/bin/bd show *",
++      "/home/loucmane/gascity/bin/bd update *"
++    ]
++  },
++  "hooks": {
++    "PreCompact": [
++      {
++        "hooks": [
++          {
++            "command": "export GC_HOME=\"$HOME/gascity/home\"; export PATH=\"$HOME/gascity/bin:$PATH\"; \"$HOME/gascity/bin/gc\" --city \"$HOME/gascity/city\" handoff --auto \"context cycle\"",
++            "type": "command"
++          }
++        ],
++        "matcher": ""
++      }
++    ],
++    "SessionStart": [
++      {
++        "hooks": [
++          {
++            "command": "export GC_HOME=\"$HOME/gascity/home\"; export PATH=\"$HOME/gascity/bin:$PATH\"; GC_MANAGED_SESSION_HOOK=1 GC_HOOK_EVENT_NAME=SessionStart \"$HOME/gascity/bin/gc\" --city \"$HOME/gascity/city\" prime --hook --hook-format codex",
++            "type": "command"
++          }
++        ],
++        "matcher": "startup"
++      }
++    ],
++    "UserPromptSubmit": [
++      {
++        "hooks": [
++          {
++            "command": "export GC_HOME=\"$HOME/gascity/home\"; export PATH=\"$HOME/gascity/bin:$PATH\"; \"$HOME/gascity/bin/gc\" --city \"$HOME/gascity/city\" hook run --timeout 15s --timeout-exit-code 0 -- nudge drain --inject",
++            "type": "command"
++          },
++          {
++            "command": "export GC_HOME=\"$HOME/gascity/home\"; export PATH=\"$HOME/gascity/bin:$PATH\"; \"$HOME/gascity/bin/gc\" --city \"$HOME/gascity/city\" hook run --timeout 15s --timeout-exit-code 0 -- mail check --inject",
++            "type": "command"
++          }
++        ],
++        "matcher": ""
++      }
++    ]
++  }
++}
+diff --git a/templates/claude/template-candidate-provider.toml b/templates/claude/template-candidate-provider.toml
+new file mode 100644
+index 0000000000000000000000000000000000000000..7830788448080c95a656c13a538267655dfeff3e
+--- /dev/null
++++ b/templates/claude/template-candidate-provider.toml
+@@ -0,0 +1,46 @@
++# Dedicated Template candidate provider. The wrapper removes the Claude-family
++# generated shared settings file, loads no ambient setting sources, and then
++# applies only the source-bound Template candidate policy selected below. Both
++# initial and resumed sessions cross the same subscription and policy boundary
++# as the Core signing worker, without any Git metadata or signing capability.
++[providers.claude-template-candidate]
++base = "provider:claude"
++command = "/home/loucmane/gas-city-template/bin/gct-claude-template-candidate-worker"
++resume_command = "/home/loucmane/gas-city-template/bin/gct-claude-template-candidate-worker --resume {{.SessionKey}}"
++path_check = "/home/loucmane/gascity/bin/claude"
++options_schema_merge = "by_key"
++
++[[providers.claude-template-candidate.options_schema]]
++key = "managed_worktree_access"
++label = "Managed Template candidate worktree access"
++type = "select"
++default = "none"
++
++[[providers.claude-template-candidate.options_schema.choices]]
++value = "none"
++label = "Current workdir only"
++flag_args = []
++
++# @managed-rig-choices@
++
++[[providers.claude-template-candidate.options_schema]]
++key = "permission_mode"
++label = "Permission Mode"
++type = "select"
++default = "full-auto"
++
++[[providers.claude-template-candidate.options_schema.choices]]
++value = "full-auto"
++label = "Fail instead of asking"
++flag_args = ["--permission-mode", "dontAsk"]
++
++[[providers.claude-template-candidate.options_schema]]
++key = "effort"
++label = "Effort"
++type = "select"
++default = "max"
++
++[[providers.claude-template-candidate.options_schema.choices]]
++value = "max"
++label = "Max"
++flag_args = ["--effort", "max"]
+diff --git a/tests/fixtures/template-candidate-render-golden/core-signing.toml b/tests/fixtures/template-candidate-render-golden/core-signing.toml
+new file mode 100644
+index 0000000000000000000000000000000000000000..4b5c7c146580f440796921b388a4a5035a1eb5ce
+--- /dev/null
++++ b/tests/fixtures/template-candidate-render-golden/core-signing.toml
+@@ -0,0 +1,64 @@
++# Generated by gct-managed-rig-permissions; do not edit.
++# registry_sha256=<REGISTRY_SHA256>
++# Dedicated Core signing provider. The wrapper removes the Claude-family
++# generated shared settings file, loads no ambient setting sources, and then
++# applies only the source-bound closed policy selected below. Both initial and
++# resumed sessions therefore cross the same subscription and policy boundary.
++[providers.claude-signing]
++base = "provider:claude"
++command = "/home/loucmane/gas-city-template/bin/gct-claude-signing-worker"
++resume_command = "/home/loucmane/gas-city-template/bin/gct-claude-signing-worker --resume {{.SessionKey}}"
++path_check = "/home/loucmane/gascity/bin/claude"
++options_schema_merge = "by_key"
++
++[[providers.claude-signing.options_schema]]
++key = "managed_worktree_access"
++label = "Managed Core signing worktree access"
++type = "select"
++default = "none"
++
++[[providers.claude-signing.options_schema.choices]]
++value = "none"
++label = "Current workdir only"
++flag_args = []
++
++[[providers.claude-signing.options_schema.choices]]
++value = "<MANAGED_CHOICE>"
++label = "gascity worktrees and Git metadata under the signing control policy"
++flag_args = ["--settings", "<TEMPLATE_ROOT>/templates/claude/core-signing-control-policy.json", "--add-dir", "<CORE_WORKTREE_ROOT>", "--add-dir", "<CORE_REPOSITORY>/.git"]
++
++[[providers.claude-signing.options_schema]]
++key = "permission_mode"
++label = "Permission Mode"
++type = "select"
++default = "full-auto"
++
++[[providers.claude-signing.options_schema.choices]]
++value = "full-auto"
++label = "Fail instead of asking"
++flag_args = ["--permission-mode", "dontAsk"]
++
++[[providers.claude-signing.options_schema]]
++key = "effort"
++label = "Effort"
++type = "select"
++default = "max"
++
++[[providers.claude-signing.options_schema.choices]]
++value = "max"
++label = "Max"
++flag_args = ["--effort", "max"]
++
++[[patches.agent]]
++dir = "gascity"
++name = "implementation-worker"
++provider = "claude-signing"
++[patches.agent.option_defaults]
++model = "opus-5-5"
++permission_mode = "full-auto"
++managed_worktree_access = "<MANAGED_CHOICE>"
++
++[patches.agent.env]
++GOROOT = "/home/loucmane/.local/share/go/1.26.7"
++GOTOOLCHAIN = "local"
++PATH = "/home/loucmane/.local/share/go/1.26.7/bin:/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
+diff --git a/tests/fixtures/template-candidate-render-golden/operations-candidate.toml b/tests/fixtures/template-candidate-render-golden/operations-candidate.toml
+new file mode 100644
+index 0000000000000000000000000000000000000000..932895a94521f5d4742abad7de613f82a35bcfc4
+--- /dev/null
++++ b/tests/fixtures/template-candidate-render-golden/operations-candidate.toml
+@@ -0,0 +1,102 @@
++# Generated by gct-managed-rig-permissions; do not edit.
++# registry_sha256=<REGISTRY_SHA256>
++# The production city owns [providers.codex]. gc's include composition keeps
++# the first provider schema it sees, so managed grants must ride a derived
++# provider whose name the root never declares. The patch selects the precise
++# no-vault choice emitted for its registry record.
++[providers.codex-managed]
++base = "provider:codex"
++options_schema_merge = "by_key"
++
++[[providers.codex-managed.options_schema]]
++key = "worklog_access"
++label = "Managed rig worktree access"
++type = "select"
++default = "none"
++
++[[providers.codex-managed.options_schema.choices]]
++value = "none"
++label = "Current workdir only"
++flag_args = []
++
++[[providers.codex-managed.options_schema.choices]]
++value = "<MANAGED_CHOICE>"
++label = "gascity worktrees and Git metadata (no vault)"
++flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"<CORE_WORKTREE_ROOT>\",\"<CORE_REPOSITORY>/.git\"]"]
++
++# Dedicated Operations candidate provider. The wrapper removes the Claude-family
++# generated shared settings file, loads no ambient setting sources, and then
++# applies only the source-bound closed candidate policy selected below. Both
++# initial and resumed sessions therefore cross the same subscription and policy
++# boundary as the Core signing worker, without any signing capability.
++[providers.claude-candidate]
++base = "provider:claude"
++command = "/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker"
++resume_command = "/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker --resume {{.SessionKey}}"
++path_check = "/home/loucmane/gascity/bin/claude"
++options_schema_merge = "by_key"
++
++[[providers.claude-candidate.options_schema]]
++key = "managed_worktree_access"
++label = "Managed Operations candidate worktree access"
++type = "select"
++default = "none"
++
++[[providers.claude-candidate.options_schema.choices]]
++value = "none"
++label = "Current workdir only"
++flag_args = []
++
++[[providers.claude-candidate.options_schema.choices]]
++value = "<MANAGED_CHOICE>"
++label = "gascity worktrees under the candidate control policy"
++flag_args = ["--settings", "<TEMPLATE_ROOT>/templates/claude/candidate-control-policy.json", "--add-dir", "<OPERATIONS_WORKTREE_ROOT>"]
++
++[[providers.claude-candidate.options_schema]]
++key = "permission_mode"
++label = "Permission Mode"
++type = "select"
++default = "full-auto"
++
++[[providers.claude-candidate.options_schema.choices]]
++value = "full-auto"
++label = "Fail instead of asking"
++flag_args = ["--permission-mode", "dontAsk"]
++
++[[providers.claude-candidate.options_schema]]
++key = "effort"
++label = "Effort"
++type = "select"
++default = "max"
++
++[[providers.claude-candidate.options_schema.choices]]
++value = "max"
++label = "Max"
++flag_args = ["--effort", "max"]
++
++[[patches.agent]]
++dir = "gascity"
++name = "operations-candidate-worker"
++provider = "claude-candidate"
++[patches.agent.option_defaults]
++model = "opus-5-5"
++permission_mode = "full-auto"
++managed_worktree_access = "<MANAGED_CHOICE>"
++
++[patches.agent.env]
++PATH = "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
++
++[[patches.agent]]
++dir = "gascity"
++name = "implementation-worker"
++provider = "codex-managed"
++[patches.agent.option_defaults]
++model = "gpt-5.6-sol"
++effort = "xhigh"
++permission_mode = "fail-fast"
++worklog_access = "<MANAGED_CHOICE>"
++
++[patches.agent.env]
++GOROOT = "/home/loucmane/.local/share/go/1.26.7"
++GOTOOLCHAIN = "local"
++PATH = "/home/loucmane/.local/share/go/1.26.7/bin:/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
+diff --git a/tests/fixtures/unknown-candidate-control-policy.json b/tests/fixtures/unknown-candidate-control-policy.json
+new file mode 100644
+index 0000000000000000000000000000000000000000..600c5bfa88cfc87201c6e24fb2f683e944046032
+--- /dev/null
++++ b/tests/fixtures/unknown-candidate-control-policy.json
+@@ -0,0 +1,6 @@
++{
++  "_gc": {
++    "schema": "gc.candidate-control-policy.v1",
++    "profile_kind": "candidate"
++  }
++}
+diff --git a/tests/interop/core_template_candidate_preflight_test.go b/tests/interop/core_template_candidate_preflight_test.go
+new file mode 100644
+index 0000000000000000000000000000000000000000..ce474eae81221c8ff30f07d3623f6a4e12e883aa
+--- /dev/null
++++ b/tests/interop/core_template_candidate_preflight_test.go
+@@ -0,0 +1,87 @@
++package managedworker_test
++
++import (
++	"context"
++	"os"
++	"testing"
++
++	"github.com/gastownhall/gascity/internal/api"
++	"github.com/gastownhall/gascity/internal/fsys"
++	"github.com/gastownhall/gascity/internal/managedworker"
++	"github.com/gastownhall/gascity/internal/platforminstall"
++)
++
++// TestTemplateManagedWorkerInterop exercises the exact pinned-Core decoder,
++// safe policy reader and launch Preflight for the Template candidate profile.
++// It stays in an external package so importing internal/api cannot create the
++// managedworker -> api -> managedworker test cycle an internal overlay would.
++func TestTemplateManagedWorkerInterop(t *testing.T) {
++	receiptPath := os.Getenv("GCT_TEMPLATE_RECEIPT")
++	profileName := os.Getenv("GCT_TEMPLATE_PROFILE")
++	unsafePolicy := os.Getenv("GCT_TEMPLATE_UNSAFE_POLICY")
++	if receiptPath == "" || profileName == "" || unsafePolicy == "" {
++		t.Fatal("Template candidate interoperability inputs are required")
++	}
++	receiptBytes, err := os.ReadFile(receiptPath)
++	if err != nil {
++		t.Fatal(err)
++	}
++	receipt, err := managedworker.LoadProvisioningReceipt(receiptBytes)
++	if err != nil {
++		t.Fatalf("load Template candidate receipt: %v", err)
++	}
++	profile, ok := receipt.Profile(profileName)
++	if !ok {
++		t.Fatalf("Template candidate profile %q is absent", profileName)
++	}
++	if profile.EffectiveProfileKind() != managedworker.ProfileKindCandidate {
++		t.Fatalf("profile kind = %q, want candidate", profile.EffectiveProfileKind())
++	}
++	if profile.Provider.Name != "claude" {
++		t.Fatalf("provider name = %q, want claude", profile.Provider.Name)
++	}
++
++	readPolicy := func(path string) ([]byte, error) {
++		return managedworker.ReadControlPolicy(fsys.OSFS{}, path)
++	}
++	if _, err := readPolicy(profile.ControlPolicy.Path); err != nil {
++		t.Fatalf("safe Template policy refused: %v", err)
++	}
++	if _, err := managedworker.ReadControlPolicy(fsys.OSFS{}, unsafePolicy); err == nil {
++		t.Fatal("group-writable Template policy was accepted")
++	}
++
++	report, err := managedworker.Preflight(
++		context.Background(),
++		managedworker.PreflightRequest{
++			CheckPath:          profile.CheckPath.Path,
++			ObservedProfile:    profile,
++			PermissionRevision: receipt.PermissionRevision,
++			ProfileName:        profile.Name,
++			Receipt:            receiptBytes,
++		},
++		managedworker.Probes{
++			ReadFile:          os.ReadFile,
++			ReadControlPolicy: readPolicy,
++			InspectProvider:   platforminstall.VerifyProviderPin,
++			InspectToolchain: func(_ context.Context, pin managedworker.ToolchainPin, _ map[string]string) error {
++				if pin.Name != "python" {
++					t.Fatalf("unexpected toolchain %q", pin.Name)
++				}
++				return nil
++			},
++			ProbeReadiness: func(_ context.Context, name string) error {
++				if name != "claude" || !api.SupportsProviderReadiness(name) {
++					t.Fatalf("Core does not support readiness for %q", name)
++				}
++				return nil
++			},
++		},
++	)
++	if err != nil {
++		t.Fatalf("Template candidate Preflight: %v", err)
++	}
++	if !report.OK {
++		t.Fatalf("Template candidate Preflight report is not OK: %#v", report)
++	}
++}
+diff --git a/tests/test_managed_claude_include_composition.py b/tests/test_managed_claude_include_composition.py
+index 7dbba4de1d9f96c5ee558105ef95b7daf79ac363..0be323b59c024eac7fa578707b494fd8641a8a54 100644
+--- a/tests/test_managed_claude_include_composition.py
++++ b/tests/test_managed_claude_include_composition.py
+@@ -786,6 +786,188 @@ def test_native_gc_composes_the_dedicated_claude_candidate_provider(
+     assert "--dangerously-skip-permissions" not in argv
+ 
+ 
++def _template_pack_composition_city(
++    root: Path, *, surviving_override: bool
++) -> tuple[Path, Path, Path, Path]:
++    """Stage the Template record in the same imported-pack shape as the live rig."""
++
++    repository, worktree_root, record = _fixture_rig(root, "gas-city-template")
++    record["agents"] = ["implementation-worker"]
++    record["git_metadata"] = False
++    record["control_policy"] = {
++        "source": "templates/claude/template-candidate-control-policy.json",
++        "sha256": hashlib.sha256(
++            (ROOT / "templates/claude/template-candidate-control-policy.json").read_bytes()
++        ).hexdigest(),
++    }
++    executable = root / "python"
++    executable.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
++    executable.chmod(0o755)
++    record["environment"] = {"PATH": "/usr/bin:/bin"}
++    record["toolchains"] = [
++        {
++            "name": "python",
++            "executable": {
++                "path": str(executable),
++                "resolved_path": str(executable),
++                "sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
++                "version_args": ["--version"],
++                "version": "fixture-python",
++            },
++        }
++    ]
++
++    city = root / "city"
++    pack = city / "packs/gc"
++    pack.mkdir(parents=True)
++    (pack / "pack.toml").write_text(
++        "\n".join(
++            [
++                "[pack]",
++                'name = "gc"',
++                "schema = 2",
++                "",
++                "[[agent]]",
++                'name = "implementation-worker"',
++                'scope = "rig"',
++                'provider = "claude"',
++                "",
++            ]
++        ),
++        encoding="utf-8",
++    )
++    root_lines = [
++        'include = ["managed/rig-permissions.toml"]',
++        "",
++        "[workspace]",
++        'provider = "claude"',
++        "",
++        "[providers.claude]",
++        'base = "builtin:claude"',
++        'options_schema_merge = "by_key"',
++        'option_defaults = { model = "opus-5-5", permission_mode = "auto-edit", worktree_access = "none" }',
++        "",
++        "[[providers.claude.options_schema]]",
++        'key = "model"',
++        'label = "Model"',
++        'type = "select"',
++        'default = "opus-5-5"',
++        "",
++        "[[providers.claude.options_schema.choices]]",
++        'value = "opus-5-5"',
++        'label = "Claude Opus 5.5"',
++        'flag_args = ["--model", "claude-opus-5-5"]',
++        "",
++        "[[providers.claude.options_schema]]",
++        'key = "permission_mode"',
++        'label = "Permission Mode"',
++        'type = "select"',
++        'default = "auto-edit"',
++        "",
++        "[[providers.claude.options_schema.choices]]",
++        'value = "auto-edit"',
++        'label = "Auto edit"',
++        'flag_args = ["--permission-mode", "auto"]',
++        "",
++        "[[providers.claude.options_schema]]",
++        'key = "worktree_access"',
++        'label = "Worktree access"',
++        'type = "select"',
++        'default = "none"',
++        "",
++        "[[providers.claude.options_schema.choices]]",
++        'value = "none"',
++        'label = "Current workdir only"',
++        "flag_args = []",
++        "",
++        "[[providers.claude.options_schema.choices]]",
++        'value = "template-worktrees-and-git-metadata"',
++        'label = "Template worktrees and Git metadata"',
++        'flag_args = ["--add-dir", "/home/loucmane/gas-city-template-worktrees", "--add-dir", "/home/loucmane/gas-city-template/.git"]',
++        "",
++        "[[rigs]]",
++        'name = "gas-city-template"',
++        f'path = "{repository}"',
++        "",
++        "[rigs.imports.gc]",
++        'source = "./packs/gc"',
++        "",
++    ]
++    if surviving_override:
++        root_lines.extend(
++            [
++                "[[rigs.overrides]]",
++                'agent = "implementation-worker"',
++                'provider = "claude"',
++                'option_defaults = { permission_mode = "auto-edit", worktree_access = "template-worktrees-and-git-metadata" }',
++                "",
++            ]
++        )
++    (city / "city.toml").write_text("\n".join(root_lines), encoding="utf-8")
++    registry = root / "registry.json"
++    _write_registry(registry, [record], schema="gc.managed-rig-permissions.v2")
++    return repository, worktree_root, city, registry
++
++
++def test_native_pack_composition_exposes_the_surviving_template_override(
++    tmp_path: Path,
++    core_build_environment: CoreBuildEnvironment,
++) -> None:
++    """The live override silently restores generic Claude; its removal activates the lane."""
++
++    gc = _build_reviewed_gc(tmp_path, core_build_environment)
++    observed: dict[bool, tuple[dict[str, Any], dict[str, Any], Path]] = {}
++    for surviving_override in (False, True):
++        case = tmp_path / ("with-override" if surviving_override else "without-override")
++        case.mkdir()
++        _repository, worktree_root, city, registry = _template_pack_composition_city(
++            case, surviving_override=surviving_override
++        )
++        provisioned = _provision(case, city, registry, "--apply")
++        assert provisioned.returncode == 0, provisioned.stderr
++        resolved = subprocess.run(
++            [str(gc), "--city", str(city), "config", "show"],
++            text=True,
++            capture_output=True,
++            check=False,
++            timeout=30,
++            env=core_build_environment.apply(),
++        )
++        assert resolved.returncode == 0, resolved.stderr
++        composed = tomllib.loads(resolved.stdout)
++        worker = next(
++            agent
++            for agent in composed["agent"]
++            if agent.get("dir") == "gas-city-template"
++            and agent["name"] == "implementation-worker"
++        )
++        observed[surviving_override] = (composed, worker, worktree_root)
++
++    composed, worker, worktree_root = observed[False]
++    assert worker["provider"] == "claude-template-candidate"
++    assert worker["option_defaults"]["permission_mode"] == "full-auto"
++    provider = composed["providers"]["claude-template-candidate"]
++    assert provider["command"].endswith("/bin/gct-claude-template-candidate-worker")
++    argv = _render_argv(
++        _effective_options_schema(composed["providers"], worker["provider"]),
++        worker["option_defaults"],
++    )
++    template_policy = str(
++        (ROOT / "templates/claude/template-candidate-control-policy.json").resolve()
++    )
++    assert argv.count(template_policy) == 1
++    assert _add_dir_grants(argv) == [str(worktree_root)]
++    assert "/home/loucmane/gascity/city/.gc/settings.json" not in argv
++
++    _composed, worker, _root = observed[True]
++    assert worker["provider"] == "claude"
++    assert worker["option_defaults"]["permission_mode"] == "auto-edit"
++    assert (
++        worker["option_defaults"]["worktree_access"]
++        == "template-worktrees-and-git-metadata"
++    )
++
++
+ def test_check_refuses_the_same_composition_it_would_refuse_to_apply(
+     tmp_path: Path,
+ ) -> None:
+diff --git a/tests/test_template_candidate_core_interop.py b/tests/test_template_candidate_core_interop.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..e9516690d356c67c9fc157662159b56b0cc1cc10
+--- /dev/null
++++ b/tests/test_template_candidate_core_interop.py
+@@ -0,0 +1,84 @@
++"""Compile the Template candidate policy and Preflight proof under pinned Core."""
++
++from __future__ import annotations
++
++import json
++import os
++from pathlib import Path
++import shutil
++import subprocess
++import tarfile
++
++from conftest import CoreBuildEnvironment
++from test_managed_worker_canary_provisioning import (
++    _reviewed_core_inputs,
++    _run_core_interop_phases,
++)
++from test_operations_candidate_worker import _installed_paths, _provision
++from test_template_candidate_worker import _template_candidate_prototype
++
++
++ROOT = Path(__file__).resolve().parents[1]
++CORE_TEST = ROOT / "tests/interop/core_template_candidate_preflight_test.go"
++
++
++def test_template_candidate_receipt_policy_and_preflight_under_pinned_core(
++    tmp_path: Path, core_build_environment: CoreBuildEnvironment
++) -> None:
++    core_source, core_commit = _reviewed_core_inputs()
++    go = shutil.which("go")
++    assert go is not None, "the pinned managed-worker Go toolchain is required"
++
++    prototype = _template_candidate_prototype(tmp_path)
++    provisioned = _provision(tmp_path, prototype, "--apply", "--json")
++    assert provisioned.returncode == 0, provisioned.stderr
++    _runner, receipt_path = _installed_paths(tmp_path)
++    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
++    (profile,) = receipt["profiles"]
++
++    unsafe_policy = tmp_path / "unsafe-template-policy.json"
++    unsafe_policy.write_bytes(Path(profile["control_policy"]["path"]).read_bytes())
++    unsafe_policy.chmod(0o664)
++
++    archive = tmp_path / "reviewed-core.tar"
++    archived = subprocess.run(
++        [
++            "/usr/bin/git",
++            "-C",
++            str(core_source),
++            "archive",
++            "--format=tar",
++            f"--output={archive}",
++            core_commit,
++        ],
++        check=False,
++        capture_output=True,
++        text=True,
++        timeout=30,
++    )
++    assert archived.returncode == 0, archived.stderr
++    core = tmp_path / "reviewed-core"
++    core.mkdir()
++    with tarfile.open(archive) as stream:
++        stream.extractall(core, filter="data")
++
++    synthetic = core / "internal/managedworker/template_candidate_preflight_external_test.go"
++    overlay = tmp_path / "template-candidate-overlay.json"
++    overlay.write_text(
++        json.dumps({"Replace": {str(synthetic): str(CORE_TEST)}}), encoding="utf-8"
++    )
++    environment = core_build_environment.apply(os.environ)
++    environment.update(
++        {
++            "GCT_TEMPLATE_RECEIPT": str(receipt_path),
++            "GCT_TEMPLATE_PROFILE": profile["name"],
++            "GCT_TEMPLATE_UNSAFE_POLICY": str(unsafe_policy),
++        }
++    )
++    _run_core_interop_phases(
++        go=go,
++        core=core,
++        overlay=overlay,
++        environment=environment,
++        evidence_dir=tmp_path / "template-candidate-core-interop",
++    )
+diff --git a/tests/test_template_candidate_worker.py b/tests/test_template_candidate_worker.py
+new file mode 100644
+index 0000000000000000000000000000000000000000..38eaf9a6dbbbc4d4e3ce18044f859158ab9a9200
+--- /dev/null
++++ b/tests/test_template_candidate_worker.py
+@@ -0,0 +1,640 @@
++"""The Template candidate lane is closed, source-selected, and receipt-ready."""
++
++from __future__ import annotations
++
++import hashlib
++import json
++import os
++from pathlib import Path
++import re
++import runpy
++import shutil
++import subprocess
++import tomllib
++
++import pytest
++
++from lib import gct_claude_signing_worker as signing_worker
++from lib import gct_claude_template_candidate_worker as template_worker
++from test_operations_candidate_worker import (
++    _installed_paths,
++    _provision,
++    _provisioning_prototype,
++    _record,
++    _render,
++)
++
++
++ROOT = Path(__file__).resolve().parents[1]
++ENTRYPOINT = ROOT / "bin/gct-claude-template-candidate-worker"
++POLICY = ROOT / "templates/claude/template-candidate-control-policy.json"
++OPERATIONS_POLICY = ROOT / "templates/claude/candidate-control-policy.json"
++CORE_POLICY = ROOT / "templates/claude/core-signing-control-policy.json"
++PROVIDER = ROOT / "templates/claude/template-candidate-provider.toml"
++PROFILE = ROOT / "managed/profiles/gas-city-template-candidate-claude.json"
++RUNNER = ROOT / "bin/gct-managed-worker-canary"
++UNKNOWN_POLICY = ROOT / "tests/fixtures/unknown-candidate-control-policy.json"
++RENDERER = ROOT / "bin/gct-managed-rig-permissions"
++CORE_SIGNING_PROFILE = ROOT / "managed/profiles/gascity-claude-signing.json"
++OPERATIONS_PROFILE = ROOT / "managed/profiles/gascity-operations-candidate-claude.json"
++GOLDEN = ROOT / "tests/fixtures/template-candidate-render-golden"
++TEMPLATE_ROOT = "/home/loucmane/gas-city-template-candidate-worktrees"
++WORKTREES_RULE = f"Edit(/{TEMPLATE_ROOT}/*/**)"
++GIT_LINK_DENY = f"Edit(/{TEMPLATE_ROOT}/*/.git)"
++FILE_TOOLS = ("Edit", "Write", "NotebookEdit", "MultiEdit")
++CONTROL_COMMANDS = [
++    "/home/loucmane/gascity/bin/gc hook --claim --json",
++    "/home/loucmane/gascity/bin/gc runtime drain-ack",
++    "/home/loucmane/gascity/bin/bd close *",
++    "/home/loucmane/gascity/bin/bd show *",
++    "/home/loucmane/gascity/bin/bd update *",
++]
++
++
++def _policy() -> dict[str, object]:
++    return json.loads(POLICY.read_text(encoding="utf-8"))
++
++
++def _config(tmp_path: Path) -> signing_worker.LaunchConfig:
++    claude = tmp_path / "claude"
++    claude.write_bytes(b"synthetic claude\n")
++    claude.chmod(0o755)
++    shared = tmp_path / "city/.gc/settings.json"
++    shared.parent.mkdir(parents=True)
++    shared.write_text("{}", encoding="utf-8")
++    policy = tmp_path / "source/policy.json"
++    policy.parent.mkdir(parents=True)
++    policy.write_bytes(POLICY.read_bytes())
++    policy.chmod(0o600)
++    worktrees = tmp_path / "worktrees"
++    worktrees.mkdir()
++    dependencies = []
++    for name in ("entrypoint", "candidate", "boundary", "subscription", "provider"):
++        dependency = tmp_path / "source" / name
++        dependency.write_text(name + "\n", encoding="utf-8")
++        dependencies.append(dependency)
++    return signing_worker.LaunchConfig(
++        claude=claude,
++        shared_settings=shared,
++        control_policy=policy,
++        add_dirs=(worktrees,),
++        source_dependencies=tuple(dependencies),
++    )
++
++
++def _arguments(config: signing_worker.LaunchConfig, *, resume: bool = False) -> list[str]:
++    arguments = ["--resume", "session-fixture-1"] if resume else []
++    arguments.extend(
++        [
++            "--model",
++            "claude-opus-5-5",
++            "--effort",
++            "max",
++            "--permission-mode",
++            "dontAsk",
++            "--settings",
++            str(config.control_policy),
++            "--add-dir",
++            str(config.add_dirs[0]),
++        ]
++    )
++    if not resume:
++        arguments.extend(["--settings", str(config.shared_settings)])
++    return arguments
++
++
++def _linked(worktree: Path, common: Path, name: str = "gct-fixture") -> Path:
++    worktree.mkdir(parents=True, exist_ok=True)
++    admin = common / "worktrees" / name
++    admin.mkdir(parents=True, exist_ok=True)
++    (worktree / ".git").write_text(f"gitdir: {admin}\n", encoding="utf-8")
++    (admin / "gitdir").write_text(f"{worktree}/.git\n", encoding="utf-8")
++    (admin / "commondir").write_text("../..\n", encoding="utf-8")
++    return worktree
++
++
++def test_default_config_is_template_scoped_and_reuses_the_core_boundary() -> None:
++    config = template_worker.default_config()
++    assert config.control_policy == POLICY
++    assert config.add_dirs == (ROOT.parent / "gas-city-template-candidate-worktrees",)
++    assert template_worker._TEMPLATE_COMMON == ROOT.parent / "gas-city-template/.git"
++    assert template_worker._BOUNDARY_SOURCE == ROOT / "lib/gct_claude_signing_worker.py"
++    assert template_worker._EXECUTED_BOUNDARY_SOURCE == (
++        ROOT / "lib/gct_claude_signing_worker.py"
++    ).read_bytes()
++    assert signing_worker.default_config().control_policy == CORE_POLICY
++
++
++@pytest.mark.parametrize("resume", [False, True], ids=["initial", "resume"])
++def test_launch_removes_shared_settings_and_loads_only_template_policy(
++    tmp_path: Path, resume: bool
++) -> None:
++    config = _config(tmp_path)
++    calls: list[list[str]] = []
++
++    def authenticate(*_args: object, **kwargs: object) -> dict[str, object]:
++        assert kwargs["setting_sources"] == ""
++        return {
++            "loggedIn": True,
++            "authMethod": "claude.ai",
++            "apiProvider": "firstParty",
++            "apiKeySource": None,
++            "subscriptionType": "max",
++        }
++
++    class Executed(Exception):
++        pass
++
++    def execve(_path: str, argv: list[str], _environment: dict[str, str]) -> None:
++        calls.append(argv)
++        raise Executed
++
++    with pytest.raises(Executed):
++        template_worker.boundary.launch(
++            _arguments(config, resume=resume),
++            parent_environment={"PATH": "/usr/bin:/bin"},
++            cwd=Path.cwd(),
++            config=config,
++            authenticate=authenticate,
++            execve=execve,
++        )
++    (argv,) = calls
++    assert str(config.shared_settings) not in argv
++    assert argv[argv.index("--settings") - 2 : argv.index("--settings") + 2] == [
++        "--setting-sources",
++        "",
++        "--settings",
++        str(config.control_policy),
++    ]
++    assert [argv[i + 1] for i, value in enumerate(argv) if value == "--add-dir"] == [
++        str(config.add_dirs[0])
++    ]
++
++
++@pytest.mark.parametrize(
++    "extra,reason",
++    [
++        (["--settings", "/tmp/other.json"], "settings"),
++        (["--add-dir", "/tmp/other"], "managed directory grant"),
++        (["--dangerously-skip-permissions"], "caller-owned flag"),
++        (["--resume", "second-session"], "resume"),
++        (["--permission-mode", "auto"], "permission selection"),
++    ],
++)
++def test_closed_argument_vocabulary_refuses_foreign_authority(
++    tmp_path: Path, extra: list[str], reason: str
++) -> None:
++    config = _config(tmp_path)
++    with pytest.raises(template_worker.CandidateWorkerError, match=reason):
++        template_worker.boundary._validated_arguments(
++            [*_arguments(config), *extra], config
++        )
++
++
++def test_launch_requires_a_physical_direct_linked_template_worktree(
++    tmp_path: Path,
++) -> None:
++    config = _config(tmp_path)
++    common = tmp_path / "gas-city-template/.git"
++    worktree = _linked(config.add_dirs[0] / "gct-fixture", common)
++    assert template_worker.require_candidate_worktree(worktree, config, common) == worktree
++
++    deeper = worktree / "nested"
++    deeper.mkdir()
++    sibling = config.add_dirs[0].parent / "other/gct-fixture"
++    sibling.mkdir(parents=True)
++    symlink = config.add_dirs[0] / "gct-link"
++    symlink.symlink_to(worktree)
++    for refused in (config.add_dirs[0], deeper, sibling, symlink):
++        with pytest.raises(template_worker.CandidateWorkerError, match="must start"):
++            template_worker.require_candidate_worktree(refused, config, common)
++
++
++@pytest.mark.parametrize(
++    "damage",
++    ["bad-gitfile", "wrong-gitdir", "wrong-commondir", "missing-admin", "directory-git"],
++)
++def test_template_worktree_linkage_refuses_wrong_repository_state(
++    tmp_path: Path, damage: str
++) -> None:
++    config = _config(tmp_path)
++    common = tmp_path / "gas-city-template/.git"
++    worktree = _linked(config.add_dirs[0] / "gct-fixture", common)
++    admin = common / "worktrees/gct-fixture"
++    if damage == "bad-gitfile":
++        (worktree / ".git").write_text("gitdir: /tmp/foreign\n", encoding="utf-8")
++    elif damage == "wrong-gitdir":
++        (admin / "gitdir").write_text("/tmp/elsewhere/.git\n", encoding="utf-8")
++    elif damage == "wrong-commondir":
++        (admin / "commondir").write_text("../../../other\n", encoding="utf-8")
++    elif damage == "missing-admin":
++        (worktree / ".git").write_text(
++            f"gitdir: {common}/worktrees/missing\n", encoding="utf-8"
++        )
++    else:
++        (worktree / ".git").unlink()
++        (worktree / ".git").mkdir()
++    with pytest.raises(template_worker.CandidateWorkerError, match="linked Template"):
++        template_worker.require_candidate_worktree(worktree, config, common)
++
++
++def test_entrypoint_provider_and_dependency_version_bind_both_launches(
++    tmp_path: Path,
++) -> None:
++    assert os.access(ENTRYPOINT, os.X_OK)
++    assert "exec /usr/bin/python3.12 -I -S -B" in ENTRYPOINT.read_text(encoding="utf-8")
++    provider = tomllib.loads(PROVIDER.read_text(encoding="utf-8"))["providers"][
++        "claude-template-candidate"
++    ]
++    assert provider["command"].endswith("/bin/gct-claude-template-candidate-worker")
++    assert provider["resume_command"].endswith("--resume {{.SessionKey}}")
++    assert provider["path_check"] == "/home/loucmane/gascity/bin/claude"
++
++    entrypoint, _policy_path = _installed_template_wrapper(tmp_path)
++    result = subprocess.run(
++        [str(entrypoint), "--version"],
++        check=False,
++        capture_output=True,
++        text=True,
++        timeout=10,
++        env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
++    )
++    assert result.returncode == 0, result.stderr
++    baseline = result.stdout.strip()
++    assert baseline.startswith("gct-claude-template-candidate-worker 1 ")
++    source_root = entrypoint.parents[1]
++    for relative in (
++        "bin/gct-claude-template-candidate-worker",
++        "lib/gct_claude_template_candidate_worker.py",
++        "lib/gct_claude_signing_worker.py",
++        "lib/gct_claude_subscription.py",
++        "templates/claude/template-candidate-control-policy.json",
++        "templates/claude/template-candidate-provider.toml",
++    ):
++        dependency = source_root / relative
++        original = dependency.read_bytes()
++        dependency.write_bytes(original + b"\n")
++        try:
++            changed = subprocess.run(
++                [str(entrypoint), "--version"],
++                check=False,
++                capture_output=True,
++                text=True,
++                timeout=10,
++                env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
++            )
++            assert changed.returncode == 0, changed.stderr
++            assert changed.stdout.strip() != baseline, relative
++        finally:
++            dependency.write_bytes(original)
++
++
++def test_template_policy_is_exact_closed_candidate_authority() -> None:
++    policy = _policy()
++    assert policy["_gc"] == {
++        "schema": "gc.candidate-control-policy.v1",
++        "profile_kind": "candidate",
++    }
++    assert set(policy["_gc"]) == {"schema", "profile_kind"}
++    allow = policy["permissions"]["allow"]
++    assert allow == [
++        "Read",
++        "Glob",
++        "Grep",
++        WORKTREES_RULE,
++        *[f"Bash({command})" for command in CONTROL_COMMANDS],
++    ]
++    assert not [rule for rule in allow if rule in FILE_TOOLS]
++    assert [rule for rule in allow if rule.startswith(tuple(f"{x}(" for x in FILE_TOOLS))] == [
++        WORKTREES_RULE
++    ]
++    deny = set(policy["permissions"]["deny"])
++    assert {
++        GIT_LINK_DENY,
++        "Read(//home/loucmane/vaults/**)",
++        "Read(//home/loucmane/.ssh/**)",
++        "Read(//home/loucmane/.gnupg/**)",
++        "Read(//home/loucmane/.config/gh/**)",
++        "Read(//home/loucmane/.claude/**)",
++        "Read(//home/loucmane/.claude.json)",
++        "Read(//home/loucmane/gascity/city/.gc/settings.json)",
++        "Read(//home/loucmane/.git-credentials)",
++        "Read(//home/loucmane/.netrc)",
++        "Read(//home/loucmane/.config/git/**)",
++        "Bash(git commit *)",
++        "Bash(git push *)",
++        "Bash(git merge *)",
++        "Bash(git config *)",
++        "Bash(gpg *)",
++        "WebFetch",
++        "WebSearch",
++    } <= deny
++    sandbox = policy["sandbox"]
++    assert sandbox == {
++        "enabled": True,
++        "failIfUnavailable": True,
++        "autoAllowBashIfSandboxed": True,
++        "allowUnsandboxedCommands": False,
++        "excludedCommands": CONTROL_COMMANDS,
++    }
++    core = json.loads(CORE_POLICY.read_text(encoding="utf-8"))
++    assert policy["hooks"] == core["hooks"]
++
++
++def _template_record(tmp_path: Path) -> dict[str, object]:
++    record = _record(
++        tmp_path,
++        "gas-city-template",
++        "template-candidate",
++        agents=["implementation-worker"],
++        provider="claude",
++        git_metadata=False,
++    )
++    record["control_policy"] = {
++        "source": "templates/claude/template-candidate-control-policy.json",
++        "sha256": hashlib.sha256(POLICY.read_bytes()).hexdigest(),
++    }
++    return record
++
++
++def test_source_owned_template_profile_and_rendered_provider_are_narrow(
++    tmp_path: Path,
++) -> None:
++    document = json.loads(PROFILE.read_text(encoding="utf-8"))
++    assert document["schema"] == "gc.managed-rig-permissions.v2"
++    assert len(document["rigs"]) == 1
++    record = document["rigs"][0]
++    assert record["name"] == "gas-city-template"
++    assert record["repository_path"] == "/home/loucmane/gas-city-template"
++    assert record["worktree_root"] == TEMPLATE_ROOT
++    assert record["agents"] == ["implementation-worker"]
++    assert record["git_metadata"] is False
++    assert record["environment"] == {
++        "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
++    }
++    assert record["toolchains"][0]["executable"]["sha256"] == hashlib.sha256(
++        Path("/usr/bin/python3.12").read_bytes()
++    ).hexdigest()
++    assert record["control_policy"]["sha256"] == hashlib.sha256(POLICY.read_bytes()).hexdigest()
++
++    result, output = _render(tmp_path, [_template_record(tmp_path)])
++    assert result.returncode == 0, result.stderr
++    fragment = tomllib.loads(output.read_text(encoding="utf-8"))
++    assert set(fragment["providers"]) == {"claude-template-candidate"}
++    (patch,) = fragment["patches"]["agent"]
++    assert patch["provider"] == "claude-template-candidate"
++    assert patch["option_defaults"]["permission_mode"] == "full-auto"
++    assert patch["env"] == {"PATH": "/usr/bin:/bin"}
++    choice = fragment["providers"]["claude-template-candidate"]["options_schema"][0][
++        "choices"
++    ][1]
++    assert choice["flag_args"] == [
++        "--settings",
++        str(POLICY.resolve()),
++        "--add-dir",
++        str(Path(_template_record(tmp_path)["worktree_root"])),
++    ]
++    assert ".git" not in choice["flag_args"]
++
++
++@pytest.mark.parametrize(
++    "source,path",
++    [
++        (
++            "templates/claude/./candidate-control-policy.json",
++            OPERATIONS_POLICY,
++        ),
++        (
++            "tests/fixtures/unknown-candidate-control-policy.json",
++            UNKNOWN_POLICY,
++        ),
++    ],
++    ids=["non-literal", "unknown"],
++)
++def test_candidate_policy_source_vocabulary_is_exact(
++    tmp_path: Path, source: str, path: Path
++) -> None:
++    record = _template_record(tmp_path)
++    record["control_policy"] = {
++        "source": source,
++        "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
++    }
++    result, output = _render(tmp_path, [record])
++    assert result.returncode == 3
++    assert "not an authorized candidate control policy" in result.stderr
++    assert not output.exists()
++
++
++def test_operations_and_signing_source_mappings_remain_unchanged(tmp_path: Path) -> None:
++    candidate = _template_record(tmp_path)
++    candidate["control_policy"] = {
++        "source": "templates/claude/candidate-control-policy.json",
++        "sha256": hashlib.sha256(OPERATIONS_POLICY.read_bytes()).hexdigest(),
++    }
++    result, output = _render(tmp_path, [candidate])
++    assert result.returncode == 0, result.stderr
++    assert set(tomllib.loads(output.read_text(encoding="utf-8"))["providers"]) == {
++        "claude-candidate"
++    }
++
++    signing = _record(
++        tmp_path,
++        "gascity",
++        "signing",
++        agents=["implementation-worker"],
++        provider="claude",
++    )
++    signing["control_policy"] = {
++        "source": "templates/claude/core-signing-control-policy.json",
++        "sha256": hashlib.sha256(CORE_POLICY.read_bytes()).hexdigest(),
++    }
++    result, output = _render(tmp_path, [signing], name="signing.json")
++    assert result.returncode == 0, result.stderr
++    assert set(tomllib.loads(output.read_text(encoding="utf-8"))["providers"]) == {
++        "claude-signing"
++    }
++
++
++def _normalized_shipped_render(tmp_path: Path, profile_path: Path) -> str:
++    """Render a shipped record at disposable roots and normalize only those roots."""
++
++    document = json.loads(profile_path.read_text(encoding="utf-8"))
++    fixture = tmp_path / profile_path.stem
++    vault = fixture / "classified-vault"
++    vault.mkdir(parents=True)
++    document["classified_vault"] = str(vault)
++    replacements: dict[str, str] = {str(ROOT): "<TEMPLATE_ROOT>"}
++    for index, record in enumerate(document["rigs"]):
++        candidate = "operations-candidate-worker" in record["agents"]
++        slot = "a-operations" if candidate else f"b-core-{index}"
++        repository = fixture / f"repository-{slot}"
++        worktree_root = fixture / f"worktrees-{slot}"
++        (repository / ".git").mkdir(parents=True)
++        worktree_root.mkdir()
++        record["repository_path"] = str(repository)
++        record["worktree_root"] = str(worktree_root)
++        if candidate:
++            replacements[str(repository)] = "<OPERATIONS_REPOSITORY>"
++            replacements[str(worktree_root)] = "<OPERATIONS_WORKTREE_ROOT>"
++        else:
++            replacements[str(repository)] = "<CORE_REPOSITORY>"
++            replacements[str(worktree_root)] = "<CORE_WORKTREE_ROOT>"
++    registry = fixture / "registry.json"
++    registry.write_text(json.dumps(document, indent=2) + "\n", encoding="utf-8")
++    city = fixture / "city"
++    city.mkdir()
++    output = city / "managed/rig-permissions.toml"
++    environment = os.environ.copy()
++    environment.update(
++        {
++            "GCT_SKIP_CONFIG_VALIDATION": "1",
++            "GCT_TEST_ROOT": str(tmp_path.resolve()),
++            "PYTHONDONTWRITEBYTECODE": "1",
++        }
++    )
++    completed = subprocess.run(
++        [
++            str(RENDERER),
++            "--city",
++            str(city),
++            "--apply",
++            "--registry",
++            str(registry),
++            "--output",
++            str(output),
++            "--json",
++        ],
++        check=False,
++        capture_output=True,
++        text=True,
++        env=environment,
++    )
++    assert completed.returncode == 0, completed.stderr
++    rendered = output.read_text(encoding="utf-8")
++    for actual, placeholder in sorted(
++        replacements.items(), key=lambda item: len(item[0]), reverse=True
++    ):
++        rendered = rendered.replace(actual, placeholder)
++    rendered = re.sub(
++        r"(?m)^# registry_sha256=[0-9a-f]{64}$",
++        "# registry_sha256=<REGISTRY_SHA256>",
++        rendered,
++    )
++    return re.sub(r"managed-[0-9a-f]{16}", "<MANAGED_CHOICE>", rendered)
++
++
++@pytest.mark.parametrize(
++    "profile,golden",
++    [
++        (CORE_SIGNING_PROFILE, GOLDEN / "core-signing.toml"),
++        (OPERATIONS_PROFILE, GOLDEN / "operations-candidate.toml"),
++    ],
++    ids=["core-signing", "operations-candidate"],
++)
++def test_existing_closed_lane_renders_match_e6195b1_golden_output(
++    tmp_path: Path, profile: Path, golden: Path
++) -> None:
++    assert _normalized_shipped_render(tmp_path, profile) == golden.read_text(
++        encoding="utf-8"
++    )
++
++
++def test_shipped_root_matches_wrapper_add_dir_at_the_template_checkout(
++    monkeypatch: pytest.MonkeyPatch,
++) -> None:
++    record = json.loads(PROFILE.read_text(encoding="utf-8"))["rigs"][0]
++    canonical_root = Path("/home/loucmane/gas-city-template")
++    monkeypatch.setattr(template_worker, "_ROOT", canonical_root)
++    assert record["worktree_root"] == str(template_worker.default_config().add_dirs[0])
++    assert record["repository_path"] == str(canonical_root)
++
++
++def _installed_template_wrapper(tmp_path: Path) -> tuple[Path, Path]:
++    install_root = tmp_path / "installation"
++    source_root = install_root / "gas-city-template"
++    for relative in (
++        "bin/gct-claude-template-candidate-worker",
++        "lib/gct_claude_template_candidate_worker.py",
++        "lib/gct_claude_signing_worker.py",
++        "lib/gct_claude_subscription.py",
++        "templates/claude/template-candidate-control-policy.json",
++        "templates/claude/template-candidate-provider.toml",
++    ):
++        destination = source_root / relative
++        destination.parent.mkdir(parents=True, exist_ok=True)
++        shutil.copy2(ROOT / relative, destination)
++    claude = install_root / "gascity/bin/claude"
++    claude.parent.mkdir(parents=True)
++    claude.write_text("#!/bin/sh\nprintf '%s\\n' 'fixture claude'\n", encoding="utf-8")
++    claude.chmod(0o755)
++    policy = source_root / "templates/claude/template-candidate-control-policy.json"
++    policy.chmod(0o600)
++    return source_root / "bin/gct-claude-template-candidate-worker", policy
++
++
++def _template_candidate_prototype(tmp_path: Path) -> dict[str, object]:
++    prototype = _provisioning_prototype(tmp_path)
++    profile = prototype["profiles"][0]
++    assert isinstance(profile, dict)
++    entrypoint, policy = _installed_template_wrapper(tmp_path)
++    version = subprocess.run(
++        [str(entrypoint), "--version"],
++        check=True,
++        capture_output=True,
++        text=True,
++        timeout=10,
++        env={"PATH": "/usr/bin:/bin", "PYTHONDONTWRITEBYTECODE": "1"},
++    ).stdout.strip()
++    candidate_root = tmp_path / "installation/gas-city-template-candidate-worktrees"
++    candidate_root.mkdir()
++    profile.update(
++        {
++            "name": "gas-city-template/gc.implementation-worker",
++            "profile_kind": "candidate",
++            "signer_identity": "none",
++            "argv": [
++                str(entrypoint),
++                "--settings",
++                str(policy),
++                "--add-dir",
++                str(candidate_root),
++            ],
++            "control_policy": {
++                "path": str(policy),
++                "sha256": hashlib.sha256(policy.read_bytes()).hexdigest(),
++            },
++            "provider": {
++                "name": "claude",
++                "path": str(entrypoint),
++                "resolved_path": str(entrypoint),
++                "sha256": hashlib.sha256(entrypoint.read_bytes()).hexdigest(),
++                "version_args": ["--version"],
++                "version": version,
++            },
++            "writable_roots": [str(candidate_root)],
++        }
++    )
++    return prototype
++
++
++def test_provisioner_publishes_template_candidate_and_runner_selects_kind(
++    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
++) -> None:
++    prototype = _template_candidate_prototype(tmp_path)
++    result = _provision(tmp_path, prototype, "--apply", "--json")
++    assert result.returncode == 0, result.stderr
++    _runner, receipt_path = _installed_paths(tmp_path)
++    receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
++    (profile,) = receipt["profiles"]
++    assert profile["name"] == "gas-city-template/gc.implementation-worker"
++    assert profile["profile_kind"] == "candidate"
++    assert profile["signer_identity"] == "none"
++    assert profile["provider"]["name"] == "claude"
++
++    module = runpy.run_path(str(RUNNER), run_name="template_candidate_runner")
++    monkeypatch.setenv("GCT_CANARY_WORKER_PROFILE_JSON", json.dumps(profile))
++    contract = module["load_worker_profile_contract"](required_kind="candidate")
++    assert contract.name == profile["name"]
++    assert contract.kind == "candidate"
++    with pytest.raises(Exception, match="may not select each other"):
++        module["load_worker_profile_contract"](required_kind="signing")

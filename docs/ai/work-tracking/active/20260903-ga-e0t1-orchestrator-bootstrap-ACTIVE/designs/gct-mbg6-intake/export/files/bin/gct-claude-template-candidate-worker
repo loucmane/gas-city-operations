@@ -1,0 +1,14 @@
+#!/bin/sh
+# Start the pinned interpreter in isolated, no-site, source-only mode before
+# any Python import can run. The fixed exec preserves cwd, environment, argv,
+# stdio, and the process identity used by Gas City.
+case "$0" in
+  /*/bin/gct-claude-template-candidate-worker) entrypoint=$0 ;;
+  *)
+    printf '%s\n' 'gct-claude-template-candidate-worker: entrypoint must be absolute' >&2
+    exit 2
+    ;;
+esac
+root=${entrypoint%/bin/gct-claude-template-candidate-worker}
+exec /usr/bin/python3.12 -I -S -B \
+  "$root/lib/gct_claude_template_candidate_worker.py" "$@"

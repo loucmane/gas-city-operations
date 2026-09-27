@@ -1,0 +1,37 @@
+{
+  "schema": "gc.managed-rig-permissions.v2",
+  "classified_vault": "/home/loucmane/vaults/main/GasCity",
+  "rigs": [
+    {
+      "name": "gas-city-template",
+      "repository_path": "/home/loucmane/gas-city-template",
+      "worktree_root": "/home/loucmane/gas-city-template-candidate-worktrees",
+      "agents": [
+        "implementation-worker"
+      ],
+      "git_metadata": false,
+      "provider": "claude",
+      "control_policy": {
+        "source": "templates/claude/template-candidate-control-policy.json",
+        "sha256": "6b2f160d4999781db17ddf117b482a9c20432032c1162fed453a06ba7376fec1"
+      },
+      "environment": {
+        "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
+      },
+      "toolchains": [
+        {
+          "name": "python",
+          "executable": {
+            "path": "/usr/bin/python3.12",
+            "resolved_path": "/usr/bin/python3.12",
+            "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
+            "version_args": [
+              "--version"
+            ],
+            "version": "Python 3.12.3"
+          }
+        }
+      ]
+    }
+  ]
+}
