@@ -21,8 +21,8 @@ HERE = Path(__file__).parent
 WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'
 PREP = '/var/tmp/ga-e0t1.20-prep-20260927-r1'
 HEX = re.compile(r'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])')
-FINAL_CACHE_NS = 1790552062805742810
-FINAL_OBSERVATION_SHA = '7f8dd40546a23fc460d190ba08d9a22953c91b4c2ce875c38dccbddbdd97e7d7'
+FINAL_CACHE_NS = 1790553055537553535
+FINAL_OBSERVATION_SHA = '74704997acff2a47c46f66b7eef2c3d0a20f06d1fee2a1735d6014eff31f4d79'
 
 
 def sha(raw):
@@ -83,6 +83,10 @@ def rebind(name, text):
     for old, new in MAP.items():
         text = text.replace(old, new)
     text = re.sub(r'(/var/tmp/ga-e0t1\.20-[a-z%-]+)-20260926-r[123]', r'\1-20260927-r1', text)
+    # r1 refused before creating its evidence root. Preserve its failed job;
+    # the successor uses a fresh root and must not repeat completed BIND.
+    text = text.replace('/var/tmp/ga-e0t1.20-integrity-20260927-r1',
+                        '/var/tmp/ga-e0t1.20-integrity-20260928-r2')
     # Explicit rig selectors only. Preserve the complete four-rig inventory set.
     for old, new in (("'--rig','gas-city-template'", "'--rig','gascity'"),
                      ("'--rig', 'gas-city-template'", "'--rig', 'gascity'"),
@@ -329,6 +333,18 @@ def close(text):
     return text
 
 
+def integrity_providers(text):
+    text=once(text,
+        "# M9 pinned the candidate wrapper as a second claude provider, keyed by path; M10 (file 2b902a83) keeps it.",
+        "# Exact M12 adds the Template candidate wrapper. Manifest digest remains mandatory.")
+    text=once(text,"['claude-native','codex','claude','claude'],'provider inventory'",
+        "['claude-native','codex','claude','claude','claude'],'provider inventory'")
+    text=once(text,
+        "'/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker']\n        and providers[3]['sha256']=='e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3',\n        'M9 provider pins')",
+        "'/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker',\n        '/home/loucmane/gas-city-template/bin/gct-claude-template-candidate-worker']\n        and providers[3]['sha256']=='e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3'\n        and providers[4]['sha256']=='229d33557326abc8bafceadb06ae12ba2a2d9189e137ff0e1378d35dcf69491c',\n        'M12 provider pins')")
+    return text
+
+
 def assemble(final=False):
     names = git('ls-tree', '-r', '--name-only', SOURCE, OLD).decode().splitlines()
     names = [name for name in names if (name.endswith('.py') and '/generators/' not in name
@@ -344,6 +360,8 @@ def assemble(final=False):
         elif name == 'watch-r11.py': text = watch(text)
         elif name == 'common-snapshot-r1.py': text = common(text)
         elif name == 'close-r11.py': text = close(text)
+        elif name in ('observe-integrity-r11.py','observe-terminal-r11.py'):
+            text = integrity_providers(text)
         elif name == 'suspension-lineage.py': text = text.replace("'gas-city-template'", "'gascity'")
         elif name == 'audit-queue-r3.py':
             text = text.replace("('template', ['--rig', 'gascity'])", "('gascity', ['--rig', 'gascity'])")

@@ -76,6 +76,6 @@ real hook or trust check refuses, report it and contain; never bypass it.
 ## Reproduction
 
 `generators/` contains the exact authoring inputs and fixture tests. Run its
-six test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
+seven test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
 The generator writes only a fresh chosen output directory; it never launches
 its outputs. Prior /tmp assembled drafts and tests remain preserved.

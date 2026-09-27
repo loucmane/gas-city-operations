@@ -14,9 +14,9 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
 ROOT=Path('/var/tmp/ga-e0t1.20-terminal-20260927-r1')
 WINDOW=Path('/var/tmp/ga-e0t1.20-window-20260927-r1')
-WINDOW_SHA='ccc7fb0fe6d57b00c6d77f5f8818617e1f51b82540e1565a8c90c7f35947ce62'
+WINDOW_SHA='555ed7d1c0fc6b3946ac98bfb8e75cf66890e70a5a3316e7db3b62c0adecbc31'
 BUILD=Path('/var/tmp/gct-oak5-platform-inspector-m12-20260927')
-W_SHA='c6aca90d2657da22fa0a5f5da569cb7eb65f8a28b5a5bfadca92dff9267c8f31'
+W_SHA='e6dce8869ff376fd7473704435cf34b480acdeab26a50d7f2919481766165c14'
 BINARY_SHA='0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='114b4a000471ee145d494732db361521ea237b3e4857607b06720b7b105327b9'
@@ -39,12 +39,14 @@ def verify_preservation(r,before,after):
 def provider_pins(w,o):
     m=json.loads(w.read(MANIFEST,MANIFEST_SHA))
     providers=m['integrity']['providers']
-    # M9 pinned the candidate wrapper as a second claude provider, keyed by path; M10 (file 2b902a83) keeps it.
-    w.require([p['name'] for p in providers]==['claude-native','codex','claude','claude'],'provider inventory')
+    # Exact M12 adds the Template candidate wrapper. Manifest digest remains mandatory.
+    w.require([p['name'] for p in providers]==['claude-native','codex','claude','claude','claude'],'provider inventory')
     w.require([p['path'] for p in providers[2:]]==['/home/loucmane/gas-city-template/bin/gct-claude-signing-worker',
-        '/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker']
-        and providers[3]['sha256']=='e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3',
-        'M9 provider pins')
+        '/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker',
+        '/home/loucmane/gas-city-template/bin/gct-claude-template-candidate-worker']
+        and providers[3]['sha256']=='e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3'
+        and providers[4]['sha256']=='229d33557326abc8bafceadb06ae12ba2a2d9189e137ff0e1378d35dcf69491c',
+        'M12 provider pins')
     for p in providers:
         w.require(p['version_args']==['--version'],'only version probes')
         w.require(str(Path(p['path']).resolve(strict=True))==p['resolved_path'],'provider resolution')

@@ -174,3 +174,15 @@ CLAIM-TIME.md records the bound real observation, the one-failure RED and
 checks. It also records the active-session polling regression and corrected
 test count. No S2 job or worker launch occurred. Two fresh exact-head reviews
 are required for the corrected successor; earlier verdicts cannot admit it.
+
+## First execution and exact M12 successor — 2026-09-28 CEST
+
+Candidate 3c9931721fc8cdd204c8d7debd0c47c739064ccd received two SOURCE_PASS
+verdicts. BIND completed and is never repeated. OBSERVE refused before any
+output-root creation or inspector launch because the inherited guard still
+expected the four-entry M10 provider inventory. The unchanged pinned M12
+manifest has the fifth Template candidate wrapper. PROVIDER-INVENTORY.md
+records the exact failure, pre-mutation classification, both-observer
+correction and executable regression evidence. The new package starts at
+OBSERVE using a fresh observation root. Other product and lifecycle work has
+not occurred. Preserve the failed job and its halt until reviewed continuation.

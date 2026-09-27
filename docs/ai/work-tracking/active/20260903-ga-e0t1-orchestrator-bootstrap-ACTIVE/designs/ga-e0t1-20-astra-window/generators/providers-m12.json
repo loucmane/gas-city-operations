@@ -1,0 +1,52 @@
+[
+  {
+    "name": "claude-native",
+    "path": "/home/loucmane/gascity/bin/claude",
+    "resolved_path": "/home/loucmane/gascity/bin/claude",
+    "sha256": "1e08503dbdf3c2cb0d706d32f3408277388d1c76ef108673e8fe42c1b322925b",
+    "version_args": [
+      "--version"
+    ],
+    "version": "2.1.280 (Claude Code)"
+  },
+  {
+    "name": "codex",
+    "path": "/home/loucmane/gascity/bin/codex",
+    "resolved_path": "/home/loucmane/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex",
+    "sha256": "56ef98ab4032d317ab26e9b5e5a175650717351edb16ed9cde0cb6d1734d62da",
+    "version_args": [
+      "--version"
+    ],
+    "version": "codex-cli 0.153.4"
+  },
+  {
+    "name": "claude",
+    "path": "/home/loucmane/gas-city-template/bin/gct-claude-signing-worker",
+    "resolved_path": "/home/loucmane/gas-city-template/bin/gct-claude-signing-worker",
+    "sha256": "9df9ea34e83ad7ce39328ffedc7c9b3a2aceef9abb537e7e27c4e85e884378e0",
+    "version_args": [
+      "--version"
+    ],
+    "version": "gct-claude-signing-worker 1 dependencies_sha256=d4e57767d03accd708ce8876580096bb17bce023d6dc6e664fffee4367ea3c57"
+  },
+  {
+    "name": "claude",
+    "path": "/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker",
+    "resolved_path": "/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker",
+    "sha256": "e4442971fd3188208eaf22974aaaf55f949b8f51041775f041ecb00a66de92a3",
+    "version_args": [
+      "--version"
+    ],
+    "version": "gct-claude-candidate-worker 1 dependencies_sha256=a35dd4131ed3baa3875b9866aa86e39192d1f96f3f4dd55d8a10d12921eea446"
+  },
+  {
+    "name": "claude",
+    "path": "/home/loucmane/gas-city-template/bin/gct-claude-template-candidate-worker",
+    "resolved_path": "/home/loucmane/gas-city-template/bin/gct-claude-template-candidate-worker",
+    "sha256": "229d33557326abc8bafceadb06ae12ba2a2d9189e137ff0e1378d35dcf69491c",
+    "version_args": [
+      "--version"
+    ],
+    "version": "gct-claude-template-candidate-worker 1 dependencies_sha256=3cd85706cd98a25bd50ef12c5dfa59e34054396db81913cd4692728e6ca7ffb3"
+  }
+]
