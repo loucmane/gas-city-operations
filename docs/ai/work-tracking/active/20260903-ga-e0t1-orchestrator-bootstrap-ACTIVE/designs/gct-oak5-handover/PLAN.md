@@ -1,6 +1,6 @@
-# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r19
+# gct-oak5 handover: C1 (Claude) → X (Template codex) → C2 (Claude) in one worktree — plan r20
 
-This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, r16 answered the reviews of the split package at `4cb2b80e`, r17 recorded the applied split, the chain anchor and the image tool, r18 answered the image tool reviews of `c985f6c5`, and r19 records where the C1 window design supersedes plan wording; see the last ten sections.
+This is the design for goal step 4 (gct-oak5; gct-13ku and gct-10pg are its closed prerequisites). It is reviewed before any window package is built. Every window, tool and Bead text named here is its own reviewed package later. r2 to r9 answered the r1 to r8 reviews. r9 (`54553f79`) was accepted with two SOURCE_PASS. r10 applied the inventory (`INVENTORY.md`, `inventory-data.json`) where it contradicted or completed r9, r11 answered the r10 reviews of `943b94b6`, r12 answered the r11 reviews of `27ae54fc`, r13 answered the r12 reviews of `e2384515`, r14 (`c3ea9bfc`, two SOURCE_PASS) applied the first probe run, r15 recorded the second run, r16 answered the reviews of the split package at `4cb2b80e`, r17 recorded the applied split, the chain anchor and the image tool, r18 answered the image tool reviews of `c985f6c5`, r19 recorded where the C1 window design supersedes plan wording, and r20 corrects two r19 statements; see the last eleven sections.
 
 ## Decisions this plan relies on
 
@@ -892,3 +892,12 @@ The plan part of r11 closed the three r10 must_fix items (both reviews verified 
   C1 TERMINAL PASS record, the image 1 record and H1 equal to the ledger entry.
 - **The race outcome.** A worker's close keeps the assignee (inventory section 2), so a racing close shows in the
   post-sling read as C1 closed, not as an empty assignee.
+
+## r20 (corrections to r19, from the C1 design d5)
+
+- **No TEARDOWN.** The r19 sentence naming TEARDOWN-1 is withdrawn. No reviewed control can stop a pane scope: the
+  ga-6utp cgroup control is detection only. A lane process that outlives the containment is handled by the
+  inherited CLOSE (`gc runtime drain`, `gc session close`) and its zero-residue proof. A survivor is a standing stop.
+- **The C1 derivation source.** The C1 row of the Windows table says C1 derives from ga-3oa7. The C1 design derives it
+  from the gct-e8ex window s5 (`1df3d47e`), which is ga-3oa7 already retargeted to the Template rig, with the lane
+  switched back to Claude.
