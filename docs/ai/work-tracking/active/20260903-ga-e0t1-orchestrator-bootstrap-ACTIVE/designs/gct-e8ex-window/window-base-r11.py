@@ -475,11 +475,58 @@ def lifecycle_records(s):
         records.append(e)
     return records
 
+# s5 disposition (gct-mbg6 s4 CONTAIN-1 recovery, 2026-09-27), for independent review. CONTAIN-1's city-suspend
+# command applied cleanly; its observation then refused because gc status listed the one worker twice (the rig
+# agent and its session row), so the lifecycle saved failure and refused-after and forbids every further action.
+# HOLD-1 then suspended the gas-city-template rig without writing this root. A window root holding any failure
+# or refused-after record is admitted only here: the terminal check, exactly those five records by digest, the
+# passing HOLD result by digest, the two completed transitions through the reviewed chain, the city-suspend
+# command and its one-field step, HOLD's one-field rig-suspend step to the live record, and the fully
+# suspended baseline. Anything else refuses; lifecycle() still forbids every further action.
+STRANDED_RECORDS = (('suspension-city-suspend-intent.json', '34a521cf4312b843bf9923ae68e5481f33ef75d349854f256a3e26ccdd2094a7'), ('suspension-city-suspend-failure.json', '4838aecf94ee7a160b5d39fd24dfbd7ae100f235c554d1d652ab438057a61a1a'), ('suspension-city-suspend-refused-after.json', 'cb8028e59ecde50855c391aae94b138010a95f12c4aba4b5c70cd1b5523ff0af'), ('city-suspend-started.json', 'be90d5aa1acd882e41df98a76683526dba0b4eba920f92b53bf483aa54b16369'), ('city-suspend-phase.json', '2af0215a6e65b99531669ec30bf9e7033945ce8f2756d96b73b114bd52356be3'))
+STRANDED_HOLD = (Path('/var/tmp/gct-mbg6-hold-20260927T074745Z/result.json'), 'd141fae3fb8a1b6d40ecb906e47b644a62c3fbadded933a90cd30af7e8ef71dd')
+
 def verified_lifecycle(terminal=False):
     s=module(HERE/'suspension-lineage.py',LINEAGE_SHA)
     b,o,owned=load_support()
     current=suspension_record(o)
-    return s.chain(record('suspension-baseline.json'),lifecycle_records(s),current,str(ROOT),terminal)
+    failures=sorted(p.name for p in ROOT.glob('suspension-*-failure.json'))
+    refusals=sorted(p.name for p in ROOT.glob('suspension-*-refused-after.json'))
+    if not failures and not refusals:
+        return s.chain(record('suspension-baseline.json'),lifecycle_records(s),current,str(ROOT),terminal)
+    require(terminal,'a stranded lifecycle admits only the terminal check')
+    require(failures==['suspension-city-suspend-failure.json']
+        and refusals==['suspension-city-suspend-refused-after.json'],'unreviewed stranded lifecycle')
+    for name,sha in STRANDED_RECORDS:
+        read(ROOT/name,sha)
+    intents={p.name[len('suspension-'):-len('-intent.json')] for p in ROOT.glob('suspension-*-intent.json')}
+    events={p.name[len('suspension-'):-len('-event.json')] for p in ROOT.glob('suspension-*-event.json')}
+    require(intents=={'rig-resume','city-resume','city-suspend'} and events=={'rig-resume','city-resume'}
+        and not list(ROOT.glob('rig-suspend-*')),'stranded lifecycle shape')
+    records=[]
+    for action in ('rig-resume','city-resume'):
+        e=record('suspension-'+action+'-event.json')
+        intent=record('suspension-'+action+'-intent.json')
+        require(intent == dict(action=action,before=e['before'],before_sha256=e['before']['pin']['sha256']),
+            'suspension pre-command binding')
+        require(e['intent'] == record(action+'-started.json') and e['result'] == record(action+'-phase.json'),
+            'suspension phase record binding')
+        records.append(e)
+    previous=records[-1]['after']
+    s.chain(record('suspension-baseline.json'),records,previous,str(ROOT))
+    require(record('suspension-city-suspend-intent.json')==dict(action='city-suspend',before=previous,
+        before_sha256=previous['pin']['sha256']),'stranded pre-command binding')
+    s.phase(record('city-suspend-started.json'),record('city-suspend-phase.json'),'city-suspend',str(ROOT))
+    refused=record('suspension-city-suspend-refused-after.json')
+    s.step(previous,refused,'city-suspend')
+    hold=json.loads(read(*STRANDED_HOLD))
+    require(hold['ok'] is True and hold['window_root_written'] is False and hold['city_suspended'] is True
+        and hold['gascity_rig_suspended'] is True,'stranded hold result')
+    s.step(refused,current,'rig-suspend')
+    z=s.image(current);expected=json.loads(json.dumps(s.image(record('suspension-baseline.json'))))
+    expected['updated_at']=z['updated_at']
+    require(z==expected,'suspension baseline not restored')
+    return current['pin']
 
 def active_epoch(o):
     # Lifecycle observations cannot use the quiescent observer while the one

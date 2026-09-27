@@ -12,7 +12,7 @@ import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-e8ex-window')
 SOURCE = HERE / 'window-r11.py'
-SHA = '0400a9b1f744b205e66eb4744cc207dd388a7abf8e8fd12768e034c4e59a21e2'
+SHA = '72ad61c5b8e5de59403060e2ec569c522bc8e8aebd3db65430360bdc49b85cfe'
 
 def main():
     assert os.getuid() == os.geteuid() == 1000

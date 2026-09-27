@@ -497,6 +497,49 @@ ROUTE now reruns the survey, as the survey's own contract prescribes ("the surve
 `test_successor.py` must not run in full during the window, since its live tests call gc and git. Only its
 static tests ran for r3: generator output, shell parse, roots, digest bindings and the survey rerun.
 
+**s4 run at r3, and s5.** At `4540e054`, two filed SOURCE_PASS reviews:
+- **ROUTE PASS 07:07:39Z.**
+  - The survey was clean on its first attempt; the task was routed once.
+  - The route audit found gct-mbg6 as the sole eligible task.
+- **WATCH-1 PASS.** Its early directory check reported drift in `city/agents`. The only unrelated change is that
+  directory's atime, which a gc read refreshed across the 24 h relatime mark (86,439 s). RESTORE's preservation
+  admits it through `account_read_times`; WATCH's early check does not apply that step.
+- **RESUME PASS 07:09:44Z.**
+- **The worker** (`codex-ci-sg37g`):
+  - it claimed the task;
+  - its writable roots were exactly the GasCity vault and `gas-city-template-worktrees`, with no override keys;
+  - after 32 minutes of work the task carried `READY FOR SIGNING: gct-mbg6 worktree` (WATCH-5 07:46Z).
+- **CONTAIN-1 refused at 07:47:04Z.**
+  - Its `gc suspend --json` applied cleanly.
+  - The observation then refused with `unexpected live worker`: `gc status` listed the one worker twice, as the
+    rig agent `gas-city-template/codex` and as the session row `codex-ci-sg37g`, while
+    `suspension_status_matches` allows one running row.
+  - The lifecycle saved failure and refused-after and now forbids every further action.
+- **HOLD-1 PASS 07:47:59Z.** It suspended the gas-city-template rig and wrote nothing in the window root.
+- **CLOSE-1 PASS 07:49:24Z.** The session is closed, with zero sessions, tmux sessions and worktree processes.
+- **The cgroup city check** is clean.
+
+**s5** admits exactly that stranded state, and nothing else, in `verified_lifecycle`, which ADMIT, RESTORE and
+TERMINAL all call. The check is terminal only, and it verifies:
+- the five CONTAIN records by digest;
+- the HOLD result by digest;
+- the two completed transitions through the reviewed chain;
+- the city-suspend command record and its one-field step;
+- HOLD's one-field rig-suspend step to the live record;
+- that the live record is the fully suspended baseline.
+
+`lifecycle()` still forbids every further action. Two bindings are handled explicitly:
+- **Observer digest.** `window-r11.py` keeps `OBSERVER_SHA` at the executor that wrote the live OBSERVE record
+  (`f8a163b0`).
+- **CLOSE digest.** `close-r11.py` has a new digest, so CLOSE-2 runs once at s5 to give ADMIT a CLOSE result it
+  binds.
+
+Run order: CLOSE-2, ADMIT, RESTORE, TERMINAL. A read-only dry run of the regenerated `verified_lifecycle` against
+the live window passed the terminal check and refused the non-terminal one.
+
+Follow-up for the next window: `suspension_status_matches` must accept the worker's session row beside its rig
+agent row, and WATCH's early directory check should apply `account_read_times`.
+
 ## Tests
 
 `test_successor.py` is run at s1; the three s2 pins skip until then: the PREP outputs, the live `pins()` and the

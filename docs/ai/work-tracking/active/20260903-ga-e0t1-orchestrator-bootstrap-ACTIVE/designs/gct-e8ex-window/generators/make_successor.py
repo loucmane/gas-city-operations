@@ -564,6 +564,82 @@ REBASE.setdefault('route-task-r5.py', []).extend([
      "    w.save('survey-attempts.json',dict(attempts=attempts))\n", 1),
 ])
 
+# s5: the s4 recovery. CONTAIN-1 (07:47Z) ran `gc suspend --json` cleanly, then its observation refused ('unexpected
+# live worker': gc status listed the one worker twice, as the rig agent gas-city-template/codex and as the session row
+# codex-ci-sg37g). The lifecycle then recorded failure and refused-after and forbids every further action. The
+# reviewed HOLD-1 suspended the gas-city-template rig without writing the window root, and CLOSE-1 closed the session.
+# Every consumer of verified_lifecycle (ADMIT, RESTORE, TERMINAL) would refuse the city-suspend intent without an
+# event. This admits exactly that stranded state, terminal check only, with every record pinned by digest.
+STRANDED_LIFECYCLE = (
+    "def verified_lifecycle(terminal=False):\n"
+    "    s=module(HERE/'suspension-lineage.py',LINEAGE_SHA)\n"
+    "    b,o,owned=load_support()\n"
+    "    current=suspension_record(o)\n"
+    "    return s.chain(record('suspension-baseline.json'),lifecycle_records(s),current,str(ROOT),terminal)\n")
+STRANDED_RECORDS = (
+    ('suspension-city-suspend-intent.json', '34a521cf4312b843bf9923ae68e5481f33ef75d349854f256a3e26ccdd2094a7'),
+    ('suspension-city-suspend-failure.json', '4838aecf94ee7a160b5d39fd24dfbd7ae100f235c554d1d652ab438057a61a1a'),
+    ('suspension-city-suspend-refused-after.json', 'cb8028e59ecde50855c391aae94b138010a95f12c4aba4b5c70cd1b5523ff0af'),
+    ('city-suspend-started.json', 'be90d5aa1acd882e41df98a76683526dba0b4eba920f92b53bf483aa54b16369'),
+    ('city-suspend-phase.json', '2af0215a6e65b99531669ec30bf9e7033945ce8f2756d96b73b114bd52356be3'),
+)
+OBSERVED_EXECUTOR = 'f8a163b00f87b199f6678582832cdeb1c0d7ee93740ca309ea3328c0cfd006ff'
+STRANDED_HOLD = ('/var/tmp/gct-mbg6-hold-20260927T074745Z/result.json',
+                 'd141fae3fb8a1b6d40ecb906e47b644a62c3fbadded933a90cd30af7e8ef71dd')
+REBASE.setdefault('window-base-r11.py', []).append((STRANDED_LIFECYCLE,
+    "# s5 disposition (gct-mbg6 s4 CONTAIN-1 recovery, 2026-09-27), for independent review. CONTAIN-1's city-suspend\n"
+    "# command applied cleanly; its observation then refused because gc status listed the one worker twice (the rig\n"
+    "# agent and its session row), so the lifecycle saved failure and refused-after and forbids every further action.\n"
+    "# HOLD-1 then suspended the gas-city-template rig without writing this root. A window root holding any failure\n"
+    "# or refused-after record is admitted only here: the terminal check, exactly those five records by digest, the\n"
+    "# passing HOLD result by digest, the two completed transitions through the reviewed chain, the city-suspend\n"
+    "# command and its one-field step, HOLD's one-field rig-suspend step to the live record, and the fully\n"
+    "# suspended baseline. Anything else refuses; lifecycle() still forbids every further action.\n"
+    "STRANDED_RECORDS = %r\n"
+    "STRANDED_HOLD = (Path(%r), %r)\n"
+    "\n"
+    "def verified_lifecycle(terminal=False):\n"
+    "    s=module(HERE/'suspension-lineage.py',LINEAGE_SHA)\n"
+    "    b,o,owned=load_support()\n"
+    "    current=suspension_record(o)\n"
+    "    failures=sorted(p.name for p in ROOT.glob('suspension-*-failure.json'))\n"
+    "    refusals=sorted(p.name for p in ROOT.glob('suspension-*-refused-after.json'))\n"
+    "    if not failures and not refusals:\n"
+    "        return s.chain(record('suspension-baseline.json'),lifecycle_records(s),current,str(ROOT),terminal)\n"
+    "    require(terminal,'a stranded lifecycle admits only the terminal check')\n"
+    "    require(failures==['suspension-city-suspend-failure.json']\n"
+    "        and refusals==['suspension-city-suspend-refused-after.json'],'unreviewed stranded lifecycle')\n"
+    "    for name,sha in STRANDED_RECORDS:\n"
+    "        read(ROOT/name,sha)\n"
+    "    intents={p.name[len('suspension-'):-len('-intent.json')] for p in ROOT.glob('suspension-*-intent.json')}\n"
+    "    events={p.name[len('suspension-'):-len('-event.json')] for p in ROOT.glob('suspension-*-event.json')}\n"
+    "    require(intents=={'rig-resume','city-resume','city-suspend'} and events=={'rig-resume','city-resume'}\n"
+    "        and not list(ROOT.glob('rig-suspend-*')),'stranded lifecycle shape')\n"
+    "    records=[]\n"
+    "    for action in ('rig-resume','city-resume'):\n"
+    "        e=record('suspension-'+action+'-event.json')\n"
+    "        intent=record('suspension-'+action+'-intent.json')\n"
+    "        require(intent == dict(action=action,before=e['before'],before_sha256=e['before']['pin']['sha256']),\n"
+    "            'suspension pre-command binding')\n"
+    "        require(e['intent'] == record(action+'-started.json') and e['result'] == record(action+'-phase.json'),\n"
+    "            'suspension phase record binding')\n"
+    "        records.append(e)\n"
+    "    previous=records[-1]['after']\n"
+    "    s.chain(record('suspension-baseline.json'),records,previous,str(ROOT))\n"
+    "    require(record('suspension-city-suspend-intent.json')==dict(action='city-suspend',before=previous,\n"
+    "        before_sha256=previous['pin']['sha256']),'stranded pre-command binding')\n"
+    "    s.phase(record('city-suspend-started.json'),record('city-suspend-phase.json'),'city-suspend',str(ROOT))\n"
+    "    refused=record('suspension-city-suspend-refused-after.json')\n"
+    "    s.step(previous,refused,'city-suspend')\n"
+    "    hold=json.loads(read(*STRANDED_HOLD))\n"
+    "    require(hold['ok'] is True and hold['window_root_written'] is False and hold['city_suspended'] is True\n"
+    "        and hold['gascity_rig_suspended'] is True,'stranded hold result')\n"
+    "    s.step(refused,current,'rig-suspend')\n"
+    "    z=s.image(current);expected=json.loads(json.dumps(s.image(record('suspension-baseline.json'))))\n"
+    "    expected['updated_at']=z['updated_at']\n"
+    "    require(z==expected,'suspension baseline not restored')\n"
+    "    return current['pin']\n" % ((STRANDED_RECORDS,) + STRANDED_HOLD), 1))
+
 
 def fresh_roots(text):
     # The accepted image is the r1 TERMINAL record itself; it keeps its path.
@@ -913,6 +989,12 @@ def rebind(files):
         text = fixup(name, text)
         text = rebase(name, text)
         text = fresh_roots(text)
+        if name == 'window-r11.py':
+            # s5: the live integrity record (OBSERVE at s4 r2) names the observer that actually ran; the regenerated
+            # observer has a new digest, so RESTORE keeps checking the recorded executor.
+            text, n = re.subn(r"^OBSERVER_SHA='[0-9a-f]{64}'$", "OBSERVER_SHA='%s'" % OBSERVED_EXECUTOR, text,
+                              flags=re.M)
+            assert n == 1
         out[name] = text.encode()
     assert all(FRESH_COUNTS.values()), FRESH_COUNTS
     history = {name: {hashlib.sha256(raw).hexdigest()} for name, raw in files.items()}

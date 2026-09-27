@@ -159,6 +159,31 @@ def test_audit_writes_fresh_roots():
             assert '/var/tmp/gct-mbg6-%s-20260926-r3' % root not in raw.decode(), (name, root)
 
 
+def test_s5_restore_keeps_the_recorded_observer():
+    # RESTORE checks the live OBSERVE record, written by the observer that actually ran at s4 r2.
+    intent = json.loads(Path('/var/tmp/gct-mbg6-integrity-20260926-r2/intent.json').read_text())
+    assert "OBSERVER_SHA='%s'" % intent['executor_sha256'] in (HERE/'window-r11.py').read_text()
+
+
+def test_s5_stranded_lifecycle_is_pinned(g):
+    base = (HERE/'window-base-r11.py').read_text()
+    assert base.count('def verified_lifecycle(') == 1
+    assert "require(terminal,'a stranded lifecycle admits only the terminal check')" in base
+    for name, digest in g.STRANDED_RECORDS:
+        assert "('%s', '%s')" % (name, digest) in base
+        assert sha(Path('/var/tmp/gct-mbg6-window-20260926-r2')/name) == digest
+    path, digest = g.STRANDED_HOLD
+    assert sha(Path(path)) == digest
+    # lifecycle() still forbids every further action once a failure record exists.
+    assert "and not list(ROOT.glob('suspension-*-failure.json'))\n" in base
+
+
+def test_s5_close_digest_is_consistent():
+    values = {re.search(r'^CLOSE_SHA=([0-9a-f]{64})$', (HERE/'operator'/n).read_text(), re.M).group(1)
+              for n in ('ADMIT.sh', 'CLOSE-1.sh', 'CLOSE-2.sh')}
+    assert values == {sha(HERE/'close-r11.py')}
+
+
 def test_route_reruns_the_survey_boundedly():
     text = (HERE/'route-task-r5.py').read_text()
     assert text.count('pr.survey(') == 1
