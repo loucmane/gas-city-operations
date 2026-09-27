@@ -49,10 +49,12 @@ source-PASS claim follows from this draft.
 3. Bind the final exact cache disposition after a complete current-state
    comparison. Do not copy the old window's accepted timestamp or normalize
    unrelated drift. C1's later operator-bound disposition remains separate.
-4. Exercise the final consolidated package tests, preserve all failure evidence,
-   sign a clean candidate, and obtain two fresh request-bound Astra reviews.
-   Only then remove the deliberate draft barriers in the reviewed candidate
-   and queue its exact jobs through the existing runner.
+4. After the missing technical checks are implemented, replace the deliberate
+   draft barriers as part of preparing the final execution candidate. Exercise
+   its consolidated tests, preserve all failure evidence, sign the clean final
+   candidate, and obtain two fresh request-bound Astra reviews. Queue only
+   those exact reviewed bytes. Never change a barrier or pin after review and
+   reuse the earlier verdicts.
 
 No new root, privilege, worker service, task database, permission exemption or
 Claude invocation is introduced. The product source remains for Gas City.
