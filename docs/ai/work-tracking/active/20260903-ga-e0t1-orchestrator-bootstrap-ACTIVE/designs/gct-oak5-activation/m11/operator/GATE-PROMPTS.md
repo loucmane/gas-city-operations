@@ -53,7 +53,8 @@ Coordinator extract (a claim): {EXTRACT}
    - sources_count 13 and sources_equal_expected true;
    - release_id gct-oak5-template-candidate-lane-metadata-m11-20260927;
    - previous_manifest 2b902a83...;
-   - last_repository template-pr71-authority at cfd353f30f465cdf67bbd41fab48812fe5b9617e (unchanged);
+   - last_repository template-pr72-canonical: path /home/loucmane/gas-city-template, commit
+     3474abfaec255f7ea4266ce8aa35218afcfc89b0, allow_dirty true (template-pr71-authority at cfd353f3 stays pinned before it);
    - previous_image previous_sha256 207a78e2... with backup_path /var/tmp/ga-bebv-build-20260927/gc-b;
    - counts 692/50/23;
    - every changed_inputs value true (city.toml and reports/m11-inputs/city.toml b0eeb168, the gc-b backup
@@ -84,7 +85,7 @@ Coordinator extract (a claim): {EXTRACT}
      "accepted_recovery_sha256":"{BASELINE}";
    - Q/manifest.json has "release_id":"gct-oak5-template-candidate-lane-metadata-m11-20260927", a
      previous_sha256 starting 207a78e2, the city-config source reports/m11-inputs/city.toml with b0eeb168, and
-     the Template wrapper provider path.
+     the Template wrapper provider path, and a repository with "commit":"3474abfaec255f7ea4266ce8aa35218afcfc89b0".
 3. Confirm that PKG/source-pins.json lists the six package sources the extract expects.
 
 Output: the first line is the verdict word (SOURCE_PASS or HOLD) followed by the full commit. Then
