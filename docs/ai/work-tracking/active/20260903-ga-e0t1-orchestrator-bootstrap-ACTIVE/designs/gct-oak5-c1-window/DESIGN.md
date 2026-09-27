@@ -1,9 +1,9 @@
-# gct-oak5 C1 window — design (d5)
+# gct-oak5 C1 window — design (d6)
 
 C1 is the first segment of the gct-oak5 handover (accepted plan `designs/gct-oak5-handover/PLAN.md`, r18). It routes the
 open step **gct-9s1c** to the Template Claude candidate lane `gas-city-template/gc.implementation-worker` in the new
 handover worktree. This document fixes *what* the window package does before it is generated. d2 answered the d1
-reviews of `32e95862`, d3 answered the d2 reviews of `9b8f22ad`, d4 answered the d3 reviews of `cc51beed`, and d5 answers the d4 reviews of `e8bbc592` (A and B HOLD); see §9 to §12.
+reviews of `32e95862`, d3 answered the d2 reviews of `9b8f22ad`, d4 answered the d3 reviews of `cc51beed`, d5 answered the d4 reviews of `e8bbc592`, and d6 answers the d5 reviews of `84bfeac4` (A and B HOLD); see §9 to §13.
 
 ## 1. Source and method
 
@@ -128,7 +128,14 @@ Each asserted with its count in the generator:
    the raw city exports**: rows labelled `gc:nudge` with `agent:gas-city-template/gc.implementation-worker` created
    after BIND-before number at most one. The dedup (`nudge-on-route.sh:130-150`) records a pair only after a nudge
    succeeds and prunes it after 1 h, so a failed first nudge or more than an hour between C1 updates can produce a
-   second row in a well-behaved run; that refuses (fail closed) and is stated. It also checks that no chained-scope row has the route-recovery shape
+   second row in a well-behaved run; that refuses (fail closed) and is stated. The same holds for the other paths the
+   script can take: a nudge to a not-running session takes Core's queue-and-wake path (`cmd_nudge.go:771-778,
+   848-858, 887-932`), which writes a row and the session Bead; with no active member the script nudges the pool base
+   (`nudge-on-route.sh:64-81`); and the last-seen time is refreshed on every re-observed pair (`nudge-on-route.sh:133-137`),
+   so pruning needs an hour without a C1 update inside the lookback. At ROUTE the rig is suspended, so the early runs
+   can take the queue path. s1 pins from `cmd_nudge.go:762-845` whether a queued nudge counts as a success for the
+   dedup, and tests the count on the gct-mbg6 records (one row observed); if the source allows a second row in a normal
+   window, the rule stays fail closed and the refusal is a stated stop, not a gap. It also checks that no chained-scope row has the route-recovery shape
    (open, unassigned, kind-less, `gc.run_target` without a route).
 
 ## 6. New and changed window steps
@@ -155,23 +162,36 @@ Each asserted with its count in the generator:
        (its `session_name`) and runs `tmux -S /tmp/tmux-1000/city list-panes -a -F '#{session_name} #{pane_pid}'`,
        mapping the lane session's pane pid to its cgroup scope, in the same observation as the census. The operator
        keeps no tmux pane on the city socket during the window (the ga-6utp constraint, `ga-6utp-activation-r10/PLAN.md`
-       "operator panes"). Any other pane on that socket is a trigger.
+       "operator panes"). Any other pane on that socket is a trigger; tmux servers on other sockets are outside the
+       census. The tmux 3.4 answers for a server with no session ("no current target", `close-r11.py:14-20`) and for no
+       server read as an empty pane list, not as a failed call; any other non-zero answer is a failed call (a bound).
+     - **The controller cgroup** may hold only the controller and its own children: the processes of the order
+       executions (`nudge-on-route.sh` and its gc and bd calls), each a descendant of the pinned controller pid 2800348.
+       A pane left in the controller cgroup (a failed scope move, `ga-6utp-activation-r10/PLAN.md:377-379, 412-413`) is
+       a trigger.
+     - **Stated gap:** a worker can move a process into another cgroup it owns under `user@1000`, which the census does
+       not see. That is the accepted semi-trusted worker model (reviewed windows, two-reviewer diffs, CI), not a
+       control this window claims.
      - **The startup phase.** From the lane pane's first appearance until the first tick that observes the exec'd
-       provider (below), the scope may hold only the pane's initial process chain and the launch wrapper
-       (`bin/gct-claude-template-candidate-worker`, running `/usr/bin/python3.12` on
-       `lib/gct_claude_template_candidate_worker.py`), plus at most one `claude … auth status --json` child
-       (`gct_claude_subscription.py:267-283`, 30 s). The pane's initial process chain is pinned at s1 from Core's tmux
-       launch and the ga-3oa7 evidence. The startup phase ends at the silent-start bound at the latest.
-     - **The lane provider process** is the one process in the lane's pane scope whose `/proc/<pid>/exe` resolves to
-       the realpath of `/home/loucmane/gascity/bin/claude`, with that file's sha256 pinned at s1, and whose parent is
-       outside the provider's own tree (the wrapper's exec). Its argv must equal the wrapper-validated argv pinned at
-       s1 (the directory grant, `--permission-mode dontAsk`, `--effort max`, `--model claude-opus-5-5`,
-       `--setting-sources ''`, the policy file).
+       provider (below), the scope may hold only the pane's initial process chain and the launch wrapper (first
+       `/bin/sh` running `bin/gct-claude-template-candidate-worker`, which execs `/usr/bin/python3.12` on
+       `lib/gct_claude_template_candidate_worker.py` in the same pid, `bin/gct-claude-template-candidate-worker:13-14`),
+       plus at most one `claude … auth status --json` child of the wrapper (`gct_claude_subscription.py:267-283`, 30 s).
+       The pane chain's shape is pinned at s1 from Core's tmux launch and the ga-3oa7 evidence; at the first tick that
+       sees the pane, WATCH-LOOP records the chain's **pid set**, and only those pids are admitted as the chain for the
+       rest of the window. The startup phase ends at the silent-start bound at the latest.
+     - **The lane provider process** is the **wrapper's own pid** after its exec: the pid recorded as the wrapper, once
+       its `/proc/<pid>/exe` resolves to the realpath of `/home/loucmane/gascity/bin/claude` (sha256 pinned at s1). The
+       `auth status` child is a different pid and never counts as the provider; it is identified by its parent (the
+       wrapper pid) and its argv (`gct_claude_subscription.py:268-276`). The provider's argv must equal the
+       wrapper-validated argv pinned at s1 (the directory grant, `--permission-mode dontAsk`, `--effort max`,
+       `--model claude-opus-5-5`, `--setting-sources ''`, the policy file), with the positional startup prompt and an
+       optional `--resume <id>` matched by the boundary's own shape rules (`gct_claude_signing_worker.py:259-269,
+       293-297, 322-323`), which s1 reuses as code rather than restating.
      - **After the provider is first observed**, every other process in the lane's pane scope must be a descendant of
        it (the worker's tools and any subprocess it starts, including further `claude` executables), apart from the
-       pinned pane chain; a process that is not is a trigger. **Zero** provider processes while the session Bead is
-       open and C1 is claimed and not closed, or **more than one** provider process whose parent is outside every
-       provider tree, is a trigger.
+       recorded pane-chain pids; a process that is not is a trigger. The provider pid gone while the session Bead is
+       open and C1 is claimed and not closed is a trigger.
    - **Containment triggers** (inline CONTAIN, then exit): any change to a non-current Bead, `gct-oak5` or a holder; a
      C1 regression (status back to open, or the assignee cleared or moved: orphan release or re-assignment); a second
      lane session Bead at any time, concurrent or sequential; a second pane scope; a provider argv other than the
@@ -184,7 +204,8 @@ Each asserted with its count in the generator:
        four-hour bound minus ADMIT's reserve, minus CLOSE's budget (the 10-minute session wait plus the image and
        snapshot exports, 30 minutes), minus a 15-minute margin. The wrapper budgets become: TERMINAL 20 minutes (from 8,
        for the settle pair and its exports); RESTORE 60 (from 45: its worst case, the 20-minute trace wait plus the
-       reload, transition and snapshots, about 37 minutes, plus TERMINAL's 20 and a margin); ADMIT 75 (from 60, at
+       reload, transition and snapshots, about 37 minutes, plus TERMINAL's 20 and a margin; s1 lists each RESTORE
+       phase's timeout from `window-r11.py` and the test sums them rather than trusting the estimate); ADMIT 75 (from 60, at
        least RESTORE + 15); CLOSE gains a budget gate of 105 (ADMIT's 75 plus its own 30). The deadline is therefore
        PREFLIGHT + 4 h − 75 − 30 − 15 min = **PREFLIGHT + 2 h 00 min**. WATCH-LOOP computes it itself from the window
        `before.json` `cache_access_clock.start` (CLOCK_BOOTTIME, with the boot-id check of `budget-r11.py`) and refuses
@@ -200,8 +221,11 @@ Each asserted with its count in the generator:
      7 minutes (a 120 s phase and a 90 s barrier per action), so a `systemctl stop` normally strands at HOLD-1. The
      runner itself sets no time limit (`TimeoutStartSec=infinity`). The `finally` never starts a containment when any
      **containment record** already exists (a `city-suspend` or `rig-suspend` intent, started, event, failure or
-     refused-after record in the window root; the RESUME records do not count); `lifecycle()` also refuses on existing
-     outputs (`window-base-r11.py:644-655`).
+     refused-after record in the window root); `lifecycle()` also refuses on existing outputs and on any failure or
+     refused-after record of any action (`window-base-r11.py:644-655`).
+     **Exit status:** WATCH-LOOP exits 0 after the normal end with its containment pair complete, or after a trigger or
+     drift whose containment pair completed (both suspend events recorded); the segment outcome is in its own records.
+     Every other end exits non-zero, which the runner's done record keeps.
    - **Directory atimes:** WATCH-LOOP runs none of WATCH's early directory checks, so no relatime refresh can trigger
      it.
    - **Second-route negative, exactly once.** Two write-once records live in the WATCH-LOOP root and are never
@@ -279,24 +303,37 @@ Each asserted with its count in the generator:
      and with two session rows, which refuses. The s5 gct-mbg6 stranded-lifecycle
      admission, pinned to gct-mbg6's records by digest, is **dropped**. The s3 never-resumed CLOSE branch stays: it
      applies if the window stops before RESUME.
-   - **Pre-reviewed fallback slots** (the runner never reruns a job at a commit). The coordinator chooses by the
-     **containment records** in the window root (a `city-suspend` or `rig-suspend` intent, started, event, failure or
-     refused-after record; RESUME's records do not count), first match wins:
-     1. **HOLD-1** if any containment record is incomplete (an intent without its event, or a started phase without its
-        phase record), or any failure or refused-after record exists: the reviewed rig-level hold (`hold-r11.py:41-59`,
-        its predicate extended to name WATCH-LOOP, WATCH-LOOP-2 and CONTAIN-2 as possible writers). This is a stranded
-        containment and a standing stop;
+   - **Pre-reviewed fallback slots** (the runner never reruns a job at a commit). After WATCH-LOOP, and after each
+     fallback job, the coordinator evaluates the window root's lifecycle records and the runner's done records. First
+     match wins:
+     0. **No fallback**, CLOSE next: the city-suspend and rig-suspend events are both recorded and no record matches
+        rule 1.
+     1. **HOLD-1** on the full `stranded()` predicate (`hold-r11.py:8-12, 41-59`): any lifecycle record of any action,
+        RESUME's included, that is incomplete (an intent without its event, a started phase without its phase record);
+        any failure or refused-after record of any action; a non-zero done record of WATCH-LOOP, WATCH-LOOP-2 or
+        CONTAIN-2 (the predicate extended to name them); or rules 2 to 4 selecting a slot already used. This is a
+        stranded window and a standing stop;
      2. **CONTAIN-2** if the city-suspend records are complete and no rig-suspend record exists (WATCH-LOOP was killed
         between the pair, or rig-suspend refused before its intent). Like the reviewed CONTAIN-1
         (`operator/CONTAIN-1.sh:40-45`), CONTAIN-2 acts by events: it runs city-suspend only if absent and rig-suspend
         only if absent;
-     3. **WATCH-LOOP-2** if no containment record exists, and C1 is not closed, or the session is not closed, or a
-        probe decision without an outcome exists. Hold-only: no probe, decision or note. It contains at once on a
-        decision without an outcome (drift). Otherwise it runs only the normal or abnormal end, with the original
-        WATCH-LOOP's absolute bounds (silent start, loop deadline, stop file) and WATCH-LOOP's last recorded open tick
-        for the `closed_at` bracket;
-     4. **CONTAIN-2** if no containment record exists, C1 is closed and the session Bead is closed in a drain-ack end
-        state with an empty census. CONTAIN-2 checks its own precondition and refuses otherwise.
+     3. **CONTAIN-2** if no containment record exists, C1 is closed, and the session Bead is closed in a drain-ack end
+        state with an empty census (the quiet end);
+     4. **WATCH-LOOP-2** in every other state with no containment record: the exact complement of rule 3 within that
+        branch (C1 not closed, the session not closed, a probe decision without an outcome, or C1 and the session
+        closed but not in a drain-ack end state or with a non-empty census). Hold-only: no probe, decision or note. It
+        contains at once on a decision without an outcome, and at once on a closed session that is not the quiet end
+        (a failed segment). Otherwise it runs only the normal or abnormal end, with the original WATCH-LOOP's absolute
+        bounds (silent start, loop deadline, stop file) and WATCH-LOOP's last recorded open tick for the `closed_at`
+        bracket.
+
+     CONTAIN-2's own precondition check is the **union** of rules 2 and 3; it refuses in any other state. Each slot
+     runs at most once; after it, the same evaluation runs again, and a slot already used selects HOLD-1 (rule 1).
+     **RESUME refusing** before its intent leaves the city suspended: the s3 never-resumed CLOSE branch applies. A
+     RESUME that leaves any record incomplete, failed or refused-after goes to HOLD-1 by rule 1.
+     **The generated operator set** is exactly the main-path jobs plus HOLD-1, CONTAIN-2 and WATCH-LOOP-2. The inherited
+     gct-e8ex `CONTAIN-1.sh`, `CLOSE-2.sh`, `HOLD-2.sh` and `WATCH-1..12.sh` are not generated (WATCH-LOOP's inline
+     containment replaces CONTAIN-1, and CLOSE has one slot); a test pins the operator file set.
 
      A stranded containment for C1 stops the handover: HOLD-1 holds the rig and the operator is told. There is no
      stranded-lifecycle admission for C1. Dropping the s5 admission means `verified_lifecycle` then refuses, so ADMIT,
@@ -308,9 +345,17 @@ Each asserted with its count in the generator:
      not drained or closed by the coordinator while the bound runs. At the bound the run is no longer normal: CLOSE
      then uses the inherited `gc runtime drain` and `gc session close` (`close-r11.py:124-152`) and records a **failed
      segment**. On the drift or trigger path, where the worker may still hold an `in_progress` claim, CLOSE uses the
-     same inherited commands at once (as gct-mbg6's CLOSE-1 did). The inherited zero-residue proof then decides: a lane
-     process that survives is a **standing stop** (the operator is told; a reviewed successor follows). No new process
-     control is added: the ga-6utp cgroup control is detection only, and CLOSE never signals a process itself;
+     same inherited commands at once (as gct-mbg6's CLOSE-1 did). The **decisive residue proof is the cgroup census**:
+     the lane scope found by the path WATCH-LOOP recorded (the pane is gone after `gc session close`, so not by
+     `list-panes`), and the controller cgroup, both with no lane process. The inherited `/proc` argv and cwd scan
+     (`close-r11.py:72-89, 171-175`) stays as an extra check only (ga-6utp says such a scan is never the control,
+     `ga-6utp-activation-r10/PLAN.md:370-376`). A lane process that survives is a **standing stop** (the operator is
+     told; a reviewed successor follows). No new process control is added: the ga-6utp cgroup control is detection
+     only, and CLOSE signals no process itself; its one inherited server action is `tmux kill-server` on an empty
+     city server (`close-r11.py:166-169`);
+   - **CLOSE's budget gate** (105 minutes, inside `budget-r11.py:38`'s range) runs **after** the drain, the session
+     close and the residue proof, and gates only the image and snapshot exports, so a budget refusal never skips the
+     teardown of a possibly live worker;
    - the rule 6 audit; the probe target empty; the A2 audit that no default-choice codex route targets the candidate
      root; `common-snapshot-r1.py after` (no change);
    - **image 1:** `image_tool.py export --runtime claude` (after the session Bead's end state and a zero-process
@@ -320,11 +365,16 @@ Each asserted with its count in the generator:
      key; H2 empty); and the common-snapshot `after` digest.
 7. **ADMIT, RESTORE, TERMINAL** as in gct-e8ex. **TERMINAL** also:
    - takes the store **CLOSE-after** settle pair (§5.2): snapshots 5 minutes apart, at most three, inside TERMINAL's
-     own 20-minute budget. Two consecutive identical snapshots settle it; otherwise TERMINAL refuses (a stop);
+     own 20-minute budget. Two consecutive identical snapshots settle it; otherwise TERMINAL refuses (a stop). The
+     arithmetic test counts the 10 minutes of spacing plus the pinned export and inherited-check timeouts against the
+     20. Whether a baseline order re-enabled by RESTORE can write a Template-store row is pinned at s1 from the order
+     set and the gct-mbg6 TERMINAL records; if one can, the settle refuses (fail closed) and that is a stated stop;
    - checks the within-window allowlist, so ADMIT's and RESTORE's writes, if any, are inside the compared window. For an
      accepted segment it also checks the drain-ack end state. For a failed segment (a silent start, a non-drain-ack
-     end, drift or a coordinator close) it records the failed outcome instead, and still restores and observes. C1's
-     leftover route and claim then stay as Core left them, and the handover stops for an operator decision;
+     end, drift or a coordinator close) it records the failed outcome instead, and still restores and observes. The
+     claim release that `gc session close` makes on that path (`close-r11.py:27-31`: C1 open and unassigned) is
+     admitted by the allowlist **only** under the failed outcome, never for an accepted segment. C1's leftover route
+     then stays as Core left it, and the handover stops for an operator decision;
    - checks that the Bead-state part of `image1-record.json` equals the CLOSE-after rows.
 8. **H1 (after TERMINAL PASS, its own job):** it runs only if the segment is accepted: C1 closed by its own worker
    with the success close reason, no `C1 STOP` note, the `C1 DONE` note's two digests equal to image 1's, the closed
@@ -345,13 +395,13 @@ image); `holder` checking the image's lanes.
 
 ## 8. Run order
 
-1. The design (this document, d5), two reviews.
+1. The design (this document, d6), two reviews.
 2. s1: the generated package and image tool r3, two reviews. Jobs: WORKTREE (with image 0 and the common `before`),
    then PREP.
 3. s2: PREP pins and, with the operator's cache-disposition approval, `CACHE_PINNED_NS`; two reviews.
 4. Window: BIND, OBSERVE, PREFLIGHT, STAGE, ROUTE, RESUME, WATCH-LOOP (probe, normal end, containment), CLOSE
    (image 1), ADMIT, RESTORE, TERMINAL (CLOSE-after), then H1. The fallbacks (HOLD-1, CONTAIN-2, WATCH-LOOP-2) are
-   reviewed with the package and run only on the rules in §6.5.
+   reviewed with the package and run only on the rules in §6.5 (§6.5 fallback slots, rules 0 to 4).
 
 ## 9. d2 (answers the d1 reviews of `32e95862`: A and B HOLD)
 
@@ -477,3 +527,29 @@ image); `holder` checking the image's lanes.
   - the stale text, and plan r20 on the derivation source and on TEARDOWN (B 6).
 - **Next:** the generated package, where the tests pin these rules as code (the procedure-as-code rule: four design
   rounds found gaps in prose, so the s1 code and its tests carry the precise semantics from here on).
+
+## 13. d6 (answers the d5 reviews of `84bfeac4`: A and B HOLD)
+
+- **Both must_fix 1: the state with no slot.** It is closed by rule 4: WATCH-LOOP-2 is the exact complement of the
+  quiet end within the no-record branch and contains at once on a closed session that is not the quiet end.
+- **Both must_fix 2: HOLD-1 not reached.** Rule 1 now uses the full `stranded()` predicate: incomplete, failure and
+  refused-after records of any action (RESUME's included), non-zero done records of the new jobs, and a slot already
+  used. WATCH-LOOP's exit status is defined, so a completed containment is not misread as stranded, and rule 0 sends
+  a completed pair to CLOSE.
+- **Should_fix taken:**
+  - the provider is the wrapper's own pid after exec, the `auth status` child is excluded by pid, parent and argv, the
+    `/bin/sh` stage is admitted, and the prompt and `--resume` shapes reuse the boundary's rules (A 3, B 1);
+  - the pane chain is admitted by its recorded pid set (B 2);
+  - the census scope: the controller cgroup rule, only the city socket, the tmux empty answers, and the stated
+    cgroup-move gap (A 4, B 3);
+  - the cgroup census as the decisive residue proof, found by the recorded path, with `tmux kill-server` named, and a
+    pane left in the controller cgroup as a trigger (A 5, B 4);
+  - CLOSE's budget gate after the teardown (A 2);
+  - CONTAIN-2's precondition as the union, each slot once, then re-evaluation (A 6, B 7);
+  - the generated operator set pinned (A 7);
+  - the claim release admitted only under the failed outcome (A 8);
+  - RESTORE's phase timeouts summed by the test (A 9);
+  - the nudge paths named, with the queued-nudge dedup pinned from source at s1 (A 10, B 5);
+  - TERMINAL's settle arithmetic and the re-enabled order question pinned at s1 (B 6);
+  - RESUME refusing and RESUME's stranded records (A 1).
+- **Next:** the generated package with tests (the procedure-as-code rule).
