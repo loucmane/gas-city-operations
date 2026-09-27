@@ -194,4 +194,15 @@ Both run in one reviewed job (`operator/PROBE-AB.sh`, `probe/probe_ab.py`), beca
   - The pinned test command `/usr/bin/env PYTHONDONTWRITEBYTECODE=1 TMPDIR=… /usr/bin/python3.12 -m pytest …` was **refused**: "Permission to use Bash has been denied because Claude Code is running in don't ask mode". The earlier lesson about leading assignments therefore extends to the `/usr/bin/env` form.
 - **Worktree.** The worktree gained only the empty `.claude/.cc-writes`. The temp directory was gone, and there was no bytecode and no pytest cache.
 - **Git.** The admin `index` was **identical**. The session created an empty `config.worktree` (0644) in both `clone/.git/` and `clone/.git/worktrees/wt/` at 16:16:17.504, and nothing else changed in `.git`.
-  - In the live repositories the common file already exists: the Template's since 2026-09-06, the Operations one since 2026-09-26 and Core's since 2026-09-17. Every linked worktree admin directory has one.
+  - In the live repositories the common file already exists: the Template's since 2026-09-06, the Operations one since 2026-09-26 and Core's since 2026-09-17. Most linked worktree admin directories have one, not all: in the Template, 92 of 107, and gct-mbg6 (codex) has none.
+
+## 12. Probe run 2 (`oak5-probe-ab-r4`, commit `c3ea9bfc`, 16:25:30–16:26:17 CEST (14:25–14:26Z))
+
+- Stage `probe-ab-r3`; job exit 0; Claude exit 0 after 44.5 s. The Claude binary sha256 starts `1e08503d`, no `GIT_*` variable was set, and no MCP server started.
+- **Commands.** All five were auto-allowed and ran exactly as written:
+  - `mkdir -p .oak5-c2-tmp/basetemp`;
+  - `/usr/bin/python3.12 -B -m pytest -q -p no:cacheprovider --basetemp=<wt>/.oak5-c2-tmp/basetemp tests/test_gct_handover_digest.py`: **4 passed in 0.01s**;
+  - `/usr/bin/python3.12 -B -c "import tempfile; print(tempfile.gettempdir())"`: `/tmp/claude-1000`;
+  - `chmod -R u+w`, then `rm -r`.
+- **Worktree.** It gained only `.claude/.cc-writes`. The temp directory was gone, and there was no bytecode or pytest cache.
+- **Git.** The index was identical. The pre-created `config.worktree` files (common and admin) were unchanged, and nothing else in `.git` changed at file level.
