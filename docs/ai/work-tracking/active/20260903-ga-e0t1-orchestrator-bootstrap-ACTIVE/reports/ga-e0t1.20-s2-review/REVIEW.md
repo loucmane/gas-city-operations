@@ -116,3 +116,50 @@ defect are should-fix, not a new design campaign. Disagreement means HOLD.
 Nothing in this packet grants new privilege, weakens technical checks or
 replaces the standing operator authorization. C1's later cache decision remains
 its separate operator checkpoint.
+
+## Successor after independent review — 2026-09-28 CEST
+
+Signed 9afefb6b3acad0670c103517f50f883e760274d0 received two HOLD reports.
+Both identified the runbook ordering defect. Reviewer B additionally proved
+that inherited CLOSE could retarget a same-template session during polling.
+B's lossless native envelope is filed in the runner's review ledger, blocking
+that commit. A's full native report is preserved but export correctly refused
+its multiple turn_context records; it is not an admission envelope. No record
+was removed, rewritten or fabricated to make it admissible.
+
+Request/evidence roots: /tmp/ga-e0t1-20-s2-reviews-20260928-r1 and r2.
+The r1 requests were interrupted before verdict because they lacked literal
+Wrapper lines. The r2 full reports remain attached to their exact candidate.
+Native reviewer A: 01a0e51a-aa3c-7590-a437-475bd03935e5.
+Native reviewer B: 01a0e51b-a9fe-7603-880c-218d0477a0ba.
+
+Corrections, without weakening any staging or identity gate:
+
+- Runbook now orders BIND, OBSERVE, PREFLIGHT, STAGE, ROUTE, RESUME. A regression
+  compares this sequence against the real stage and route prerequisites.
+- CLOSE validates the whole singleton census, exact workspace/provider/rig
+  and task claim before any native drain or close. It exclusively persists
+  the immutable session identity and retains it across polls and subsequent
+  invocations. A published startup-release identity must agree. A different
+  same-template session, wrong claim, extra session or absent binding refuses.
+- Generated-CLOSE tests run its real main function against mocked host-command
+  results and disposable filesystem evidence. They prove no mutation reaches
+  a wrong initial worker, changed claim, extra session, substituted ID, or
+  later invocation's replacement. No production command is executed by tests.
+- The stale generator README now distinguishes inert default assembly from
+  the 55-file explicit execution-candidate mode.
+
+Current focused result: 141 PASS, zero failures/skips, preserved at
+/tmp/ga-e0t1-20-s2-close-tests-20260928-r1.xml. Final exact successor tests and
+its refreshed post-recording host observation are bound by its review request.
+Only these corrections and evidence updates follow the held candidate; its
+other reviewed operational checks remain unchanged except propagated hashes.
+Two fresh one-shot request-bound reviews are still required. No S2 job ran.
+
+Successor final baseline r3 follows the six-check PASS at 01:15:51 CEST:
+/tmp/ga-e0t1-20-readonly-baseline-20260928-r3/result.json and observed.json.
+Observation SHA-256 5931029c8f398219924b0ac950b592ad7c915662984125a8cf8adcce85c22c20;
+the exact two cache times are 1790550950937952576. All other non-access-time
+fields and providers remain unchanged, and the workspace image is identical.
+This supersedes the r2 binding only for the corrected candidate; earlier
+observations and the held signed candidate remain untouched.

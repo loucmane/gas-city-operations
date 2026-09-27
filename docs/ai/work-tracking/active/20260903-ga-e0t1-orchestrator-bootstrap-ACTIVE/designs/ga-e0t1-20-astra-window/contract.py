@@ -4,6 +4,7 @@ This is not a launch command, provisioning receipt, or worker source repair.
 The full raw Bead and runtime observations remain evidence at each caller.
 """
 import hashlib
+import re
 import stat
 
 TASK = 'ga-e0t1.20'
@@ -83,6 +84,41 @@ def validate_rule_status(raw):
     require(entries[-1] == b'', 'unterminated Git status')
     require(len(entries[:-1]) == len(expected) and set(entries[:-1]) == expected,
             'candidate contains changes beyond its two pinned ignored policy files')
+
+
+def close_identity(session):
+    require(isinstance(session,dict) and session.get('template')==TARGET
+            and session.get('rig')=='gascity' and session.get('provider')==PROVIDER
+            and session.get('work_dir')==WORK and not session.get('closed'), 'close worker capability differs')
+    for key in ('id','session_name'):
+        require(isinstance(session.get(key),str)
+                and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{1,127}',session[key]), 'close identity missing')
+    require(isinstance(session.get('created_at'),str) and session['created_at'], 'close creation identity missing')
+    return {key:session.get(key) for key in ('id','session_name','template','rig','provider','work_dir','worker_dir','created_at')}
+
+
+def close_census(value, expected):
+    require(isinstance(value,dict) and value.get('ok') is True
+            and isinstance(value.get('sessions'),list) and len(value['sessions'])<=1, 'close census not singleton')
+    rows=value['sessions']
+    if rows:require(close_identity(rows[0])==expected, 'close session substituted or not bound')
+    return rows
+
+
+def close_claim(task, session):
+    require(task.get('id')==TASK and task.get('status') in ('open','in_progress'), 'close task identity or state')
+    for key,digest in (('description',DESCRIPTION),('acceptance_criteria',ACCEPTANCE)):
+        require(isinstance(task.get(key),str) and hashlib.sha256(task[key].encode()).hexdigest()==digest,
+                'close task contract differs')
+    metadata=task.get('metadata')
+    require(isinstance(metadata,dict) and metadata.get('gc.work_dir')==WORK
+            and metadata.get('gc.routed_to')==TARGET, 'close task route or workspace differs')
+    owner={'gc.session_id':session['id'],'gc.session_name':session['session_name']}
+    require(all(metadata.get(k,v)==v for k,v in owner.items()), 'close task has another session binding')
+    if task['status']=='in_progress':
+        require(task.get('assignee')==session['session_name']
+                and all(metadata.get(k)==v for k,v in owner.items()), 'close claim owner differs')
+    else:require(not task.get('assignee'), 'open close task unexpectedly assigned')
 
 
 def running_rows(value, census, action):

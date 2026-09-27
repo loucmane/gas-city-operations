@@ -63,18 +63,18 @@ reviews of the exact signed head and the runner's checks remain mandatory.
    evidence bounds, policy hashes and exact common-Git preservation. Only after
    independent candidate review may the coordinator intake or deliver its patch.
 3. The complete read-only host comparison is preserved at
-   /tmp/ga-e0t1-20-readonly-baseline-20260928-r2. Observation SHA-256 is
-   d04d5390e1ce57e23502b644d4dbca16070e8a7946b328622acc1d5018570e70.
+   /tmp/ga-e0t1-20-readonly-baseline-20260928-r3. Observation SHA-256 is
+   5931029c8f398219924b0ac950b592ad7c915662984125a8cf8adcce85c22c20.
    Its only non-access-time differences from accepted P13 are mtime_ns and
    ctime_ns of cache directory
    954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git:
-   1790510685769555369 -> 1790549689686189995. All cache content, all other
+   1790510685769555369 -> 1790550950937952576. All cache content, all other
    metadata, host, protected and provider fields compare exactly under the
    existing historical read-time contract. This candidate binds that pair
    exactly under standing corrected-package authority. Any later change still
    refuses. No timestamp is written or silently normalized. C1's later
    explicitly operator-bound disposition remains separate and is not granted.
-   The r1 observation remains preserved. The r2 observation follows the final
+   The r1 and r2 observations remain preserved. The r3 observation follows the final
    coordinator evidence/Bead/verify commands, which refresh this directory.
    The exact package-shaped native gc read was separately observed not to do so.
 4. Sign the clean final candidate and obtain two fresh request-bound Astra
@@ -88,7 +88,7 @@ Each wrapper receives the same reviewed commit; every completed operation and
 consumed output root is preserved. One job at a time, using fresh native review
 envelopes admitted by the existing runner protocol.
 
-1. BIND -> ROUTE -> OBSERVE -> PREFLIGHT -> STAGE -> RESUME. Read each result,
+1. BIND -> OBSERVE -> PREFLIGHT -> STAGE -> ROUTE -> RESUME. Read each result,
    not merely its exit code. BIND/ROUTE are ledger mutations, not worker launch;
    RESUME alone releases this scoped demand after its sole-task queue audit.
 2. WATCH-1 and, if needed, the next unused WATCH wrapper observe startup. Only
@@ -107,7 +107,10 @@ envelopes admitted by the existing runner protocol.
    before any successor. HOLD/CLOSE-2/CONTAIN-2 are existing bounded recovery
    surfaces, not permission to replay an ambiguous transition. CLOSE's exact
    native session close and empty city-server close are inherited reviewed
-   operations; no direct signal or fallback is added.
+   operations; no direct signal or fallback is added. CLOSE now persists the
+   exact worker identity before mutation, checks the whole singleton census,
+   and verifies the task claim before drain and before close. Polling, HOLD
+   recovery and later CLOSE invocations cannot substitute another session.
 5. INSPECT runs after terminal restoration and before coordinator Git changes
    or workflow writes. It preserves a patch and hashes; it never executes,
    accepts or intakes worker source. Two independent candidate reviews precede

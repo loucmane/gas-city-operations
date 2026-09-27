@@ -13,10 +13,10 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = '414c3ec6459d044519b3fb5314f5de55681a46b64496b5d6e2d272874d8e998b'
+BASE_SHA = '8db3ba6e11239d6f0d3ff7827c6b59c8d39ac0a9f9e601f6d4175650b802d499'
 VALIDATOR_SHA = 'baf895aed138c3dae71a458703c3bba961250b46a94d91d1efc358bacd5b7edc'
 PROBE_SHA = '7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3'
-INSPECT_SHA = 'a9692a746883d7dc6f05a7fa7a7df203c248c8bef74fae5ba0b8efccd8a2c850'
+INSPECT_SHA = 'ce8ed3521d453bfa8ef8da353dac354ff374f61c5d88066a351e3168fdaf1bdf'
 COMMON_SHA = '1647eee642bdb9b38e5c422958f0118e914aa01c5cddf5037de2b8f4854ae24c'
 ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260927-r1')
 WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260927-r1')

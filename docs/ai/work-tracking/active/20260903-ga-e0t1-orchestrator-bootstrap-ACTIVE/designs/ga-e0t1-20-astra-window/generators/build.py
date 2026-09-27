@@ -21,8 +21,8 @@ HERE = Path(__file__).parent
 WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'
 PREP = '/var/tmp/ga-e0t1.20-prep-20260927-r1'
 HEX = re.compile(r'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])')
-FINAL_CACHE_NS = 1790549689686189995
-FINAL_OBSERVATION_SHA = 'd04d5390e1ce57e23502b644d4dbca16070e8a7946b328622acc1d5018570e70'
+FINAL_CACHE_NS = 1790550950937952576
+FINAL_OBSERVATION_SHA = '5931029c8f398219924b0ac950b592ad7c915662984125a8cf8adcce85c22c20'
 
 
 def sha(raw):
@@ -278,6 +278,57 @@ def common(text):
     return text
 
 
+def close(text):
+    text=text.replace('Identity is the base\nactive_epoch() check.',
+        'Host identity uses active_epoch. Worker identity is separately persisted before\nany drain or close and remains exact across polls and recovery invocations.')
+    start=text.index('    def open_sessions():')
+    end=text.index("    w.save('session.json', dict(session=session))",start)
+    text=text[:start]+'''    contract=w.contract()
+    identity_path=VAR/'ga-e0t1.20-close-session.json'
+    def census():
+        return json.loads(run('sessions',w.GC+['session','list','--json'])['stdout'])
+    initial=census()
+    w.require(initial.get('ok') is True and isinstance(initial.get('sessions'),list)
+        and len(initial['sessions'])<=1,'close initial census')
+    first=initial['sessions']
+    observed=contract.close_identity(first[0]) if first else None
+    if os.path.lexists(identity_path):
+        binding=json.loads(w.read(identity_path))
+        w.require(set(binding)=={'schema','task','session'}
+            and binding['schema']=='ga-e0t1.20.close-session.v1' and binding['task']==contract.TASK,
+            'close persistent binding shape')
+        expected=binding['session']
+        if expected is not None:w.require(contract.close_identity(expected)==expected,'close binding identity')
+    else:
+        expected=observed
+        binding=dict(schema='ga-e0t1.20.close-session.v1',task=contract.TASK,session=expected)
+        fd=os.open(identity_path,os.O_WRONLY|os.O_CREAT|os.O_EXCL,0o600)
+        with os.fdopen(fd,'w') as out:
+            json.dump(binding,out,sort_keys=True);out.flush();os.fsync(out.fileno())
+        parent_fd=os.open(VAR,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_CLOEXEC)
+        try:os.fsync(parent_fd)
+        finally:os.close(parent_fd)
+    contract.close_census(initial,expected)
+    release=VAR/'ga-e0t1.20-startup-release-20260927-r1/proof.json'
+    if os.path.lexists(release):
+        released=json.loads(w.read(release))['session']
+        w.require(contract.close_identity(released)==expected,'close differs from released session')
+    if drain.exists():
+        previous=json.loads(w.read(drain))
+        w.require(expected is not None and previous.get('session')==expected['id'],'drain belongs to another session')
+    def open_sessions():return contract.close_census(census(),expected)
+    def claim_before_mutation(session):
+        tasks=json.loads(run('claim',w.GC+['--rig','gascity','bd','show',contract.TASK,'--json'])['stdout'])
+        w.require(isinstance(tasks,list) and len(tasks)==1,'close task cardinality')
+        contract.close_claim(tasks[0],session)
+    session=first[0] if first else None
+''' + text[end:]
+    text=once(text,'    if session and not drain.exists():\n',
+        '    if session and not drain.exists():\n        claim_before_mutation(session)\n')
+    text=once(text,'    if still:\n', '    if still:\n        claim_before_mutation(still[0])\n')
+    return text
+
+
 def assemble(final=False):
     names = git('ls-tree', '-r', '--name-only', SOURCE, OLD).decode().splitlines()
     names = [name for name in names if (name.endswith('.py') and '/generators/' not in name
@@ -292,6 +343,7 @@ def assemble(final=False):
         elif name == 'route-task-r5.py': text = route(text)
         elif name == 'watch-r11.py': text = watch(text)
         elif name == 'common-snapshot-r1.py': text = common(text)
+        elif name == 'close-r11.py': text = close(text)
         elif name == 'suspension-lineage.py': text = text.replace("'gas-city-template'", "'gascity'")
         elif name == 'audit-queue-r3.py':
             text = text.replace("('template', ['--rig', 'gascity'])", "('gascity', ['--rig', 'gascity'])")

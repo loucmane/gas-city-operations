@@ -1,4 +1,4 @@
-# ga-e0t1.20 S2 operational successor — INERT DRAFT
+# ga-e0t1.20 S2 authoring inputs — explicit draft and execution-candidate modes
 
 S1 WORKTREE and PREP have already passed. Do not repeat either job or allocate
 another worktree. This package prepares the bounded Astra worker window for the
@@ -7,9 +7,11 @@ three-file C1 CLOSE self-admission repair. It does not implement that repair.
 The source is signed S5 commit 1df3d47ee499b85928c6d34f1aec6e33d1ef2c25,
 rebound to S1's exact Operations workspace, P13 receipt and M12 inspector. The
 generator preserves source-file digests and deterministically refreshes internal
-bindings. All 50 generated files are inert: wrappers exit 125, mutation entry
-points refuse, and the cache disposition is deliberately unset. No launch or
-source-PASS claim follows from this draft.
+bindings. All 55 default generated files remain inert: wrappers exit 125,
+mutation entry points refuse, and the cache disposition is deliberately unset.
+Explicit --execution-candidate assembly prepares final pinned bytes for review,
+never execution admission. Startup release and post-terminal inspection are
+implemented; the package-level README governs their current execution contract.
 
 ## Explicit differences from the old Template window
 
@@ -37,19 +39,19 @@ source-PASS claim follows from this draft.
   the three source files, the two unchanged policy files and separately bounded
   evidence. Staging, deletion, rename, extra source and path escapes refuse.
 
-## Still required before this can be reviewed for execution
+## Preserved design checklist and current review boundary
 
-1. Finish the actual startup-release integration: compare live session/claim,
+1. Implemented startup-release integration compares live session/claim,
    process argv and ancestry, effective policy/trust, actual native denial,
    probe report and unchanged source before one supported same-session nudge.
    The worker-side report alone must never authorize source edits.
-2. Wire the post-terminal read-only candidate inspection, including regular-file
+2. Implemented post-terminal read-only candidate inspection includes regular-file
    evidence bounds, policy hashes and exact common-Git preservation. Only after
    independent candidate review may the coordinator intake or deliver its patch.
 3. Bind the final exact cache disposition after a complete current-state
    comparison. Do not copy the old window's accepted timestamp or normalize
    unrelated drift. C1's later operator-bound disposition remains separate.
-4. After the missing technical checks are implemented, replace the deliberate
+4. Explicit final-candidate assembly removes the deliberate
    draft barriers as part of preparing the final execution candidate. Exercise
    its consolidated tests, preserve all failure evidence, sign the clean final
    candidate, and obtain two fresh request-bound Astra reviews. Queue only
@@ -74,6 +76,6 @@ real hook or trust check refuses, report it and contain; never bypass it.
 ## Reproduction
 
 `generators/` contains the exact authoring inputs and fixture tests. Run its
-three test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
+six test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
 The generator writes only a fresh chosen output directory; it never launches
 its outputs. Prior /tmp assembled drafts and tests remain preserved.

@@ -106,7 +106,7 @@ def record(name):
     return json.loads(read(ROOT/name))
 
 def contract():
-    return module(HERE/'contract.py', 'b0235cbfaf668ad43d12379e5fdf9263d44005edfb5211ecac385507ca4a48bc')
+    return module(HERE/'contract.py', 'e37b7f4b660f273b312a96b570e6062ff971e7760c75115d73468f9f81c2f57a')
 
 
 def load_support():
@@ -189,8 +189,8 @@ def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
 CACHE_PREV_NS = 1790510685769555369
-CACHE_PINNED_NS = 1790549689686189995
-# Read-only observation SHA-256 d04d5390e1ce57e23502b644d4dbca16070e8a7946b328622acc1d5018570e70
+CACHE_PINNED_NS = 1790550950937952576
+# Read-only observation SHA-256 5931029c8f398219924b0ac950b592ad7c915662984125a8cf8adcce85c22c20
 
 def approved_candidate_cache_image(prior):
     require(CACHE_PINNED_NS is not None, 'S2 cache disposition is not approved or pinned')
