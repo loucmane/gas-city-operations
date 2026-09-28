@@ -78,7 +78,7 @@ def test_m12_drift_still_refuses(name,change,assembled,monkeypatch):
 def test_successor_keeps_completed_binding_and_uses_fresh_observation_root(assembled):
     assert b'/var/tmp/ga-e0t1.20-bind-20260927-r1' in assembled['bind-task-r5.py']
     for name in ('observe-integrity-r11.py','operator/OBSERVE.sh','window-r11.py'):
-        assert b'/var/tmp/ga-e0t1.20-integrity-20260928-r3' in assembled[name]
+        assert b'/var/tmp/ga-e0t1.20-integrity-20260928-r4' in assembled[name]
         assert b'/var/tmp/ga-e0t1.20-integrity-20260927-r1' not in assembled[name]
     # The task's already-recorded note still matches: no second bind is needed.
     current=types.ModuleType('current_contract');previous=types.ModuleType('prior_contract')

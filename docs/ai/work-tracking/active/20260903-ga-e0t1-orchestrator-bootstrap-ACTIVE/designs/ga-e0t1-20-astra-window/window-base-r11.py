@@ -189,8 +189,8 @@ def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
 CACHE_PREV_NS = 1790510685769555369
-CACHE_PINNED_NS = 1790567947546740632
-# Read-only observation SHA-256 41738a4334862812de6a90bf8530a5f3814ea75f806aa1063ca653c08ff93e5e
+CACHE_PINNED_NS = 1790570863514193323
+# Read-only observation SHA-256 2d3735b7a6f6293c2bdaa160ef7c9385e3a66be6dd64fd414505da93380e7125
 
 def approved_candidate_cache_image(prior):
     require(CACHE_PINNED_NS is not None, 'S2 cache disposition is not approved or pinned')

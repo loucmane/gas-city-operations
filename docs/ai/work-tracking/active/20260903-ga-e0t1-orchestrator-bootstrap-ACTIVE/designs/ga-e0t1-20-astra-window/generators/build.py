@@ -21,8 +21,8 @@ HERE = Path(__file__).parent
 WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'
 PREP = '/var/tmp/ga-e0t1.20-prep-20260927-r1'
 HEX = re.compile(r'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])')
-FINAL_CACHE_NS = 1790567947546740632
-FINAL_OBSERVATION_SHA = '41738a4334862812de6a90bf8530a5f3814ea75f806aa1063ca653c08ff93e5e'
+FINAL_CACHE_NS = 1790570863514193323
+FINAL_OBSERVATION_SHA = '2d3735b7a6f6293c2bdaa160ef7c9385e3a66be6dd64fd414505da93380e7125'
 COMPLETED_BIND_EXECUTOR = '9fd6c49adecf7fb991f9b8cd2c6279c25fcf73455bfa0911609a2079928495e7'
 
 
@@ -84,10 +84,10 @@ def rebind(name, text):
     for old, new in MAP.items():
         text = text.replace(old, new)
     text = re.sub(r'(/var/tmp/ga-e0t1\.20-[a-z%-]+)-20260926-r[123]', r'\1-20260927-r1', text)
-    # Preserve both the failed r1 and successful r2 observations. New package
+    # Preserve failed r1 and successful r2/r3 observations. New package
     # pins receive a new observation root; completed BIND is never replayed.
     text = text.replace('/var/tmp/ga-e0t1.20-integrity-20260927-r1',
-                        '/var/tmp/ga-e0t1.20-integrity-20260928-r3')
+                        '/var/tmp/ga-e0t1.20-integrity-20260928-r4')
     # Explicit rig selectors only. Preserve the complete four-rig inventory set.
     for old, new in (("'--rig','gas-city-template'", "'--rig','gascity'"),
                      ("'--rig', 'gas-city-template'", "'--rig', 'gascity'"),

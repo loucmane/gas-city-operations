@@ -4,13 +4,20 @@ S1 WORKTREE and PREP have already passed. Do not repeat either job or allocate
 another worktree. This package prepares the bounded Astra worker window for the
 three-file C1 CLOSE self-admission repair. It does not implement that repair.
 
-Current successor: OBSERVE r2 passed, then PREFLIGHT r1 aborted before staging
+Current successor: the exact exception below passed two reviews and OBSERVE r3
+passed. PREFLIGHT r2 refused before root creation on the unchanged nineteen-hour
+access-time predicate. The separate reviewed READ-REFRESH job may run only after
+14:26 CEST on September 28, then fresh OBSERVE r4 and PREFLIGHT r3 must pass.
+The unconsumed window-r2 root remains selected. No other guard is relaxed.
+See the sibling ga-e0t1-20-read-refresh package and READ-REFRESH.md report.
+
+Preserved earlier outcome: OBSERVE r2 passed, then PREFLIGHT r1 aborted before staging
 on 44 existing group-writable empty config.worktree files. The operator now
 explicitly authorizes only manifest 5b2f7a167ffadb8879d859121b4a4cfbc44e79d1a5615950df0bdf73ed65e8b2
 as an exact owner/mode/type/content baseline exception. No permissions change.
 All other authority checks and worker write protection remain. The entire
 remaining preflight predicate audit passed. See CONFIG-EXCEPTION.md and its
-preserved preparation/refusal report. New observation r3 and window r2 roots
+preserved preparation/refusal report. New observation r4 and window r2 roots
 preserve all completed and failed attempts; no completed binding is replayed.
 
 BIND also completed under signed 3c9931721fc8cdd204c8d7debd0c47c739064ccd.
@@ -86,18 +93,20 @@ reviews of the exact signed head and the runner's checks remain mandatory.
    evidence bounds, policy hashes and exact common-Git preservation. Only after
    independent candidate review may the coordinator intake or deliver its patch.
 3. The complete read-only host comparison is preserved at
-   /tmp/ga-e0t1-20-readonly-baseline-20260928-r7. Observation SHA-256 is
-   41738a4334862812de6a90bf8530a5f3814ea75f806aa1063ca653c08ff93e5e.
+   /tmp/ga-e0t1-20-readonly-baseline-20260928-r9. Observation SHA-256 is
+   2d3735b7a6f6293c2bdaa160ef7c9385e3a66be6dd64fd414505da93380e7125.
    Its only non-access-time differences from accepted P13 are mtime_ns and
    ctime_ns of cache directory
    954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git:
-   1790510685769555369 -> 1790567947546740632. All cache content, all other
+   1790510685769555369 -> 1790570863514193323. All cache content, all other
    metadata, host, protected and provider fields compare exactly under the
    existing historical read-time contract. This candidate binds that pair
    exactly under standing corrected-package authority. Any later change still
    refuses. No timestamp is written or silently normalized. C1's later
    explicitly operator-bound disposition remains separate and is not granted.
-   The r1 through r6 observations remain preserved. The r7 observation follows the final
+   The r1 through r8 attempts remain preserved. The r8 script refused its stale
+   source digest before host observation; r9 binds the actual unchanged signed
+   window-base digest. The r9 observation follows the final
    coordinator evidence/Bead/verify commands, which refresh this directory.
    The exact package-shaped native gc read was separately observed not to do so.
 4. Sign the clean final candidate and obtain two fresh request-bound Astra
