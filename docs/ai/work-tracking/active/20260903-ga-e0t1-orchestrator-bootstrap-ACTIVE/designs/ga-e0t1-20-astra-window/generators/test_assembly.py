@@ -111,6 +111,21 @@ def test_original_policy_is_byte_identical(built):
     assert g.read_time_routes(old['route-chain-r1.py'].decode()).encode()==new['route-chain-r1.py']
 
 
+def test_generated_lifecycle_accepts_the_preserved_zero_observation(built):
+    m=types.ModuleType('generated_zero_base');m.__file__='window-base-r11.py'
+    exec(compile(built[2]['window-base-r11.py'],m.__file__,'exec',dont_inherit=True),m.__dict__)
+    c=load(HERE/'contract.py','generated_zero_contract');m.contract=lambda:c
+    value=json.loads((HERE/'fixtures/zero-session-status.json').read_bytes())
+    census=json.loads((HERE/'fixtures/zero-session-census.json').read_bytes())
+    expected=dict(city=dict(suspended=True),rigs={r:dict(suspended=r!='gascity')
+        for r in ('gascity','gas-city-template','hpfetcher','blog')})
+    before=json.dumps([value,census],sort_keys=True)
+    assert m.suspension_status_matches(value,expected,census=census,action='rig-resume')
+    assert json.dumps([value,census],sort_keys=True)==before
+    value['rigs'][0]['suspended']=False
+    assert not m.suspension_status_matches(value,expected,census=census,action='rig-resume')
+
+
 def test_watch_applies_existing_bounded_accounting(built):
     g,old,new=built
     text=new['watch-r11.py'].decode()

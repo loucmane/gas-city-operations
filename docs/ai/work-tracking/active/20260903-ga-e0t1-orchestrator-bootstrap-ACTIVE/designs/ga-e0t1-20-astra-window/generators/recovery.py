@@ -5,13 +5,13 @@ Only ADMIT, RESTORE and TERMINAL wrappers can run. Original r3 files and all
 live attempt records remain preserved at signed cdf7e378 and consumed roots.
 """
 import ast
+import functools
 import hashlib
 import json
 from pathlib import Path
 import sys
 
 import build
-import successor
 
 HERE = Path(__file__).parent
 PARENT = 'cdf7e3784d18358e099c444b48bf43387f9175a7'
@@ -23,8 +23,18 @@ def sha(raw):
     return hashlib.sha256(raw).hexdigest()
 
 
+@functools.cache
+def frozen_predecessor():
+    # Recovery authenticates a completed attempt, never current authoring inputs.
+    prefix = PARENT+':'+build.NEW+'/'
+    manifest = json.loads(build.git('show', prefix+'assembly.json'))
+    previous = {name: build.git('show', prefix+name) for name in manifest['files']}
+    assert {name: sha(raw) for name, raw in previous.items()} == manifest['files']
+    return previous
+
+
 def assemble():
-    _, _, previous = successor.assemble()
+    previous = dict(frozen_predecessor())
     out = dict(previous)
     out['stranded-recovery.py'] = (HERE/'stranded-recovery.py').read_bytes()
     text = out['window-base-r11.py'].decode()

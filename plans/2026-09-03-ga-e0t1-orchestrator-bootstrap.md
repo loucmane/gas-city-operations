@@ -527,3 +527,20 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
   route, worktree and completed WORKTREE/PREP/BIND/ROUTE without replay. Runner
   remains halted and all rigs suspended. Product implementation remains with
   the Gas City worker, not a coordinator fallback.
+
+## Zero-session parser source checkpoint — 2026-09-28 11:29 CEST
+
+- The real failed status and independent census are preserved as portable
+  fixtures. Missing active_sessions is accepted only with independently proven
+  zero active sessions and no running worker. Present malformed values and
+  inconsistent or extra sessions still refuse. Worker identity checks remain.
+- The historical recovery assembler now reads its exact signed predecessor
+  rather than rebuilding historical inputs from current authoring source.
+  All 58 completed recovery outputs are proven byte-identical. Live wrappers
+  and the C1 product files are unchanged; the runner terminal latch stays set.
+- All 444 operational regression tests pass. Initial RED and intermediate
+  assertion and historical-input failures remain preserved. Full adapter/meta
+  verification is running; exact-head independent Astra reviews are next.
+- Source report: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/ZERO-SESSION-R1.md.
+  No launch, fresh-window admission, provider parity or goal completion follows
+  from source tests. The recovery-only grant still contains no worker retry.

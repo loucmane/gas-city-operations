@@ -169,7 +169,11 @@ def test_no_worker_census_is_required(case):
 def test_deterministic_graph_and_historical_pins(tmp_path):
     previous, out = recovery.assemble()
     assert recovery.assemble() == (previous, out)
-    assert previous == successor.assemble()[2]
+    manifest = json.loads(recovery.build.git('show', recovery.PARENT+':'+recovery.build.NEW+'/assembly.json'))
+    assert {name: hashlib.sha256(raw).hexdigest() for name, raw in previous.items()} == manifest['files']
+    completed = json.loads(recovery.build.git('show',
+        '524f1a3da16b60cc1a036f9e0f681cd3157b2d25:'+recovery.build.NEW+'/assembly.json'))
+    assert {name: hashlib.sha256(raw).hexdigest() for name, raw in out.items()} == completed['files']
     assert len(out) == 58
     assert out['stranded-recovery.py'] == (recovery.HERE/'stranded-recovery.py').read_bytes()
     for name in ('WORKER-BRIEF.md', 'worker-startup.py', 'contract.py', 'suspension-lineage.py',
