@@ -13,13 +13,13 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = 'cb241664f2bd329b29e831cbda95b566f62aa10645030cabc6dde084fa815341'
-VALIDATOR_SHA = '7d2026c1e184937f8cd20b28acfaac6d6f45791b309c1b55f36ac9db0822d0dd'
-PROBE_SHA = '1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67'
-INSPECT_SHA = 'ec7f4b9a0a43e20f775bce42bb739f2fd8af1c8808459448f55c0a27be934dfd'
+BASE_SHA = '3de8bf02479d5ca738ce9322228338e24c66e937047e89c252c961e23067adbc'
+VALIDATOR_SHA = '2c7fcef75391ae0507c085428c117088131d1f1695884d5ef0200f1df115630a'
+PROBE_SHA = 'fa03f747ed131ab38beadb5296d53f76cf6439ff27712de9261dd51ed263ea3e'
+INSPECT_SHA = 'e141fbca431fb5ef1668c7f07b9cc4a204113ad19eace39d3db6ab6537270487'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
-ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r5')
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r5')
+ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r6')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r6')
 ROUTE = Path('/var/tmp/ga-e0t1.20-route-20260927-r1')
 CLIENT_INPUTS = tuple(Path(p) for p in (
     '/home/loucmane/.codex/config.toml', '/home/loucmane/.codex/hooks.json',
@@ -77,8 +77,8 @@ def worker_identity(pane, session, validator, read):
     argv=(proc/'cmdline').read_bytes().rstrip(b'\0').decode('utf-8','strict').split('\0')
     args=validator.process_arguments(argv)
     helper=load(HERE/'launch-contract-r5.py','cfd2467d3ce7c8600eb635d28a97249ccdc7bfa055386a423506d3f8e60edc7e',read)
-    body=read(HERE/'PRECLAIM-R5.md').decode('utf-8','strict')
-    require(hashlib.sha256(body.encode()).hexdigest()=='76d3f3d0a33d4a3572227dfa37b5d38ffe12bc0c60f9541a50364150d3c730e9','launch prompt file drift')
+    body=read(HERE/'PRECLAIM-R6.md').decode('utf-8','strict')
+    require(hashlib.sha256(body.encode()).hexdigest()=='fafd2012a531c99534ce69112adc0976fb437da9a8193d20d738b5535f94194d','launch prompt file drift')
     require(helper.prompt_body(argv[-1],body)=='53682c1d8952f8f6345813a1519e9ee76ce72c70145b85de2663e80540c3eae8','assigned skills suffix differs')
     require(os.readlink(proc/'cwd')==validator.WORK,'worker process cwd differs')
     # Only expected non-secret identity fields and override presence are retained.
@@ -118,7 +118,7 @@ def main():
     require(not os.path.lexists(ROOT),'startup release already consumed')
     w=load_base();w.read(Path(__file__),_SOURCE_SHA)
     v=w.module(HERE/'startup-validation.py',VALIDATOR_SHA)
-    probe=w.module(HERE/'worker-startup.py',PROBE_SHA)
+    probe=w.module(HERE/'worker-startup-r6.py',PROBE_SHA)
     inspector=w.module(HERE/'candidate-inspect.py',INSPECT_SHA)
     common=w.module(HERE/'common-snapshot-r1.py',COMMON_SHA)
     b,o,owned=w.load_support()

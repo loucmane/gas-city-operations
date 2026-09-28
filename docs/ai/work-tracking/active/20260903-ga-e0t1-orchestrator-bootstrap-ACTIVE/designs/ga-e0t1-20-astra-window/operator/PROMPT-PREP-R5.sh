@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "COMPLETED OPERATION - replay prohibited" >&2
+exit 125
 echo "COMPLETED PREPARATION - replay prohibited" >&2
 exit 125
 # R5 PROMPT PREP: read-only host observation and uninstalled image. No worker launch.

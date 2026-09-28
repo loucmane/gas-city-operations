@@ -82,6 +82,17 @@ def native_time(value):
 def claim_time(task, routed, session):
     # Only this first native claim may introduce started_at. This is bounded
     # bookkeeping, not identity evidence; exact claim/source checks remain.
+    if 'started_at' in routed:
+        require(routed['started_at']=='2026-09-28T13:01:54Z'
+            and routed.get('metadata')=={'gc.routed_to': 'gascity/codex', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20', 'gc.session_id': 'ci-rks41', 'gc.session_name': 'codex-ci-rks41', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.session_affinity': '', 'gc.continuation_group': ''}, 'unbound prior claim')
+        started=native_time(task.get('started_at'))
+        prior=native_time(routed['started_at'])
+        routed_at=native_time(routed.get('updated_at'))
+        session_at=native_time(session.get('created_at'))
+        updated=native_time(task.get('updated_at'))
+        require(prior<=routed_at<=session_at<=updated, 'reclaim timestamp order')
+        require(started==prior or session_at<=started<=updated, 'reclaim start time drift')
+        return
     require('started_at' not in routed, 'routed task already has a start time')
     started=native_time(task.get('started_at'))
     created=native_time(routed.get('created_at'))
@@ -97,7 +108,10 @@ def live_task(task, routed, session, contract, startup_digest):
     require(task.get('assignee') == session['session_name'], 'native claim owner differs')
     expected = dict(routed['metadata'], **{
         'gc.session_id':session['id'],'gc.session_name':session['session_name']})
-    if 'gc.work_branch' in task.get('metadata',{}):expected['gc.work_branch']=BRANCH
+    if 'started_at' in routed:
+        require(routed['metadata']=={'gc.routed_to': 'gascity/codex', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20', 'gc.session_id': 'ci-rks41', 'gc.session_name': 'codex-ci-rks41', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.session_affinity': '', 'gc.continuation_group': ''}, 'closed claim metadata differs')
+        # The exact rig-store branch remains bookkeeping only.
+    elif 'gc.work_branch' in task.get('metadata',{}):expected['gc.work_branch']=BRANCH
     require(task.get('metadata') == expected, 'claim metadata differs')
     note = 'STARTUP READY: '+TASK+' report_sha256='+startup_digest
     require(task.get('notes') == routed['notes']+'\n'+note, 'startup note is not exact or single')

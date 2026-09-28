@@ -11,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: CONTAIN-1.sh <reviewed commit>}
-WINDOW_SHA=3ba063c00bdb46f42d27008f0f74fc13d5a86e5bd6e4bd7760ec3a7e5b13f478
+WINDOW_SHA=a18533c3a71950adcac520ae492a419035ff9725fb2bde45c9e19a33db9c2dea
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -26,7 +26,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-e0t1.20-window-20260928-r5/stage-pass.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-e0t1.20-window-20260928-r6/stage-pass.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
@@ -37,10 +37,10 @@ step() {
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-if [ -e /var/tmp/ga-e0t1.20-window-20260928-r5/suspension-city-resume-event.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r5/suspension-city-suspend-event.json ]; then
+if [ -e /var/tmp/ga-e0t1.20-window-20260928-r6/suspension-city-resume-event.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r6/suspension-city-suspend-event.json ]; then
   step city-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle city-suspend
 fi
-if [ -e /var/tmp/ga-e0t1.20-window-20260928-r5/suspension-rig-resume-event.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r5/suspension-rig-suspend-event.json ]; then
+if [ -e /var/tmp/ga-e0t1.20-window-20260928-r6/suspension-rig-resume-event.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r6/suspension-rig-suspend-event.json ]; then
   step rig-suspend "$C/window-r11.py" "$WINDOW_SHA" lifecycle rig-suspend
 fi
 echo "== CONTAIN-1 PASS"

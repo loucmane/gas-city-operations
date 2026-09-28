@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "COMPLETED OPERATION - replay prohibited" >&2
+exit 125
 # ga-e0t1.20 window bind: only the exact append-forward startup note, before the window.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.

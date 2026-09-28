@@ -18,8 +18,8 @@ import time
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-ROOT = Path('/var/tmp/ga-e0t1.20-window-20260928-r5')
-PREP = Path('/var/tmp/ga-e0t1.20-prompt-prep-20260928-r5')
+ROOT = Path('/var/tmp/ga-e0t1.20-window-20260928-r6')
+PREP = Path('/var/tmp/ga-e0t1.20-prompt-prep-20260928-r6')
 SUSPENSION = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
 LINEAGE_SHA = '26acf7ebd1ca9e1832db64b1ede34b3e7858c548463d3bde9581b1900d50cd90'
 SUPPORT = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6')
@@ -35,18 +35,18 @@ PROVISIONER = Path('/home/loucmane/gas-city-template/bin/gct-managed-worker-prov
 WITNESS = Path('/var/tmp/gct-oak5-p13-adoption-20260927/typed-support.json')
 WITNESS_SHA = 'c284a9f4811d569f165c100ebcbaafd38eccf30093fc68eb4e2cd2f7d0adffdb'
 CITY_SHA = ('bdcec2549fae330ed4aedc2c25563f1917e2bfd39e1caea4be443536f94c69b1',
-            '982ee2ada6a9ee566de53f862408a752f53f9c539f21262e12959a9a0f20a6bd')
+            '4c020faa240726ef26afd9110bc2a63eb4f9c94c4f0b882a9e97f981cf97e0ce')
 RECEIPT_SHA = ('7185414ebade17a1fdd7d485564e85f6ad8d7e0230983c21bf917f1ed27fb0ba',
-               '8796c947c5ebbf2435b1c83af55c3fc3d17b21ce6b2dfbb426d0855d3c896f3e')
+               'ab825bcb7716ce807da13123c12904b4fdd3dc0b392c462e8ae10d00494c7531')
 REVISION = ('a61666b33528c1cb8b497f55d9c6b8b37df2ce74ed9853345de8d7321e18f58f',
-            '070da10b3bdb60691701d02dac5c627764c8aa38779da0635d5261724dac279f')
+            '56e95ef6387aef3a681da5ad3f041f00dbea15308cc2542ee45e11beb4b85952')
 INPUT = (Path('/var/tmp/gct-oak5-p13-input-20260927/receipt.input.draft.json'), PREP/'receipt.input.json')
 INPUT_SHA = ('7b8472f6cc339f261abc32b32e27b1d7f2a3c494ec24be021c396dbac2d9969d',
              None)  # The isolated input is compared to the exact native-finalized wire below.
 RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
 # Accepted restored TERMINAL observation; all host, pin and protected fields remain exact.
-ACCEPTED = Path('/var/tmp/ga-e0t1.20-terminal-20260928-r4/observed-after.json')
-ACCEPTED_SHA = '6ef3d9a90f2c52e60a939fdd5641c53fa74bb10fb7663d2516120e09db9968d5'
+ACCEPTED = Path('/var/tmp/ga-e0t1.20-terminal-20260928-r5/observed-after.json')
+ACCEPTED_SHA = 'be40602f3f1a4bcf53fc5d4a5111b8b695f58dc633506b16c17a7a21bf469fe3'
 ACCEPTED_KEYS = ('cache', 'host', 'pins', 'protected')
 PROVIDER = Path('/var/tmp/gct-oak5-p13-adoption-20260927/after.json.provider-pins')
 PROVIDER_SHA = '82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b'
@@ -106,7 +106,7 @@ def record(name):
     return json.loads(read(ROOT/name))
 
 def contract():
-    return module(HERE/'contract.py', '157f0f386db3e19def5bb1502a6329495b4dab9b2cc14318ec245f9b70304bf9')
+    return module(HERE/'contract.py', '3d4160dd4ae037ac8a9cc06de9b3ba80fb54d0984706f3ce9caa57463ee777ef')
 
 
 def load_support():
@@ -119,15 +119,20 @@ def load_support():
     return b, o, owned
 
 def pins():
-    previous=json.loads(read(Path('/var/tmp/ga-e0t1.20-terminal-20260928-r4/result.json'),
-        '459cacbbaf67e60f741af656277ebf11161a4abe3bab49637e7407db40f16438'))
+    previous=json.loads(read(Path('/var/tmp/ga-e0t1.20-terminal-20260928-r5/result.json'),
+        'dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8'))
     require(previous['ok'] is True and previous['accepted_restoration_bound'] is True
         and previous['actual_host_verified'] is True and previous['worker_launched'] is False
-        and previous['worker_started_in_window'] is True and previous['source_release_sent'] is False
-        and previous['open_sessions']==0 and previous['terminal_suspension_endpoint_bound'] is True,
+        and previous['root_cache_protected_read_only'] is True
+        and previous['terminal_suspension_endpoint_bound'] is True,
         'previous window was not proven restored')
+    closed=json.loads(read(Path('/var/tmp/ga-e0t1.20-r5-close-20260928T130452Z/result.json'),'53b7501005e7f48722f022e023995ba6c9c8b83f3e7adcfa4c6d9e6089da46ea'))
+    require(closed['ok'] is True and closed['closed_session']=='ci-rks41'
+        and closed['open_sessions']==0 and closed['city_tmux_sessions']==0
+        and closed['worktree_processes']==0, 'prior close lacks zero residue')
+    require(not Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r5/proof.json').exists(), 'old source release')
     # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.
-    read(PREP/'result.json', '1e027be4b46422ebeab0f9988b99bd57cdb803554a881f4f2b56704eb00a4a14')
+    read(PREP/'result.json', 'fa5ece092f59610207f2ec4ac8570efc989a7c7a3e34486618d6f9c5c7504686')
     read(LAUNCH, '31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea')
     read(PROVISIONER, '64425a728fc06a082865f2d53afcc6e4793974f5aadab49492d95f5e0a9f4a35')
     read(WITNESS, WITNESS_SHA)
@@ -195,8 +200,8 @@ def approved_restore_image(prior):
 def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
-CACHE_PREV_NS = 1790591514698290119
-CACHE_PINNED_NS = 1790599221652837172
+CACHE_PREV_NS = 1790599221652837172
+CACHE_PINNED_NS = 1790603075048109174
 # Recovered r3 observation 9c2cf3244c5b922c9845c1a06d56e6ed9ef87e2ce8fcaacce67ee2ec566541ed. Fresh OBSERVE remains mandatory.
 
 def approved_candidate_cache_image(prior):
@@ -738,7 +743,7 @@ def main():
         ROOT.mkdir(mode=0o700)
         save('preflight-intent.json',dict(executor_sha256=_SOURCE_SHA))
         host(o)
-        module(HERE/'continuation-admission.py','ed2c960d0585c8535b32258154f0edd3eeb83f52f1e2d067a1b58ac37e32af61').admit(types.SimpleNamespace(**globals()),b,owned)
+        module(HERE/'continuation-admission.py','360fa25bdf23cb1f03390edaf88dafd9a95503de32d70519490fab884d832bdc').admit(types.SimpleNamespace(**globals()),b,owned)
         read(CITY/'city.toml',CITY_SHA[0]); read(RECEIPT,RECEIPT_SHA[0])
         durable(ROOT/'city.before.toml',read(CITY/'city.toml'),0o644)
         durable(ROOT/'receipt.before.json',read(RECEIPT))
@@ -759,9 +764,9 @@ def main():
             'candidate common Git baseline')
         require(not common.compare(common_before,common.observe()),'common Git changed during baseline')
         save('common-before.json',common_before)
-        validator=module(HERE/'startup-validation.py','7d2026c1e184937f8cd20b28acfaac6d6f45791b309c1b55f36ac9db0822d0dd')
+        validator=module(HERE/'startup-validation.py','2c7fcef75391ae0507c085428c117088131d1f1695884d5ef0200f1df115630a')
         # No circular imports: this reader is the existing bounded worker probe.
-        probe=module(HERE/'worker-startup.py','1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67')
+        probe=module(HERE/'worker-startup-r6.py','fa03f747ed131ab38beadb5296d53f76cf6439ff27712de9261dd51ed263ea3e')
         workspace_before=validator.workspace_image(WORK,probe.read_regular)
         probe.verified_hook()
         launch=module(HERE/'launch-contract-r5.py','cfd2467d3ce7c8600eb635d28a97249ccdc7bfa055386a423506d3f8e60edc7e')
@@ -776,7 +781,7 @@ def main():
         save('preflight-pass.json',dict(ok=True,executor_sha256=_SOURCE_SHA,worker_launched=False))
     elif action=='stage':
         require(record('preflight-pass.json')['executor_sha256']==_SOURCE_SHA,'preflight binding')
-        module(HERE/'continuation-admission.py','ed2c960d0585c8535b32258154f0edd3eeb83f52f1e2d067a1b58ac37e32af61').recheck(types.SimpleNamespace(**globals()),b,owned)
+        module(HERE/'continuation-admission.py','360fa25bdf23cb1f03390edaf88dafd9a95503de32d70519490fab884d832bdc').recheck(types.SimpleNamespace(**globals()),b,owned)
         save('stage-consumed.json',dict(executor_sha256=_SOURCE_SHA))
         try:
             transition(1,b,o,owned,'stage')

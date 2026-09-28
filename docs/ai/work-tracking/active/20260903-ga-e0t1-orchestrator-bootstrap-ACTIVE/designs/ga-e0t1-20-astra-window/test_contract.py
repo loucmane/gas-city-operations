@@ -46,7 +46,8 @@ def test_control_metadata_is_exact_by_phase(task):
     task['notes'] = c.BOUND_NOTE
     c.validate_task(task, 'bound')
     with pytest.raises(RuntimeError): c.validate_task(task, 'unbound')
-    task['metadata']['gc.routed_to'] = c.TARGET
+    task['metadata'].update({'gc.routed_to': 'gascity/codex', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20', 'gc.session_id': 'ci-rks41', 'gc.session_name': 'codex-ci-rks41', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.session_affinity': '', 'gc.continuation_group': ''})
+    task['started_at']='2026-09-28T13:01:54Z'
     task.pop('parent')
     task['dependencies'][0]['dependency_type'] = 'relates-to'
     task['dependent_count'] = 1

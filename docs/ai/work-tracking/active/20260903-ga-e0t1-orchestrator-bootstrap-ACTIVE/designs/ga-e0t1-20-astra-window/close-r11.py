@@ -6,9 +6,9 @@ to acknowledge the drain from its sandbox (attempt7 could not reach Dolt), so th
 and bounded; the close is required.
 
 Preconditions: scheduling is held, either by CONTAIN (the window's rig-suspend event exists) or by a
-passing HOLD (a /var/tmp/ga-e0t1.20-r5-hold-*/result.json with ok); at most one open session exists for the
+passing HOLD (a /var/tmp/ga-e0t1.20-r6-hold-*/result.json with ok); at most one open session exists for the
 template. Steps, each through the owned-phase runner with the support environment (GIT_OPTIONAL_LOCKS=0):
-1. Once only, guarded by the exclusive marker /var/tmp/ga-e0t1.20-r5-close-drain.requested:
+1. Once only, guarded by the exclusive marker /var/tmp/ga-e0t1.20-r6-close-drain.requested:
    `gc runtime drain <id> --json` (any exit status), then up to 60 seconds of session-list polling.
 2. `gc session close <id> --json` (must succeed), only while that session is still open.
 3. Up to 120 seconds until: no open session for the template, no tmux session at all on the city
@@ -26,9 +26,8 @@ template. Steps, each through the owned-phase runner with the support environmen
    R10 restore needed this by hand. An empty server holds no agent work, and scheduling is held.
 Declared effect on the task: `gc session close` releases the work assigned to the closed session
 (Core cmd/gc/cmd_session.go unclaimWorkAssignedToRetiredSessionBead, work_assignment.go
-ReleaseWorkBead), so ga-e0t1.20 ends open, unassigned and still routed. Its task attempt is started, so no
-new session can start for it (taskattempt). The coordinator's delivery closeout closes it after the
-merge; before any later window the audit would stop on it, as it did on ga-y49e.
+ReleaseWorkBead), so ga-e0t1.20 ends open, unassigned and still routed. The closed claim remains historical metadata. A later reviewed successor must
+bind that exact native release and prove sole ready demand again. This close never retries work.
 It never signals a process itself and never replays a lifecycle action. `gc session close --json`
 emits JSONL; exactly one record must name the session. Each run uses a fresh timestamped root, so a
 refusal can be followed by another run, which never repeats the drain. Host identity uses active_epoch. Worker identity is separately persisted before
@@ -45,8 +44,8 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/window-base-r11.py')
-BASE_SHA = 'cb241664f2bd329b29e831cbda95b566f62aa10645030cabc6dde084fa815341'
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r5')
+BASE_SHA = '3de8bf02479d5ca738ce9322228338e24c66e937047e89c252c961e23067adbc'
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r6')
 VAR = Path('/var/tmp')
 TEMPLATE = 'gascity/codex'
 ANY = tuple(range(256))
@@ -94,13 +93,13 @@ def main():
     w.require(globals().get('_SOURCE_SHA') and os.getuid() == os.geteuid() == 1000, 'bound source launcher required')
     w.read(Path(__file__), _SOURCE_SHA)
     b, o, owned = w.load_support()
-    drain = VAR/'ga-e0t1.20-r5-close-drain.requested'
+    drain = VAR/'ga-e0t1.20-r6-close-drain.requested'
     held = (WINDOW/'suspension-rig-suspend-event.json').exists()
     # s3: a staged window that never took a lifecycle step never released scheduling (see below).
     never_resumed = ((WINDOW/'stage-pass.json').exists() and not list(WINDOW.glob('suspension-*-intent.json'))
                      and not list(WINDOW.glob('suspension-*-event.json')))
     held = held or never_resumed
-    for result in sorted(VAR.glob('ga-e0t1.20-r5-hold-*/result.json')):
+    for result in sorted(VAR.glob('ga-e0t1.20-r6-hold-*/result.json')):
         held = held or json.loads(w.read(result)).get('ok') is True
     w.require(held, 'scheduling is not held (no CONTAIN rig-suspend event, no passing HOLD, and the window resumed)')
     w.ROOT = WINDOW
@@ -108,7 +107,7 @@ def main():
         # The reviewed lineage with zero transitions: the live suspension state must be the baseline record.
         w.verified_lifecycle(terminal=True)
     w.active_epoch(o)
-    ROOT = VAR/('ga-e0t1.20-r5-close-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    ROOT = VAR/('ga-e0t1.20-r6-close-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     ROOT.mkdir(mode=0o700)
     w.ROOT = ROOT
     counter = {'n': 0}
@@ -118,7 +117,7 @@ def main():
         return w.phase('%02d-%s' % (counter['n'], name), args, b, owned, expected=expected, timeout=90)
 
     contract=w.contract()
-    identity_path=VAR/'ga-e0t1.20-r5-close-session.json'
+    identity_path=VAR/'ga-e0t1.20-r6-close-session.json'
     def census():
         return json.loads(run('sessions',w.GC+['session','list','--json'])['stdout'])
     initial=census()
@@ -143,7 +142,7 @@ def main():
         try:os.fsync(parent_fd)
         finally:os.close(parent_fd)
     contract.close_census(initial,expected)
-    release=VAR/'ga-e0t1.20-startup-release-20260928-r5/proof.json'
+    release=VAR/'ga-e0t1.20-startup-release-20260928-r6/proof.json'
     if os.path.lexists(release):
         released=json.loads(w.read(release))['session']
         w.require(contract.close_identity(released)==expected,'close differs from released session')
