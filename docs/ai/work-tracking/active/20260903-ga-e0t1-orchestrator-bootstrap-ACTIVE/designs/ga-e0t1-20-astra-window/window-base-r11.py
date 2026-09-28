@@ -106,7 +106,7 @@ def record(name):
     return json.loads(read(ROOT/name))
 
 def contract():
-    return module(HERE/'contract.py', '3d4160dd4ae037ac8a9cc06de9b3ba80fb54d0984706f3ce9caa57463ee777ef')
+    return module(HERE/'contract.py', 'c666e28453d9848ee17591e91c2341ed5c14249299ae29d547f4df740905de70')
 
 
 def load_support():
@@ -201,7 +201,7 @@ def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
 CACHE_PREV_NS = 1790599221652837172
-CACHE_PINNED_NS = 1790603075048109174
+CACHE_PINNED_NS = 1790604770227789531
 # Recovered r3 observation 9c2cf3244c5b922c9845c1a06d56e6ed9ef87e2ce8fcaacce67ee2ec566541ed. Fresh OBSERVE remains mandatory.
 
 def approved_candidate_cache_image(prior):

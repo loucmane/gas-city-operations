@@ -108,7 +108,7 @@ def close_census(value, expected):
     return rows
 
 
-def close_claim(task, session):
+def close_claim(task, session, admitted=None):
     require(task.get('id')==TASK and task.get('status') in ('open','in_progress'), 'close task identity or state')
     for key,digest in (('description',DESCRIPTION),('acceptance_criteria',ACCEPTANCE)):
         require(isinstance(task.get(key),str) and hashlib.sha256(task[key].encode()).hexdigest()==digest,
@@ -117,6 +117,22 @@ def close_claim(task, session):
     require(isinstance(metadata,dict) and metadata.get('gc.work_dir')==WORK
             and metadata.get('gc.routed_to')==TARGET, 'close task route or workspace differs')
     owner={'gc.session_id':session['id'],'gc.session_name':session['session_name']}
+    if task['status']=='open' and not all(metadata.get(k,v)==v for k,v in owner.items()):
+        require(isinstance(admitted,dict) and task==admitted, 'unclaimed retry differs from admitted task')
+        validate_task(admitted,'routed')
+        close_identity(session)
+        require(session['id']!='ci-rks41' and session['session_name']!='codex-ci-rks41',
+                'historical session cannot use unclaimed retry recovery')
+        from datetime import datetime
+        times=[]
+        for value in (admitted.get('updated_at'),session.get('created_at')):
+            require(isinstance(value,str) and re.fullmatch(
+                r'\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z',value),
+                'unclaimed retry timestamp invalid')
+            try: times.append(datetime.fromisoformat(value.replace('Z','+00:00')))
+            except ValueError as exc: raise RuntimeError('unclaimed retry timestamp invalid') from exc
+        require(times[0]<=times[1], 'unclaimed retry predates admission')
+        return
     require(all(metadata.get(k,v)==v for k,v in owner.items()), 'close task has another session binding')
     if task['status']=='in_progress':
         require(task.get('assignee')==session['session_name']

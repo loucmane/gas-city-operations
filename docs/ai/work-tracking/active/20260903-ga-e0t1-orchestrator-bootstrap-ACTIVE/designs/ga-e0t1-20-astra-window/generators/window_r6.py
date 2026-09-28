@@ -98,6 +98,29 @@ def assemble(cache_ns):
     text=build.once(text,"        expected['gc.routed_to'] = TARGET",
         "        expected.update("+repr(recovery.CLOSED_METADATA)+")\n"
         "        require(value.get('started_at')=='2026-09-28T13:01:54Z', 'prior claim start drift')")
+    # Both independent reviews identified an unclaimed-retry recovery gap.
+    # Only the complete unchanged admitted task can retain the exact old owner
+    # metadata while the independently bound NEW session is being closed.
+    text=build.once(text,'def close_claim(task, session):',
+        'def close_claim(task, session, admitted=None):')
+    original="    require(all(metadata.get(k,v)==v for k,v in owner.items()), 'close task has another session binding')"
+    exception=("    if task['status']=='open' and not all(metadata.get(k,v)==v for k,v in owner.items()):\n"
+        "        require(isinstance(admitted,dict) and task==admitted, 'unclaimed retry differs from admitted task')\n"
+        "        validate_task(admitted,'routed')\n"
+        "        close_identity(session)\n"
+        "        require(session['id']!='ci-rks41' and session['session_name']!='codex-ci-rks41',\n"
+        "                'historical session cannot use unclaimed retry recovery')\n"
+        "        from datetime import datetime\n"
+        "        times=[]\n"
+        "        for value in (admitted.get('updated_at'),session.get('created_at')):\n"
+        "            require(isinstance(value,str) and re.fullmatch(\n"
+        "                r'\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?Z',value),\n"
+        "                'unclaimed retry timestamp invalid')\n"
+        "            try: times.append(datetime.fromisoformat(value.replace('Z','+00:00')))\n"
+        "            except ValueError as exc: raise RuntimeError('unclaimed retry timestamp invalid') from exc\n"
+        "        require(times[0]<=times[1], 'unclaimed retry predates admission')\n"
+        "        return\n"+original)
+    text=build.once(text,original,exception)
     out['contract.py']=text.encode()
     # The pure recovery binder verifies the actual old claim and native close.
     text=before['startup-amendment-r5.py'].decode()
@@ -181,6 +204,9 @@ def assemble(cache_ns):
     out['test_contract.py']=text.encode()
     # Old comments cannot describe this run as claim-free.
     text=out['close-r11.py'].decode()
+    text=build.once(text,'        contract.close_claim(tasks[0],session)',
+        "        admitted=json.loads(w.read(WINDOW/'admitted-task.json'))\n"
+        '        contract.close_claim(tasks[0],session,admitted)')
     text=text.replace('Its task attempt is started, so no\nnew session can start for it (taskattempt). The coordinator\'s delivery closeout closes it after the\nmerge; before any later window the audit would stop on it, as it did on ga-y49e.',
         'The closed claim remains historical metadata. A later reviewed successor must\nbind that exact native release and prove sole ready demand again. This close never retries work.')
     out['close-r11.py']=text.encode()

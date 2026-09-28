@@ -9,7 +9,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
 ROOT=Path('/var/tmp/ga-e0t1.20-startup-amendment-20260928-r6')
 WINDOW=Path('/var/tmp/ga-e0t1.20-window-20260928-r6')
-BASE_SHA='3de8bf02479d5ca738ce9322228338e24c66e937047e89c252c961e23067adbc'
+BASE_SHA='b2925d405103922383a096d444df62ec149cd22af10616ecf4ed59b63a461dbb'
 LEGACY_SHA='0daa6bf64e8342d04a9992f327db2f2835c88c4a4ccfca0e2bae09b6b76e2520'
 CONTRACT_SHA='85963b400979ba14561bc70e6a6d03b189fb641db5650788bd2a0a5906f77ca9'
 AMENDMENT_SHA='a21892bc7ae31e24d6274b6d63ff9f3d9dec6fdb9b77d865705398e181b41430'

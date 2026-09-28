@@ -44,7 +44,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/window-base-r11.py')
-BASE_SHA = '3de8bf02479d5ca738ce9322228338e24c66e937047e89c252c961e23067adbc'
+BASE_SHA = 'b2925d405103922383a096d444df62ec149cd22af10616ecf4ed59b63a461dbb'
 WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r6')
 VAR = Path('/var/tmp')
 TEMPLATE = 'gascity/codex'
@@ -153,7 +153,8 @@ def main():
     def claim_before_mutation(session):
         tasks=json.loads(run('claim',w.GC+['--rig','gascity','bd','show',contract.TASK,'--json'])['stdout'])
         w.require(isinstance(tasks,list) and len(tasks)==1,'close task cardinality')
-        contract.close_claim(tasks[0],session)
+        admitted=json.loads(w.read(WINDOW/'admitted-task.json'))
+        contract.close_claim(tasks[0],session,admitted)
     session=first[0] if first else None
     w.save('session.json', dict(session=session))
     if session and not drain.exists():
