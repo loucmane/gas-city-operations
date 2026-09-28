@@ -1,5 +1,6 @@
 """Driver contracts with fake proc and disposable filesystem only."""
 import importlib.util
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -91,3 +92,10 @@ def test_scope_is_exact_six_targets_and_no_transcripts():
     assert sum('sha256' in x for x in value.values())==1
     assert all(not x['xattrs'] for x in value.values())
     assert value[str(d.HOME/'rules/default.rules')]['sha256']=='3d80d7351c83161cadea1a7bbb3271a567c43fe4bc9c6074dd53f684cc576516'
+
+
+def test_source_chain_pins_exact_package_bytes():
+    root=Path(__file__).parent
+    assert hashlib.sha256((root/'permissions.py').read_bytes()).hexdigest()==d.POLICY_SHA
+    assert hashlib.sha256((root/'preimage.json').read_bytes()).hexdigest()==d.PREIMAGE_SHA
+    assert hashlib.sha256((root/'apply.py').read_bytes()).hexdigest() in (root/'operator/APPLY.sh').read_text()

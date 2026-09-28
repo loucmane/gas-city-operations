@@ -14,4 +14,4 @@ export PATH
 [ "$(sha256sum "$L" | cut -d ' ' -f 1)" = 31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea ]
 [ ! -e /var/tmp/ga-e0t1.20-codex-permissions-20260928-r1 ]
 [ ! -L /var/tmp/ga-e0t1.20-codex-permissions-20260928-r1 ]
-exec /usr/bin/python3 -I -S -B "$L" "$D/apply.py" 48957efcd991a31cea320918282d7a69811b1abdbd89cc8d65b8af005145daec apply
+exec /usr/bin/python3 -I -S -B "$L" "$D/apply.py" 4618bcb8b05846e9aa6a7d6a3ae5f17ef308d5e3319d31f38417fa1f5c7a54c5 apply

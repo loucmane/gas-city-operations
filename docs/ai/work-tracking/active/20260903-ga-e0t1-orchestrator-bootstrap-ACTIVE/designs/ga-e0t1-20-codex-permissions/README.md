@@ -57,6 +57,17 @@ the original modes and ACL absence; ctimes necessarily advance and are recorded.
 The approved rollback restores preexisting group-write bits only to this exact
 frozen preimage while quiescent, never wider. No timestamp falsification.
 
+Completed steps use stable step keys so interruption between recording a step
+and clearing its pending marker cannot record the same operation twice. Final
+rollback verification rereads every held descriptor and its path identity.
+
+After all postimages and proofs pass, write commit-intent then cross the commit
+boundary before writing result.json. An interruption after that boundary never
+rolls permissions back behind a possibly published success receipt. It records
+commit-interrupted with rollback forbidden and requires exact readback, without
+replay. A receipt alone is not acceptance when the wrapper exited unsuccessfully
+or interruption evidence exists. Earlier handled failures retain exact rollback.
+
 New descendants, file changes, unexpected postimages or rollback failure produce
 an ambiguous stop. Do not rewrite newly inherited descendants or replay the root.
 SIGKILL/power loss cannot be caught; preserve intents for reviewed recovery.
@@ -74,8 +85,45 @@ whose preflight binds these permissions and default ACLs. Never replay R7 or
 repair its historical transcript. A fresh real worker must pass strict transcript,
 workspace and process checks before release. Source work remains with Gas City.
 
-Focused disposable tests currently 33 PASS. They cover drift, links, partial
+The first signed package b333bca8 had one HOLD and one SOURCE_PASS. Both verdicts
+are filed and the package was never executed. Three focused fault injections
+reproduced duplicate rollback bookkeeping, stale rollback readback, and a success
+receipt surviving compensation. The duplicate ACL removal happened to succeed
+on this kernel, so no syscall failure is claimed for that reproduction. Earlier
+test harness corrections and all RED artifacts remain preserved in /tmp.
+
+The immediate read-only preflight also caught rounding of five directory time
+values in the original manifest. The coordinator had carried nanosecond integers
+through JavaScript numbers. Regeneration carries Python JSON as raw text, never
+numeric JavaScript objects. All other fields match exactly; the ten changed
+mtime/ctime values differ by at most 164 ns and map to the same binary64 values.
+No live timestamp changed. The original signed manifest remains in b333bca8.
+The driver still requires exact integer equality, not a tolerance or rounding.
+
+Focused disposable tests cover drift, links, partial
 syscall failure, rollback failure, all-step interrupts, future creation and
 client inventory. Preserve the failed root-ancestor O_NOATIME diagnostic; it
 was fixed with O_PATH traversal, not a removed authority check. Full adapter/meta
 suites and source guard remain mandatory before delivery. Live apply NOT RUN.
+
+## Corrected candidate verification September 28
+
+- Focused final package: 39 PASS in /tmp/ga-e0t1-permissions-green-r7.xml.
+- Full adapter/meta surface: 3962 PASS and 21 existing skips in
+  /tmp/ga-e0t1-permissions-full-r2.xml. Four are opt-in certification/wheel
+  checks and seventeen require the unavailable historical Taskmaster CLI.
+- The restricted attempt is preserved in /tmp/ga-e0t1-permissions-full-r1.xml:
+  2183 PASS, two dependency-download failures, one skip, then an interrupted
+  MCP client hang. Only its exact identified pytest and fixture-server processes
+  were stopped gracefully. The unchanged invocation module passed all eight
+  tests with required network/IPC access before the full parallel rerun.
+- The successful run uses the repository-supported loadgroup parallel mode.
+  Dependency virtual environments and the pip cache remain under /tmp.
+- Managed-update goldens and S:W:H:E source guard PASS. No unrelated tracked
+  source changes. Full-suite inputs were unchanged by the separate package edits.
+- Exact six-object host preimage and affected-client quiescence PASS after the
+  timestamp correction. The two Windows-home Codex clients are unaffected.
+- No live recovery job queued, no permissions applied, no worker released.
+
+The signed R1 HOLD stays filed. This corrected successor requires two fresh
+independent reviews and all immediate preflights; no verdict is inherited.

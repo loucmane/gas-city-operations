@@ -170,8 +170,9 @@ def transaction(entries, expected, evidence, guard, prove, after_step=lambda _: 
         require(not current[p]['xattrs'], 'unexpected preexisting xattr')
     guard()
     save(evidence, 'preimage.json', current)
-    history = []
+    history = {}
     attempt = None
+    commit_started = False
     try:
         for p, fd in entries.items():
             is_dir = stat.S_ISDIR(current[p]['stat']['mode'])
@@ -184,14 +185,15 @@ def transaction(entries, expected, evidence, guard, prove, after_step=lambda _: 
                 require(image(fd) == current[p], 'metadata drift before operation')
                 old = current[p]
                 wanted = expected_image(old, action, value)
-                attempt = (p, fd, action, old, wanted)
+                step = len(history)
+                attempt = (step, p, fd, action, old, wanted)
                 save(evidence, f'{len(history):02d}-intent.json', dict(path=p, action=action,
                      before=old, expected_after=semantic(wanted)))
                 operate(fd, action, value)
                 observed = image(fd)
                 require(semantic(observed) == semantic(wanted), 'unexpected operation postimage')
                 current[p] = observed
-                history.append(attempt)
+                history[step] = attempt
                 attempt = None
                 save(evidence, f'{len(history):02d}-applied.json', dict(path=p, after=observed))
                 after_step(len(history))
@@ -205,25 +207,35 @@ def transaction(entries, expected, evidence, guard, prove, after_step=lambda _: 
             stable_identity(p, fd)
             require(image(fd) == current[p], 'metadata drift during proof')
         save(evidence, 'postimage.json', current)
+        save(evidence, 'commit-intent.json', dict(postimage_sha256=sha(
+             (json.dumps(current, sort_keys=True, indent=2) + '\n').encode()), worker_release=False))
+        # Once publication may begin, never compensate behind a possible receipt.
+        # An interrupted commit requires readback, not replay or automatic rollback.
+        commit_started = True
         save(evidence, 'result.json', dict(ok=True, creation_proof=proof, worker_release=False,
              historical_transcripts_modified=False, ctime_changes_preserved=True))
         return current
     except BaseException as primary:
+        if commit_started:
+            save(evidence, 'commit-interrupted.json', dict(error=repr(primary),
+                 rollback='forbidden', readback_required=True, retry=False, worker_release=False))
+            raise Ambiguous('stop: commit publication interrupted; readback required') from primary
         try:
             guard()
             if attempt is not None:
-                p, fd, action, old, wanted = attempt
+                step, p, fd, action, old, wanted = attempt
                 stable_identity(p, fd)
                 observed = image(fd)
                 if semantic(observed) == semantic(wanted):
                     current[p] = observed
-                    history.append(attempt)
+                    history[step] = attempt
                 elif observed != old:
                     raise Ambiguous('unclassified attempted mutation')
             for p, fd in entries.items():
                 stable_identity(p, fd)
                 require(image(fd) == current[p], 'rollback postimage drift')
-            for number, (p, fd, action, old, wanted) in enumerate(reversed(history)):
+            for number, step in enumerate(sorted(history, reverse=True)):
+                _, p, fd, action, old, wanted = history[step]
                 guard()
                 stable_identity(p, fd)
                 require(image(fd) == current[p], 'rollback target drift')
@@ -234,6 +246,9 @@ def transaction(entries, expected, evidence, guard, prove, after_step=lambda _: 
                 current[p] = observed
                 save(evidence, f'rollback-{number:02d}.json', dict(path=p, after=observed))
             guard()
+            for p, fd in entries.items():
+                stable_identity(p, fd)
+                require(image(fd) == current[p], 'final rollback metadata drift')
             require(all(semantic(current[p]) == semantic(expected[p]) for p in entries),
                     'rollback incomplete')
             save(evidence, 'failure.json', dict(error=repr(primary), rollback='verified',

@@ -1,5 +1,6 @@
 """Disposable only; no live clients, permissions, services, or worker jobs."""
 import json
+import inspect
 import os
 from pathlib import Path
 import stat
@@ -36,6 +37,7 @@ def test_apply_and_no_replay_without_changing_history(case):
     assert all(stat.S_IMODE(v['stat']['mode']) == (0o700 if stat.S_ISDIR(v['stat']['mode']) else 0o600) for v in after.values())
     assert historical.read_bytes() == original and historical.stat() == old
     assert json.loads((evidence/'result.json').read_text())['ok']
+    assert json.loads((evidence/'commit-intent.json').read_text())['postimage_sha256']==p.sha((evidence/'postimage.json').read_bytes())
     with pytest.raises(RuntimeError, match='preimage'):p.transaction(fds,before,evidence,guard,lambda _:True)
 
 
@@ -130,6 +132,18 @@ def test_proof_failure_rolls_back(case):
     assert all(p.semantic(p.image(fd))==p.semantic(before[k]) for k,fd in fds.items())
 
 
+def test_saved_images_preserve_exact_nanosecond_integers(case):
+    fds,_,evidence,_,_=case[:5]
+    path=next(k for k in fds if k.endswith('/rules'))
+    exact=1785761543210232905
+    os.utime(path,ns=(exact,exact))
+    value=p.image(fds[path])
+    p.save(evidence,'exact-nanoseconds.json',value)
+    loaded=json.loads((evidence/'exact-nanoseconds.json').read_text())
+    assert loaded==value and loaded['stat']['mtime_ns']==exact
+    assert loaded['stat']['mtime_ns']!=int(float(exact))
+
+
 def test_rollback_failure_is_not_called_restored(case,monkeypatch):
     fds,before,evidence,guard,_,_=case
     original=p.operate
@@ -140,3 +154,66 @@ def test_rollback_failure_is_not_called_restored(case,monkeypatch):
     def injected(_):raise RuntimeError('stop')
     with pytest.raises(p.Ambiguous):p.transaction(fds,before,evidence,guard,lambda _:True,injected)
     assert (evidence/'ambiguous.json').is_file() and not (evidence/'failure.json').exists()
+
+
+def test_signal_between_history_record_and_pending_clear_rolls_back_once(case):
+    fds,before,evidence,guard,_,_=case
+    lines,start=inspect.getsourcelines(p.transaction)
+    stop_line=next(start+i for i,line in enumerate(lines)
+        if line.strip()=='attempt = None' and i
+        and ('history.append' in lines[i-1] or 'history[' in lines[i-1]))
+    fired=False
+    def trace(frame,event,arg):
+        nonlocal fired
+        if (frame.f_code is p.transaction.__code__ and event=='line'
+                and frame.f_lineno==stop_line and frame.f_locals.get('action')=='default'
+                and not fired):
+            fired=True
+            raise KeyboardInterrupt('between completed record and pending clear')
+        return trace
+    previous=sys.gettrace()
+    try:
+        sys.settrace(trace)
+        with pytest.raises(KeyboardInterrupt):
+            p.transaction(fds,before,evidence,guard,lambda _:True)
+    finally:sys.settrace(previous)
+    assert fired
+    assert len(list(evidence.glob('rollback-*.json')))==2
+    assert all(p.semantic(p.image(fd))==p.semantic(before[k]) for k,fd in fds.items())
+    assert json.loads((evidence/'failure.json').read_text())['rollback']=='verified'
+
+
+def test_final_rollback_rereads_already_restored_targets(case,monkeypatch):
+    fds,before,evidence,guard,_,_=case
+    rules=Path(next(k for k in fds if k.endswith('/rules')))
+    original=p.operate
+    def race(fd,action,value):
+        original(fd,action,value)
+        if action=='mode' and value==0o775:rules.chmod(0o640)
+    monkeypatch.setattr(p,'operate',race)
+    def fail(n):
+        if n==3:raise RuntimeError('start rollback after all operations')
+    with pytest.raises(p.Ambiguous):
+        p.transaction(fds,before,evidence,guard,lambda _:True,fail)
+    assert stat.S_IMODE(rules.stat().st_mode)==0o640
+    assert not (evidence/'failure.json').exists()
+
+
+@pytest.mark.parametrize('stage',['before','after'])
+def test_success_publication_fault_never_rolls_back_committed_permissions(case,monkeypatch,stage):
+    fds,before,evidence,guard,target,_=case
+    original=p.save
+    def fail(root,name,value):
+        if name=='result.json' and stage=='before':raise KeyboardInterrupt('before result publication')
+        original(root,name,value)
+        if name=='result.json':raise KeyboardInterrupt('after result bytes were published')
+    monkeypatch.setattr(p,'save',fail)
+    with pytest.raises(BaseException) as caught:
+        p.transaction(fds,before,evidence,guard,lambda _:True)
+    assert isinstance(caught.value,p.Ambiguous) and 'commit' in str(caught.value)
+    assert stat.S_IMODE(target.stat().st_mode)==0o700
+    assert os.getxattr(target,p.DEFAULT)==p.PRIVATE
+    if stage=='after':assert json.loads((evidence/'result.json').read_text())['ok']
+    else:assert not (evidence/'result.json').exists()
+    assert json.loads((evidence/'commit-interrupted.json').read_text())['rollback']=='forbidden'
+    assert not (evidence/'failure.json').exists()
