@@ -262,24 +262,22 @@ def route(text):
 
 
 def watch(text):
-    old = "        w.directory_preservation(a, z)"
-    new = """        # Same prospective clock bound and accounting as final preservation.
-        # This changes only comparison copies, never source metadata.
-        baseline=json.loads(w.read(before_path))
-        policy=w.module(BASE.parent/'cache-atime-policy-r1.py',
-            '61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783')
-        import time
-        def sample():
-            first=time.clock_gettime_ns(time.CLOCK_BOOTTIME)
-            real=time.time_ns()
-            last=time.clock_gettime_ns(time.CLOCK_BOOTTIME)
-            return dict(boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
-                real_ns=real,boot_before_ns=first,boot_after_ns=last)
-        clock=dict(start=sample(),end=sample())
-        bound=policy.bounds(baseline['cache_access_clock'],clock)
-        w.account_read_times(dict(directories=a),dict(directories=z),bound)
-        w.directory_preservation(a, z, read_window=bound)"""
-    return once(text, old, new)
+    text = once(text, "        after = json.loads(w.read(stage_event))['after']", """        after = json.loads(w.read(stage_event))['after']
+        bound = w.read_time_bounds(json.loads(w.read(WINDOW/'before.json'))['cache_access_clock'])
+        w.save('read-route-observation.json',dict(before=after,after=now,window=bound))
+        now = w.route_read_account(after,now,bound)""")
+    text = once(text, "        z = json.loads(json.dumps(w.directories(o)))", """        z = json.loads(json.dumps(w.directories(o)))
+        baseline = json.loads(w.read(before_path))
+        bound = w.read_time_bounds(baseline['cache_access_clock'])
+        raw = json.loads(json.dumps(dict(before=a,after=z,window=bound)))
+        w.save('read-directory-observation.json',raw)
+        # Check read eligibility against the real post-reload parent times,
+        # before the existing diagnostic-only route normalization below.
+        z['city']['.beads'], parent_reads = w.read_time_policy().metadata(
+            str(w.CITY/'.beads'),a['city']['.beads'],z['city']['.beads'],bound,renamed=True)""")
+    return once(text, "        w.directory_preservation(a, z)", """        reads = w.account_read_times(dict(directories=a),dict(directories=z),bound)
+        w.read_time_evidence('directories',raw['before'],raw['after'],parent_reads+reads,bound)
+        w.directory_preservation(a, z, read_window=bound)""")
 
 
 def read_time_base(text):
@@ -355,6 +353,13 @@ def read_time_routes(text):
                 "    after = read_account(event['before'],event['after'],bounds,regenerated=True) if read_account else event['after']\n    return r.compare_routes(event['before'],after,bounds)")
     text = once(text, 'def project(before,after,events,r,p,revisions,argv):',
                 'def project(before,after,events,r,p,revisions,argv,read_account=None):')
+    text = once(text, "    for snapshot,rows in ((a,first),(z,last)):\n        require(snapshot['directories']['runtime_children']['.beads']['routes.jsonl']==rows[city]['metadata']\n            and snapshot['directories']['city']['.beads']==rows[city]['parent'],'route snapshot mirror')", """    mirror_window=p.bounds(before['cache_access_clock'],after['cache_access_clock'])
+    for snapshot,rows in ((a,first),(z,last)):
+        mirror=copy.deepcopy(rows)
+        mirror[city]['parent']=snapshot['directories']['city']['.beads']
+        aligned=read_account(mirror,rows,mirror_window) if read_account else rows
+        require(snapshot['directories']['runtime_children']['.beads']['routes.jsonl']==rows[city]['metadata']
+            and snapshot['directories']['city']['.beads']==aligned[city]['parent'],'route snapshot mirror')""")
     text = once(text, "        require(event['before']==cursor,'route event preimage gap')",
                 "        gap=p.bounds(previous_clock,event['before_clock'])\n        preimage=read_account(cursor,event['before'],gap) if read_account else event['before']\n        require(preimage==cursor,'route event preimage gap')")
     text = once(text, '        changes=validate_event(event,name,r,p,revisions,argv)',

@@ -114,7 +114,9 @@ def test_original_policy_is_byte_identical(built):
 def test_watch_applies_existing_bounded_accounting(built):
     g,old,new=built
     text=new['watch-r11.py'].decode()
-    assert 'policy.bounds(baseline' in text and 'w.account_read_times(dict(directories=a)' in text
+    assert "w.read_time_bounds(baseline['cache_access_clock'])" in text and 'w.account_read_times(dict(directories=a)' in text
+    assert "w.save('read-directory-observation.json',raw)" in text
+    assert text.index('parent_reads = w.read_time_policy().metadata') < text.index("for key in ('mtime_ns', 'ctime_ns')")
     assert 'w.directory_preservation(a, z, read_window=bound)' in text
     assert text.index('w.account_read_times(dict(directories=a)') < text.index('w.directory_preservation(a, z, read_window=bound)')
 

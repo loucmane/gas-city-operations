@@ -99,3 +99,38 @@ No later coordinator workflow or Bead command precedes this execution window.
 The first log attempt was refused by this chat's filesystem sandbox before the
 source-transition lock could be created; the supported elevated user-level
 retry succeeded. No root operation or alternate workflow write was used.
+
+## Independent HOLD and bounded correction
+
+Both independent Astra reviewers held signed candidate
+f67cefec7b77caad0de154a14a92d5df5c6aae4a before execution. Their native
+envelopes are preserved and filed in the jobrunner ledger. No job was submitted.
+The findings were concrete integration defects: route snapshot mirrors compared
+raw access times before accounting, and WATCH used raw route equality plus
+normalized pre-reload parent times before checking read eligibility.
+
+The correction accounts only the city parent read delta at each snapshot mirror,
+retaining exact route-file metadata and all non-access parent fields. WATCH now
+uses the same bounded accountant for route observations, checks parent read
+eligibility against actual post-reload times before diagnostic normalization,
+and preserves raw before/after observations plus admitted deltas. WATCH's root
+is separate from the window, so its clock baseline is explicitly supplied from
+the window rather than implicitly read from the WATCH output directory. Native
+reload/atomicity proof remains mandatory at final admission; WATCH proves no
+operation authority.
+
+Four generated-function regressions reproduced these failures in
+/tmp/ga-e0t1-20-read-mirrors-red2-20260928.xml. The preceding red artifact is
+also preserved: three real failures and one test-fixture wiring error, corrected
+before production changes. The first green run retained a refusal but reported
+the new earlier non-access-metadata reason; its expected diagnostic was updated,
+not its refusal assertion. One assembly source-shape assertion was updated for
+the shared clock-bound helper. No permission or behavioral assertion was removed.
+
+Final operational suite /tmp/ga-e0t1-20-read-mirrors-final-20260928.xml:
+270 passed, no failures or skips. This includes actual generated before.json
+admission and later snapshot paths, WATCH route accounting, post-reload parent
+read eligibility, preserved raw/delta evidence and unchanged metadata refusals.
+The final r10 host baseline remains applicable: no coordinator workflow, Bead,
+worker or live configuration operation followed its capture. The successor still
+requires two independent exact-head reviews and fresh OBSERVE/PREFLIGHT.

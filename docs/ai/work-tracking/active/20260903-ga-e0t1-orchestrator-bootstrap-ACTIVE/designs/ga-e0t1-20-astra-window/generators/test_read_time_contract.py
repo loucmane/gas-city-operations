@@ -51,7 +51,7 @@ def runtime(generated):
     policy = load(generated['read-time-accounting.py'], 'read_policy')
     evidence = []
     base.read_time_policy = lambda: policy
-    base.read_time_bounds = lambda: WINDOW
+    base.read_time_bounds = lambda *args: WINDOW
     base.read_time_evidence = lambda *args: evidence.append(copy.deepcopy(args))
     return base, policy, evidence
 
@@ -245,7 +245,7 @@ def test_real_route_projection_gap_and_mirror_refusals(generated,runtime):
     first,last,proof=c.project(a,z,{},r,p,[],[],read_account=w.route_read_account)
     assert first['directories']==last['directories'] and not proof['reloads']
     bad=copy.deepcopy(z);bad['directories']['city']['.beads']['inode']+=1
-    with pytest.raises(RuntimeError,match='mirror'):c.project(a,bad,{},r,p,[],[],read_account=w.route_read_account)
+    with pytest.raises(RuntimeError,match='non-access metadata changed'):c.project(a,bad,{},r,p,[],[],read_account=w.route_read_account)
     for root in [r.RIGS[1][1],str(w.CITY)]:
         badrows=copy.deepcopy(rows);badrows[root]['metadata']['inode']+=1
         with pytest.raises(RuntimeError):c.project(a,route_snapshot(badrows,5),{},r,p,[],[],read_account=w.route_read_account)
@@ -341,3 +341,72 @@ def test_clock_boot_deadline_and_offset_checks_unchanged(generated):
         with pytest.raises(RuntimeError):p.bounds(clock(0),bad)
     bad=clock(2);bad['end']['real_ns']+=SECOND
     with pytest.raises(RuntimeError,match='offset'):p.bounds(clock(0),bad)
+
+
+@pytest.mark.parametrize('name',['before.json','later.json'])
+def test_actual_snapshot_admission_with_staggered_parent_read(generated,runtime,name):
+    w,_,evidence=runtime;r=load(generated['restore-r9-routes-r3.py'],'stagger_routes')
+    p=load(generated['cache-atime-policy-r1.py'],'stagger_clock')
+    chain=load(generated['route-chain-r1.py'],'stagger_chain')
+    first=route_rows(r);last=copy.deepcopy(first)
+    last[str(w.CITY)]['parent']['atime_ns']=NOW+SECOND
+    prior=dict(route_snapshot(first,0),pins={},providers={})
+    captures=iter([first,last]);samples=iter([clock(0)['start'],clock(0)['end'],
+                                          clock(2)['start'],clock(2)['end']])
+    saved={};w.host=lambda _:{};w.provider_pins=lambda *args:{}
+    w.dependency_image=lambda x:x
+    # Directory capture precedes the read recorded in the final route capture.
+    w.directories=lambda _:copy.deepcopy(prior['directories'])
+    w.save=lambda key,value:saved.setdefault(key,dict(value,cache_access_clock=clock(5)))
+    w.record=lambda key:saved[key]
+    compare=lambda a,z,*args:chain.project(a,z,{},r,p,[],[],read_account=w.route_read_account)
+    node=next(n for n in ast.parse(generated['window-r11.py']).body
+              if isinstance(n,ast.FunctionDef) and n.name=='collect_snapshot')
+    ns=dict(w=w,routes=types.SimpleNamespace(capture_routes=lambda *args:next(captures)),
+            p=p,clock_sample=lambda:next(samples),integrity_baseline=lambda _:prior,
+            reload_events=lambda:([],{}),preservation=compare)
+    exec(compile(ast.Module(body=[node],type_ignores=[]),'<generated admission>','exec'),ns)
+    ns['collect_snapshot'](name,types.SimpleNamespace(CACHE='fixture',PROTECTED=[]),
+                           types.SimpleNamespace(tree_snapshot=lambda *args,**kwargs:{}))
+    if name=='later.json':compare(prior,saved[name])
+    assert saved[name]['directories']['city']['.beads']['atime_ns']==75*HOUR
+    assert saved[name]['generated_routes'][str(w.CITY)]['parent']['atime_ns']==NOW+SECOND
+    assert evidence
+
+
+def test_generated_watch_route_read_and_negative(generated,runtime,tmp_path):
+    w,_,evidence=runtime;watch=load(generated['watch-r11.py'],'watch_route')
+    r=load(generated['restore-r9-routes-r3.py'],'watch_routes')
+    first=route_rows(r);last=copy.deepcopy(first)
+    last[str(w.CITY)]['parent']['atime_ns']=NOW+SECOND
+    event=tmp_path/'event.json';event.write_text('{}')
+    w.read=lambda path:json.dumps(dict(after=first,cache_access_clock=clock(0))).encode()
+    saved={};w.save=lambda name,value:saved.setdefault(name,copy.deepcopy(value))
+    adapter=types.SimpleNamespace(capture_routes=lambda *args:copy.deepcopy(last))
+    assert watch.routes_since_stage(w,None,adapter,event) is True
+    assert evidence[-1][0]=='routes'
+    assert saved['read-route-observation.json']['after']==last
+    last[str(w.CITY)]['parent']['mode']=0o777
+    assert str(watch.routes_since_stage(w,None,adapter,event)).startswith('refused:')
+
+
+def test_generated_watch_uses_real_postreload_times_and_preserves_evidence(generated,runtime,tmp_path):
+    w,_,evidence=runtime;watch=load(generated['watch-r11.py'],'watch_directory')
+    first=directories();first['city']['.beads']['atime_ns']=99*HOUR
+    last=copy.deepcopy(first)
+    last['city']['.beads'].update(mtime_ns=NOW+SECOND,ctime_ns=NOW+SECOND,atime_ns=NOW+2*SECOND)
+    path=tmp_path/'before.json';path.write_text('{}')
+    w.read=lambda _:json.dumps(dict(directories=first,cache_access_clock=clock(0))).encode()
+    w.module=lambda *args:types.SimpleNamespace(bounds=lambda *args:WINDOW)
+    w.directories=lambda _:copy.deepcopy(last)
+    saved={};w.save=lambda name,value:saved.setdefault(name,copy.deepcopy(value))
+    assert watch.directories_since_before(w,None,path) is True
+    assert saved['read-directory-observation.json']['after']==last
+    assert any(item[3] for item in evidence)
+    for key in ('mode','uid','gid','inode','size','nlink'):
+        bad=copy.deepcopy(last);bad['city']['.beads'][key]+=1
+        w.directories=lambda _:copy.deepcopy(bad)
+        assert str(watch.directories_since_before(w,None,path)).startswith('refused:')
+    bad=copy.deepcopy(last);bad['city']['.beads']['atime_ns']=NOW+20*SECOND
+    w.directories=lambda _:copy.deepcopy(bad)
+    assert str(watch.directories_since_before(w,None,path)).startswith('refused:')

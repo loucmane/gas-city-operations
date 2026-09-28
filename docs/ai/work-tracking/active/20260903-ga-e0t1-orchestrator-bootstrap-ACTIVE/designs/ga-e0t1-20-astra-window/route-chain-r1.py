@@ -56,9 +56,13 @@ def project(before,after,events,r,p,revisions,argv,read_account=None):
     require(end[:len(start)]==start and len(end)>=len(start),'route chain prefix')
     r.route_authority(first);r.route_authority(last)
     city=r.RIGS[0][1]
+    mirror_window=p.bounds(before['cache_access_clock'],after['cache_access_clock'])
     for snapshot,rows in ((a,first),(z,last)):
+        mirror=copy.deepcopy(rows)
+        mirror[city]['parent']=snapshot['directories']['city']['.beads']
+        aligned=read_account(mirror,rows,mirror_window) if read_account else rows
         require(snapshot['directories']['runtime_children']['.beads']['routes.jsonl']==rows[city]['metadata']
-            and snapshot['directories']['city']['.beads']==rows[city]['parent'],'route snapshot mirror')
+            and snapshot['directories']['city']['.beads']==aligned[city]['parent'],'route snapshot mirror')
     cursor=first;previous_clock=before['cache_access_clock'];proof=[]
     for name in end[len(start):]:
         event=events[name]

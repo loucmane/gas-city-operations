@@ -30,7 +30,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/window-base-r11.py')
-BASE_SHA = 'ae44dd2c13ef33a9b687009b76370abf75c0b34a7be6e4d9077e9df5e538394c'
+BASE_SHA = 'b8bc25946cfa9d23e7989e89abcdac4eabed6ee1737e0b5c0674ffa144a53313'
 TASK = 'ga-e0t1.20'
 WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r2')
 VAR = Path('/var/tmp')
@@ -93,6 +93,9 @@ def routes_since_stage(w, o, routes, stage_event):
     try:
         now = routes.capture_routes(w, o)
         after = json.loads(w.read(stage_event))['after']
+        bound = w.read_time_bounds(json.loads(w.read(WINDOW/'before.json'))['cache_access_clock'])
+        w.save('read-route-observation.json',dict(before=after,after=now,window=bound))
+        now = w.route_read_account(after,now,bound)
         return now == after or sorted(
             '%s %s.%s' % (root, section, key) for root in after for section in ('metadata', 'parent')
             for key in set(after[root][section]) | set(now[root][section])
@@ -155,26 +158,21 @@ def directories_since_before(w, o, before_path):
     try:
         a = json.loads(json.dumps(json.loads(w.read(before_path))['directories']))
         z = json.loads(json.dumps(w.directories(o)))
+        baseline = json.loads(w.read(before_path))
+        bound = w.read_time_bounds(baseline['cache_access_clock'])
+        raw = json.loads(json.dumps(dict(before=a,after=z,window=bound)))
+        w.save('read-directory-observation.json',raw)
+        # Check read eligibility against the real post-reload parent times,
+        # before the existing diagnostic-only route normalization below.
+        z['city']['.beads'], parent_reads = w.read_time_policy().metadata(
+            str(w.CITY/'.beads'),a['city']['.beads'],z['city']['.beads'],bound,renamed=True)
         routes = z['runtime_children'].get('.beads', {}).get('routes.jsonl')
         if routes is not None and 'routes.jsonl' in a['runtime_children'].get('.beads', {}):
             routes['inode'] = a['runtime_children']['.beads']['routes.jsonl']['inode']
         for key in ('mtime_ns', 'ctime_ns'):
             z['city']['.beads'][key] = a['city']['.beads'][key]
-        # Same prospective clock bound and accounting as final preservation.
-        # This changes only comparison copies, never source metadata.
-        baseline=json.loads(w.read(before_path))
-        policy=w.module(BASE.parent/'cache-atime-policy-r1.py',
-            '61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783')
-        import time
-        def sample():
-            first=time.clock_gettime_ns(time.CLOCK_BOOTTIME)
-            real=time.time_ns()
-            last=time.clock_gettime_ns(time.CLOCK_BOOTTIME)
-            return dict(boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
-                real_ns=real,boot_before_ns=first,boot_after_ns=last)
-        clock=dict(start=sample(),end=sample())
-        bound=policy.bounds(baseline['cache_access_clock'],clock)
-        w.account_read_times(dict(directories=a),dict(directories=z),bound)
+        reads = w.account_read_times(dict(directories=a),dict(directories=z),bound)
+        w.read_time_evidence('directories',raw['before'],raw['after'],parent_reads+reads,bound)
         w.directory_preservation(a, z, read_window=bound)
         return True
     except Exception as exc:  # any refusal or read error is recorded, since WATCH only observes

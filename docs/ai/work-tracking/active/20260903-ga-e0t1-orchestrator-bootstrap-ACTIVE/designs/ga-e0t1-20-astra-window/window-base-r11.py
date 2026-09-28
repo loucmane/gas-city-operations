@@ -787,7 +787,7 @@ def read_time_policy():
     return module(HERE/'read-time-accounting.py', '47b97861d19cf4c8e14687bb2428f9b70863815ce32c5e1c1e3b1d6bd0a7a22c')
 
 
-def read_time_bounds():
+def read_time_bounds(baseline_clock=None):
     policy = module(HERE/'cache-atime-policy-r1.py',
         '61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783')
     def sample():
@@ -796,7 +796,9 @@ def read_time_bounds():
         last = time.clock_gettime_ns(time.CLOCK_BOOTTIME)
         return dict(boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
             real_ns=real, boot_before_ns=first, boot_after_ns=last)
-    return policy.bounds(record('before.json')['cache_access_clock'],
+    if baseline_clock is None:
+        baseline_clock = record('before.json')['cache_access_clock']
+    return policy.bounds(baseline_clock,
                          dict(start=sample(), end=sample()))
 
 
