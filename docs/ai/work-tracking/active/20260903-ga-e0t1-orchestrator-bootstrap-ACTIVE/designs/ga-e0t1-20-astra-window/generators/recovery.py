@@ -16,6 +16,7 @@ import successor
 HERE = Path(__file__).parent
 PARENT = 'cdf7e3784d18358e099c444b48bf43387f9175a7'
 COMPLETED_CLOSE_SHA = 'fab5bf6d06a261b326de253b52f39bbf12dad0d0c059b6c4e4fb3ff0a9396f58'
+COMPLETED_OBSERVER_SHA = '091457e1027f2115b5321f894278fcbe3d8dc57639f871f0d9486ffc243651ed'
 
 
 def sha(raw):
@@ -59,7 +60,15 @@ def assemble():
             # regenerated code. Never rewrite those historical digest values.
             if name.endswith(('.py', '.sh')) and name != 'stranded-recovery.py':
                 text = raw.decode().replace('STRANDED_SOURCE_SHA', sha(out['stranded-recovery.py']))
+                if name == 'window-r11.py':
+                    # This field authenticates completed OBSERVE evidence. It
+                    # is not a future source invocation. Keep the original pin
+                    # while hashing this file's final bytes into its consumers.
+                    text = build.once(text, "OBSERVER_SHA='"+COMPLETED_OBSERVER_SHA+"'",
+                                      "OBSERVER_SHA='COMPLETED_OBSERVER_PIN'")
                 raw = build.HEX.sub(lambda m: mapping.get(m[0], m[0]), text).encode()
+                if name == 'window-r11.py':
+                    raw = raw.replace(b'COMPLETED_OBSERVER_PIN', COMPLETED_OBSERVER_SHA.encode())
             newer[name] = raw
         if newer == out:
             break

@@ -86,3 +86,36 @@ No workflow.py, Bead writes, source edit or unguarded gc until the terminal
 result. All outcomes are temporarily recorded in runner logs and immutable
 window artifacts, then appended to Bead/Aegis after restoration. Preserve every
 old evidence root and failure. Stop on refusal, drift or ambiguous mutation.
+
+## R2 correction after independent HOLDs
+
+Both independent reviews of signed 45a177710908c8abd4afa795d3b4893991952ec8
+held the same defect before execution. The generator rewrote OBSERVER_SHA in
+window-r11.py, although that field authenticates the already-completed OBSERVE
+record rather than a future executable. Both native review envelopes are
+preserved and filed under that rejected head in the runner review archive.
+Neither ADMIT nor any other recovery job ran on the held candidate.
+
+The generator now preserves the exact historical observer digest
+091457e1027f2115b5321f894278fcbe3d8dc57639f871f0d9486ffc243651ed
+while computing the final recovery file hashes for their consumers. Historical
+CLOSE protection and all other checks remain unchanged. No original evidence
+was rewritten or replayed. The preserved OBSERVE intent has SHA-256
+094798c315d19e964c2278ae5b12e5df718e57860ae5d4a738a47bee37be6446
+and the original integrity binding has SHA-256
+2f3e2279280dee6bbe3d91310b8cc6f123ed4893bf3c9865ad511f0860a7fdc2.
+
+Three new tests execute the actual generated integrity_baseline function on
+byte-exact completed observation data copied to disposable fixtures. Only the
+fixture directory in the binding is translated. They prove the positive path
+and refusal on altered executor or postimage binding. The first RED produced
+the same integrity executor refusal before live execution. A fixture-only
+missing os import was corrected, with all intermediate failures preserved.
+
+Final source evidence: 408 generator tests and 42 generated contract tests
+passed, zero failures or skips. Files are
+/tmp/ga-e0t1-20-recovery-r2-confirmed.xml and
+/tmp/ga-e0t1-20-recovery-r2-generated.xml.
+RED and intermediate results remain at the recovery-r2-red, green and final
+JUnit paths. Fresh exact-head independent reviews are required for R2. This
+correction does not authorize a worker retry or imply live restoration.

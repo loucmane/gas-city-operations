@@ -227,3 +227,56 @@ def test_generated_verified_lifecycle_calls_the_real_recovery(case):
     ns['ROOT'] = Path('/wrong-window')
     with pytest.raises(RuntimeError, match='terminal window'):
         ns['verified_lifecycle'](terminal=True)
+
+
+def historical_integrity_fixture(tmp_path, *, corrupt=None):
+    """Run the generated historical gate on byte-exact completed OBSERVE data.
+
+    Only the fixture directory name in the binding is translated. No live
+    executor, provider, service or write surface is invoked.
+    """
+    import ast
+    out = recovery.assemble()[1]
+    tree = ast.parse(out['window-r11.py'])
+    selected = [node for node in tree.body if
+        isinstance(node, ast.FunctionDef) and node.name == 'integrity_baseline'
+        or isinstance(node, ast.Assign) and any(isinstance(t, ast.Name)
+            and t.id in {'INTEGRITY', 'OBSERVER_SHA', 'INSPECTOR_SHA'} for t in node.targets)]
+    ns = dict(Path=Path, json=json, stat=__import__('stat'), os=__import__('os'))
+    exec(compile(ast.Module(body=selected, type_ignores=[]), '<generated-integrity>', 'exec'), ns)
+    original = ns['INTEGRITY']
+    root = tmp_path/'integrity'
+    root.mkdir(mode=0o700)
+    files = ('intent.json', 'result.json', 'preservation.json', 'observed-after.json')
+    for name in files:
+        (root/name).write_bytes((original/name).read_bytes())
+    binding = json.loads(Path('/var/tmp/ga-e0t1.20-window-20260928-r3/integrity-binding.json').read_bytes())
+    assert binding['root'] == str(original)
+    assert binding['observer_sha256'] == '091457e1027f2115b5321f894278fcbe3d8dc57639f871f0d9486ffc243651ed'
+    binding['root'] = str(root)
+    if corrupt == 'executor':
+        value = json.loads((root/'intent.json').read_bytes())
+        value['executor_sha256'] = '0'*64
+        (root/'intent.json').write_text(json.dumps(value))
+    elif corrupt == 'binding':
+        binding['observed_after_sha256'] = '0'*64
+    ns['INTEGRITY'] = root
+    ns['w'] = types.SimpleNamespace(require=require, ROOT=tmp_path/'window',
+        read=lambda p: p.read_bytes(), record=lambda name: binding,
+        digest=lambda raw: hashlib.sha256(raw).hexdigest())
+    return ns, json.loads((root/'observed-after.json').read_bytes()), out
+
+
+def test_completed_observe_identity_survives_recovery_admission(tmp_path):
+    ns, expected, out = historical_integrity_fixture(tmp_path)
+    assert ns['integrity_baseline'](False) == expected
+    # This must remain the actual completed observer, not regenerated code.
+    assert ns['OBSERVER_SHA'] != hashlib.sha256(out['observe-integrity-r11.py']).hexdigest()
+
+
+@pytest.mark.parametrize('corrupt,reason', [('executor', 'integrity executor'),
+    ('binding', 'integrity baseline changed')])
+def test_historical_observe_drift_still_refuses(tmp_path, corrupt, reason):
+    ns, _, _ = historical_integrity_fixture(tmp_path, corrupt=corrupt)
+    with pytest.raises(RuntimeError, match=reason):
+        ns['integrity_baseline'](False)
