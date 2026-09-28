@@ -32,8 +32,8 @@ def test_exact_predecessor_and_deterministic_bindings(built):
     assert w.CITY_SHA[1]==result['city_after_sha256']
     assert w.RECEIPT_SHA[1]==result['receipt_after_sha256']
     assert w.REVISION[1]==result['revision_after']
-    assert w.CACHE_PREV_NS==1790621288720671640
-    assert w.CACHE_PINNED_NS==1790621288720671640
+    assert w.CACHE_PREV_NS==1790637004449701379
+    assert w.CACHE_PINNED_NS==1790637004449701379
     for n in r.HISTORICAL & before.keys():assert before[n]==out[n],n
     for n in r.COMPLETED:assert b'exit 125' in out[n].splitlines()[:4],n
     for n in ('startup-amendment-r9.py','continuation-admission.py'):
@@ -49,7 +49,7 @@ def test_exact_predecessor_and_deterministic_bindings(built):
     assert out['window-base-r11.py'].count(b'verify_prelaunch_permissions()')==3
 
 
-def test_actual_restored_cache_baseline_needs_no_second_disposition(built):
+def test_actual_selected_cache_baseline_needs_no_second_disposition(built):
     w=r.module(built[1]['window-base-r11.py'])
     raw=Path(r.OBSERVATION).read_bytes()
     assert r.sha(raw)==r.OBSERVATION_SHA
@@ -58,7 +58,23 @@ def test_actual_restored_cache_baseline_needs_no_second_disposition(built):
     original=copy.deepcopy(accepted)
     assert w.approved_candidate_cache_image(accepted)==original
     assert accepted==original
-    assert w.CACHE_PREV_NS==w.CACHE_PINNED_NS==1790621288720671640
+    assert w.CACHE_PREV_NS==w.CACHE_PINNED_NS==1790637004449701379
+
+
+def test_final_baseline_retains_r8_except_two_exact_directory_timestamps(built):
+    w=r.module(built[1]['window-base-r11.py'])
+    old_raw=Path('/var/tmp/ga-e0t1.20-terminal-20260928-r8/observed-after.json').read_bytes()
+    assert r.sha(old_raw)=='f46054e79167df96ce16d2ae66764a89299c110f15669b27af69defcc86451bf'
+    new_raw=Path(r.OBSERVATION).read_bytes()
+    assert r.sha(new_raw)==r.OBSERVATION_SHA
+    prior=json.loads(old_raw); current=json.loads(new_raw)
+    prior={k:prior[k] for k in w.ACCEPTED_KEYS}
+    for field in ('mtime_ns','ctime_ns'):
+        entry=prior['cache']['inventory'][w.CACHE_DIRECTORY]
+        assert entry[field]==1790621288720671640
+        assert current['cache']['inventory'][w.CACHE_DIRECTORY][field]==1790637004449701379
+        entry[field]=1790637004449701379
+    assert w.dependency_image(prior)==w.dependency_image(current)
 
 
 @pytest.mark.parametrize('field',['mtime_ns','ctime_ns'])

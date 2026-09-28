@@ -19,10 +19,10 @@ HERE=Path(__file__).parent
 BASE=startup.BASE
 PREP=Path(startup.ROOT)
 PREP_RESULT_SHA='9da96928da9fcbb49828231f36065a3f5cb2c8ffa07068128b896c4ed12c6fd6'
-OBSERVATION='/var/tmp/ga-e0t1.20-terminal-20260928-r8/observed-after.json'
-OBSERVATION_SHA='f46054e79167df96ce16d2ae66764a89299c110f15669b27af69defcc86451bf'
-CACHE_PREV=1790621288720671640
-CACHE_PIN=1790621288720671640
+OBSERVATION='/tmp/ga-e0t1-20-readonly-baseline-20260929-r14/observed.json'
+OBSERVATION_SHA='78426edf72630e2d9d7511a2027941333cef8b78fd9bfd8c5801d3466dc0d48c'
+CACHE_PREV=1790637004449701379
+CACHE_PIN=1790637004449701379
 ROOTS={v:v.replace('20260928-r8','20260929-r9').replace('.20-r8-','.20-r9-')
        for v in window_r8.ROOTS.values() if '20260928-r8' in v or '.20-r8-' in v}
 ROOTS['ga-e0t1.20-integrity-20260928-r10']='ga-e0t1.20-integrity-20260929-r11'
@@ -113,8 +113,8 @@ def assemble():
     text=build.once(text,"closed['closed_session']=='ci-zcoet'","closed['closed_session']=='ci-sgd80'")
     text=build.once(text,"Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r7',n)",
         "Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r8',n)")
-    # The accepted R8 terminal image already contains this exact disposition.
-    # Require its current value; never reapply the older R7-to-R8 transition.
+    # Final read-only comparison follows all coordinator verification. Its only
+    # R8 deltas are the exact cache directory timestamps; require this image as-is.
     text=build.once(text,'CACHE_PREV_NS = '+str(old.CACHE_PREV_NS),'CACHE_PREV_NS = '+str(CACHE_PREV))
     text=build.once(text,'CACHE_PINNED_NS = '+str(old.CACHE_PINNED_NS),'CACHE_PINNED_NS = '+str(CACHE_PIN))
     text=text.replace("HERE/'workspace-r8.py'","HERE/'workspace-r9.py'")

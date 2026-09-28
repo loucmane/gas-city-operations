@@ -9,7 +9,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: AMEND-STARTUP-R9.sh <reviewed commit>}
-STEP_SHA=8c43d293def7b1e3a13efc1ea188ff8a85e466dc31270ac47dfcbb31148b863b
+STEP_SHA=549366719c8bdd01f8f59b2af6ca41b1eabce402b6fbd2594928c1e879ed3178
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
