@@ -503,3 +503,27 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
 
 - New approved source-only ga-tmgr repair removes only unsupported --preserve-fds 2, preserving anonymous FDs3/4 and every confinement/transaction check. Existing exact-token argv owner RED then GREEN; owning package115 tests/137 subtests and vet PASS. No runtime/build/delivery; R3/R4 remain consumed failures.
 - /tmp/ga-tmgr-bwrap-fd-compatibility-20260911/executor/REPORT.md and source.sha256 bind two-file candidate, preservation and independent-review boundary. Source manifest SHA256 a4b84ae6491727c6a2ee7e360346835e8ed77f4c7a95b9d2db826990d7de41eb. Full objective unchanged; ga-oz9e deferred.
+
+## Current recovery checkpoint — 2026-09-28 11:08 CEST
+
+- Continue the same full provider-independent execution and handover goal. Steps
+  1–3 remain complete and step 4 remains in progress. No provider-parity or C1
+  product completion is claimed. Deferred ga-oz9e remains nonblocking.
+- ga-e0t1.20 r3 staged successfully, then rig resume applied but observation
+  refused Core's omitted zero active_sessions field. City resume never ran and
+  no worker launched. Supported HOLD and CLOSE restored full suspension and
+  proved zero residue. Original failure and all consumed roots are preserved.
+- Operator-authorized recovery-only successor 524f1a3da16b60cc1a036f9e0f681cd3157b2d25
+  earned two independent Astra SOURCE_PASS reviews after preserving R1 HOLDs.
+  ADMIT, RESTORE and TERMINAL passed through the existing host runner. Baseline
+  city and receipt, full native integrity, stable service epochs and read-only
+  cache protection are verified. Terminal result SHA-256 is
+  dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8.
+- Evidence: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/RECOVERY-ONLY-R1.md.
+  Existing Bead and supported session/tracker/handoff logs record the result.
+- Next deliverable: reviewed operational zero/nonzero status-schema correction
+  with real Core fixtures before a fresh worker window. No worker retry occurred
+  or is admitted by this recovery-only package. Preserve the original task,
+  route, worktree and completed WORKTREE/PREP/BIND/ROUTE without replay. Runner
+  remains halted and all rigs suspended. Product implementation remains with
+  the Gas City worker, not a coordinator fallback.

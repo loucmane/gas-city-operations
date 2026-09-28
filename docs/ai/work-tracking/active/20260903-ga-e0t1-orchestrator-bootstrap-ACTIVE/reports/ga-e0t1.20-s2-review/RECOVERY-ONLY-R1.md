@@ -119,3 +119,44 @@ passed, zero failures or skips. Files are
 RED and intermediate results remain at the recovery-r2-red, green and final
 JUnit paths. Fresh exact-head independent reviews are required for R2. This
 correction does not authorize a worker retry or imply live restoration.
+
+## Live recovery PASS — 2026-09-28 11:08:21 CEST
+
+Exact signed recovery head 524f1a3da16b60cc1a036f9e0f681cd3157b2d25 received
+two independent Astra SOURCE_PASS reviews with no findings. Request SHA-256
+371b69f8a49c3ba9de84a9a6bdc0b40cbab251f90dfa776f542ff65145f719fd.
+Native envelopes are under /tmp/ga-e0t1-20-recovery-r2-reviews and in the
+existing runner review archive at that head. Reviewer thread identities:
+01a0e73c-a2f4-7830-b87e-aadf3afb4390 and
+01a0e73c-d1bf-7c43-b1cd-823bef8315b9.
+
+The existing host runner executed exactly these three jobs, each exit zero and
+inactive after completion, with a result readback before the next operation:
+
+- 11:03:43 CEST ga-e0t1-20-recovery-admit-r2 PASS, read-only host and full
+  preservation admission. Result SHA-256
+  a4f45076de000cb1d0abf6f3993eb5d1b9bfde3581aab68e3227f0d882e64e11.
+- 11:06:23 CEST ga-e0t1-20-recovery-restore-r2 PASS, exact baseline city and
+  receipt restored through the existing confined writers. Result SHA-256
+  d81e9a1da9343e5c3bf32e17a91ecfa21ccad7f039e1e8158ded0b9820c8a958.
+- 11:08:21 CEST ga-e0t1-20-recovery-terminal-r2 PASS, actual-host and full
+  native integrity verified, Drifts null, root cache read-only, preservation
+  proven, zero integrity-probe cache-atime deltas and no timestamp writes.
+  Result /var/tmp/ga-e0t1.20-terminal-20260928-r3/result.json has SHA-256
+  dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8.
+
+City bytes are again bdcec2549fae330ed4aedc2c25563f1917e2bfd39e1caea4be443536f94c69b1.
+Receipt bytes are again 7185414ebade17a1fdd7d485564e85f6ad8d7e0230983c21bf917f1ed27fb0ba.
+Suspension endpoint remains c6628a825fb938eb00c470bdccb8adecde0edf4df158823fb9df8c4eb7f5d44b.
+Core PID 2800348 and pinned Core, broker and signer start epochs remain unchanged.
+The worker never launched. Existing HOLD/CLOSE zero-residue evidence and every
+failed attempt remain intact. The runner is HALTED with an empty queue; do not
+clear its terminal latch to retry a worker under this recovery-only grant.
+
+Remaining blocker: the operational status parser requires active_sessions even
+when installed Core omits it for zero. A future independently reviewed worker
+successor must first prove exact zero and nonzero status/census handling on
+real-schema fixtures. No such source fix or worker retry was made in this
+recovery. C1 product work and the original handover acceptance remain incomplete.
+Completed WORKTREE, PREP, BIND, ROUTE and all consumed live roots must not replay.
+The original app goal remains active, not complete or replaced.
