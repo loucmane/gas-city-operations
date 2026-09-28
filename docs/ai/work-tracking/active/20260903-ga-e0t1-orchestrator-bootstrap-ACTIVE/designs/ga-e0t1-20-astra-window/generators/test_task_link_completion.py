@@ -142,4 +142,3 @@ def test_consumed_or_structural_input_cannot_be_adopted():
             value['task']['parent'] = 'ga-e0t1'
         with pytest.raises(RuntimeError):
             m.expected_after(value)
-

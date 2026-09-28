@@ -88,4 +88,3 @@ No changes to R1, the worker's three product files, installed CLI, or runtime.
 Bead note is deferred until this tightly pinned recovery is disposed, to avoid
 changing the parent's exact frozen image during recovery. This report and the
 supported workflow log preserve the failure immediately.
-
