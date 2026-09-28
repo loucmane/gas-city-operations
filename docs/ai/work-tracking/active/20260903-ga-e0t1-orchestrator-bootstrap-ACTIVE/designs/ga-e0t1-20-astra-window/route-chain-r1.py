@@ -12,7 +12,7 @@ def valid_chain(chain):
     require(type(chain) is list and chain==list(ORDER[:len(chain)]) and len(chain)<=2,
             'route chain order')
 
-def validate_event(event,name,r,p,revisions,argv):
+def validate_event(event,name,r,p,revisions,argv,read_account=None):
     require(event['name']==name and name in ORDER,'reload identity')
     phase=event['phase'];cleanup=phase['cleanup'];accepted=event['accepted']
     require(phase['phase']==name and phase['argv']==argv,'reload command identity')
@@ -45,9 +45,10 @@ def validate_event(event,name,r,p,revisions,argv):
     stamp=datetime.fromisoformat(cycle['ts'].replace('Z','+00:00'))
     require(stamp.tzinfo is not None and 0<=observed-int(stamp.timestamp()*10**9)<=120*10**9,
         'recorded cycle freshness')
-    return r.compare_routes(event['before'],event['after'],bounds)
+    after = read_account(event['before'],event['after'],bounds,regenerated=True) if read_account else event['after']
+    return r.compare_routes(event['before'],after,bounds)
 
-def project(before,after,events,r,p,revisions,argv):
+def project(before,after,events,r,p,revisions,argv,read_account=None):
     a=copy.deepcopy(before);z=copy.deepcopy(after)
     first=a.pop('generated_routes');last=z.pop('generated_routes')
     start=a.pop('generated_route_chain');end=z.pop('generated_route_chain')
@@ -61,13 +62,17 @@ def project(before,after,events,r,p,revisions,argv):
     cursor=first;previous_clock=before['cache_access_clock'];proof=[]
     for name in end[len(start):]:
         event=events[name]
-        require(event['before']==cursor,'route event preimage gap')
+        gap=p.bounds(previous_clock,event['before_clock'])
+        preimage=read_account(cursor,event['before'],gap) if read_account else event['before']
+        require(preimage==cursor,'route event preimage gap')
         p.bounds(previous_clock,event['before_clock'])
-        changes=validate_event(event,name,r,p,revisions,argv)
+        changes=validate_event(event,name,r,p,revisions,argv,read_account)
         p.bounds(before['cache_access_clock'],event['after_clock'])
         cursor=event['after'];previous_clock=event['after_clock'];proof.extend(changes)
     p.bounds(previous_clock,after['cache_access_clock'])
-    require(cursor==last,'unobserved generated route mutation')
+    gap=p.bounds(previous_clock,after['cache_access_clock'])
+    final=read_account(cursor,last,gap) if read_account else last
+    require(cursor==final,'unobserved generated route mutation')
     # Only identities validated through successful, byte-preserving native
     # reloads are aligned in copies. Root atime and all unrelated data remain.
     if proof:
@@ -76,4 +81,7 @@ def project(before,after,events,r,p,revisions,argv):
             z['directories']['city']['.beads'][key]=a['directories']['city']['.beads'][key]
         # R6 intentionally ignores route-file timestamps in runtime_children.
         # Do not introduce any additional normalization here.
+    if read_account:
+        # Every intervening parent read delta was independently accounted above.
+        z['directories']['city']['.beads']['atime_ns']=a['directories']['city']['.beads']['atime_ns']
     return a,z,dict(reloads=end[len(start):],changes=proof)

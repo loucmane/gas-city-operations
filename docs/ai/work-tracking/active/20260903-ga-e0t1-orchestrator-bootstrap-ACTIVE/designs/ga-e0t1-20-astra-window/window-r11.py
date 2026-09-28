@@ -16,7 +16,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA='7ce4b03140385978ac00f6cdd4b17f190ee9e1957f3009efeb2b0bcc1c916613'
+BASE_SHA='ae44dd2c13ef33a9b687009b76370abf75c0b34a7be6e4d9077e9df5e538394c'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):
@@ -110,7 +110,7 @@ def cache_preservation(before,after,city_pin,receipt_pin):
     # Only the comparison copies are aligned, after exhaustive cache validation.
     # Original observations and every timestamp remain preserved, never rewritten.
     z['cache']=a['cache']
-    original_preservation(a,z,city_pin,receipt_pin)
+    original_preservation(a,z,city_pin,receipt_pin,read_window=accounting['window'])
     before_sha=w.digest(json.dumps(before,sort_keys=True,separators=(',',':')).encode())
     after_sha=w.digest(json.dumps(after,sort_keys=True,separators=(',',':')).encode())
     result=dict(accounting,before_observation_sha256=before_sha,after_observation_sha256=after_sha,
@@ -124,9 +124,9 @@ def cache_preservation(before,after,city_pin,receipt_pin):
 routes=load(HERE/'restore-r9-routes-r3.py',
     '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2','window_routes')
 routes_policy=load(HERE/'route-chain-r1.py',
-    'c456230f7c51e0d7164c246501c1f7e1a94376a36e405cdb41c119245779e284','window_route_chain')
+    '0b3928c1616c1ad5c55c81cd377345ce6266b05eb39ab1dcad4d8bfd1156a173','window_route_chain')
 INTEGRITY=Path('/var/tmp/ga-e0t1.20-integrity-20260928-r4')
-OBSERVER_SHA='4f1f39a27f93bedfc02fcc5b9e3a10fbcd24ab94172e78cd0b47fbfca650509e'
+OBSERVER_SHA='bac1395f937ca3a38e9488820c92f94a35be1cd2f0bc7f6f3d87435a0f5c2470'
 INSPECTOR_SHA='0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6'
 
 def integrity_baseline(first):
@@ -175,12 +175,13 @@ def reload_events():
         w.require(trace==w.record(trace_name+'-phase.json') and
             w.record(trace_name+'-started.json')==dict(phase=trace_name,
                 argv=trace['argv'],cwd=trace['cwd']),'trace phase/intent binding')
-        routes_policy.validate_event(event,name,routes,p,w.REVISION,w.GC+['reload','--json'])
+        routes_policy.validate_event(event,name,routes,p,w.REVISION,w.GC+['reload','--json'],read_account=w.route_read_account)
         events[name]=event
     return chain,events
 
 def collect_snapshot(name,b,o):
     prior=integrity_baseline(name=='before.json')
+    read_start=dict(start=clock_sample(),end=clock_sample())
     first_routes=routes.capture_routes(w,o)
     chain,_=reload_events()
     h=w.host(o)
@@ -189,7 +190,9 @@ def collect_snapshot(name,b,o):
         protected={str(path):o.tree_snapshot(path,protected=True) for path in b.PROTECTED},
         providers=w.provider_pins(b,o),directories=w.directories(o),
         generated_routes=routes.capture_routes(w,o),generated_route_chain=chain)
-    w.require(first_routes==value['generated_routes'],'routes changed during snapshot')
+    read_end=dict(start=clock_sample(),end=clock_sample())
+    aligned=w.route_read_account(first_routes,value['generated_routes'],p.bounds(read_start,read_end))
+    w.require(first_routes==aligned,'routes changed during snapshot')
     w.require(chain==reload_events()[0] and h==w.host(o),'snapshot epoch/event drift')
     w.require(w.dependency_image(value['providers'])==w.dependency_image(prior['providers']),
         'native-integrity provider drift')
@@ -203,7 +206,7 @@ def collect_snapshot(name,b,o):
 def preservation(before,after,city_pin,receipt_pin):
     chain,events=reload_events()
     w.require(after['generated_route_chain']==chain,'observation route-chain is stale')
-    a,z,proof=routes_policy.project(before,after,events,routes,p,w.REVISION,w.GC+['reload','--json'])
+    a,z,proof=routes_policy.project(before,after,events,routes,p,w.REVISION,w.GC+['reload','--json'],read_account=w.route_read_account)
     cache_preservation(a,z,city_pin,receipt_pin)
     first=w.digest(json.dumps(before,sort_keys=True,separators=(',',':')).encode())
     last=w.digest(json.dumps(after,sort_keys=True,separators=(',',':')).encode())
@@ -271,7 +274,7 @@ def reload(name,i,b,owned):
     finish=dict(start=clock_sample(),end=clock_sample())
     event=dict(name=name,before=before,after=after,before_clock=start,after_clock=finish,
         phase=phase,accepted=accepted,trace=result,observed_at_ns=observed)
-    routes_policy.validate_event(event,name,routes,p,w.REVISION,w.GC+['reload','--json'])
+    routes_policy.validate_event(event,name,routes,p,w.REVISION,w.GC+['reload','--json'],read_account=w.route_read_account)
     p.bounds(w.record('before.json')['cache_access_clock'],finish)
     w.save(name+'-generated-routes.json',event)
 

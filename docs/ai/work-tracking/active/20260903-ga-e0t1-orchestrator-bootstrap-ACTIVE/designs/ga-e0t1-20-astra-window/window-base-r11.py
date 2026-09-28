@@ -21,7 +21,7 @@ HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstra
 ROOT = Path('/var/tmp/ga-e0t1.20-window-20260928-r2')
 PREP = Path('/var/tmp/ga-e0t1.20-prep-20260927-r1')
 SUSPENSION = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
-LINEAGE_SHA = '4b0d4c5bb713dc4ac802efc5c45f126d026c83fb5ea03fcb5f40d0c680cacbf0'
+LINEAGE_SHA = '26acf7ebd1ca9e1832db64b1ede34b3e7858c548463d3bde9581b1900d50cd90'
 SUPPORT = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6')
 LAUNCH = SUPPORT/'source-launch.py'
 CITY = Path('/home/loucmane/gascity/city')
@@ -189,8 +189,8 @@ def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
 CACHE_PREV_NS = 1790510685769555369
-CACHE_PINNED_NS = 1790570863514193323
-# Read-only observation SHA-256 2d3735b7a6f6293c2bdaa160ef7c9385e3a66be6dd64fd414505da93380e7125
+CACHE_PINNED_NS = 1790575978569227372
+# Read-only observation SHA-256 9bfb716ad6431661de9aed0cd903cfb88104fb0743b834ab81dca057ec77508b
 
 def approved_candidate_cache_image(prior):
     require(CACHE_PINNED_NS is not None, 'S2 cache disposition is not approved or pinned')
@@ -243,30 +243,18 @@ def account_read_times(a, z, window):
     return changes
 
 def stable_read_times(paths=None, now_ns=None):
-    # ga-f37t s5 start gate, for independent review. It gates exactly four objects (stable_read_paths): the
-    # suspension state, the city root, city .beads and the provisioning directory. They are compared
-    # exactly outside account_read_times: the suspension lineage compares the PREFLIGHT baseline record
-    # until the first transition, the route projection compares the city .beads mirror, and
-    # directory_preservation compares the city root and provisioning directory. The five route files and
-    # the four rig .beads directories are NOT gated. A change to them before the stage reload refuses in
-    # STAGE, before RESUME; after the reload they are operator-accepted residual (2). PREFLIGHT, before it creates the window root,
-    # requires each to sit on a relatime mount and to have an access time newer than its modification and
-    # change times and under 19 hours old (FRESHEN's margin). Relatime then cannot rewrite the suspension
-    # state before its first transition, or the
-    # three directories before STAGE renames city.toml and the receipt and reloads the routes, within the
-    # four-hour window bound. After those renames and the reload, the three directories are compared
-    # exactly as in earlier windows (operator-accepted residual (1)). ADMIT checks both residuals before
-    # RESTORE is consumed, and RESTORE repeats the checks. A change after RESUME spends the worker attempt.
-    # The gate reads metadata only.
+    # Operator-authorized four-object accounting replaces the 19-hour scheduling
+    # assumption. Reads remain relatime-bound; every actual delta is checked and
+    # recorded at preservation, route and suspension comparison boundaries.
     now_ns = time.time_ns() if now_ns is None else now_ns
     for path in stable_read_paths() if paths is None else paths:
         flags = os.statvfs(path).f_flag
         require(flags & os.ST_RELATIME and not flags & os.ST_NOATIME,
                 'access-time mount policy is not relatime: ' + str(path))
         s = os.lstat(path)
-        require(s.st_atime_ns > max(s.st_mtime_ns, s.st_ctime_ns)
-                and 0 <= now_ns - s.st_atime_ns < 19 * 3600 * 10**9,
-                'access time not stable for the window: ' + str(path))
+        require(all(type(v) is int and 0 <= v <= now_ns for v in
+                    (s.st_atime_ns, s.st_mtime_ns, s.st_ctime_ns)),
+                'invalid or future read metadata: ' + str(path))
 
 def stable_read_paths():
     return (SUSPENSION, CITY, CITY/'.beads', RECEIPT.parent)
@@ -301,7 +289,7 @@ def directories(o):
         finally:os.close(fd)
     return dict(city=city, provision=provision, runtime_children=runtime_children)
 
-def directory_preservation(before, after):
+def directory_preservation(before, after, *, read_window=None):
     a=json.loads(json.dumps(before)); z=json.loads(json.dumps(after))
     # Runtime children legitimately receive writes. Bind names and identity,
     # retaining full metadata in evidence; root metadata remains exact below.
@@ -312,6 +300,17 @@ def directory_preservation(before, after):
         for child in x[name]:
             for key in ('device','inode','type','uid','gid','mode'):
                 require(x[name][child][key]==y[name][child][key],'runtime child identity/authority drift')
+    if read_window is not None:
+        changes = []
+        for section, key, path, renamed in (
+            ('city', '.', str(CITY), True),
+            ('provision', '.', str(RECEIPT.parent), True),
+            ('city', '.beads', str(CITY/'.beads'), False)):
+            aligned, delta = read_time_policy().metadata(path, a[section][key],
+                z[section][key], read_window, renamed=renamed)
+            z[section][key] = aligned
+            changes.extend(delta)
+        read_time_evidence('directories', before, after, changes, read_window)
     for section, target in [('city','city.toml'),('provision','receipt.json')]:
         require(set(a[section]) == set(z[section]), 'writable directory entry drift')
         a[section].pop(target); z[section].pop(target)
@@ -349,14 +348,15 @@ def snapshot(name, b, o):
     value['directories'] = directories(o)
     save(name, value)
 
-def preservation(before, after, city_pin, receipt_pin):
+def preservation(before, after, city_pin, receipt_pin, *, read_window=None):
     a = json.loads(json.dumps(before)); z = json.loads(json.dumps(after))
     if list(ROOT.glob('suspension-*-intent.json')):
         endpoint = verified_lifecycle(terminal=True)
-        require(a['pins'][SUSPENSION] == record('suspension-baseline.json')['pin'], 'suspension original binding')
-        require(z['pins'][SUSPENSION] == endpoint, 'suspension final binding')
+        require(suspension_pin_equal(a['pins'][SUSPENSION],record('suspension-baseline.json')['pin']), 'suspension original binding')
+        require(suspension_pin_equal(z['pins'][SUSPENSION],endpoint), 'suspension final binding')
+        z['pins'][SUSPENSION] = endpoint
         a['pins'][SUSPENSION] = endpoint
-    directory_preservation(a.pop('directories'),z.pop('directories'))
+    directory_preservation(a.pop('directories'),z.pop('directories'),read_window=read_window)
     for path, expected, mode in [(str(CITY/'city.toml'),city_pin,0o644), (str(RECEIPT),receipt_pin,0o600)]:
         first = a['pins'].pop(path); current = z['pins'].pop(path)
         require(current['sha256'] == expected, 'postimage '+path)
@@ -391,7 +391,7 @@ def verified_lifecycle(terminal=False):
     require(not list(ROOT.glob('suspension-*-failure.json'))
         and not list(ROOT.glob('suspension-*-refused-after.json')), 'unreviewed stranded lifecycle')
     return s.chain(record('suspension-baseline.json'),lifecycle_records(s),
-        suspension_record(o),str(ROOT),terminal)
+        suspension_record(o),str(ROOT),terminal,read_account=suspension_read_equal)
 
 def active_epoch(o):
     # Lifecycle observations cannot use the quiescent observer while the one
@@ -475,9 +475,7 @@ def observed_suspension_endpoint(action,b,o,owned):
         current=suspension_record(o)
         save('suspension-'+action+'-barrier-observed-'+str(index)+'.json',current)
         # A normal supported controller read may advance only access time.
-        x=json.loads(json.dumps(first));z=json.loads(json.dumps(current))
-        x['pin']['metadata'].pop('atime_ns');z['pin']['metadata'].pop('atime_ns')
-        require(x==z,'suspension changed during controller observation')
+        require(suspension_read_equal(first,current),'suspension changed during controller observation')
         status=json.loads(r['stdout'])
         census=json.loads(phase(action+'-sessions-'+str(index),GC+['session','list','--json'],
             b,owned,timeout=min(15,max(1,deadline-time.monotonic())))['stdout'])
@@ -526,7 +524,7 @@ def lifecycle(action,b,o,owned):
         ('rig-resume','city-resume','city-suspend'):['rig-suspend']}
     require(action in permitted.get(tuple(seen),[]),'lifecycle operation order')
     before=suspension_record(o)
-    s.chain(record('suspension-baseline.json'),previous,before,str(ROOT))
+    s.chain(record('suspension-baseline.json'),previous,before,str(ROOT),read_account=suspension_read_equal)
     save('suspension-'+action+'-intent.json',dict(action=action,before=before,before_sha256=before['pin']['sha256']))
     try:
         result=phase(action,s.ACTIONS[action][2],b,owned)
@@ -538,7 +536,7 @@ def lifecycle(action,b,o,owned):
         raise
     save('suspension-'+action+'-after-observation.json',after)
     e=dict(action=action,before=before,after=after,intent=record(action+'-started.json'),result=result)
-    s.chain(record('suspension-baseline.json'),previous+[e],after,str(ROOT))
+    s.chain(record('suspension-baseline.json'),previous+[e],after,str(ROOT),read_account=suspension_read_equal)
     active_epoch(o)
     save('suspension-'+action+'-event.json',e)
     print(json.dumps(dict(ok=True,action=action,phase_only=True)))
@@ -739,7 +737,7 @@ def main():
         snapshot('before.json',b,o)
         baseline=suspension_record(o)
         module(HERE/'suspension-lineage.py',LINEAGE_SHA).image(baseline)
-        require(baseline['pin']==record('before.json')['pins'][SUSPENSION],'suspension baseline drift')
+        require(suspension_pin_equal(record('before.json')['pins'][SUSPENSION],baseline['pin']),'suspension baseline drift')
         save('suspension-baseline.json',baseline)
         common=module(HERE/'common-snapshot-r1.py','a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d')
         common_before=common.observe()
@@ -781,6 +779,73 @@ def main():
         preservation(record('before.json'),record('restored.json'),CITY_SHA[0],RECEIPT_SHA[0])
         save('restore-pass.json',dict(ok=True,full_platform_integrity_still_required=True))
     print(json.dumps(dict(ok=True,action=action,worker_launched=False)))
+
+"""Source-included operational adapters for the exact four-object exception."""
+
+
+def read_time_policy():
+    return module(HERE/'read-time-accounting.py', '47b97861d19cf4c8e14687bb2428f9b70863815ce32c5e1c1e3b1d6bd0a7a22c')
+
+
+def read_time_bounds():
+    policy = module(HERE/'cache-atime-policy-r1.py',
+        '61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783')
+    def sample():
+        first = time.clock_gettime_ns(time.CLOCK_BOOTTIME)
+        real = time.time_ns()
+        last = time.clock_gettime_ns(time.CLOCK_BOOTTIME)
+        return dict(boot=Path('/proc/sys/kernel/random/boot_id').read_text().strip(),
+            real_ns=real, boot_before_ns=first, boot_after_ns=last)
+    return policy.bounds(record('before.json')['cache_access_clock'],
+                         dict(start=sample(), end=sample()))
+
+
+def read_time_evidence(kind, before, after, changes, window):
+    if not changes:
+        return
+    require(kind in ('suspension', 'directories', 'routes'), 'read-time evidence kind')
+    value = dict(schema='ga-e0t1.20.four-object-read-times.v1', kind=kind,
+        before=before, after=after, changes=changes, window=window,
+        timestamp_writes=False, worker_authority_changed=False)
+    pin = digest(json.dumps(value, sort_keys=True, separators=(',', ':')).encode())
+    name = 'read-times-'+kind+'-'+pin+'.json'
+    if os.path.lexists(ROOT/name):
+        require(record(name) == value, 'read-time accounting collision')
+    else:
+        save(name, value)
+
+
+def suspension_read_equal(before, after):
+    window = read_time_bounds()
+    aligned, changes = read_time_policy().suspension(before, after, window)
+    require(before == aligned, 'unrecorded suspension mutation')
+    read_time_evidence('suspension', before, after, changes, window)
+    return True
+
+
+def suspension_pin_equal(before, after):
+    window = read_time_bounds()
+    require(set(before) == set(after) == {'sha256', 'metadata'}
+        and before['sha256'] == after['sha256'], 'suspension pin content changed')
+    aligned, changes = read_time_policy().metadata(str(SUSPENSION),
+        before['metadata'], after['metadata'], window)
+    require(before['metadata'] == aligned, 'suspension pin metadata changed')
+    read_time_evidence('suspension', before, after, changes, window)
+    return True
+
+
+def route_read_account(before, after, window, *, regenerated=False):
+    # Only the city .beads parent participates. Route-file metadata, content,
+    # other rigs and native regeneration proofs remain the caller's exact checks.
+    require(str(CITY) in before and str(CITY) in after, 'city route mirror absent')
+    aligned, changes = read_time_policy().metadata(str(CITY/'.beads'),
+        before[str(CITY)]['parent'], after[str(CITY)]['parent'], window,
+        renamed=regenerated)
+    result = json.loads(json.dumps(after))
+    result[str(CITY)]['parent'] = aligned
+    read_time_evidence('routes', before, after, changes, window)
+    return result
+
 
 if __name__=='__main__':
     main()

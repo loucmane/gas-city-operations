@@ -29,7 +29,7 @@ def built():
 def test_deterministic_and_original_input_unchanged(built):
     g,old,new=built
     assert g.assemble()==(old,new)
-    assert len(new)==55
+    assert len(new)==56  # One source-pinned four-object read-accounting helper.
     assert 'operator/WORKTREE.sh' not in new and 'operator/PREP.sh' not in new
 
 
@@ -108,15 +108,15 @@ def test_real_generated_status_matcher_uses_census(built):
 def test_original_policy_is_byte_identical(built):
     g,old,new=built
     assert old['cache-atime-policy-r1.py']==new['cache-atime-policy-r1.py']
-    assert old['route-chain-r1.py']==new['route-chain-r1.py']
+    assert g.read_time_routes(old['route-chain-r1.py'].decode()).encode()==new['route-chain-r1.py']
 
 
 def test_watch_applies_existing_bounded_accounting(built):
     g,old,new=built
     text=new['watch-r11.py'].decode()
     assert 'policy.bounds(baseline' in text and 'w.account_read_times(dict(directories=a)' in text
-    assert 'w.directory_preservation(a, z)' in text
-    assert text.index('w.account_read_times(dict(directories=a)') < text.index('w.directory_preservation(a, z)')
+    assert 'w.directory_preservation(a, z, read_window=bound)' in text
+    assert text.index('w.account_read_times(dict(directories=a)') < text.index('w.directory_preservation(a, z, read_window=bound)')
 
 
 def test_all_generated_python_compiles(built):

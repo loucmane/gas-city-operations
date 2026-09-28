@@ -56,13 +56,13 @@ def image(record):
         and m['nlink']==1 and m['size']==len(raw),'suspension authority')
     return decode(raw)
 
-def step(before,after,action):
+def step(before,after,action,read_account=None):
     require(action in ACTIONS,'unreviewed suspension operation')
     a=image(before); z=image(after)
     scope,want,_=ACTIONS[action]
     current=a['city'] if scope=='city' else a['rigs']['gascity']
     if current['suspended']==want:
-        require(before==after,'suspension no-op changed')
+        require(read_account(before,after) if read_account else before==after,'suspension no-op changed')
         return
     expected=copy.deepcopy(a)
     target=expected['city'] if scope=='city' else expected['rigs']['gascity']
@@ -84,7 +84,7 @@ def phase(intent,result,action,cwd):
         and result['stderr']=='' and c['direct_child_reaped'] and c['owned_process_group_gone']
         and not c['failures'] and not c['unexpected_survivors'],'suspension command failure')
 
-def chain(baseline,records,current,cwd,terminal=False):
+def chain(baseline,records,current,cwd,terminal=False,read_account=None):
     b=image(baseline)
     require(b['city']['suspended'] and all(x['suspended'] for x in b['rigs'].values()),
         'baseline not fully suspended')
@@ -98,12 +98,12 @@ def chain(baseline,records,current,cwd,terminal=False):
                  ['city-suspend'] if seen==['rig-resume','city-resume'] else
                  ['rig-suspend'] if seen==['rig-resume','city-resume','city-suspend'] else [])
         require(action in allowed,'suspension operation order')
-        require(record['before']==previous,'suspension predecessor drift')
+        require(read_account(previous,record['before']) if read_account else record['before']==previous,'suspension predecessor drift')
         phase(record['intent'],record['result'],action,cwd)
-        step(record['before'],record['after'],action)
+        step(record['before'],record['after'],action,read_account)
         previous=record['after'];seen.append(action)
     image(current)
-    require(previous==current,'unrecorded suspension mutation')
+    require(read_account(previous,current) if read_account else previous==current,'unrecorded suspension mutation')
     if terminal:
         z=image(current); expected=copy.deepcopy(b); expected['updated_at']=z['updated_at']
         require(z==expected,'suspension baseline not restored')

@@ -21,8 +21,8 @@ HERE = Path(__file__).parent
 WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'
 PREP = '/var/tmp/ga-e0t1.20-prep-20260927-r1'
 HEX = re.compile(r'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])')
-FINAL_CACHE_NS = 1790570863514193323
-FINAL_OBSERVATION_SHA = '2d3735b7a6f6293c2bdaa160ef7c9385e3a66be6dd64fd414505da93380e7125'
+FINAL_CACHE_NS = 1790575978569227372
+FINAL_OBSERVATION_SHA = '9bfb716ad6431661de9aed0cd903cfb88104fb0743b834ab81dca057ec77508b'
 COMPLETED_BIND_EXECUTOR = '9fd6c49adecf7fb991f9b8cd2c6279c25fcf73455bfa0911609a2079928495e7'
 
 
@@ -278,8 +278,106 @@ def watch(text):
         clock=dict(start=sample(),end=sample())
         bound=policy.bounds(baseline['cache_access_clock'],clock)
         w.account_read_times(dict(directories=a),dict(directories=z),bound)
-        w.directory_preservation(a, z)"""
+        w.directory_preservation(a, z, read_window=bound)"""
     return once(text, old, new)
+
+
+def read_time_base(text):
+    text = replace_function(text, 'stable_read_times', '''def stable_read_times(paths=None, now_ns=None):
+    # Operator-authorized four-object accounting replaces the 19-hour scheduling
+    # assumption. Reads remain relatime-bound; every actual delta is checked and
+    # recorded at preservation, route and suspension comparison boundaries.
+    now_ns = time.time_ns() if now_ns is None else now_ns
+    for path in stable_read_paths() if paths is None else paths:
+        flags = os.statvfs(path).f_flag
+        require(flags & os.ST_RELATIME and not flags & os.ST_NOATIME,
+                'access-time mount policy is not relatime: ' + str(path))
+        s = os.lstat(path)
+        require(all(type(v) is int and 0 <= v <= now_ns for v in
+                    (s.st_atime_ns, s.st_mtime_ns, s.st_ctime_ns)),
+                'invalid or future read metadata: ' + str(path))''')
+    text = once(text, 'def directory_preservation(before, after):',
+                'def directory_preservation(before, after, *, read_window=None):')
+    marker = "    for section, target in [('city','city.toml'),('provision','receipt.json')]:"
+    text = once(text, marker, '''    if read_window is not None:
+        changes = []
+        for section, key, path, renamed in (
+            ('city', '.', str(CITY), True),
+            ('provision', '.', str(RECEIPT.parent), True),
+            ('city', '.beads', str(CITY/'.beads'), False)):
+            aligned, delta = read_time_policy().metadata(path, a[section][key],
+                z[section][key], read_window, renamed=renamed)
+            z[section][key] = aligned
+            changes.extend(delta)
+        read_time_evidence('directories', before, after, changes, read_window)
+'''+marker)
+    text = once(text, 'def preservation(before, after, city_pin, receipt_pin):',
+                'def preservation(before, after, city_pin, receipt_pin, *, read_window=None):')
+    text = once(text, "    directory_preservation(a.pop('directories'),z.pop('directories'))",
+                "    directory_preservation(a.pop('directories'),z.pop('directories'),read_window=read_window)")
+    text = once(text, "        require(a['pins'][SUSPENSION] == record('suspension-baseline.json')['pin'], 'suspension original binding')",
+                "        require(suspension_pin_equal(a['pins'][SUSPENSION],record('suspension-baseline.json')['pin']), 'suspension original binding')")
+    text = once(text, "        require(z['pins'][SUSPENSION] == endpoint, 'suspension final binding')",
+                "        require(suspension_pin_equal(z['pins'][SUSPENSION],endpoint), 'suspension final binding')\n        z['pins'][SUSPENSION] = endpoint")
+    text = once(text, "        suspension_record(o),str(ROOT),terminal)",
+                "        suspension_record(o),str(ROOT),terminal,read_account=suspension_read_equal)")
+    text = once(text, "previous,before,str(ROOT))", "previous,before,str(ROOT),read_account=suspension_read_equal)")
+    text = once(text, "previous+[e],after,str(ROOT))", "previous+[e],after,str(ROOT),read_account=suspension_read_equal)")
+    text = once(text, "        require(x==z,'suspension changed during controller observation')",
+                "        require(suspension_read_equal(first,current),'suspension changed during controller observation')")
+    text = once(text, "        x=json.loads(json.dumps(first));z=json.loads(json.dumps(current))\n        x['pin']['metadata'].pop('atime_ns');z['pin']['metadata'].pop('atime_ns')\n", '')
+    text = once(text, "        require(baseline['pin']==record('before.json')['pins'][SUSPENSION],'suspension baseline drift')",
+                "        require(suspension_pin_equal(record('before.json')['pins'][SUSPENSION],baseline['pin']),'suspension baseline drift')")
+    hooks = (HERE/'read-time-hooks.py').read_text()
+    return once(text, "if __name__=='__main__':", hooks + "\n\nif __name__=='__main__':")
+
+
+def read_time_lineage(text):
+    text = once(text, 'def step(before,after,action):',
+                'def step(before,after,action,read_account=None):')
+    text = once(text, "        require(before==after,'suspension no-op changed')",
+                "        require(read_account(before,after) if read_account else before==after,'suspension no-op changed')")
+    text = once(text, 'def chain(baseline,records,current,cwd,terminal=False):',
+                'def chain(baseline,records,current,cwd,terminal=False,read_account=None):')
+    text = once(text, "        require(record['before']==previous,'suspension predecessor drift')",
+                "        require(read_account(previous,record['before']) if read_account else record['before']==previous,'suspension predecessor drift')")
+    text = once(text, "        step(record['before'],record['after'],action)",
+                "        step(record['before'],record['after'],action,read_account)")
+    text = once(text, "    require(previous==current,'unrecorded suspension mutation')",
+                "    require(read_account(previous,current) if read_account else previous==current,'unrecorded suspension mutation')")
+    return text
+
+
+def read_time_routes(text):
+    text = once(text, 'def validate_event(event,name,r,p,revisions,argv):',
+                'def validate_event(event,name,r,p,revisions,argv,read_account=None):')
+    text = once(text, "    return r.compare_routes(event['before'],event['after'],bounds)",
+                "    after = read_account(event['before'],event['after'],bounds,regenerated=True) if read_account else event['after']\n    return r.compare_routes(event['before'],after,bounds)")
+    text = once(text, 'def project(before,after,events,r,p,revisions,argv):',
+                'def project(before,after,events,r,p,revisions,argv,read_account=None):')
+    text = once(text, "        require(event['before']==cursor,'route event preimage gap')",
+                "        gap=p.bounds(previous_clock,event['before_clock'])\n        preimage=read_account(cursor,event['before'],gap) if read_account else event['before']\n        require(preimage==cursor,'route event preimage gap')")
+    text = once(text, '        changes=validate_event(event,name,r,p,revisions,argv)',
+                '        changes=validate_event(event,name,r,p,revisions,argv,read_account)')
+    text = once(text, "    require(cursor==last,'unobserved generated route mutation')",
+                "    gap=p.bounds(previous_clock,after['cache_access_clock'])\n    final=read_account(cursor,last,gap) if read_account else last\n    require(cursor==final,'unobserved generated route mutation')")
+    text = once(text, '    return a,z,dict(reloads=end[len(start):],changes=proof)',
+                "    if read_account:\n        # Every intervening parent read delta was independently accounted above.\n        z['directories']['city']['.beads']['atime_ns']=a['directories']['city']['.beads']['atime_ns']\n    return a,z,dict(reloads=end[len(start):],changes=proof)")
+    return text
+
+
+def read_time_wrapper(text):
+    text = once(text, '    first_routes=routes.capture_routes(w,o)',
+                '    read_start=dict(start=clock_sample(),end=clock_sample())\n    first_routes=routes.capture_routes(w,o)')
+    text = once(text, "    w.require(first_routes==value['generated_routes'],'routes changed during snapshot')",
+                "    read_end=dict(start=clock_sample(),end=clock_sample())\n    aligned=w.route_read_account(first_routes,value['generated_routes'],p.bounds(read_start,read_end))\n    w.require(first_routes==aligned,'routes changed during snapshot')")
+    text = once(text, '    original_preservation(a,z,city_pin,receipt_pin)',
+                "    original_preservation(a,z,city_pin,receipt_pin,read_window=accounting['window'])")
+    text = once(text, "routes_policy.project(before,after,events,routes,p,w.REVISION,w.GC+['reload','--json'])",
+                "routes_policy.project(before,after,events,routes,p,w.REVISION,w.GC+['reload','--json'],read_account=w.route_read_account)")
+    old = "routes_policy.validate_event(event,name,routes,p,w.REVISION,w.GC+['reload','--json'])"
+    assert text.count(old) == 2
+    return text.replace(old, old[:-1]+',read_account=w.route_read_account)')
 
 
 def common(text):
@@ -406,7 +504,9 @@ def assemble(final=False):
     out = {}
     for name, raw in sources.items():
         text = rebind(name, raw.decode())
-        if name == 'window-base-r11.py': text = base(text)
+        if name == 'window-base-r11.py': text = read_time_base(base(text))
+        elif name == 'window-r11.py': text = read_time_wrapper(text)
+        elif name == 'route-chain-r1.py': text = read_time_routes(text)
         elif name == 'bind-task-r5.py': text = bind(text)
         elif name == 'route-task-r5.py': text = route(text)
         elif name == 'watch-r11.py': text = watch(text)
@@ -414,7 +514,7 @@ def assemble(final=False):
         elif name == 'close-r11.py': text = close(text)
         elif name in ('observe-integrity-r11.py','observe-terminal-r11.py'):
             text = integrity_providers(text)
-        elif name == 'suspension-lineage.py': text = text.replace("'gas-city-template'", "'gascity'")
+        elif name == 'suspension-lineage.py': text = read_time_lineage(text.replace("'gas-city-template'", "'gascity'"))
         elif name == 'audit-queue-r3.py':
             text = text.replace("('template', ['--rig', 'gascity'])", "('gascity', ['--rig', 'gascity'])")
             text = text.replace("store=='template'", "store=='gascity'")
@@ -425,7 +525,7 @@ def assemble(final=False):
             text = once(text, '#!/bin/sh\n', '#!/bin/sh\necho "DRAFT ONLY - not admitted for execution" >&2\nexit 125\n')
         out[name] = text.encode()
     for name in ('contract.py','test_contract.py','task-own-fields.json','worker-startup.py','WORKER-BRIEF.md',
-                 'candidate-inspect.py','startup-validation.py','startup-release.py'):
+                 'candidate-inspect.py','startup-validation.py','startup-release.py','read-time-accounting.py'):
         out[name] = (HERE/name).read_bytes()
     # The first PREFLIGHT consumed its root but never staged. Preserve it and
     # bind every successor consumer to the fresh window, without rebinding BIND.
@@ -479,6 +579,7 @@ def assemble(final=False):
                   'ASSEMBLY_INSPECT_SHA':sha(out['candidate-inspect.py']),
                   'ASSEMBLY_VALIDATOR_SHA':sha(out['startup-validation.py']),
                   'ASSEMBLY_PROBE_SHA':sha(out['worker-startup.py']),
+                  'ASSEMBLY_READ_TIME_SHA':sha(out['read-time-accounting.py']),
                   'ASSEMBLY_RELEASE_SHA':sha(out['startup-release.py'])}
         def replace_bindings(name,raw):
             text=raw.decode()

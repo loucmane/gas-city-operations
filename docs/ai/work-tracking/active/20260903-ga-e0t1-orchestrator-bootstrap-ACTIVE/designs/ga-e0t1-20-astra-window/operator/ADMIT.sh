@@ -10,9 +10,9 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
-ADMIT_SHA=e52b39ec7ce9e1adae0e8543a9e9f220b3834221f05ed5321f30840bf462e85d
+ADMIT_SHA=29791040f44a0fa76504c8342bc782763c6055d259705c75618498fa6d1f3256
 BUDGET_SHA=c245ccd79d54f6fcd683b9fd7932774d424279f9409281881bb95f48de742cb1
-CLOSE_SHA=f089351c337b25f233c9ea7ae854acca6b179e413096ecf19b87957d5453967e
+CLOSE_SHA=85341ee3defc7899a6b94080c236772ea50dcf0e567dd5d7e1c6e893a5f59eb8
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

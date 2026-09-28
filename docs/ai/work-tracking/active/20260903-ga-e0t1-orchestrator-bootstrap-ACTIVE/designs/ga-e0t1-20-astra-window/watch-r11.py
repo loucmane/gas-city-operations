@@ -30,7 +30,7 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/window-base-r11.py')
-BASE_SHA = '7ce4b03140385978ac00f6cdd4b17f190ee9e1957f3009efeb2b0bcc1c916613'
+BASE_SHA = 'ae44dd2c13ef33a9b687009b76370abf75c0b34a7be6e4d9077e9df5e538394c'
 TASK = 'ga-e0t1.20'
 WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r2')
 VAR = Path('/var/tmp')
@@ -175,7 +175,7 @@ def directories_since_before(w, o, before_path):
         clock=dict(start=sample(),end=sample())
         bound=policy.bounds(baseline['cache_access_clock'],clock)
         w.account_read_times(dict(directories=a),dict(directories=z),bound)
-        w.directory_preservation(a, z)
+        w.directory_preservation(a, z, read_window=bound)
         return True
     except Exception as exc:  # any refusal or read error is recorded, since WATCH only observes
         return 'refused: ' + str(exc)

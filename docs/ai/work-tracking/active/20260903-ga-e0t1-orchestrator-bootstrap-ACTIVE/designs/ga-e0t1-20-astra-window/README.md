@@ -4,12 +4,18 @@ S1 WORKTREE and PREP have already passed. Do not repeat either job or allocate
 another worktree. This package prepares the bounded Astra worker window for the
 three-file C1 CLOSE self-admission repair. It does not implement that repair.
 
-Current successor: the exact exception below passed two reviews and OBSERVE r3
-passed. PREFLIGHT r2 refused before root creation on the unchanged nineteen-hour
-access-time predicate. The separate reviewed READ-REFRESH job may run only after
-14:26 CEST on September 28, then fresh OBSERVE r4 and PREFLIGHT r3 must pass.
-The unconsumed window-r2 root remains selected. No other guard is relaxed.
-See the sibling ga-e0t1-20-read-refresh package and READ-REFRESH.md report.
+Current successor: the operator authorized replacing the four-object nineteen-hour
+age predicate with bounded read-compatible accounting. The original predicate
+conflicted with the filesystem's twenty-four-hour relatime refresh threshold.
+Ordinary snapshot, route-mirror and suspension-history comparisons now account
+only eligible forward access-time changes inside the existing observed clock
+envelope. Content, owner, mode, identity, non-access metadata, native atomic
+replacement proofs, mount policy and worker protection remain checked. Full
+observations and each accounted delta are preserved; no timestamp is written.
+The timed READ-REFRESH package and verdicts remain historical and its automation
+is paused. Do not run it. Continue with fresh OBSERVE r4 and PREFLIGHT r3 after
+two reviews of this signed successor. The unconsumed window-r2 root remains
+selected. See READ-TIME-CONTRACT.md in the S2 review reports.
 
 Preserved earlier outcome: OBSERVE r2 passed, then PREFLIGHT r1 aborted before staging
 on 44 existing group-writable empty config.worktree files. The operator now
@@ -37,7 +43,7 @@ Same-call route mutation comparisons remain exact. See COMPLETED-BINDING.md.
 The source is signed S5 commit 1df3d47ee499b85928c6d34f1aec6e33d1ef2c25,
 rebound to S1's exact Operations workspace, P13 receipt and M12 inspector. The
 generator preserves source-file digests and deterministically refreshes internal
-bindings. The 55 generated files are now final candidate bytes for independent
+bindings. The 56 generated files are now final candidate bytes for independent
 review. Only explicit --execution-candidate assembly removes draft barriers;
 default assembly remains inert. This is not admission: two fresh request-bound
 reviews of the exact signed head and the runner's checks remain mandatory.
@@ -93,20 +99,19 @@ reviews of the exact signed head and the runner's checks remain mandatory.
    evidence bounds, policy hashes and exact common-Git preservation. Only after
    independent candidate review may the coordinator intake or deliver its patch.
 3. The complete read-only host comparison is preserved at
-   /tmp/ga-e0t1-20-readonly-baseline-20260928-r9. Observation SHA-256 is
-   2d3735b7a6f6293c2bdaa160ef7c9385e3a66be6dd64fd414505da93380e7125.
+   /tmp/ga-e0t1-20-readonly-baseline-20260928-r10. Observation SHA-256 is
+   9bfb716ad6431661de9aed0cd903cfb88104fb0743b834ab81dca057ec77508b.
    Its only non-access-time differences from accepted P13 are mtime_ns and
    ctime_ns of cache directory
    954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git:
-   1790510685769555369 -> 1790570863514193323. All cache content, all other
+   1790510685769555369 -> 1790575978569227372. All cache content, all other
    metadata, host, protected and provider fields compare exactly under the
    existing historical read-time contract. This candidate binds that pair
    exactly under standing corrected-package authority. Any later change still
    refuses. No timestamp is written or silently normalized. C1's later
    explicitly operator-bound disposition remains separate and is not granted.
-   The r1 through r8 attempts remain preserved. The r8 script refused its stale
-   source digest before host observation; r9 binds the actual unchanged signed
-   window-base digest. The r9 observation follows the final
+   The r1 through r9 attempts remain preserved. The r8 script refused its stale
+   source digest before host observation. The r10 observation follows the final
    coordinator evidence/Bead/verify commands, which refresh this directory.
    The exact package-shaped native gc read was separately observed not to do so.
 4. Sign the clean final candidate and obtain two fresh request-bound Astra
@@ -173,6 +178,6 @@ real hook or trust check refuses, report it and contain; never bypass it.
 ## Reproduction
 
 `generators/` contains the exact authoring inputs and fixture tests. Run its
-nine test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
+test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
 The generator writes only a fresh chosen output directory; it never launches
 its outputs. Prior /tmp assembled drafts and tests remain preserved.
