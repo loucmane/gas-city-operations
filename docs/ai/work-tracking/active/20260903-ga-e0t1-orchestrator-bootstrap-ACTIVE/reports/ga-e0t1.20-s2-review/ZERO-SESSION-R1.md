@@ -95,3 +95,55 @@ A fresh execution package still needs current baseline pins, distinct attempt
 roots, its complete tests and independent exact-head reviews. Preserve completed
 WORKTREE, PREP, BIND and ROUTE; never repeat them to obtain a new attempt.
 The recovery-only grant itself contains no worker retry.
+
+## Exact-source reviews and full regression completion — 2026-09-28 CEST
+
+Both independent Astra reviewers returned SOURCE_PASS for signed candidate
+04408abe73d844a5731724fd1561a1e264865197, with no must-fix or should-fix findings.
+The frozen request SHA-256 is
+66d25f36563d9d64bf702f88495fce85da452ab746d7db6a468724cdbf6f6045.
+Native reviewer identities and exported envelope hashes:
+
+- 01a0e75c-9c0d-7512-a8d7-80a63225fb16:
+  fb63065347d0df5f0ed8134c9b2031d30056232636ca5ad50ab25cbbb9f815b4.
+- 01a0e75c-c232-7ce2-b0ab-b933f53fc6f5:
+  fb26dd3d2da98eacc0b1093255b121ee94ab4a6cf999e8202b243cde012ece68.
+
+Both envelopes are preserved in /tmp/ga-e0t1-20-zero-session-r1-reviews and
+filed through the existing runner review archive. Neither review admits a
+worker job or changes the runner terminal latch.
+
+The full adapter/meta corpus is now accounted for on that unchanged signed
+candidate: 3983 distinct test identities, 3962 passed, 21 existing conditional
+skips, zero outstanding failures. No test source or expectation changed.
+The final results reconcile these preserved JUnit reports:
+
+- zero-session-adapter-meta-20260928.xml: 2183 passed, 1 skipped, 2 failed,
+  interrupted at the unchanged MCP startup test. SHA-256
+  7b7495f6e386862cc01a1705a544afa89848ecf24b88965977bdbfd0ea13260c.
+- mcp-host-context-20260928.xml: the same startup test passed in 0.96 seconds
+  outside the restricted process sandbox. SHA-256
+  2c227dc0383162bb7e512e5479b2f9ce86a1babd55659c2be9e718e2af0b00e7.
+- editable-tests-host-20260928.xml: both network-blocked packaging tests passed
+  with installations and pip cache confined to disposable /tmp environments.
+  SHA-256 36de54afaa33b6a65a3ac1efa1db0b74b2690ff0af6e70a5f22a9bf28322ccc8.
+- adapter-meta-remainder-host-20260928.xml: 1723 passed and 20 skipped before
+  its explicit 600-second limit, without a test failure. SHA-256
+  26826bf3f19742eebc9156e42de3c786b7fbb855628b6aba486826f06b32eb3c.
+- adapter-meta-tail-host-20260928.xml: the final 54 cases passed. SHA-256
+  0a25268ee9b08faec7358ee9591bd4433880054bb18dea7bc43b6a8b95d9959c.
+
+All report names above are under /tmp with prefix ga-e0t1-20-. The first
+interruption required two verified SIGINTs to the owned pytest process only.
+That process and its MCP child were confirmed absent. Later bounded tests
+finished; no worker, rig, tmux server or service was signalled. Initial failures,
+interrupted reports, downloaded test dependencies and temporary fixtures remain.
+The 21 skips are the existing opt-in release certification and wheel smoke plus
+unavailable legacy Taskmaster cases. None was newly deselected for this change.
+
+The operational 444-case result, golden parity and source/workflow checks remain
+valid. A fresh worker-window package must preserve all completed operations,
+bind the proven r3 restoration, carry this exact reviewed parser, use fresh
+attempt roots and earn its own exact-package review. The standing corrected-
+package grant covers that preparation; the recovery-only package stays consumed.
+No live source replacement or worker retry occurred during this checkpoint.

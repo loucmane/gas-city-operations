@@ -544,3 +544,20 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
 - Source report: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/ZERO-SESSION-R1.md.
   No launch, fresh-window admission, provider parity or goal completion follows
   from source tests. The recovery-only grant still contains no worker retry.
+
+## Zero-session correction accepted — 2026-09-28 CEST
+
+- Signed source 04408abe73d844a5731724fd1561a1e264865197 received two independent
+  Astra SOURCE_PASS verdicts with no findings. The operational corpus has
+  444 passes. The full adapter/meta corpus is accounted for across preserved
+  runs: 3983 unique tests, 3962 passes, 21 existing conditional skips and no
+  outstanding failures. Sandbox-bound packaging and MCP failures passed in
+  the correctly scoped host test context without any source change.
+- ZERO-SESSION-R1.md binds the exact review envelopes, JUnit hashes, interrupted
+  attempts and temporary-fixture disposition. No failed evidence was erased.
+  The recovery terminal latch and empty queue remain; all rigs stay suspended.
+- Next deliverable is a fresh independently reviewed worker-window package
+  consuming the completed r3 restoration, not a replay of WORKTREE, PREP, BIND,
+  ROUTE or recovery. Preserve the worker task and its three product files.
+  Steps 1 through 3 remain complete; useful C1 execution and the full step 4
+  handover acceptance remain outstanding. The original goal stays active.
