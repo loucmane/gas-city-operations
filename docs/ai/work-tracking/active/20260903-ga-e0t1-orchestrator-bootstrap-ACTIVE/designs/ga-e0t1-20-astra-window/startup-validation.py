@@ -266,9 +266,14 @@ def workspace_image(root, read):
         else:require(stat.S_ISDIR(s.st_mode), 'workspace special file')
         entries[rel] = item
         if stat.S_ISDIR(s.st_mode):
-            names = sorted(path.iterdir())
-            for child in names:visit(child)
-            require(sorted(path.iterdir()) == names and path.lstat() == s, 'workspace changed during walk')
+            fd=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_NOATIME|os.O_CLOEXEC)
+            try:
+                require(os.fstat(fd)==s,'workspace directory open drift')
+                names=sorted(os.listdir(fd))
+                for name in names:visit(path/name)
+                require(sorted(os.listdir(fd))==names and os.fstat(fd)==s and path.lstat()==s,
+                        'workspace changed during walk')
+            finally:os.close(fd)
     visit(root)
     return entries
 

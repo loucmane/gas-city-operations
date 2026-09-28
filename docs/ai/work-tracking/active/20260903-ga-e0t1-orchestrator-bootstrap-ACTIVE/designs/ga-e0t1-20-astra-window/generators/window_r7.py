@@ -128,6 +128,18 @@ def assemble(cache_ns):
     text=protocol.validator_source()
     assert text.count(repr(prior_recovery.CLOSED_METADATA))==2
     text=text.replace(repr(prior_recovery.CLOSED_METADATA),repr(recovery.CLOSED_METADATA))
+    text=build.once(text,
+        "            names = sorted(path.iterdir())\n"
+        "            for child in names:visit(child)\n"
+        "            require(sorted(path.iterdir()) == names and path.lstat() == s, 'workspace changed during walk')",
+        "            fd=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOFOLLOW|os.O_NOATIME|os.O_CLOEXEC)\n"
+        "            try:\n"
+        "                require(os.fstat(fd)==s,'workspace directory open drift')\n"
+        "                names=sorted(os.listdir(fd))\n"
+        "                for name in names:visit(path/name)\n"
+        "                require(sorted(os.listdir(fd))==names and os.fstat(fd)==s and path.lstat()==s,\n"
+        "                        'workspace changed during walk')\n"
+        "            finally:os.close(fd)")
     out['startup-validation.py']=text.encode()
     text=retarget(protocol.release_source(sha(out['runtime-process-r7.py'])))
     # The new branching process graph must retain the old prompt-body proof.

@@ -764,7 +764,7 @@ def main():
             'candidate common Git baseline')
         require(not common.compare(common_before,common.observe()),'common Git changed during baseline')
         save('common-before.json',common_before)
-        validator=module(HERE/'startup-validation.py','0035a8e822522c5e22babc117445c178c1d8721e1e3c982b1c421ef31ffcf13d')
+        validator=module(HERE/'startup-validation.py','f6102dee7f7dd89f89236600aebe8035ebfe0ffde96aa5a4bda49221e4dac9a6')
         # No circular imports: this reader is the existing bounded worker probe.
         probe=module(HERE/'worker-startup-r7.py','1cee785ea7a7fcdad4ef3f2b93fbbed13dc6fa0d55278d33857a65203db6aa47')
         workspace_before=validator.workspace_image(WORK,probe.read_regular)

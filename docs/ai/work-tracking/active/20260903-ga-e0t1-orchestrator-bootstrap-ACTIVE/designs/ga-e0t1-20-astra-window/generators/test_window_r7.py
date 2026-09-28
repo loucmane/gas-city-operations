@@ -7,6 +7,7 @@ import types
 import ast
 import hashlib
 import re
+import os
 
 import pytest
 import recovered_claim_r7 as recovered
@@ -290,11 +291,63 @@ def test_release_retains_exact_prompt_and_revalidates(built,fault):
         assert s.worker_identity(123,{},v,read,runtime)==proof and rechecks==[True]
 
 
-def test_prior_workspace_bytes_preserved_and_new_evidence_separated(built):
+def confined_workspace(raw, work, tmp_path):
+    import helper_recovery as h
+    h.verify_sandbox_binary()
+    source=tmp_path/'validator.py';source.write_bytes(raw)
+    code=('from pathlib import Path; import json,sys,types; '
+          'p=Path(sys.argv[1]); m=types.ModuleType("snapshot"); m.__file__=str(p); '
+          'exec(compile(p.read_bytes(),str(p),"exec"),m.__dict__); '
+          'print(json.dumps(m.workspace_image(Path(sys.argv[2]),lambda p:p.read_bytes()),sort_keys=True))')
+    result=subprocess.run(h.read_only_argv(['/usr/bin/python3','-I','-S','-B','-c',code,
+        str(source),str(work)],tmp_path),capture_output=True,timeout=45)
+    assert result.returncode==0,result.stderr.decode()
+    return json.loads(result.stdout)
+
+
+def test_directory_access_time_does_not_weaken_the_workspace_guard(built,tmp_path):
+    source=built[1]['prior-startup-validation-r6.py'];v=module(source)
+    root=tmp_path/'cold';root.mkdir();(root/'item').write_bytes(b'unchanged')
+    os.utime(root,ns=(1,root.stat().st_mtime_ns))
+    before=root.lstat()
+    with pytest.raises(RuntimeError,match='workspace changed during walk'):
+        v.workspace_image(root,lambda p:p.read_bytes())
+    after=root.lstat()
+    assert before.st_atime_ns!=after.st_atime_ns
+    assert all(getattr(before,key)==getattr(after,key) for key in
+               ('st_mtime_ns','st_ctime_ns','st_ino','st_mode','st_size','st_uid','st_gid'))
+    os.utime(root,ns=(1,root.stat().st_mtime_ns));before=root.lstat()
+    image=confined_workspace(source,root,tmp_path)
+    assert root.lstat()==before and image['item']['sha256']==r.sha(b'unchanged')
+
+
+@pytest.mark.parametrize('fault',[None,'entry','mode','inode'])
+def test_runtime_workspace_reader_is_nonperturbing_and_still_refuses_drift(built,tmp_path,fault):
+    v=module(built[1]['startup-validation.py'])
+    root=tmp_path/'cold';root.mkdir();(root/'item').write_bytes(b'unchanged')
+    os.utime(root,ns=(1,root.stat().st_mtime_ns));before=root.lstat()
+    def read(path):
+        raw=path.read_bytes()
+        if fault=='entry':(root/'extra').write_bytes(b'new')
+        if fault=='mode':root.chmod(0o700)
+        if fault=='inode':
+            root.rename(tmp_path/'preserved');root.mkdir()
+        return raw
+    if fault is None:
+        image=v.workspace_image(root,read)
+        assert root.lstat()==before and image['item']['sha256']==r.sha(b'unchanged')
+    else:
+        with pytest.raises(RuntimeError,match='workspace changed during walk'):
+            v.workspace_image(root,read)
+
+
+def test_prior_workspace_bytes_preserved_and_new_evidence_separated(built,tmp_path):
     out=built[1];m=module(out['workspace-r7.py']);v=module(out['prior-startup-validation-r6.py'])
     c=module(out['contract.py'])
     before=json.loads(m.BASELINE.read_bytes())
-    raw=v.workspace_image(Path(c.WORK),lambda p,*args:p.read_bytes())
+    # Production inspection uses a read-only mount. A plain directory walk can
+    # update relatime and correctly trip the unchanged-directory guard itself.
+    raw=confined_workspace(out['prior-startup-validation-r6.py'],Path(c.WORK),tmp_path)
     def load(p,pin):
         assert pin==r.sha(out[p.name]);return v
     def read(p,pin):
