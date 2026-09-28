@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "COMPLETED OPERATION - replay prohibited" >&2
+exit 125
 # ga-e0t1.20 window route: one raw route of the bound task while every rig is suspended, then the
 # read-only sole-task queue audit.
 #
@@ -10,8 +12,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: ROUTE.sh <reviewed commit>}
-ROUTE_SHA=8516e8b96918779419c0921c4adc43a56c32f8fc740885231423bafe1741877c
-AUDIT_SHA=8ab56a0739c81a10e04bb6386634588b08a15d35bda8dfafd8f3f60d9e661853
+ROUTE_SHA=6eb173855ba77adcfb76dc383c848e63e8416f02283ed64baf51a5d450a6d880
+AUDIT_SHA=10d21decd095eb5fdf9cff19d10b066f611c1aacd232f39da868b634f80c2ec7
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,7 +29,7 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
 { [ ! -e /var/tmp/ga-e0t1.20-route-20260927-r1 ] && [ ! -L /var/tmp/ga-e0t1.20-route-20260927-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-route-20260927-r1"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/ga-e0t1.20-audit-route-20260927-r1 ] && [ ! -L /var/tmp/ga-e0t1.20-audit-route-20260927-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-audit-route-20260927-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-audit-route-20260928-r3 ] && [ ! -L /var/tmp/ga-e0t1.20-audit-route-20260928-r3 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-audit-route-20260928-r3"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

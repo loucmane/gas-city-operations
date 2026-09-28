@@ -47,6 +47,9 @@ def test_control_metadata_is_exact_by_phase(task):
     c.validate_task(task, 'bound')
     with pytest.raises(RuntimeError): c.validate_task(task, 'unbound')
     task['metadata']['gc.routed_to'] = c.TARGET
+    task.pop('parent')
+    task['dependencies'][0]['dependency_type'] = 'relates-to'
+    task['dependent_count'] = 1
     c.validate_task(task, 'routed')
     with pytest.raises(RuntimeError): c.validate_task(task, 'bound')
     task['metadata']['gc.check_path'] = '/invented'

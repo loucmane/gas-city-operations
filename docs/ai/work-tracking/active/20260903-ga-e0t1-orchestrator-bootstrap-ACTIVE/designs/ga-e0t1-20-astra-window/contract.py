@@ -50,14 +50,14 @@ def require(ok, message):
 
 
 def validate_task(value, phase):
-    """Validate own fields and the exact known nonblocking edge, never its history.
+    """Validate own fields and the exact phase-bound association, never its history.
 
     The API embeds the parent's changing historical notes in dependencies. They
     are preserved verbatim by the caller, but are neither this worker's brief
     nor its ownership. Same-call before/after mutation comparison stays exact.
     """
     require(phase in ('unbound', 'bound', 'routed'), 'task phase')
-    require(value.get('id') == TASK and value.get('parent') == PARENT, 'task identity')
+    require(value.get('id') == TASK and ('parent' not in value if phase == 'routed' else value.get('parent') == PARENT), 'task identity')
     require(value.get('status') == 'open' and not value.get('assignee'), 'task is owned or terminal')
     require((value.get('notes') or '') == ('' if phase == 'unbound' else BOUND_NOTE)
             and value.get('comment_count', 0) == 0, 'unexpected task notes')
@@ -68,10 +68,10 @@ def validate_task(value, phase):
                 'task contract drift: ' + name)
     deps = value.get('dependencies')
     require(isinstance(deps, list) and len(deps) == 1 and isinstance(deps[0], dict), 'dependency cardinality')
-    require((deps[0].get('id'), deps[0].get('dependency_type')) == (PARENT, 'parent-child'),
-            'not the declared nonblocking parent edge')
+    require((deps[0].get('id'), deps[0].get('dependency_type')) == (PARENT, 'relates-to' if phase == 'routed' else 'parent-child'),
+            'not the declared phase-bound association')
     require(not value.get('dependents') and value.get('dependency_count') == 1
-            and value.get('dependent_count', 0) == 0, 'unexpected dependency counts')
+            and value.get('dependent_count', 0) == (1 if phase == 'routed' else 0), 'unexpected dependency counts')
     expected = {} if phase == 'unbound' else {'gc.work_dir': WORK}
     if phase == 'routed':
         expected['gc.routed_to'] = TARGET

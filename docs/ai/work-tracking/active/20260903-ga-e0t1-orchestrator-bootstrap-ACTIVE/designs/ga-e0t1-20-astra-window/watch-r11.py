@@ -3,7 +3,7 @@
 Runs as a job of the host job runner (operator/WATCH.sh), in the supervisor namespaces, so its process
 and tmux reads see the real host rather than a sandbox view. Adapted from the ga-y49e
 observe-worker-create-r2.py observation (native sessions, task, trace, git, tmux, processes), over
-window-base-r11.py. Each run creates /var/tmp/ga-e0t1.20-watch-<UTC>/ exclusively and records:
+window-base-r11.py. Each run creates /var/tmp/ga-e0t1.20-r3-watch-<UTC>/ exclusively and records:
 - native sessions, the task Bead and every session Bead of the template or task;
 - the template trace for the last 30 minutes;
 - no git state: the Template variant runs no git while the worker is live (s1 r2), so HEAD, branch,
@@ -30,9 +30,9 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/window-base-r11.py')
-BASE_SHA = 'b8bc25946cfa9d23e7989e89abcdac4eabed6ee1737e0b5c0674ffa144a53313'
+BASE_SHA = '571db18d748ec07965942e5a01c32759f215ae1981b0c452fc0d9d4e3f14881e'
 TASK = 'ga-e0t1.20'
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r2')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r3')
 VAR = Path('/var/tmp')
 TEMPLATE = 'gascity/codex'
 EVIDENCE = '.gc/worker-evidence/ga-e0t1.20'
@@ -251,7 +251,7 @@ def main():
     w.require(globals().get('_SOURCE_SHA') and os.getuid() == os.geteuid() == 1000, 'bound source launcher required')
     w.read(Path(__file__), _SOURCE_SHA)
     b, o, owned = w.load_support()
-    root = VAR/('ga-e0t1.20-watch-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    root = VAR/('ga-e0t1.20-r3-watch-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
 
     def epoch():
         # active_epoch() reads the window before.json through the base ROOT.

@@ -13,13 +13,13 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = 'b8bc25946cfa9d23e7989e89abcdac4eabed6ee1737e0b5c0674ffa144a53313'
+BASE_SHA = '571db18d748ec07965942e5a01c32759f215ae1981b0c452fc0d9d4e3f14881e'
 VALIDATOR_SHA = '7d2026c1e184937f8cd20b28acfaac6d6f45791b309c1b55f36ac9db0822d0dd'
 PROBE_SHA = '7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3'
-INSPECT_SHA = 'a012f6d953f0737ac12e9d1632c90cef507ce311fa64eb0040920657e96ec986'
+INSPECT_SHA = '02b5fdc137b2b5a2f4eeeebba3e90ae9d85c98fe926fc2a6324e9790139ec78b'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
-ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260927-r1')
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r2')
+ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r3')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r3')
 ROUTE = Path('/var/tmp/ga-e0t1.20-route-20260927-r1')
 CLIENT_INPUTS = tuple(Path(p) for p in (
     '/home/loucmane/.codex/config.toml', '/home/loucmane/.codex/hooks.json',
@@ -137,7 +137,7 @@ def main():
     raw=inspector.file_bytes(Path(v.WORK)/v.EVIDENCE/'startup.json')
     value=json.loads(raw);v.report(value,s,probe)
     sha=hashlib.sha256(raw).hexdigest()
-    routed=json.loads(w.read(ROUTE/'task-after.json'))
+    routed=json.loads(w.read(WINDOW/'admitted-task.json'))
     v.live_task(task,routed,s,w.contract(),sha)
     require(not os.path.lexists(probe.FOREIGN/'unexpected-write'),'sandbox negative left a marker')
     for rel,pin in probe.RULES.items():require(hashlib.sha256(inspector.file_bytes(Path(v.WORK)/rel)).hexdigest()==pin,

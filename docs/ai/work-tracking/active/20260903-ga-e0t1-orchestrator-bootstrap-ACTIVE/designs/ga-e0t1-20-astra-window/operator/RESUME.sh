@@ -9,8 +9,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: RESUME.sh <reviewed commit>}
-WINDOW_SHA=6ae5cab7a828cebe0b8a7f0e59d879ece3062d94c68595d7783483cca059d213
-AUDIT_SHA=8ab56a0739c81a10e04bb6386634588b08a15d35bda8dfafd8f3f60d9e661853
+WINDOW_SHA=67e1c12530941a90146b520919e9dc655e601aa042bc7a6d951cd6747b043ae9
+AUDIT_SHA=10d21decd095eb5fdf9cff19d10b066f611c1aacd232f39da868b634f80c2ec7
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -25,7 +25,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-e0t1.20-route-20260927-r1/result.json ] && [ -e /var/tmp/ga-e0t1.20-audit-route-20260927-r1/result.json ] || { echo "== STOP: ROUTE has not passed"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-e0t1.20-route-20260927-r1/result.json ] && [ -e /var/tmp/ga-e0t1.20-audit-route-20260928-r3/result.json ] || { echo "== STOP: ROUTE has not passed"; echo "== end"; exit 1; }
 tmux_out=$(/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>&1); tmux_rc=$?
 tmux_sock=/tmp/tmux-$(id -u)/city
 if [ "$tmux_rc" = 0 ]; then
@@ -55,8 +55,8 @@ for proc in /proc/[0-9]*; do
   fi
 done
 echo "== worktree gate: no process names the candidate worktree"
-{ [ ! -e /var/tmp/ga-e0t1.20-audit-resume-20260927-r1 ] && [ ! -L /var/tmp/ga-e0t1.20-audit-resume-20260927-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-audit-resume-20260927-r1"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r2/rig-resume-started.json ] && [ ! -L /var/tmp/ga-e0t1.20-window-20260928-r2/rig-resume-started.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-window-20260928-r2/rig-resume-started.json"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-audit-resume-20260928-r3 ] && [ ! -L /var/tmp/ga-e0t1.20-audit-resume-20260928-r3 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-audit-resume-20260928-r3"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r3/rig-resume-started.json ] && [ ! -L /var/tmp/ga-e0t1.20-window-20260928-r3/rig-resume-started.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-window-20260928-r3/rig-resume-started.json"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

@@ -1,5 +1,26 @@
 # ga-e0t1.20 S2 operational successor — execution candidate, not yet admitted
 
+## Current continuation — September 28 window r3
+
+The records below describe preserved earlier attempts. The read-time window
+completed routing but failed the queue audit because native parent-child
+inherits its parent's blocked state. It was fully contained and restored.
+The independently reviewed task-link R2 completion has now passed live: the
+same routed task has a bidirectional informational relates-to association and
+is solely ready. WORKTREE, PREP, BIND and ROUTE are complete; never replay them.
+
+`generators/successor.py` overlays the unchanged historical builder. The current
+57-file package captures and checks the full corrected pair, audits the entire
+queue before STAGE, and uses fresh evidence roots and close identity. BIND and
+ROUTE wrappers are deliberately disabled. The worker brief and startup probe
+are unchanged. Continue OBSERVE -> PREFLIGHT -> STAGE -> RESUME, followed by
+the existing bounded startup/release/containment/restoration/inspection sequence.
+See reports/ga-e0t1.20-s2-review/SUCCESSOR-WINDOW-R3.md in the active tracker.
+The older claims of a nonblocking parent-child association are superseded by
+the observed native behavior and preserved as historical evidence only.
+
+## Preserved previous package history
+
 S1 WORKTREE and PREP have already passed. Do not repeat either job or allocate
 another worktree. This package prepares the bounded Astra worker window for the
 three-file C1 CLOSE self-admission repair. It does not implement that repair.

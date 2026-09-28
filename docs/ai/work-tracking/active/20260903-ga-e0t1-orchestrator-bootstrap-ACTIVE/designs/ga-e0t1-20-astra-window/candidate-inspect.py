@@ -8,12 +8,12 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = 'b8bc25946cfa9d23e7989e89abcdac4eabed6ee1737e0b5c0674ffa144a53313'
+BASE_SHA = '571db18d748ec07965942e5a01c32759f215ae1981b0c452fc0d9d4e3f14881e'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
 VALIDATOR_SHA = '7d2026c1e184937f8cd20b28acfaac6d6f45791b309c1b55f36ac9db0822d0dd'
-TERMINAL_SHA = 'bb50fb08cd09b7f8339d252d2c7cf39b04257d38684d49f185a389b11f1c9585'
-ROOT = Path('/var/tmp/ga-e0t1.20-candidate-inspection-20260927-r1')
-TERMINAL = Path('/var/tmp/ga-e0t1.20-terminal-20260927-r1')
+TERMINAL_SHA = 'e08b048864765ad9b8fb94561fbe196a12133478e31d9b9372d198e631c8d53c'
+ROOT = Path('/var/tmp/ga-e0t1.20-candidate-inspection-20260928-r3')
+TERMINAL = Path('/var/tmp/ga-e0t1.20-terminal-20260928-r3')
 CG = HERE.parent/'ga-6utp-activation-r10/candidate_git.py'
 CG_SHA = 'd2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe'
 
@@ -99,7 +99,7 @@ def inspect(w, b, o, owned, common):
     workspace_before=w.record('workspace-before.json')
     observed = common.observe()
     w.require(not common.compare(before, observed), 'common Git changed before candidate inspection')
-    close = w.module(HERE/'close-r11.py', '0cd400b412fe556eb2906bfd2b78b3e8a2d66f36f201e145410407ae6a8dc98f')
+    close = w.module(HERE/'close-r11.py', 'fab5bf6d06a261b326de253b52f39bbf12dad0d0c059b6c4e4fb3ff0a9396f58')
     w.require(not close.processes(w.WORK), 'candidate worker process remains')
     cg = w.module(CG, CG_SHA)
     admin = cg.verify_linked(w.WORK.parent, common.COMMON, w.WORK, 'ga-e0t1.20')
@@ -107,7 +107,7 @@ def inspect(w, b, o, owned, common):
     w.ROOT = ROOT
     ROOT.mkdir(mode=0o700)
     w.save('intent.json', dict(source_sha256=_SOURCE_SHA, common_before_sha256=
-        w.digest(w.read(Path('/var/tmp/ga-e0t1.20-window-20260928-r2')/'common-before.json')),
+        w.digest(w.read(Path('/var/tmp/ga-e0t1.20-window-20260928-r3')/'common-before.json')),
         product_execution=False, intake=False))
     # Reuse reviewed hardened Git grammar, but all subprocesses also receive
     # owned-phase containment rather than cg.git's ordinary subprocess runner.
