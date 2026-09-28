@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 from pathlib import Path
+import re
 from types import SimpleNamespace
 import time
 
@@ -247,7 +248,7 @@ def test_midflight_directory_drift_never_reports_success(fixture, monkeypatch):
 
 
 def test_wrapper_binds_exact_source_and_is_not_worker_admission():
-    text = (HERE / 'READ-REFRESH.sh').read_text()
+    text = (HERE / 'operator/READ-REFRESH.sh').read_text()
     digest = hashlib.sha256((HERE / 'refresh.py').read_bytes()).hexdigest()
     assert 'REFRESH_SHA=' + digest in text
     assert '/usr/bin/python3 -I -S -B' in text
@@ -256,3 +257,14 @@ def test_wrapper_binds_exact_source_and_is_not_worker_admission():
     assert 'status --porcelain --untracked-files=all' in text
     assert '"$head" != "$COMMIT"' in text
     assert 'gc sling' not in text and 'rig resume' not in text
+
+
+def test_wrapper_matches_actual_runner_admission_grammar():
+    tree = ast.parse((HERE.parent / 'gct-jobrunner/jobrunner.py').read_text())
+    assignments = {n.targets[0].id: n.value for n in tree.body
+                   if isinstance(n, ast.Assign) and isinstance(n.targets[0], ast.Name)}
+    prefix = ast.literal_eval(assignments['PREFIX'])
+    grammar = eval(compile(ast.Expression(assignments['WRAPPER']), '<actual-runner-grammar>', 'eval'),
+                   {'re': re, 'PREFIX': prefix})
+    assert grammar.fullmatch(prefix + 'ga-e0t1-20-read-refresh/operator/READ-REFRESH.sh')
+    assert not grammar.fullmatch(prefix + 'ga-e0t1-20-read-refresh/READ-REFRESH.sh')

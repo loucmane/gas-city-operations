@@ -84,3 +84,20 @@ skips**, at `/tmp/ga-e0t1-20-s2-final-tests-20260928-r12.xml`. Shell syntax and
 Git whitespace checks passed. This is source/fixture evidence only; no live
 refresh, job submission, stage, route, resume or worker occurred. The candidate
 still requires two fresh independent reviews of its exact signed clean head.
+
+## Source-only admission-layout correction
+
+Before submitting any job, the coordinator inspected the real runner grammar
+and found that the new wrapper must reside in `operator/`. The original signed
+candidate 144c736814ee509c3a7d43df5e4824b35c1a250a and both incomplete native
+reviews remain preserved. Those reviews were interrupted before a final verdict
+and cannot authorize execution. No job admission or production refresh occurred.
+
+The successor moves only that new wrapper into the required directory and adds
+a fixture against the actual runner's AST-derived path grammar, proving the old
+path refuses and the corrected path matches. Refresh source and all S2 files,
+existing manifest pins, audit state and prospective host binding stay unchanged.
+Fresh independent exact-head reviews remain required after the corrected suite.
+
+Corrected final suite: `/tmp/ga-e0t1-20-s2-final-tests-20260928-r13.xml`,
+258 passed, zero failures or skips. No old result is relabeled or overwritten.

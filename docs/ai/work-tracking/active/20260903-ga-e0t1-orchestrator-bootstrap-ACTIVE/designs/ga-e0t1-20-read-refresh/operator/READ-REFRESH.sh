@@ -1,5 +1,5 @@
 #!/bin/sh
-# Reviewed host-runner job only. Ordinary reads, no timestamp-setting operation.
+# Reviewed host-runner operator job. Ordinary reads, no timestamp-setting operation.
 # This does not admit a worker or substitute for OBSERVE and full PREFLIGHT.
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
