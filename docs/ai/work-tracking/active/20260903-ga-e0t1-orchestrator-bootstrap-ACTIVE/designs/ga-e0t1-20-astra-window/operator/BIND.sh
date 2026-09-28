@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "RECOVERY ONLY - this operation is prohibited" >&2
-exit 125
 echo "COMPLETED OPERATION - replay prohibited" >&2
 exit 125
 # ga-e0t1.20 window bind: the one ga-e0t1.20 contract binding (gc.work_dir only), before the window.
@@ -13,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: BIND.sh <reviewed commit>}
-STEP_SHA=b9528d441a70be23ba30276dc4fef41e10c434eb40e979bfdbcfe0f793eefd5b
+STEP_SHA=4a40be3f634e89d06193e56ac9c5a0e71cfbd9eee123aa9a2748d8bfa930e953
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

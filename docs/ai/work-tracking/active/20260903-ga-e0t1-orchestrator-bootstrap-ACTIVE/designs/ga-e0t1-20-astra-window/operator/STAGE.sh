@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "RECOVERY ONLY - this operation is prohibited" >&2
-exit 125
 # ga-e0t1.20 window stage: the single-worker overlay city and its native-finalized receipt, through
 # the confined writers and one observed reload. Every rig stays suspended.
 #
@@ -12,8 +10,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: STAGE.sh <reviewed commit>}
-WINDOW_SHA=2a38b931ee3e506f50ddc793b9eab0db76c9e8463f834327a23dc6b2f3dc308f
-AUDIT_SHA=ee9998b37c4aef8a0e982c5abd242511ba4777199fc2cc2e7b98b067b04482f3
+WINDOW_SHA=3ba063c00bdb46f42d27008f0f74fc13d5a86e5bd6e4bd7760ec3a7e5b13f478
+AUDIT_SHA=85a74fcd76041c9c897ee926217461ce840c594a2037a5310c3d343c9b02f05f
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -28,7 +26,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-e0t1.20-window-20260928-r4/preflight-pass.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r4/stage-consumed.json ] || { echo "== STOP: window not preflighted or stage already consumed"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-e0t1.20-window-20260928-r5/preflight-pass.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r5/stage-consumed.json ] || { echo "== STOP: window not preflighted or stage already consumed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

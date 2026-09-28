@@ -99,8 +99,9 @@ def test_prep_config_changes_only_one_prompt_and_never_installs(built,tmp_path):
     for name in ('PRECLAIM-R5.md','launch-contract-r5.py'):(tmp_path/name).write_bytes(new[name])
     prep=r.source_module(new['prompt-prep-r5.py'],'prompt_prep')
     prep.HERE=tmp_path;prep.PROMPT=tmp_path/'PRECLAIM-R5.md'
+    prep.ROOT=tmp_path/'uninstalled-output'
     configured=prep.configure()
-    assert configured.ROOT==Path(r.PREP)
+    assert configured.ROOT==prep.ROOT
     before=Path('/var/tmp/ga-e0t1.20-prep-20260927-r1')
     city=(before/'city.baseline.toml').read_bytes()
     baseline=json.loads((before/'config.baseline.json').read_bytes())

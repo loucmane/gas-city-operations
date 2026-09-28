@@ -82,10 +82,10 @@ def test_candidate_staged_change_or_duplicate_or_no_source_refuses():
 
 
 def rules():
-    return b'\0'.join(b'!! '+path.encode() for path in c.RULES) + b'\0'
+    return b'\0'.join(b'!! '+path.encode() for path in sorted(set(c.RULES)|(c.RUNTIME_FILES-{'.codex/hooks.json'}))) + b'\0?? .codex/hooks.json\0'
 
 
-def test_two_ignored_policy_files_only():
+def test_exact_restored_runtime_and_two_policy_files():
     c.validate_rule_status(rules())
 
 
@@ -154,7 +154,7 @@ def test_source_scope_has_no_signing_or_live_paths():
 
 
 def test_exact_runtime_paths_are_not_a_blanket_ignore_allowance():
-    rows=candidate_rows()+b''.join(b'!! '+path.encode()+b'\0' for path in sorted(c.RUNTIME_FILES))
+    rows=candidate_rows()
     assert c.candidate_status(rows)['runtime']==sorted(c.RUNTIME_FILES)
     for path in ('.gc/tmp/unknown','.agents/skills/foreign','.gc/settings.json.backup'):
         with pytest.raises(RuntimeError):c.candidate_status(rows+b'!! '+path.encode()+b'\0')

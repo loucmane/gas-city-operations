@@ -23,7 +23,7 @@ RULES = {
 DEFAULT_RULES = '3d80d7351c83161cadea1a7bbb3271a567c43fe4bc9c6074dd53f684cc576516'
 SCOPE_ROOT = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/'
 SOURCE_PATHS = tuple(SCOPE_ROOT + path for path in ('DESIGN.md', 'slots/slots.py', 'slots/test_slots.py'))
-BOUND_NOTE = 'Operational startup contract for ga-e0t1.20: read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/WORKER-BRIEF.md sha256 f681228421af8773a5c401e1354b163baef61995ce564427962ccdfb746c5426. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/worker-startup.py sha256 7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3 inside the actual worker sandbox with its real session ID. No product edit until the coordinator verifies startup and releases that exact session. No staging signing task close restart or delegation. Return an uncommitted candidate only.'
+BOUND_NOTE = 'Operational startup contract for ga-e0t1.20: read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/WORKER-BRIEF.md sha256 f681228421af8773a5c401e1354b163baef61995ce564427962ccdfb746c5426. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/worker-startup.py sha256 7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3 inside the actual worker sandbox with its real session ID. No product edit until the coordinator verifies startup and releases that exact session. No staging signing task close restart or delegation. Return an uncommitted candidate only.\nR5 append-forward startup amendment for ga-e0t1.20. The initial prompt is /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/PRECLAIM-R5.md sha256 76d3f3d0a33d4a3572227dfa37b5d38ffe12bc0c60f9541a50364150d3c730e9. The worker-startup.py digest is 1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67. These supersede only the r4 startup prompt and probe references. Preserve the existing route workspace base scope permissions and candidate-only restrictions. Exact Core-generated hooks sha256 55e21a9d981805afb62da110b022bc847f7ad2b9a62bada45de95dbdfa472410 are preserved. Source release remains mandatory.'
 
 # Core f45a6262 materializes these existing city inputs for an external
 # workspace. These are exact possible outputs, not a generic ignored-path
@@ -41,6 +41,7 @@ for skill in ('gc-agents','gc-city','gc-dashboard','gc-dispatch','gc-mail','gc-r
         target='/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/'+skill)
 RUNTIME_IMAGE['.agents/skills/gascity.mayor']=dict(mode=0o777,type=stat.S_IFLNK,
     target='/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills/mayor')
+RUNTIME_IMAGE['.codex/hooks.json']={'mode': 420, 'type': 32768, 'size': 1238, 'sha256': '55e21a9d981805afb62da110b022bc847f7ad2b9a62bada45de95dbdfa472410'}
 RUNTIME_FILES={path for path,row in RUNTIME_IMAGE.items() if row['type']!=stat.S_IFDIR}
 
 
@@ -79,7 +80,8 @@ def validate_task(value, phase):
 
 
 def validate_rule_status(raw):
-    expected = {b'!! ' + path.encode() for path in RULES}
+    expected = {b'!! ' + path.encode() for path in set(RULES) | (RUNTIME_FILES - {'.codex/hooks.json'})}
+    expected.add(b'?? .codex/hooks.json')
     entries = raw.split(b'\0')
     require(entries[-1] == b'', 'unterminated Git status')
     require(len(entries[:-1]) == len(expected) and set(entries[:-1]) == expected,
@@ -202,7 +204,7 @@ def candidate_status(raw):
             changes.append(path)
         elif code == b'!!' and path in RULES:
             rules.append(path)
-        elif code == b'!!' and path in RUNTIME_FILES:
+        elif (code == b'!!' and path in RUNTIME_FILES) or (code == b'??' and path == '.codex/hooks.json'):
             runtime.append(path)
         elif code in (b'??', b'!!') and path.startswith(evidence_root):
             evidence.append(path)

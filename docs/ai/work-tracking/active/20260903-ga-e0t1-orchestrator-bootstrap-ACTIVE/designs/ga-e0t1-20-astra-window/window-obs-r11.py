@@ -9,7 +9,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA='0948748661a07cdf83a828c8c032664418f43aa7ff2948c5d21846b7c227ea05'
+BASE_SHA='cb241664f2bd329b29e831cbda95b566f62aa10645030cabc6dde084fa815341'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):
@@ -28,7 +28,7 @@ def load(path,expected,name):
 
 w=load(HERE/'window-base-r11.py',BASE_SHA,'window_r7_base')
 p=load(HERE/'cache-atime-policy-r1.py',POLICY_SHA,'window_r7_atime')
-w.ROOT=Path('/var/tmp/ga-e0t1.20-window-obs-20260928-r4')
+w.ROOT=Path('/var/tmp/ga-e0t1.20-window-obs-20260928-r5')
 original_save=w.save
 original_snapshot=w.snapshot
 original_preservation=w.preservation

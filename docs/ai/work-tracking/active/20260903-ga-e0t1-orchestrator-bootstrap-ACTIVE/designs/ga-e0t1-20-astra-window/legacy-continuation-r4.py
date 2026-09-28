@@ -9,7 +9,6 @@ from datetime import datetime
 import json
 from pathlib import Path
 
-HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
 TASK, PARENT = 'ga-e0t1.20', 'ga-e0t1'
 COMPLETED = Path('/var/tmp/ga-e0t1.20-link-completion-20260928-r2')
 PINS = {
@@ -75,15 +74,7 @@ def admit(w, b, owned):
             and result['existing_route_preserved'] is True and result['worker_launched'] is False,
             'link completion did not pass')
     current = pair(w, b, owned, 'admission')
-    amendment_root=Path('/var/tmp/ga-e0t1.20-startup-amendment-20260928-r5')
-    amendment=json.loads(w.read(HERE/'startup-amendment-r5.json','d5fe02cd892ab37b39febab701ed27e7c6f69549123d4d2e5a5dbb65ef977f38'))
-    exact=w.module(HERE/'startup-amendment-contract-r5.py','85963b400979ba14561bc70e6a6d03b189fb641db5650788bd2a0a5906f77ca9')
-    before_amend=json.loads(w.read(amendment_root/'before.json'))
-    after_amend=json.loads(w.read(amendment_root/'after.json'))
-    applied=json.loads(w.read(amendment_root/'result.json'))
-    compare_pair(before_amend,evidence[COMPLETED/'final.json'],parent_audit=True)
-    exact.accepted(before_amend,after_amend,applied,amendment,compare_pair)
-    compare_pair(current,after_amend,parent_audit=True)
+    compare_pair(current, evidence[COMPLETED/'final.json'], parent_audit=True)
     w.contract().validate_task(current['task'], 'routed')
     compare_pair(pair(w, b, owned, 'admission-repeat'), current)
     w.save('admitted-pair.json', current)

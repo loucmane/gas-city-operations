@@ -99,6 +99,25 @@ def capture(argv, timeout=30):
     return r
 
 
+def launch_contract():
+    path = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/launch-contract-r5.py')
+    data = read_regular(path)
+    require(hashlib.sha256(data).hexdigest() == 'cfd2467d3ce7c8600eb635d28a97249ccdc7bfa055386a423506d3f8e60edc7e', 'launch contract digest')
+    import types
+    m=types.ModuleType('bound_launch_contract');m.__file__=str(path)
+    exec(compile(data,str(path),'exec',dont_inherit=True),m.__dict__)
+    return m
+
+
+def verified_hook():
+    helper=launch_contract();path=WORK/helper.HOOK
+    raw=read_regular(path);s=path.lstat()
+    helper.hook_image(raw,dict(uid=s.st_uid,gid=s.st_gid,nlink=s.st_nlink,
+        type=stat.S_IFMT(s.st_mode),mode=stat.S_IMODE(s.st_mode),size=s.st_size,
+        sha256=hashlib.sha256(raw).hexdigest()))
+    return helper
+
+
 def main(session_id):
     require(os.getuid() == os.geteuid() == 1000 and Path.cwd() == WORK, 'worker context')
     require(re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{1,127}', session_id) is not None, 'session ID')
@@ -117,8 +136,9 @@ def main(session_id):
     for args, expected in ((['rev-parse', 'HEAD'], BASE), (['branch', '--show-current'], BRANCH)):
         r = capture(['/usr/bin/git', '--no-optional-locks', *args])
         require(r.returncode == 0 and r.stdout.decode().strip() == expected, 'worker Git identity')
-    r = capture(['/usr/bin/git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=all'])
-    require(r.returncode == 0 and r.stdout == b'', 'worker is not pristine before probes')
+    r = capture(['/usr/bin/git', '--no-optional-locks', 'status', '--porcelain=v1', '--untracked-files=all', '-z'])
+    require(r.returncode == 0, 'worker Git status failed')
+    verified_hook().startup_status(r.stdout)
     auth = capture([str(CODEX), 'login', 'status'])
     lines = (auth.stdout + auth.stderr).decode('utf-8', 'strict').strip()
     require(auth.returncode == 0 and lines == 'Logged in using ChatGPT', 'subscription identity unproven')

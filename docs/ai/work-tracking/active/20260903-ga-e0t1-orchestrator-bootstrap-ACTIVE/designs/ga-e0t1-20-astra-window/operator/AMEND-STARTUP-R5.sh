@@ -1,21 +1,20 @@
 #!/bin/sh
-# ga-e0t1.20 window watch: read-only in-window observation; repeatable, one fresh root per run.
-# Slot 1 of 12: the job runner starts each wrapper path once per commit.
+# ga-e0t1.20 window bind: only the exact append-forward startup note, before the window.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.
-# Log: ~/.local/share/gas-city-staging/ga-e0t1-20-astra-window/release-<timestamp>.txt. Exits with the first failing
+# Log: ~/.local/share/gas-city-staging/ga-e0t1-20-astra-window/bind-<timestamp>.txt. Exits with the first failing
 # step's result, or 0.
 S=/home/loucmane/.local/share/gas-city-staging/ga-e0t1-20-astra-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
-COMMIT=${1:?usage: RELEASE.sh <reviewed commit>}
-WATCH_SHA=4fd06d58b94fe367d33a4145711ff27d92d54cdc99819eef4c2f7f010a17d77f
+COMMIT=${1:?usage: AMEND-STARTUP-R5.sh <reviewed commit>}
+STEP_SHA=cc803859300855947b77185e75f894c5cebdcc6ceb8366cd5a70eaa72fef4032
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
 [ ! -L "$S" ] || exit 1
-LOG="$S/release-$(date -u +%Y%m%dT%H%M%SZ).txt"
+LOG="$S/amend-startup-r5-$(date -u +%Y%m%dT%H%M%SZ).txt"
 exec >"$LOG" 2>&1 </dev/null
 echo "== context umask=$(umask) cgroup=$(cat /proc/self/cgroup)"
 for ns in ipc mnt net pid time user; do echo "== ns $ns=$(readlink /proc/self/ns/$ns)"; done
@@ -25,17 +24,14 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-step() {
-  label=$1; shift
-  echo "== $label $(date -u +%H:%M:%SZ)"
-  /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$@"
-  rc=$?
-  if [ "$rc" != 0 ]; then
-    echo "== RELEASE REFUSED at $label rc=$rc: read this log and the named roots before any further step"
-    echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
-  fi
-}
-step release "$C/startup-release.py" "$WATCH_SHA"
-echo "== RELEASE PASS"
+{ [ ! -e /var/tmp/ga-e0t1.20-startup-amendment-20260928-r5 ] && [ ! -L /var/tmp/ga-e0t1.20-startup-amendment-20260928-r5 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-startup-amendment-20260928-r5"; echo "== end"; exit 1; }
+echo "== bind $(date -u +%H:%M:%SZ)"
+/usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$C/startup-amendment-r5.py" "$STEP_SHA"
+rc=$?
+if [ "$rc" != 0 ]; then
+  echo "== AMEND REFUSED rc=$rc: read this log and /var/tmp/ga-e0t1.20-startup-amendment-20260928-r5 before any further step"
+  echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
+fi
+echo "== AMEND PASS"
 echo "== end $(date -u +%H:%M:%SZ)"
 exit 0

@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "RECOVERY ONLY - this operation is prohibited" >&2
-exit 125
 # ga-e0t1.20 window close: after CONTAIN (or a passing HOLD), drain once (best-effort) and close the one
 # worker session, then prove zero session, tmux-session and worktree-process residue.
 # Repeatable: a rerun never repeats the drain and closes only a still-open session.
@@ -14,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: CLOSE-1.sh <reviewed commit>}
-CLOSE_SHA=48773ad8273779bdec7062eef91a37c0ca494812eee75ab753cfdf56e4247333
+CLOSE_SHA=33f22aafa01ac42f7589c6f856e3bae06baaec93a60233ee3f167ffc3adaff40
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
