@@ -1,0 +1,19 @@
+{
+  "authoring_files": {
+    "permissions_baseline_r9.py": "12190b7a5d387b37a922e1b50f30a363869489366b65332894a40a658b48446d",
+    "startup_r9.py": "5e9dd77a7b1a405a7e3ffeaa33e283c9550b0ca85e78ab139495464a0e258b27"
+  },
+  "execution_admitted": false,
+  "files": {
+    "PRECLAIM-R9.md": "2b31feaa7f83e8afcf5d01695eedd4ea780a49929e9800754da7b7f1a984e619",
+    "operator/PROMPT-PREP-R9.sh": "69935e1117ca59c38cdf8b812241b0020e0c33bb7c0187fb5e7b259ef007fcb3",
+    "permissions-baseline-r9.py": "12190b7a5d387b37a922e1b50f30a363869489366b65332894a40a658b48446d",
+    "prompt-prep-r9.py": "e938b45ec652270e2869a8c9e665bd907cff242c934249b5266e05e74221ac82",
+    "worker-startup-r9.py": "9d66d510aec6a81bcfe1e57c2bb248e0a274ea17c2f85cf3f33c3ca9b09cd29d"
+  },
+  "predecessor": "c637868cf25442b48418234ac9f1a094ddaac163",
+  "preparation_only": true,
+  "prior_close_sha256": "21ef1b7d95ac018b902e14b4ce6486cb16ac8820158682455e1b7a864d79cff6",
+  "schema": "ga-e0t1.20.review-wait-r9-preparation.v1",
+  "worker_launch_included": false
+}
