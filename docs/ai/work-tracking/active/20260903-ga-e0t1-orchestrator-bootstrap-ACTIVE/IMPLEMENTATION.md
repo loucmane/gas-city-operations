@@ -544,6 +544,7 @@ except d.DelegationPolicyError as exc:
 - **2026-09-28 21:34 CEST** - [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/PERMISSIONS-RECOVERY-HOLD.md] Preserve permissions recovery refusal and exact timestamp only baseline decision with no live retry or worker release
 - **2026-09-28 21:49 CEST** - [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/PERMISSIONS-RECOVERY-R3.md] Approved exact cache timestamp disposition and corrected recovery driver pass focused regressions and real read only tree proof before fresh independent review
 - **2026-09-28 22:01 CEST** - [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/PERMISSIONS-RECOVERY-PASS.md] Live permission repair PASS with exact postimages preserved history stable host and zero diagnostic residue while product worker remains held
+- **2026-09-28 22:20 CEST** - [S:20260928|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/R8-PREPARATION.md] Prepared fresh uninstalled R8 startup references with exact accepted permission proof and preserved R7 history
 
 ## Review and evidence
 
