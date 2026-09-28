@@ -1,0 +1,221 @@
+{
+  "cases": [
+    {
+      "argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "hook",
+        "--claim",
+        "--drain-ack",
+        "--json",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gascity"
+      ],
+      "case": "intended_claim",
+      "command_executed": false,
+      "expected_decision": "allow",
+      "observed": {
+        "decision": "allow",
+        "matchedRules": [
+          {
+            "prefixRuleMatch": {
+              "decision": "allow",
+              "justification": "Needed for the managed worker claim handshake",
+              "matchedPrefix": [
+                "/home/loucmane/gascity/bin/gc",
+                "hook",
+                "--claim",
+                "--drain-ack",
+                "--json"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "bd",
+        "show",
+        "ga-e0t1.20",
+        "--json",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gascity"
+      ],
+      "case": "intended_show",
+      "command_executed": false,
+      "expected_decision": "allow",
+      "observed": {
+        "decision": "allow",
+        "matchedRules": [
+          {
+            "prefixRuleMatch": {
+              "decision": "allow",
+              "justification": "Needed to inspect routed Beads work",
+              "matchedPrefix": [
+                "/home/loucmane/gascity/bin/gc",
+                "bd",
+                "show"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "bd",
+        "update",
+        "ga-e0t1.20",
+        "--append-notes",
+        "synthetic-check-only",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gascity"
+      ],
+      "case": "intended_note",
+      "command_executed": false,
+      "expected_decision": "allow",
+      "observed": {
+        "decision": "allow",
+        "matchedRules": [
+          {
+            "prefixRuleMatch": {
+              "decision": "allow",
+              "justification": "Needed to append bounded work evidence",
+              "matchedPrefix": [
+                "/home/loucmane/gascity/bin/gc",
+                "bd",
+                "update"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "runtime",
+        "drain-ack",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gascity"
+      ],
+      "case": "intended_drain",
+      "command_executed": false,
+      "expected_decision": "allow",
+      "observed": {
+        "decision": "allow",
+        "matchedRules": [
+          {
+            "prefixRuleMatch": {
+              "decision": "allow",
+              "justification": "Needed to acknowledge a clean worker drain",
+              "matchedPrefix": [
+                "/home/loucmane/gascity/bin/gc",
+                "runtime",
+                "drain-ack"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "gpg",
+        "--version"
+      ],
+      "case": "signing_negative",
+      "command_executed": false,
+      "expected_decision": "forbidden",
+      "observed": {
+        "decision": "forbidden",
+        "matchedRules": [
+          {
+            "prefixRuleMatch": {
+              "decision": "forbidden",
+              "justification": "Unsigned candidate workers must not invoke GPG directly; return the candidate for approved managed delivery.",
+              "matchedPrefix": [
+                "gpg"
+              ]
+            }
+          }
+        ]
+      }
+    },
+    {
+      "argv": [
+        "/usr/bin/env",
+        "GC_HOME=/home/loucmane/gascity/home",
+        "PATH=/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin",
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gascity",
+        "hook",
+        "--claim",
+        "--drain-ack",
+        "--json"
+      ],
+      "case": "observed_prefixed_claim",
+      "command_executed": false,
+      "expected_decision": null,
+      "observed": {
+        "matchedRules": []
+      }
+    },
+    {
+      "argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gascity",
+        "hook",
+        "--claim",
+        "--drain-ack",
+        "--json"
+      ],
+      "case": "global_scope_before_verb",
+      "command_executed": false,
+      "expected_decision": null,
+      "observed": {
+        "matchedRules": []
+      }
+    },
+    {
+      "argv": [
+        "gc",
+        "runtime",
+        "drain-ack"
+      ],
+      "case": "bare_gc_drain",
+      "command_executed": false,
+      "expected_decision": null,
+      "observed": {
+        "matchedRules": []
+      }
+    }
+  ],
+  "claim_or_runtime_command_executed": false,
+  "codex_sha256": "56ef98ab4032d317ab26e9b5e5a175650717351edb16ed9cde0cb6d1734d62da",
+  "effective_fresh_session_rule_loading_proven": false,
+  "inference": false,
+  "passed": 8,
+  "rule_pins": {
+    "/home/loucmane/.codex/rules/default.rules": "3d80d7351c83161cadea1a7bbb3271a567c43fe4bc9c6074dd53f684cc576516",
+    "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex/rules/gas-city-native-control.rules": "0a2c32485d71ef31875010ea810deffb0f2936e8c89bb5da2f7f2aeed5044123",
+    "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex/rules/window-restrictions.rules": "ea2645785163d3f9b6d5ddfe8a08c5ff40b97a8cb1739bca94dd4b2844f15773"
+  },
+  "schema": "ga-e0t1.20.offline-command-policy.v1"
+}
