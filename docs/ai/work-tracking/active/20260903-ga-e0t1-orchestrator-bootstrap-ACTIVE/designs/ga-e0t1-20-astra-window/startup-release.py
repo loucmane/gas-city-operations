@@ -13,13 +13,13 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = 'b2925d405103922383a096d444df62ec149cd22af10616ecf4ed59b63a461dbb'
-VALIDATOR_SHA = '2c7fcef75391ae0507c085428c117088131d1f1695884d5ef0200f1df115630a'
-PROBE_SHA = 'fa03f747ed131ab38beadb5296d53f76cf6439ff27712de9261dd51ed263ea3e'
-INSPECT_SHA = '18c26e622137a016d06f372e0d4511cc49454cd791cf69b624198f3662b2bb6c'
+BASE_SHA = '7d0ed613bde7dbee7639e328e9fae58f91038bc2744faebb2d854a2daf84d830'
+VALIDATOR_SHA = '0035a8e822522c5e22babc117445c178c1d8721e1e3c982b1c421ef31ffcf13d'
+PROBE_SHA = '1cee785ea7a7fcdad4ef3f2b93fbbed13dc6fa0d55278d33857a65203db6aa47'
+INSPECT_SHA = 'e6da08bd8deca9cf4d8fa72c8193b622ad43e8595b5822018f425321f39fc311'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
-ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r6')
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r6')
+ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r7')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r7')
 ROUTE = Path('/var/tmp/ga-e0t1.20-route-20260927-r1')
 CLIENT_INPUTS = tuple(Path(p) for p in (
     '/home/loucmane/.codex/config.toml', '/home/loucmane/.codex/hooks.json',
@@ -60,56 +60,18 @@ def process_table():
     return rows
 
 
-def worker_identity(pane, session, validator, read):
-    rows=process_table()
-    require(pane in rows,'pane process absent')
-    chain, current = [], pane
-    while True:
-        require(current in rows and rows[current]['state'] not in ('Z','X') and len(chain)<8,
-                'dead or excessive pane process chain')
-        chain.append(current)
-        children=[pid for pid,row in rows.items() if row['ppid']==current]
-        require(len(children)<=1,'extra worker descendant')
-        if not children:break
-        current=children[0]
-    proc=Path('/proc')/str(current)
-    require(os.readlink(proc/'exe')==validator.CODEX,'leaf is not the pinned Codex binary')
-    argv=(proc/'cmdline').read_bytes().rstrip(b'\0').decode('utf-8','strict').split('\0')
-    args=validator.process_arguments(argv)
+def worker_identity(pane, session, validator, read, runtime):
+    proof=runtime.worker_identity(pane,session,validator,read)
+    raw=runtime.proc_bytes(runtime.PROC/str(pane)/'cmdline',1<<20)
+    require(raw.endswith(b'\0') and raw!=b'\0','prompt argv encoding')
+    argv=raw[:-1].decode('utf-8','strict').split('\0')
+    require(hashlib.sha256(raw[:-1]).hexdigest()==proof['chain'][0]['argv_sha256'],'prompt argv changed')
     helper=load(HERE/'launch-contract-r5.py','cfd2467d3ce7c8600eb635d28a97249ccdc7bfa055386a423506d3f8e60edc7e',read)
-    body=read(HERE/'PRECLAIM-R6.md').decode('utf-8','strict')
-    require(hashlib.sha256(body.encode()).hexdigest()=='fafd2012a531c99534ce69112adc0976fb437da9a8193d20d738b5535f94194d','launch prompt file drift')
+    body=read(HERE/'PRECLAIM-R7.md').decode('utf-8','strict')
+    require(hashlib.sha256(body.encode()).hexdigest()=='f6faecf0750a5b7c641d8734290d8d4516ecb9480db4cbca2738c9867df902cf','launch prompt file drift')
     require(helper.prompt_body(argv[-1],body)=='53682c1d8952f8f6345813a1519e9ee76ce72c70145b85de2663e80540c3eae8','assigned skills suffix differs')
-    require(os.readlink(proc/'cwd')==validator.WORK,'worker process cwd differs')
-    # Only expected non-secret identity fields and override presence are retained.
-    pairs=[entry.partition(b'=') for entry in (proc/'environ').read_bytes().split(b'\0') if entry]
-    wanted={b'GC_SESSION_ID':session['id'].encode(),b'GC_SESSION_NAME':session['session_name'].encode(),
-        b'GC_HOME':b'/home/loucmane/gascity/home',b'GIT_OPTIONAL_LOCKS':b'0',b'HOME':b'/home/loucmane'}
-    names=[name for name,sep,value in pairs]
-    for key,value in wanted.items():
-        require([v for k,sep,v in pairs if k==key]==[value], 'worker environment identity differs')
-    require(not any(name in names for name in (b'OPENAI_API_KEY',b'CODEX_API_KEY',b'OPENAI_BASE_URL',
-        b'ANTHROPIC_API_KEY',b'ANTHROPIC_AUTH_TOKEN',b'ANTHROPIC_BASE_URL')), 'worker has provider override')
-    require([v for k,sep,v in pairs if k==b'CODEX_HOME'] in ([],[b'/home/loucmane/.codex']), 'unexpected CODEX_HOME')
-    require(hashlib.sha256(read(Path(validator.CODEX),256<<20)).hexdigest()==
-        '56ef98ab4032d317ab26e9b5e5a175650717351edb16ed9cde0cb6d1734d62da','worker image bytes differ')
-    logs=set()
-    for fd in (proc/'fd').iterdir():
-        try:target=os.readlink(fd)
-        except FileNotFoundError:continue
-        if target.startswith('/home/loucmane/.codex/sessions/') and target.endswith('.jsonl'):
-            logs.add(target)
-    require(len(logs)==1,'native transcript not uniquely open by worker')
-    path=Path(next(iter(logs)))
-    key=validator.transcript_key(path,session)
-    raw=read(path,32<<20)
-    proof=validator.denial_from_rollout(raw,key)
-    now=process_table()
-    require(all(validator.same_process(rows[pid],now.get(pid)) for pid in chain), 'worker process identity changed')
-    require({pid for pid,row in now.items() if row['ppid'] in chain}==set(chain[1:]),
-            'worker descendants changed')
-    return dict(pid=current,start=rows[current]['start'],chain=[dict(pid=p,**rows[p]) for p in chain],
-        argv=args,transcript_path=str(path),native=proof)
+    runtime.revalidate(proof,validator,read)
+    return proof
 
 
 def main():
@@ -118,8 +80,9 @@ def main():
     require(not os.path.lexists(ROOT),'startup release already consumed')
     w=load_base();w.read(Path(__file__),_SOURCE_SHA)
     v=w.module(HERE/'startup-validation.py',VALIDATOR_SHA)
-    probe=w.module(HERE/'worker-startup-r6.py',PROBE_SHA)
+    probe=w.module(HERE/'worker-startup-r7.py',PROBE_SHA)
     inspector=w.module(HERE/'candidate-inspect.py',INSPECT_SHA)
+    runtime=w.module(HERE/'runtime-process-r7.py','ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65')
     common=w.module(HERE/'common-snapshot-r1.py',COMMON_SHA)
     b,o,owned=w.load_support()
     w.active_epoch(o)
@@ -145,7 +108,7 @@ def main():
     fields=panes[0].split('\t')
     require(len(fields)==3 and fields[0]==s['session_name'] and fields[1].isdigit() and fields[2]=='0',
             'pane identity differs')
-    proof=worker_identity(int(fields[1]),s,v,inspector.file_bytes)
+    proof=worker_identity(int(fields[1]),s,v,inspector.file_bytes,runtime)
     raw=inspector.file_bytes(Path(v.WORK)/v.EVIDENCE/'startup.json')
     value=json.loads(raw);v.report(value,s,probe)
     sha=hashlib.sha256(raw).hexdigest()
@@ -169,12 +132,7 @@ def main():
     v.transcript_key(proof['transcript_path'],s2)
     [task2]=json.loads(phase('task-immediate',w.GC+['--rig','gascity','bd','show',v.TASK,'--json'])['stdout'])
     require(task2==task,'claim or task changed before release')
-    immediate=process_table()
-    require(all(v.same_process(row,immediate.get(row['pid'])) for row in proof['chain']),
-            'worker chain changed before release')
-    chain=[row['pid'] for row in proof['chain']]
-    require({pid for pid,row in immediate.items() if row['ppid'] in chain}==set(chain[1:]),
-            'extra descendant before release')
+    runtime.revalidate(proof,v,inspector.file_bytes)
     pidfd=os.pidfd_open(proof['pid'])
     try:
         poll=select.poll();poll.register(pidfd,select.POLLIN);require(not poll.poll(0),'worker exited')

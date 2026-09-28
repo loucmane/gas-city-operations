@@ -46,8 +46,9 @@ def test_control_metadata_is_exact_by_phase(task):
     task['notes'] = c.BOUND_NOTE
     c.validate_task(task, 'bound')
     with pytest.raises(RuntimeError): c.validate_task(task, 'unbound')
-    task['metadata'].update({'gc.routed_to': 'gascity/codex', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20', 'gc.session_id': 'ci-rks41', 'gc.session_name': 'codex-ci-rks41', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.session_affinity': '', 'gc.continuation_group': ''})
+    task['metadata'].update({'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T14:34:11Z; inspect session codex-ci-6gwp8 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-6gwp8', 'gc.progress_attention_signature': '912e8f1d08f4bcfca3312845f866a9b9dcf010f1ebe7fa9972de061c96313771', 'gc.progress_last_observed_at': '2026-09-28T14:34:11Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-6gwp8', 'gc.session_name': 'codex-ci-6gwp8', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'})
     task['started_at']='2026-09-28T13:01:54Z'
+    task['labels']=['needs/operator']
     task.pop('parent')
     task['dependencies'][0]['dependency_type'] = 'relates-to'
     task['dependent_count'] = 1
@@ -58,7 +59,7 @@ def test_control_metadata_is_exact_by_phase(task):
 
 
 def candidate_rows():
-    return rules()+b' M '+c.SOURCE_PATHS[1].encode()+b'\0?? .gc/worker-evidence/'+c.TASK.encode()+b'/report.json\0'
+    return rules()+b' M '+c.SOURCE_PATHS[1].encode()+b'\0?? .gc/worker-evidence/'+c.TASK.encode()+b'/r7/report.json\0'
 
 
 def test_candidate_inventory_separates_scoped_source_and_evidence():
@@ -83,7 +84,7 @@ def test_candidate_staged_change_or_duplicate_or_no_source_refuses():
 
 
 def rules():
-    return b'\0'.join(b'!! '+path.encode() for path in sorted(set(c.RULES)|(c.RUNTIME_FILES-{'.codex/hooks.json'}))) + b'\0?? .codex/hooks.json\0'
+    return b'\0'.join(b'!! '+path.encode() for path in sorted(set(c.RULES)|(c.RUNTIME_FILES-{'.codex/hooks.json'})|set(('.gc/worker-evidence/ga-e0t1.20/positive-write.txt', '.gc/worker-evidence/ga-e0t1.20/startup.json')))) + b'\0?? .codex/hooks.json\0'
 
 
 def test_exact_restored_runtime_and_two_policy_files():

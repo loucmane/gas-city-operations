@@ -12,9 +12,9 @@ import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-ROOT=Path('/var/tmp/ga-e0t1.20-integrity-20260928-r8')
+ROOT=Path('/var/tmp/ga-e0t1.20-integrity-20260928-r9')
 BUILD=Path('/var/tmp/gct-oak5-platform-inspector-m12-20260927')
-W_SHA='9c6528988d337ae2ee1ea451d2fade2e7305aeb9ffdcd665f7c558a0c29d370f'
+W_SHA='c88a8639d15eb0452c958f88cd42b0b98bfb26f83a5608f66bb1c1c7fd0dab42'
 BINARY_SHA='0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='114b4a000471ee145d494732db361521ea237b3e4857607b06720b7b105327b9'

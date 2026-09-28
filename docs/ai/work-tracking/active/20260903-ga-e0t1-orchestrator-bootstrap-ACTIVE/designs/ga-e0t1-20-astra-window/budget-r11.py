@@ -16,7 +16,7 @@ import stat
 import sys
 import time
 
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r6')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r7')
 MAX_WINDOW_NS = 4 * 3600 * 10**9  # cache-atime-policy-r1.py MAX_WINDOW_NS
 
 

@@ -17,15 +17,10 @@ BASE = 'c6b789bbe6ff677dd04336803dbf2c2e017812ba'
 TASK = 'ga-e0t1.20'
 BRANCH = 'codex/ga-e0t1.20-c1-close-admission'
 CODEX = '/home/loucmane/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex'
-EVIDENCE = '.gc/worker-evidence/ga-e0t1.20/r7'
+EVIDENCE = '.gc/worker-evidence/'+TASK
 NEGATIVE_SCRIPT = ('try { text({probe_return: await tools.exec_command({"cmd":"gpg --version",'
     '"workdir":"'+WORK+'","sandbox_permissions":"use_default","max_output_tokens":1000})}); } '
     'catch (error) { text({probe_error: String(error)}); }')
-NEGATIVE_SCRIPTS = tuple(s+suffix for s in (NEGATIVE_SCRIPT,
-    NEGATIVE_SCRIPT.replace('"sandbox_permissions":"use_default",',''))
-    for suffix in ('','\n'))
-NATIVE_ERROR = 'exec_command failed: CreateProcess { message: "Rejected(\\"`/usr/bin/zsh -lc \'gpg --version\'` rejected: Unsigned candidate workers must not invoke GPG directly; return the candidate for approved managed delivery.\\")" }'
-NATIVE_POSTURE = {'workspace_roots': ['/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'], 'sandbox_policy': {'type': 'workspace-write', 'network_access': False, 'exclude_tmpdir_env_var': False, 'exclude_slash_tmp': False}, 'permission_profile': {'type': 'managed', 'file_system': {'type': 'restricted', 'entries': [{'path': {'type': 'special', 'value': {'kind': 'root'}}, 'access': 'read'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'access': 'write'}, {'path': {'type': 'special', 'value': {'kind': 'slash_tmp'}}, 'access': 'write'}, {'path': {'type': 'special', 'value': {'kind': 'tmpdir'}}, 'access': 'write'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'access': 'write'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.git'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.agents'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops/.git/worktrees/ga-e0t1.20'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.git'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.agents'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex'}, 'access': 'read', 'missing_path_behavior': 'skip'}]}, 'network': 'restricted'}, 'file_system_sandbox_policy': {'kind': 'restricted', 'entries': [{'path': {'type': 'special', 'value': {'kind': 'root'}}, 'access': 'read'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'access': 'write'}, {'path': {'type': 'special', 'value': {'kind': 'slash_tmp'}}, 'access': 'write'}, {'path': {'type': 'special', 'value': {'kind': 'tmpdir'}}, 'access': 'write'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'access': 'write'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.git'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.agents'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops/.git/worktrees/ga-e0t1.20'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.git'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.agents'}, 'access': 'read', 'missing_path_behavior': 'skip'}, {'path': {'type': 'path', 'path': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex'}, 'access': 'read', 'missing_path_behavior': 'skip'}]}}
 # Runtime input pinning is performed by the bound contract/probe. No duplicated
 # permission-file digest is accepted as an independent authority here.
 
@@ -89,7 +84,7 @@ def claim_time(task, routed, session):
     # bookkeeping, not identity evidence; exact claim/source checks remain.
     if 'started_at' in routed:
         require(routed['started_at']=='2026-09-28T13:01:54Z'
-            and routed.get('metadata')=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T14:34:11Z; inspect session codex-ci-6gwp8 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-6gwp8', 'gc.progress_attention_signature': '912e8f1d08f4bcfca3312845f866a9b9dcf010f1ebe7fa9972de061c96313771', 'gc.progress_last_observed_at': '2026-09-28T14:34:11Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-6gwp8', 'gc.session_name': 'codex-ci-6gwp8', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'unbound prior claim')
+            and routed.get('metadata')=={'gc.routed_to': 'gascity/codex', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20', 'gc.session_id': 'ci-rks41', 'gc.session_name': 'codex-ci-rks41', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.session_affinity': '', 'gc.continuation_group': ''}, 'unbound prior claim')
         started=native_time(task.get('started_at'))
         prior=native_time(routed['started_at'])
         routed_at=native_time(routed.get('updated_at'))
@@ -114,7 +109,7 @@ def live_task(task, routed, session, contract, startup_digest):
     expected = dict(routed['metadata'], **{
         'gc.session_id':session['id'],'gc.session_name':session['session_name']})
     if 'started_at' in routed:
-        require(routed['metadata']=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T14:34:11Z; inspect session codex-ci-6gwp8 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-6gwp8', 'gc.progress_attention_signature': '912e8f1d08f4bcfca3312845f866a9b9dcf010f1ebe7fa9972de061c96313771', 'gc.progress_last_observed_at': '2026-09-28T14:34:11Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-6gwp8', 'gc.session_name': 'codex-ci-6gwp8', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'closed claim metadata differs')
+        require(routed['metadata']=={'gc.routed_to': 'gascity/codex', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20', 'gc.session_id': 'ci-rks41', 'gc.session_name': 'codex-ci-rks41', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.session_affinity': '', 'gc.continuation_group': ''}, 'closed claim metadata differs')
         # The exact rig-store branch remains bookkeeping only.
     elif 'gc.work_branch' in task.get('metadata',{}):expected['gc.work_branch']=BRANCH
     require(task.get('metadata') == expected, 'claim metadata differs')
@@ -166,18 +161,9 @@ def turn(value):
     require(value.get('cwd') == WORK and value.get('approval_policy') == 'never'
         and value.get('model') == 'gpt-6-astra' and value.get('effort') == 'high', 'native turn posture')
     policy = value.get('sandbox_policy')
-    explicit = dict(type='workspace-write',writable_roots=[WORK],network_access=False)
-    if policy == explicit:
-        # Retain the old closed synthetic/native form. If the newer fields are
-        # present they must agree too, rather than silently accepting a conflict.
-        for key, expected in NATIVE_POSTURE.items():
-            if key != 'sandbox_policy' and key in value:
-                require(value[key] == expected, 'native permission detail drift')
-    else:
-        # 0.153.4 serializes the cwd write root implicitly, while retaining the
-        # complete restricted permission profile. Require every observed field.
-        require(all(value.get(key) == expected for key, expected in NATIVE_POSTURE.items()),
-                'native sandbox posture')
+    require(isinstance(policy,dict) and policy.get('type') == 'workspace-write'
+        and policy.get('writable_roots') == [WORK] and policy.get('network_access') is False,
+        'native sandbox posture')
 
 
 def denial_from_rollout(raw, provider_id):
@@ -205,7 +191,7 @@ def denial_from_rollout(raw, provider_id):
         elif p.get('type') in ('function_call_output','custom_tool_call_output') and p.get('call_id') in calls:
             original = calls[p['call_id']]
             if original.get('type') == 'custom_tool_call':
-                if original.get('name') != 'exec' or original.get('input') not in NEGATIVE_SCRIPTS:continue
+                if original.get('name') != 'exec' or original.get('input') != NEGATIVE_SCRIPT:continue
                 require(p.get('type') == 'custom_tool_call_output' and context is not None,
                         'native code-mode response context')
                 blocks=p.get('output')
@@ -221,9 +207,8 @@ def denial_from_rollout(raw, provider_id):
                         and isinstance(result['probe_error'],str),'negative command returned rather than rejected')
                 output=result['probe_error']
                 if output.startswith('Error: '):output=output[7:]
-                require(output == NATIVE_ERROR or (
-                        output.startswith('exec command rejected:')
-                        and ('blocked by policy' in output or 'forbidden by policy' in output)),
+                require(output.startswith('exec command rejected:')
+                        and ('blocked by policy' in output or 'forbidden by policy' in output),
                         'not a native code-mode policy refusal')
                 matches.append(dict(call_id=p['call_id'],request=original,output=p,turn_context=context))
                 continue
@@ -286,7 +271,7 @@ def workspace_delta(before, after, runtime, source=(), evidence=False):
 
 
 def pristine_startup(before, after, report_sha, runtime):
-    allowed = {'.gc','.gc/worker-evidence','.gc/worker-evidence/'+TASK,EVIDENCE,
+    allowed = {'.gc','.gc/worker-evidence',EVIDENCE,
                EVIDENCE+'/startup.json',EVIDENCE+'/positive-write.txt'}
     additions={path:row for path,row in after.items() if path not in before and path in allowed}
     workspace_delta(before,after,dict(runtime,**additions))

@@ -23,7 +23,7 @@ RULES = {
 DEFAULT_RULES = '3d80d7351c83161cadea1a7bbb3271a567c43fe4bc9c6074dd53f684cc576516'
 SCOPE_ROOT = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/'
 SOURCE_PATHS = tuple(SCOPE_ROOT + path for path in ('DESIGN.md', 'slots/slots.py', 'slots/test_slots.py'))
-BOUND_NOTE = 'Operational startup contract for ga-e0t1.20: read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/WORKER-BRIEF.md sha256 f681228421af8773a5c401e1354b163baef61995ce564427962ccdfb746c5426. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/worker-startup.py sha256 7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3 inside the actual worker sandbox with its real session ID. No product edit until the coordinator verifies startup and releases that exact session. No staging signing task close restart or delegation. Return an uncommitted candidate only.\nR5 append-forward startup amendment for ga-e0t1.20. The initial prompt is /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/PRECLAIM-R5.md sha256 76d3f3d0a33d4a3572227dfa37b5d38ffe12bc0c60f9541a50364150d3c730e9. The worker-startup.py digest is 1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67. These supersede only the r4 startup prompt and probe references. Preserve the existing route workspace base scope permissions and candidate-only restrictions. Exact Core-generated hooks sha256 55e21a9d981805afb62da110b022bc847f7ad2b9a62bada45de95dbdfa472410 are preserved. Source release remains mandatory.\nSTOPPED: ga-e0t1.20 session=ci-rks41 probe_sha256=1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67 startup probe exited 1: RuntimeError: subscription identity unproven. No source edits; waiting for containment.\nR6 append-forward startup amendment for ga-e0t1.20. Use /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/PRECLAIM-R6.md sha256 fafd2012a531c99534ce69112adc0976fb437da9a8193d20d738b5535f94194d and worker-startup-r6.py sha256 fa03f747ed131ab38beadb5296d53f76cf6439ff27712de9261dd51ed263ea3e. These supersede only startup references. The failed ci-rks41 claim STOPPED note and exact supported close remain history. No credential permissions scope route workspace base or signing change. Fresh same-session startup proof and source release remain mandatory.'
+BOUND_NOTE = 'Operational startup contract for ga-e0t1.20: read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/WORKER-BRIEF.md sha256 f681228421af8773a5c401e1354b163baef61995ce564427962ccdfb746c5426. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/worker-startup.py sha256 7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3 inside the actual worker sandbox with its real session ID. No product edit until the coordinator verifies startup and releases that exact session. No staging signing task close restart or delegation. Return an uncommitted candidate only.\nR5 append-forward startup amendment for ga-e0t1.20. The initial prompt is /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/PRECLAIM-R5.md sha256 76d3f3d0a33d4a3572227dfa37b5d38ffe12bc0c60f9541a50364150d3c730e9. The worker-startup.py digest is 1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67. These supersede only the r4 startup prompt and probe references. Preserve the existing route workspace base scope permissions and candidate-only restrictions. Exact Core-generated hooks sha256 55e21a9d981805afb62da110b022bc847f7ad2b9a62bada45de95dbdfa472410 are preserved. Source release remains mandatory.\nSTOPPED: ga-e0t1.20 session=ci-rks41 probe_sha256=1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67 startup probe exited 1: RuntimeError: subscription identity unproven. No source edits; waiting for containment.\nR6 append-forward startup amendment for ga-e0t1.20. Use /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/PRECLAIM-R6.md sha256 fafd2012a531c99534ce69112adc0976fb437da9a8193d20d738b5535f94194d and worker-startup-r6.py sha256 fa03f747ed131ab38beadb5296d53f76cf6439ff27712de9261dd51ed263ea3e. These supersede only startup references. The failed ci-rks41 claim STOPPED note and exact supported close remain history. No credential permissions scope route workspace base or signing change. Fresh same-session startup proof and source release remain mandatory.\nSTARTUP READY: ga-e0t1.20 report_sha256=0ef1635eed2de2b4160ca333c3f3dd411b13c0a7aca72a90ebfd2f8e4bb7455c\nR7 append-forward startup amendment for ga-e0t1.20. Use /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/PRECLAIM-R7.md sha256 f6faecf0750a5b7c641d8734290d8d4516ecb9480db4cbca2738c9867df902cf and worker-startup-r7.py sha256 1cee785ea7a7fcdad4ef3f2b93fbbed13dc6fa0d55278d33857a65203db6aa47. Supersede only startup references. Preserve exact closed ci-6gwp8 claim progress-stall annotations and startup files. The coordinator has inspected and disposed the old stopped window. No permission route workspace base or signing change. Fresh same-session startup proof and exact source release remain mandatory. Store all new evidence in .gc/worker-evidence/ga-e0t1.20/r7.'
 
 # Core f45a6262 materializes these existing city inputs for an external
 # workspace. These are exact possible outputs, not a generic ignored-path
@@ -75,13 +75,15 @@ def validate_task(value, phase):
             and value.get('dependent_count', 0) == (1 if phase == 'routed' else 0), 'unexpected dependency counts')
     expected = {} if phase == 'unbound' else {'gc.work_dir': WORK}
     if phase == 'routed':
-        expected.update({'gc.routed_to': 'gascity/codex', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20', 'gc.session_id': 'ci-rks41', 'gc.session_name': 'codex-ci-rks41', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.session_affinity': '', 'gc.continuation_group': ''})
+        expected.update({'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T14:34:11Z; inspect session codex-ci-6gwp8 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-6gwp8', 'gc.progress_attention_signature': '912e8f1d08f4bcfca3312845f866a9b9dcf010f1ebe7fa9972de061c96313771', 'gc.progress_last_observed_at': '2026-09-28T14:34:11Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-6gwp8', 'gc.session_name': 'codex-ci-6gwp8', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'})
+        require(value.get('labels')==['needs/operator'], 'prior attention label drift')
         require(value.get('started_at')=='2026-09-28T13:01:54Z', 'prior claim start drift')
     require((value.get('metadata') or {}) == expected, 'task control metadata drift')
 
 
 def validate_rule_status(raw):
     expected = {b'!! ' + path.encode() for path in set(RULES) | (RUNTIME_FILES - {'.codex/hooks.json'})}
+    expected.update(b'!! '+p.encode() for p in ('.gc/worker-evidence/ga-e0t1.20/positive-write.txt', '.gc/worker-evidence/ga-e0t1.20/startup.json'))
     expected.add(b'?? .codex/hooks.json')
     entries = raw.split(b'\0')
     require(entries[-1] == b'', 'unterminated Git status')
@@ -121,7 +123,7 @@ def close_claim(task, session, admitted=None):
         require(isinstance(admitted,dict) and task==admitted, 'unclaimed retry differs from admitted task')
         validate_task(admitted,'routed')
         close_identity(session)
-        require(session['id']!='ci-rks41' and session['session_name']!='codex-ci-rks41',
+        require(session['id']!='ci-6gwp8' and session['session_name']!='codex-ci-6gwp8',
                 'historical session cannot use unclaimed retry recovery')
         from datetime import datetime
         times=[]
@@ -209,7 +211,7 @@ def candidate_status(raw):
     """
     require(raw.endswith(b'\0'), 'unterminated candidate status')
     changes, evidence, rules, runtime, seen = [], [], [], [], set()
-    evidence_root = '.gc/worker-evidence/'+TASK+'/'
+    evidence_root = '.gc/worker-evidence/ga-e0t1.20/r7/'
     for row in raw[:-1].split(b'\0'):
         require(len(row) > 3 and row[2:3] == b' ', 'candidate status record')
         code = row[:2]
@@ -223,6 +225,8 @@ def candidate_status(raw):
             rules.append(path)
         elif (code == b'!!' and path in RUNTIME_FILES) or (code == b'??' and path == '.codex/hooks.json'):
             runtime.append(path)
+        elif code == b'!!' and path in ('.gc/worker-evidence/ga-e0t1.20/positive-write.txt', '.gc/worker-evidence/ga-e0t1.20/startup.json'):
+            pass  # exact prior bytes are independently protected by workspace baseline
         elif code in (b'??', b'!!') and path.startswith(evidence_root):
             evidence.append(path)
         else:
