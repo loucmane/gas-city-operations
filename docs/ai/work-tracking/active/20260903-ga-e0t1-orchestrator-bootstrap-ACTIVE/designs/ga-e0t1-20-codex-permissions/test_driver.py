@@ -99,3 +99,113 @@ def test_source_chain_pins_exact_package_bytes():
     assert hashlib.sha256((root/'permissions.py').read_bytes()).hexdigest()==d.POLICY_SHA
     assert hashlib.sha256((root/'preimage.json').read_bytes()).hexdigest()==d.PREIMAGE_SHA
     assert hashlib.sha256((root/'apply.py').read_bytes()).hexdigest() in (root/'operator/APPLY.sh').read_text()
+
+
+def support_fixture(monkeypatch,action):
+    events=[]
+    h=SimpleNamespace()
+    def host_check():
+        events.append('host_binary_check')
+        raise RuntimeError('root ownership unavailable inside child namespace')
+    h.verify_sandbox_binary=host_check
+    w=SimpleNamespace(load_support=lambda:('b','o','owned'))
+    def read(path,pin=None):
+        if Path(path).name=='assembly.json':return b'{"files":{"window-base-r11.py":"pin"}}'
+        return b''
+    monkeypatch.setattr(d,'read',read)
+    monkeypatch.setattr(d,'load',lambda path,pin,name: w if name=='bound_window' else h)
+    monkeypatch.setattr(d,'_SOURCE_SHA','test',raising=False)
+    monkeypatch.setattr(d.sys,'argv',['apply.py',action])
+    monkeypatch.setattr(d,'context',lambda:events.append('host_context'))
+    monkeypatch.setattr(d,'tree_proof',lambda *a:events.append('readonly_tree_proof') or {'ok':True})
+    return events
+
+
+def test_inner_uses_readonly_proof_not_impossible_host_uid_check(monkeypatch,capsys):
+    events=support_fixture(monkeypatch,'inner')
+    d.main()
+    assert events==['readonly_tree_proof']
+    assert json.loads(capsys.readouterr().out)=={'ok':True}
+
+
+def test_apply_checks_host_context_then_real_host_binary(monkeypatch):
+    events=support_fixture(monkeypatch,'apply')
+    with pytest.raises(RuntimeError,match='root ownership'):d.main()
+    assert events==['host_context','host_binary_check']
+
+
+def test_inner_writable_mount_refuses_before_inventory(monkeypatch):
+    def refuse(paths):raise RuntimeError('writable mount refused')
+    def no_read(*a):raise AssertionError('inventory read before readonly proof')
+    monkeypatch.setattr(d,'read',no_read)
+    w=SimpleNamespace(CITY='city',WORK='work',ADMIN='admin')
+    b=SimpleNamespace(CACHE='cache',PROTECTED=['assets','backups'])
+    with pytest.raises(RuntimeError,match='writable mount'):
+        d.tree_proof(w,SimpleNamespace(prove_read_only=refuse),b,object())
+
+
+CACHE_KEY='954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git'
+OLD_NS=1790604770227789531
+NEW_NS=1790621288720671640
+
+
+def tree_fixture(monkeypatch):
+    prior=dict(cache=dict(inventory={CACHE_KEY:dict(
+        atime_ns=1790523123135207314,ctime_ns=OLD_NS,mtime_ns=OLD_NS,
+        device=2096,gid=1000,inode=4111724,mode=493,nlink=8,size=4096,type=16384,uid=1000),
+        'other-file':dict(sha256='unchanged',mode=420)}),
+        protected={'assets':{'inventory':{'asset':{'sha256':'asset'}}},
+                   'backups':{'inventory':{'backup':{'sha256':'backup'}}}})
+    current=json.loads(json.dumps(prior))
+    for key in ('mtime_ns','ctime_ns'):current['cache']['inventory'][CACHE_KEY][key]=NEW_NS
+    def image(value):
+        if isinstance(value,dict):return {k:image(v) for k,v in value.items() if k!='atime_ns'}
+        return value
+    w=SimpleNamespace(CITY='city',WORK='work',ADMIN='admin',dependency_image=image)
+    b=SimpleNamespace(CACHE=Path('cache'),PROTECTED=['assets','backups'])
+    calls=[]
+    h=SimpleNamespace(prove_read_only=lambda paths:calls.append(paths))
+    o=SimpleNamespace(tree_snapshot=lambda path,**kw: current['cache'] if path==Path('cache') else current['protected'][path])
+    def frozen_read(path,pin=None):
+        assert path==d.TERMINAL and pin==d.TERMINAL_SHA
+        return json.dumps(prior).encode()
+    monkeypatch.setattr(d,'read',frozen_read)
+    return prior,current,w,h,b,o,calls
+
+
+def test_exact_approved_cache_delta_passes_without_rewriting_observations(monkeypatch):
+    prior,current,w,h,b,o,calls=tree_fixture(monkeypatch)
+    before=json.dumps([prior,current],sort_keys=True)
+    result=d.tree_proof(w,h,b,o)
+    assert result['ok'] and result['readonly'] and len(result['sha256'])==64
+    assert calls==[[Path('cache'),'assets','backups','city','work','admin']]
+    assert result['cache_disposition']==dict(path='cache/'+CACHE_KEY,
+        fields=['mtime_ns','ctime_ns'],before_ns=OLD_NS,approved_ns=NEW_NS,
+        prior_observation_sha256=d.TERMINAL_SHA)
+    assert json.dumps([prior,current],sort_keys=True)==before
+
+
+@pytest.mark.parametrize('field',['ctime_ns','mtime_ns','device','gid','inode','mode','nlink','size','type','uid'])
+def test_cache_exception_refuses_every_other_directory_change(monkeypatch,field):
+    prior,current,w,h,b,o,_=tree_fixture(monkeypatch)
+    current['cache']['inventory'][CACHE_KEY][field]+=1
+    with pytest.raises(RuntimeError,match='restored cache drift'):d.tree_proof(w,h,b,o)
+
+
+@pytest.mark.parametrize('surface',['unapproved_old_times','cache_file','cache_extra','cache_missing','assets','backups'])
+def test_cache_exception_cannot_hide_content_inventory_or_protected_tree_drift(monkeypatch,surface):
+    prior,current,w,h,b,o,_=tree_fixture(monkeypatch)
+    if surface=='unapproved_old_times':
+        for key in ('mtime_ns','ctime_ns'):current['cache']['inventory'][CACHE_KEY][key]=OLD_NS
+    elif surface=='cache_file':current['cache']['inventory']['other-file']['sha256']='changed'
+    elif surface=='cache_extra':current['cache']['inventory']['new']={'sha256':'new'}
+    elif surface=='cache_missing':del current['cache']['inventory']['other-file']
+    else:current['protected'][surface]['inventory']['extra']={'sha256':'new'}
+    with pytest.raises(RuntimeError,match='restored (cache|protected) drift'):d.tree_proof(w,h,b,o)
+
+
+@pytest.mark.parametrize('field',['mtime_ns','ctime_ns'])
+def test_cache_exception_requires_exact_preserved_preimage(monkeypatch,field):
+    prior,current,w,h,b,o,_=tree_fixture(monkeypatch)
+    prior['cache']['inventory'][CACHE_KEY][field]+=1
+    with pytest.raises(RuntimeError,match='cache disposition preimage'):d.tree_proof(w,h,b,o)

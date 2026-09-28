@@ -15,9 +15,12 @@ import types
 
 HERE = Path(__file__).parent
 WINDOW = HERE.parent / 'ga-e0t1-20-astra-window'
-ROOT = Path('/var/tmp/ga-e0t1.20-codex-permissions-20260928-r1')
+ROOT = Path('/var/tmp/ga-e0t1.20-codex-permissions-20260928-r2')
 HOME = Path('/home/loucmane/.codex')
-JOB = 'ga-e0t1-20-permissions-r1'
+JOB = 'ga-e0t1-20-permissions-r2'
+PRIOR_ROOT = Path('/var/tmp/ga-e0t1.20-codex-permissions-20260928-r1')
+PRIOR_JOB_SHA = '0c214abca997edc0e94d003b9fb3637226b7b7108aca3ec72ae70142ecd11e02'
+PRIOR_PHASE_SHA = 'ad34e618652735fe00a0049aaffdb7438a31a192467317e51b36b3262d95d6ed'
 TERMINAL = Path('/var/tmp/ga-e0t1.20-terminal-20260928-r7/observed-after.json')
 TERMINAL_SHA = 'd86e7fb9bca8e2abe6bf6732c236d92686e3398a261f7a198a2e87c6f881e3cd'
 ASSEMBLY_SHA = '30955869bd18d74ee5543cfa7a545a8664b1ba54e6cee463323aec152143ce0c'
@@ -25,6 +28,12 @@ HELPER_SHA = '0b2458d691d93a1672757314a34f9e8c1efbc97f87df42adee18b4be28aec90a'
 # Filled from the tested candidate before signed review; never supplied by CLI.
 POLICY_SHA = 'b560e231944f54533e6dfa7150e791769d3f29996221a4b1e86362f052e0f442'
 PREIMAGE_SHA = '5da959c67576133e0df8423b1ff49ef3641cd836f9fc54a87a8e9269c76aad24'
+# Operator approved this exact two-field disposition on September 28 after
+# PERMISSIONS-RECOVERY-HOLD. This applies only to this fresh recovery job.
+# Never change the actual tree or the preserved terminal observation.
+CACHE_DIRECTORY = '954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git'
+CACHE_BEFORE_NS = 1790604770227789531
+CACHE_APPROVED_NS = 1790621288720671640
 
 
 def require(ok, reason):
@@ -55,7 +64,7 @@ def load(path, pin, name):
     return module
 
 
-def support():
+def support(*, host=True):
     assembly = json.loads(read(WINDOW / 'assembly.json', ASSEMBLY_SHA))
     for name, pin in assembly['files'].items():read(WINDOW / name, pin)
     w = load(WINDOW/'window-base-r11.py', assembly['files']['window-base-r11.py'], 'bound_window')
@@ -63,7 +72,10 @@ def support():
     # Reuse only sandbox validation, owned read-only phases and host observation.
     # The historical helper archive, its entrypoint and old bindings never run.
     h.ARCHIVE = ROOT
-    h.verify_sandbox_binary()
+    # Root ownership is authoritative only in the parent host namespace.
+    # The confined child never launches bwrap and must instead prove its
+    # actual mounts read-only before inspecting any protected tree.
+    if host:h.verify_sandbox_binary()
     b, o, owned = w.load_support()
     return w, h, b, o, owned
 
@@ -123,18 +135,41 @@ def context():
     jobs=Path('/home/loucmane/.local/share/gas-city-staging/jobs')
     require(not list((jobs/'queue').iterdir()) and (jobs/'done'/(JOB+'.started.json')).is_file()
             and not (jobs/'done'/(JOB+'.json')).exists(), 'job not exclusive or already consumed')
+    prior=json.loads(read(jobs/'done/ga-e0t1-20-permissions-r1.json',PRIOR_JOB_SHA))
+    phase=json.loads(read(PRIOR_ROOT/'before-trees-phase.json',PRIOR_PHASE_SHA))
+    require(prior['exit']==1 and prior['unit_state_after']=='inactive'
+            and phase['exit_code']==1 and not phase['timed_out']
+            and phase['cleanup']['owned_process_group_gone']
+            and not phase['cleanup']['unexpected_survivors'], 'prior refusal not contained')
+    require({x.name for x in PRIOR_ROOT.iterdir()}=={
+        'intent.json','default.rules.backup','before-sessions-phase.json',
+        'before-status-phase.json','before-trees-phase.json'}, 'prior transaction may have started')
+
+
+def approved_cache_image(prior):
+    expected=json.loads(json.dumps(prior))
+    entry=expected['cache']['inventory'][CACHE_DIRECTORY]
+    for key in ('mtime_ns','ctime_ns'):
+        require(type(entry[key]) is int and entry[key]==CACHE_BEFORE_NS,
+                'cache disposition preimage')
+        entry[key]=CACHE_APPROVED_NS
+    return expected
 
 
 def tree_proof(w, h, b, o):
     h.prove_read_only([b.CACHE, *b.PROTECTED, w.CITY, w.WORK, w.ADMIN])
     prior=json.loads(read(TERMINAL,TERMINAL_SHA))
+    expected=approved_cache_image(prior)
     snapshot=dict(cache=o.tree_snapshot(b.CACHE,cache=True),
                   protected={str(p):o.tree_snapshot(p,protected=True) for p in b.PROTECTED})
     for k in snapshot:
-        require(w.dependency_image(snapshot[k]) == w.dependency_image(prior[k]), 'restored '+k+' drift')
+        require(w.dependency_image(snapshot[k]) == w.dependency_image(expected[k]), 'restored '+k+' drift')
     # Full actual metadata, including access times, is hashed for immediate
     # before/after preservation. Historical reuse alone excludes access times.
-    return dict(ok=True, readonly=True, sha256=hashlib.sha256(
+    return dict(ok=True, readonly=True, cache_disposition=dict(
+        path=str(b.CACHE / CACHE_DIRECTORY), fields=['mtime_ns','ctime_ns'],
+        before_ns=CACHE_BEFORE_NS, approved_ns=CACHE_APPROVED_NS,
+        prior_observation_sha256=TERMINAL_SHA), sha256=hashlib.sha256(
         json.dumps(snapshot,sort_keys=True,separators=(',',':')).encode()).hexdigest())
 
 
@@ -186,10 +221,11 @@ def main():
     require(globals().get('_SOURCE_SHA'), 'bound source entry')
     read(Path(__file__),_SOURCE_SHA)
     require(sys.argv[1:] in (['apply'],['inner']),'unknown operation')
-    w,h,b,o,owned=support()
-    if sys.argv[1:]==['inner']:
+    inner=sys.argv[1:]==['inner']
+    if not inner:context()
+    w,h,b,o,owned=support(host=not inner)
+    if inner:
         print(json.dumps(tree_proof(w,h,b,o),sort_keys=True));return
-    context()
     p=load(HERE/'permissions.py',POLICY_SHA,'permissions_policy')
     expected=json.loads(read(HERE/'preimage.json',PREIMAGE_SHA))
     allowed={str(HOME/n) for n in ('rules','rules/default.rules','sessions','sessions/2026','sessions/2026/09','sessions/2026/09/28')}

@@ -26,8 +26,8 @@ unchanged. No package installation is required.
 
 ## Transaction and boundaries
 
-One job ga-e0t1-20-permissions-r1; one consumed output root
-/var/tmp/ga-e0t1.20-codex-permissions-20260928-r1. Existing jobrunner admission
+Successor job ga-e0t1-20-permissions-r2; one fresh output root
+/var/tmp/ga-e0t1.20-codex-permissions-20260928-r2. Existing jobrunner admission
 requires signed exact HEAD, clean worktree, wrapper binding and both reviews.
 Apply also checks its job cgroup/invocation, actual supervisor namespaces,
 Core/broker/signer/runner epochs, restored R7 pins, suspended city/four rigs and
@@ -127,3 +127,56 @@ suites and source guard remain mandatory before delivery. Live apply NOT RUN.
 
 The signed R1 HOLD stays filed. This corrected successor requires two fresh
 independent reviews and all immediate preflights; no verdict is inherited.
+
+## First live job and bounded successor
+
+Both R2 source reviews passed 84afc149. The first host job was admitted but
+stopped in its before-trees read-only child, before transaction preimage or any
+permission syscall. Exact live reread proved all six targets unchanged. Its
+consumed root, backup, intent, three phases and job record remain preserved.
+
+Cause: the parent correctly verifies the root-owned bwrap binary. The child
+repeated that host-ownership check after entering a user namespace, where root
+files appear as overflow uid/gid 65534. An exact-shape read-only probe confirmed
+the same 0755 binary, size 72160, digest e318903862396f96de3df57264e0158682b952fd3fb53ac23d876413e7b30f71,
+with only ownership mapping different. The host view remains root-owned.
+
+The successor checks host context first and retains the exact host binary check
+before launching its children. Inner only performs source-bound read-only tree proof:
+mandatory mount validation remains first and writable mounts still refuse. It
+does not launch bwrap, run metadata changes, or inherit authority from its argv.
+The predecessor job/phase digests and exact pre-transaction root inventory are
+required; the original manifest must still match every target before writing.
+No binary authority check is relaxed in the host or mutation path. The original
+job/root cannot replay. New driver regression tests preserve the live RED.
+
+## Exact timestamp-only disposition approved September 28
+
+Following the preserved PERMISSIONS-RECOVERY-HOLD report, the operator approved
+only mtime_ns and ctime_ns on cache directory
+954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git:
+both 1790604770227789531 to exactly 1790621288720671640. The source-bound
+terminal observation remains unchanged. The comparison copies that observation
+and changes only those two expected integers. Live values must equal the exact
+new integers, not a tolerance. Every other field, path, file byte and protected
+tree keeps the existing comparison. Nothing writes cache metadata. Immediate
+before/after proofs still hash the full actual snapshots including access times.
+
+The earlier diagnostic with approval_granted false remains historical evidence;
+this approval and the exact values are recorded append-forward on ga-e0t1.
+The read-only child proof emits the disposition and preserved observation digest.
+This exception is local to this fresh permissions job and does not authorize a
+future worker window or broader timestamp normalization.
+
+The new RED has one refused approved-positive case and two missing-specific-guard
+assertions, not three distinct safety defects. Disposable negatives cover every
+other directory field, wrong or old timestamps, file content, inventory additions
+and removals, both protected trees, and changed historical preimage. Reviewers may
+read source and evidence and run these disposable tests only. No live gc or bd,
+service probes, escalation, or configuration inspection during source review.
+
+Current successor evidence: 61 focused PASS at
+/tmp/ga-e0t1-permissions-green-r10.xml and a successful actual read-only tree
+rehearsal. The failed green-r9 command named a nonexistent module and ran no
+tests; preserve it as a command error. See PERMISSIONS-RECOVERY-R3.md for the
+operator binding, unchanged full-suite inputs and required fresh review.

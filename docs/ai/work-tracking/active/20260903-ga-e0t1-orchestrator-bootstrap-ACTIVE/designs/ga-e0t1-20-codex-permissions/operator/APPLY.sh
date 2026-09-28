@@ -12,6 +12,6 @@ export PATH
 [ "$(git --no-optional-locks -c core.fsmonitor=false -C "$W" rev-parse HEAD)" = "$C" ]
 [ -z "$(git --no-optional-locks -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" status --porcelain --untracked-files=all)" ]
 [ "$(sha256sum "$L" | cut -d ' ' -f 1)" = 31bdeea83152c5ad0253a74d743f4d4d103dc7e14e7975da00055df6786d6dea ]
-[ ! -e /var/tmp/ga-e0t1.20-codex-permissions-20260928-r1 ]
-[ ! -L /var/tmp/ga-e0t1.20-codex-permissions-20260928-r1 ]
-exec /usr/bin/python3 -I -S -B "$L" "$D/apply.py" 4618bcb8b05846e9aa6a7d6a3ae5f17ef308d5e3319d31f38417fa1f5c7a54c5 apply
+[ ! -e /var/tmp/ga-e0t1.20-codex-permissions-20260928-r2 ]
+[ ! -L /var/tmp/ga-e0t1.20-codex-permissions-20260928-r2 ]
+exec /usr/bin/python3 -I -S -B "$L" "$D/apply.py" 1a5c7f760eea7de6e35b6b5f076417b0981ac8cb8358f0560bbb4501f9cb2732 apply
