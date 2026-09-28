@@ -20,6 +20,10 @@ PINS = {
     'PRECLAIM-R7.md': 'f6faecf0750a5b7c641d8734290d8d4516ecb9480db4cbca2738c9867df902cf',
 }
 sha = build.sha
+SIGNATURE_GUARD = '''# Same signer policy as the required runner, checked again at the wrapper.
+signature=$(/usr/bin/git --no-optional-locks -c core.fsmonitor=false -c core.hooksPath=/dev/null -c gpg.program=/usr/bin/gpg -c gpg.ssh.program=/usr/bin/false -c gpg.x509.program=/usr/bin/false -C "$W" verify-commit --raw "$COMMIT" 2>&1) || { echo "== STOP: signature verification failed"; exit 1; }
+printf '%s\\n' "$signature" | /usr/bin/awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" && $NF == "7720D1FE503A88EDECA61A6F0C7D823543E01875" { valid=1 } END { exit !valid }' || { echo "== STOP: signer mismatch"; exit 1; }
+'''
 
 
 def frozen(name):
@@ -69,6 +73,10 @@ def components():
     wrapper = '#!/bin/sh\n' + original[len(consumed):]
     wrapper = wrapper.replace('R7B', 'R8').replace('r7b', 'r8')
     wrapper = build.once(wrapper, PINS['prompt-prep-r7b.py'], sha(executor))
+    marker = 'echo "== prep '
+    assert wrapper.count(marker) == 1
+    offset = wrapper.index(marker)
+    wrapper = wrapper[:offset] + SIGNATURE_GUARD + wrapper[offset:]
     out = {'worker-startup-r8.py':probe, 'PRECLAIM-R8.md':prompt,
            'permissions-baseline-r8.py':guard, 'prompt-prep-r8.py':executor,
            'operator/PROMPT-PREP-R8.sh':wrapper.encode()}

@@ -21,6 +21,9 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
 { [ ! -e "$OUT" ] && [ ! -L "$OUT" ]; } || { echo "== STOP: evidence root already used: $OUT"; echo "== end"; exit 1; }
+# Same signer policy as the required runner, checked again at the wrapper.
+signature=$(/usr/bin/git --no-optional-locks -c core.fsmonitor=false -c core.hooksPath=/dev/null -c gpg.program=/usr/bin/gpg -c gpg.ssh.program=/usr/bin/false -c gpg.x509.program=/usr/bin/false -C "$W" verify-commit --raw "$COMMIT" 2>&1) || { echo "== STOP: signature verification failed"; exit 1; }
+printf '%s\n' "$signature" | /usr/bin/awk '$1 == "[GNUPG:]" && $2 == "VALIDSIG" && $NF == "7720D1FE503A88EDECA61A6F0C7D823543E01875" { valid=1 } END { exit !valid }' || { echo "== STOP: signer mismatch"; exit 1; }
 echo "== prep $(date -u +%H:%M:%SZ)"
 # The P6 package's source-launch.py (31bdeea8) runs prepare.py only if its bytes match PREP_SHA.
 /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$C/prompt-prep-r8.py" "$PREP_SHA"

@@ -1,12 +1,12 @@
 {
   "authoring_files": {
     "permissions_baseline_r8.py": "06f832fa1918d13065803fde597a3546b4696c1b27c43f798d658f715b64fbdb",
-    "startup_r8.py": "1c464e84ff2d62d9317df629282ff6cbd488828b4f9a703526fca3d05ea25852"
+    "startup_r8.py": "3b9a7761f4ba1e1cdb47cc11263ddbb5035623d8c1739528b029f2b2a0a0ac5f"
   },
   "execution_admitted": false,
   "files": {
     "PRECLAIM-R8.md": "547f5f57180c00798573026ea96bdb3f94f1dda32d9ff6710820b68a56bd1cf1",
-    "operator/PROMPT-PREP-R8.sh": "c08ddebe52b646ef897bfc8dae5692f18bd353faa0957e9de4536cc79eff97f5",
+    "operator/PROMPT-PREP-R8.sh": "f06176447294d2976245effd5d2c77e3b26aebdebdc39e08972ee84a994d640b",
     "permissions-baseline-r8.py": "06f832fa1918d13065803fde597a3546b4696c1b27c43f798d658f715b64fbdb",
     "prompt-prep-r8.py": "050597e4a19de140b8385017e2fb35fa9d6da557e96f4d8075bec5db2a0dd499",
     "worker-startup-r8.py": "2cbd38c61a32f8d79d5a5782440c7cf8acaa3ffa1ed959a23257bc3078c10e8f"

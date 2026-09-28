@@ -111,3 +111,39 @@ def test_permission_guard_requires_accepted_result(monkeypatch):
         return raw
     with pytest.raises(AssertionError,match='accepted permissions recovery'):
         p.verify(read,lambda *args: pytest.fail('must refuse before metadata read'))
+
+
+def test_unsigned_exact_clean_head_stops_before_preparation(tmp_path):
+    root = tmp_path/'unsigned'; root.mkdir()
+    def git(*args):
+        return subprocess.run(['/usr/bin/git','-C',str(root),*args],check=True,
+            capture_output=True).stdout.decode().strip()
+    git('init'); git('config','user.name','Disposable test'); git('config','user.email','test@example.invalid')
+    git('-c','commit.gpgsign=false','commit','--allow-empty','-m','unsigned fixture')
+    commit=git('rev-parse','HEAD')
+    assert not git('status','--porcelain')
+    script='W='+str(root)+'\nCOMMIT='+commit+'\n'+s.SIGNATURE_GUARD+'echo PREPARATION_REACHED\n'
+    result=subprocess.run(['/bin/sh'],input=script.encode(),capture_output=True)
+    assert result.returncode != 0
+    assert b'signature verification failed' in result.stdout
+    assert b'PREPARATION_REACHED' not in result.stdout
+
+
+@pytest.mark.parametrize('record,passed',[
+    ('[GNUPG:] VALIDSIG SUBKEY fields 7720D1FE503A88EDECA61A6F0C7D823543E01875',True),
+    ('[GNUPG:] VALIDSIG SUBKEY fields WRONG',False),
+    ('[GNUPG:] GOODSIG 7720D1FE503A88EDECA61A6F0C7D823543E01875',False),
+    ('untrusted [GNUPG:] VALIDSIG SUBKEY fields 7720D1FE503A88EDECA61A6F0C7D823543E01875',False),
+    ('',False)])
+def test_signature_primary_key_parser(record,passed):
+    line=s.SIGNATURE_GUARD.splitlines()[-1]
+    script='signature='+__import__('shlex').quote(record)+'\n'+line+'\n'
+    result=subprocess.run(['/bin/sh'],input=script.encode(),capture_output=True)
+    assert (result.returncode==0) is passed
+
+
+def test_signature_guard_precedes_source_launch():
+    wrapper=s.components()['operator/PROMPT-PREP-R8.sh'].decode()
+    assert wrapper.index('verify-commit --raw') < wrapper.index('source-launch.py')
+    assert 'gpg.ssh.program=/usr/bin/false' in wrapper
+    assert 'gpg.x509.program=/usr/bin/false' in wrapper
