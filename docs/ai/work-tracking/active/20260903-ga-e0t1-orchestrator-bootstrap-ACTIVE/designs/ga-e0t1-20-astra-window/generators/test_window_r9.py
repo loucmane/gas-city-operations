@@ -32,7 +32,7 @@ def test_exact_predecessor_and_deterministic_bindings(built):
     assert w.CITY_SHA[1]==result['city_after_sha256']
     assert w.RECEIPT_SHA[1]==result['receipt_after_sha256']
     assert w.REVISION[1]==result['revision_after']
-    assert w.CACHE_PREV_NS==1790604770227789531
+    assert w.CACHE_PREV_NS==1790621288720671640
     assert w.CACHE_PINNED_NS==1790621288720671640
     for n in r.HISTORICAL & before.keys():assert before[n]==out[n],n
     for n in r.COMPLETED:assert b'exit 125' in out[n].splitlines()[:4],n
@@ -47,6 +47,27 @@ def test_exact_predecessor_and_deterministic_bindings(built):
     assert out['prior-startup-validation-r8.py']==before['startup-validation.py']
     assert r.sha(out['permissions-baseline-r9.py']).encode() in out['window-base-r11.py']
     assert out['window-base-r11.py'].count(b'verify_prelaunch_permissions()')==3
+
+
+def test_actual_restored_cache_baseline_needs_no_second_disposition(built):
+    w=r.module(built[1]['window-base-r11.py'])
+    raw=Path(r.OBSERVATION).read_bytes()
+    assert r.sha(raw)==r.OBSERVATION_SHA
+    prior=json.loads(raw)
+    accepted={k:prior[k] for k in w.ACCEPTED_KEYS}
+    original=copy.deepcopy(accepted)
+    assert w.approved_candidate_cache_image(accepted)==original
+    assert accepted==original
+    assert w.CACHE_PREV_NS==w.CACHE_PINNED_NS==1790621288720671640
+
+
+@pytest.mark.parametrize('field',['mtime_ns','ctime_ns'])
+@pytest.mark.parametrize('delta',[-1,1])
+def test_restored_cache_baseline_rejects_either_timestamp_drift(built,field,delta):
+    w=r.module(built[1]['window-base-r11.py'])
+    prior=json.loads(Path(r.OBSERVATION).read_bytes())
+    prior['cache']['inventory'][w.CACHE_DIRECTORY][field]+=delta
+    with pytest.raises(RuntimeError):w.approved_candidate_cache_image(prior)
 
 
 def test_exact_closed_claim_and_new_append(built,evidence):
