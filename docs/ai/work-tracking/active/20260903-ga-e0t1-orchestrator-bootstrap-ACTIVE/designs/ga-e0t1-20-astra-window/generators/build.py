@@ -21,8 +21,9 @@ HERE = Path(__file__).parent
 WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'
 PREP = '/var/tmp/ga-e0t1.20-prep-20260927-r1'
 HEX = re.compile(r'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])')
-FINAL_CACHE_NS = 1790553055537553535
-FINAL_OBSERVATION_SHA = '74704997acff2a47c46f66b7eef2c3d0a20f06d1fee2a1735d6014eff31f4d79'
+FINAL_CACHE_NS = 1790554248061328174
+FINAL_OBSERVATION_SHA = '071d34df5a8ddef27c5494e6639df22575c4311c5225159876f74463fbf1ea67'
+COMPLETED_BIND_EXECUTOR = '9fd6c49adecf7fb991f9b8cd2c6279c25fcf73455bfa0911609a2079928495e7'
 
 
 def sha(raw):
@@ -204,6 +205,41 @@ def bind(text):
 
 
 def route(text):
+    # This is a consumed receipt identity, not a dependency on newly generated
+    # executable bytes. The binding from signed 3c993172 must never be replayed.
+    text = re.sub(r"^BIND_SHA='[0-9a-f]{64}'$",
+        "BIND_SHA='COMPLETED_BIND_EXECUTOR_SHA'",text,flags=re.M)
+    start = text.index('    s=BIND.lstat()')
+    end = text.index("    w.read(w.CITY/'city.toml'",start)
+    block = text[start:end]
+    for name,pin in (
+        ('binding-intent.json','0f85dbaa6de8c174c3bc4950955777bb23621cb3bc8bd55ce9546c5e029e4b37'),
+        ('result.json','0e8003f3fa54558537cd93dcd2863ab5bcd0aef8be8af1ec11c198472ad022d2'),
+        ('task-after.json','e58d90d46f6422aeb6d65a135daf41389fb5d1b9e0115f1019f6b2027abf7dcb')):
+        block = once(block,"w.read(BIND/'"+name+"')", "w.read(BIND/'"+name+"','"+pin+"')")
+    text = text[:start]+"    bound=completed_binding(w)\n"+text[end:]
+    helpers = 'def completed_binding(w):\n'+block+'    return bound\n\n\n'+'''def continued_task(current,bound):
+    # gc embeds parent audit history in each child read. Retain exact own
+    # fields and all parent fields except a monotonic append-only audit update.
+    from datetime import datetime
+    assert set(current)==set(bound), 'bound task field set'
+    for key in bound:
+        if key!='dependencies':assert current[key]==bound[key], ('bound task changed',key)
+    old=bound['dependencies'];new=current['dependencies']
+    assert isinstance(old,list) and isinstance(new,list) and len(old)==len(new)==1
+    old=old[0];new=new[0]
+    assert set(old)==set(new), 'parent field set'
+    for key in old:
+        if key not in ('notes','updated_at'):assert new[key]==old[key], ('parent changed',key)
+    assert isinstance(new['notes'],str) and new['notes'].startswith(old['notes']), 'parent audit erased'
+    a=datetime.fromisoformat(old['updated_at']);z=datetime.fromisoformat(new['updated_at'])
+    assert a.tzinfo is not None and z.tzinfo is not None and z>=a, 'parent audit time'
+
+
+'''
+    text = once(text,'def main():\n',helpers+'def main():\n')
+    text = once(text,"    assert before==bound and before['status']=='open' and not before.get('assignee')",
+        "    continued_task(before,bound)\n    assert before['status']=='open' and not before.get('assignee')")
     text = once(text, "root=Path('/home/loucmane/gas-city-template-worktrees')", "root=Path('/home/loucmane/gas-city-ops-candidate-worktrees')")
     start = text.index('    # Template variant of no_drivers:')
     end = text.index('    attempts=[]', start)
@@ -424,11 +460,14 @@ def assemble(final=False):
                   'ASSEMBLY_VALIDATOR_SHA':sha(out['startup-validation.py']),
                   'ASSEMBLY_PROBE_SHA':sha(out['worker-startup.py']),
                   'ASSEMBLY_RELEASE_SHA':sha(out['startup-release.py'])}
-        def replace_bindings(raw):
+        def replace_bindings(name,raw):
             text=raw.decode()
+            if name=='route-task-r5.py':
+                text=re.sub(r"^BIND_SHA='[^']+'$", "BIND_SHA='COMPLETED_BIND_EXECUTOR_SHA'",text,flags=re.M)
             for key,value in tokens.items():text=text.replace(key,value)
-            return HEX.sub(lambda m:mapping.get(m[0],m[0]),text).encode()
-        newer = {name: replace_bindings(raw)
+            text=HEX.sub(lambda m:mapping.get(m[0],m[0]),text)
+            return text.replace('COMPLETED_BIND_EXECUTOR_SHA',COMPLETED_BIND_EXECUTOR).encode()
+        newer = {name: replace_bindings(name,raw)
                  if name.endswith(('.py','.sh')) else raw for name,raw in out.items()}
         if newer == out: break
         out = newer

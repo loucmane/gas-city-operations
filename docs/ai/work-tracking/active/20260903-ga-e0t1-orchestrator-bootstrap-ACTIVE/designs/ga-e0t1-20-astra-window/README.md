@@ -10,6 +10,14 @@ four-provider guard. This successor binds M12's exact five providers in both
 observers and continues at OBSERVE with a fresh root. No staging or worker has
 occurred. Preserve the failed job and completed binding.
 
+The r5 candidate was held by both independent reviewers before execution:
+its ROUTE regenerated the already-consumed BIND executor hash. The successor
+separately pins the original completed executor and all three immutable receipt
+files. It never replaces those files or repeats BIND. ROUTE also preserves all
+own task fields and all non-audit parent fields; only append-only parent notes
+and a nondecreasing timezone-aware parent audit time may change between jobs.
+Same-call route mutation comparisons remain exact. See COMPLETED-BINDING.md.
+
 The source is signed S5 commit 1df3d47ee499b85928c6d34f1aec6e33d1ef2c25,
 rebound to S1's exact Operations workspace, P13 receipt and M12 inspector. The
 generator preserves source-file digests and deterministically refreshes internal
@@ -69,18 +77,18 @@ reviews of the exact signed head and the runner's checks remain mandatory.
    evidence bounds, policy hashes and exact common-Git preservation. Only after
    independent candidate review may the coordinator intake or deliver its patch.
 3. The complete read-only host comparison is preserved at
-   /tmp/ga-e0t1-20-readonly-baseline-20260928-r5. Observation SHA-256 is
-   74704997acff2a47c46f66b7eef2c3d0a20f06d1fee2a1735d6014eff31f4d79.
+   /tmp/ga-e0t1-20-readonly-baseline-20260928-r6. Observation SHA-256 is
+   071d34df5a8ddef27c5494e6639df22575c4311c5225159876f74463fbf1ea67.
    Its only non-access-time differences from accepted P13 are mtime_ns and
    ctime_ns of cache directory
    954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/.git:
-   1790510685769555369 -> 1790553055537553535. All cache content, all other
+   1790510685769555369 -> 1790554248061328174. All cache content, all other
    metadata, host, protected and provider fields compare exactly under the
    existing historical read-time contract. This candidate binds that pair
    exactly under standing corrected-package authority. Any later change still
    refuses. No timestamp is written or silently normalized. C1's later
    explicitly operator-bound disposition remains separate and is not granted.
-   The r1 through r4 observations remain preserved. The r5 observation follows the final
+   The r1 through r5 observations remain preserved. The r6 observation follows the final
    coordinator evidence/Bead/verify commands, which refresh this directory.
    The exact package-shaped native gc read was separately observed not to do so.
 4. Sign the clean final candidate and obtain two fresh request-bound Astra
@@ -146,6 +154,6 @@ real hook or trust check refuses, report it and contain; never bypass it.
 ## Reproduction
 
 `generators/` contains the exact authoring inputs and fixture tests. Run its
-seven test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
+eight test modules with Python 3.12, -B, no pytest cache and a fresh /tmp base.
 The generator writes only a fresh chosen output directory; it never launches
 its outputs. Prior /tmp assembled drafts and tests remain preserved.

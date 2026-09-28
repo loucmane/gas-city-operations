@@ -16,7 +16,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
 ROOT=Path('/var/tmp/ga-e0t1.20-route-20260927-r1')
 BIND=Path('/var/tmp/ga-e0t1.20-bind-20260927-r1')
-BIND_SHA='d8bf9d89598a996cfbf2c7b3e3f03487961252e8a6a76499ee4334268e24e1be'
+BIND_SHA='9fd6c49adecf7fb991f9b8cd2c6279c25fcf73455bfa0911609a2079928495e7'
 DESCRIPTION_SHA='136f2b728a6713c123dab4a79a6fb34934e578bf01cf57658603afdb46166955'
 PREROUTE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/preroute.py')
 PREROUTE_SHA='d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6'
@@ -26,8 +26,40 @@ CANDIDATE_GIT_SHA='d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823b
 RECORD=Path('/home/loucmane/.local/share/gas-city-staging/ga-bebv-process-record-20260927/process-record.json')
 RECORD_SHA='df765fd0e357925bab51891c72019018bb43b65fcd6e97addf0582c9bdf5e5d7'
 HELPER=HERE/'window-r11.py'
-SHA='555ed7d1c0fc6b3946ac98bfb8e75cf66890e70a5a3316e7db3b62c0adecbc31'
+SHA='a08d4ced16ce529959012db49359a284ff2c88346edbfeb2431bfe8ba75df5a7'
 TARGET='gascity/codex'
+
+def completed_binding(w):
+    s=BIND.lstat()
+    assert stat.S_ISDIR(s.st_mode) and s.st_uid==1000 and stat.S_IMODE(s.st_mode)==0o700,'bind root authority'
+    intent=json.loads(w.read(BIND/'binding-intent.json','0f85dbaa6de8c174c3bc4950955777bb23621cb3bc8bd55ce9546c5e029e4b37'))
+    assert intent['executor_sha256']==BIND_SHA and intent['description_sha256']==DESCRIPTION_SHA
+    assert intent['worker_launched'] is False
+    result=json.loads(w.read(BIND/'result.json','0e8003f3fa54558537cd93dcd2863ab5bcd0aef8be8af1ec11c198472ad022d2'))
+    assert result==dict(ok=True,bead='ga-e0t1.20',contract_bound=True,routed=False,assigned=False,
+        worker_launched=False,live_configuration_changed=False)
+    bound=json.loads(w.read(BIND/'task-after.json','e58d90d46f6422aeb6d65a135daf41389fb5d1b9e0115f1019f6b2027abf7dcb'))
+    assert bound['metadata']==intent['metadata']
+    return bound
+
+
+def continued_task(current,bound):
+    # gc embeds parent audit history in each child read. Retain exact own
+    # fields and all parent fields except a monotonic append-only audit update.
+    from datetime import datetime
+    assert set(current)==set(bound), 'bound task field set'
+    for key in bound:
+        if key!='dependencies':assert current[key]==bound[key], ('bound task changed',key)
+    old=bound['dependencies'];new=current['dependencies']
+    assert isinstance(old,list) and isinstance(new,list) and len(old)==len(new)==1
+    old=old[0];new=new[0]
+    assert set(old)==set(new), 'parent field set'
+    for key in old:
+        if key not in ('notes','updated_at'):assert new[key]==old[key], ('parent changed',key)
+    assert isinstance(new['notes'],str) and new['notes'].startswith(old['notes']), 'parent audit erased'
+    a=datetime.fromisoformat(old['updated_at']);z=datetime.fromisoformat(new['updated_at'])
+    assert a.tzinfo is not None and z.tzinfo is not None and z>=a, 'parent audit time'
+
 
 def main():
     assert os.getuid()==os.geteuid()==1000 and globals().get('_SOURCE_SHA')
@@ -37,16 +69,7 @@ def main():
     exec(compile(raw,str(HELPER),'exec',dont_inherit=True),m.__dict__)
     w=m.w;b,o,owned=w.load_support();w.pins()
     assert json.loads(w.read(w.ROOT/'stage-pass.json'))==dict(ok=True,worker_launched=False)
-    s=BIND.lstat()
-    assert stat.S_ISDIR(s.st_mode) and s.st_uid==1000 and stat.S_IMODE(s.st_mode)==0o700,'bind root authority'
-    intent=json.loads(w.read(BIND/'binding-intent.json'))
-    assert intent['executor_sha256']==BIND_SHA and intent['description_sha256']==DESCRIPTION_SHA
-    assert intent['worker_launched'] is False
-    result=json.loads(w.read(BIND/'result.json'))
-    assert result==dict(ok=True,bead='ga-e0t1.20',contract_bound=True,routed=False,assigned=False,
-        worker_launched=False,live_configuration_changed=False)
-    bound=json.loads(w.read(BIND/'task-after.json'))
-    assert bound['metadata']==intent['metadata']
+    bound=completed_binding(w)
     w.read(w.CITY/'city.toml',w.CITY_SHA[1]);w.read(w.RECEIPT,w.RECEIPT_SHA[1])
     ROOT.mkdir(mode=0o700);w.ROOT=ROOT
     def run(name,args):return w.phase(name,args,b,owned)
@@ -56,7 +79,8 @@ def main():
         return v[0]
     before_host=w.host(o)
     before=bead('task-before-read');w.save('task-before.json',before)
-    assert before==bound and before['status']=='open' and not before.get('assignee')
+    continued_task(before,bound)
+    assert before['status']=='open' and not before.get('assignee')
     assert 'gc.routed_to' not in before['metadata']
     # ga-e0t1.20: the Template pre-route, built from the reviewed ga-6utp preroute pieces (preroute.check itself
     # requires a root holding only this worktree), is the last step before the sling. pr.survey is given the

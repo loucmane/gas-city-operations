@@ -186,3 +186,12 @@ records the exact failure, pre-mutation classification, both-observer
 correction and executable regression evidence. The new package starts at
 OBSERVE using a fresh observation root. Other product and lifecycle work has
 not occurred. Preserve the failed job and its halt until reviewed continuation.
+
+## Completed-binding continuation — 2026-09-28 CEST
+
+The following 96160355321144a7bc3626962aa13bcd727c12b4 candidate received two
+HOLD verdicts before any further job. COMPLETED-BINDING.md records the consumed
+executor identity defect, the exact preserved receipt pins, the real RED and
+206-test successor corpus, append-only embedded parent audit treatment and
+the final r6 host observation. All earlier reports remain historical evidence;
+the exact frozen request and current signed bytes govern the next review.
