@@ -10,8 +10,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: STAGE.sh <reviewed commit>}
-WINDOW_SHA=472a106c3b9ac42e47f5d15cbec51f55c88981f9f307c41561178740ee196c31
-AUDIT_SHA=2cd93aea6060555b74f25dca5203d33457765837b18570c31b82f2f3570d2b32
+WINDOW_SHA=5a8fd2b4f9582ecb4c16aadf0811ae69425bc8ef7f90fbd8fcf6c368e8edb54e
+AUDIT_SHA=518ffe31f6bcdbe70586d9b5c642bbe43fae2c7dbcc39ff64898d47bb90de961
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -26,7 +26,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-e0t1.20-window-20260928-r7/preflight-pass.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r7/stage-consumed.json ] || { echo "== STOP: window not preflighted or stage already consumed"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-e0t1.20-window-20260928-r8/preflight-pass.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r8/stage-consumed.json ] || { echo "== STOP: window not preflighted or stage already consumed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

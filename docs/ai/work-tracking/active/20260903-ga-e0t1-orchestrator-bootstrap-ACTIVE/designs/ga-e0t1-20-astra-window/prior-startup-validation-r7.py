@@ -17,7 +17,7 @@ BASE = 'c6b789bbe6ff677dd04336803dbf2c2e017812ba'
 TASK = 'ga-e0t1.20'
 BRANCH = 'codex/ga-e0t1.20-c1-close-admission'
 CODEX = '/home/loucmane/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex'
-EVIDENCE = '.gc/worker-evidence/ga-e0t1.20/r8'
+EVIDENCE = '.gc/worker-evidence/ga-e0t1.20/r7'
 NEGATIVE_SCRIPT = ('try { text({probe_return: await tools.exec_command({"cmd":"gpg --version",'
     '"workdir":"'+WORK+'","sandbox_permissions":"use_default","max_output_tokens":1000})}); } '
     'catch (error) { text({probe_error: String(error)}); }')
@@ -89,7 +89,7 @@ def claim_time(task, routed, session):
     # bookkeeping, not identity evidence; exact claim/source checks remain.
     if 'started_at' in routed:
         require(routed['started_at']=='2026-09-28T13:01:54Z'
-            and routed.get('metadata')=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T17:37:20Z; inspect session codex-ci-zcoet and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-zcoet', 'gc.progress_attention_signature': '575c8b2b58ecf16d8f0695677eb5c869c2139efe8f458eaf950e21f938c5ebdd', 'gc.progress_last_observed_at': '2026-09-28T17:37:20Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-zcoet', 'gc.session_name': 'codex-ci-zcoet', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'unbound prior claim')
+            and routed.get('metadata')=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T14:34:11Z; inspect session codex-ci-6gwp8 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-6gwp8', 'gc.progress_attention_signature': '912e8f1d08f4bcfca3312845f866a9b9dcf010f1ebe7fa9972de061c96313771', 'gc.progress_last_observed_at': '2026-09-28T14:34:11Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-6gwp8', 'gc.session_name': 'codex-ci-6gwp8', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'unbound prior claim')
         started=native_time(task.get('started_at'))
         prior=native_time(routed['started_at'])
         routed_at=native_time(routed.get('updated_at'))
@@ -114,7 +114,7 @@ def live_task(task, routed, session, contract, startup_digest):
     expected = dict(routed['metadata'], **{
         'gc.session_id':session['id'],'gc.session_name':session['session_name']})
     if 'started_at' in routed:
-        require(routed['metadata']=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T17:37:20Z; inspect session codex-ci-zcoet and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-zcoet', 'gc.progress_attention_signature': '575c8b2b58ecf16d8f0695677eb5c869c2139efe8f458eaf950e21f938c5ebdd', 'gc.progress_last_observed_at': '2026-09-28T17:37:20Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-zcoet', 'gc.session_name': 'codex-ci-zcoet', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'closed claim metadata differs')
+        require(routed['metadata']=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T14:34:11Z; inspect session codex-ci-6gwp8 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-6gwp8', 'gc.progress_attention_signature': '912e8f1d08f4bcfca3312845f866a9b9dcf010f1ebe7fa9972de061c96313771', 'gc.progress_last_observed_at': '2026-09-28T14:34:11Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-6gwp8', 'gc.session_name': 'codex-ci-6gwp8', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'closed claim metadata differs')
         # The exact rig-store branch remains bookkeeping only.
     elif 'gc.work_branch' in task.get('metadata',{}):expected['gc.work_branch']=BRANCH
     require(task.get('metadata') == expected, 'claim metadata differs')

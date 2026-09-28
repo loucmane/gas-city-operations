@@ -12,8 +12,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: ROUTE.sh <reviewed commit>}
-ROUTE_SHA=0c8673d52a1db6f95500a5986172632c48de49874acb348e3213410b75c33177
-AUDIT_SHA=2cd93aea6060555b74f25dca5203d33457765837b18570c31b82f2f3570d2b32
+ROUTE_SHA=8406aca886afff0ee70031ae96c688eb5416eb27d43aa16f046fb6a58f74c9bc
+AUDIT_SHA=518ffe31f6bcdbe70586d9b5c642bbe43fae2c7dbcc39ff64898d47bb90de961
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -29,7 +29,7 @@ if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
 { [ ! -e /var/tmp/ga-e0t1.20-route-20260927-r1 ] && [ ! -L /var/tmp/ga-e0t1.20-route-20260927-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-route-20260927-r1"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/ga-e0t1.20-audit-route-20260928-r7 ] && [ ! -L /var/tmp/ga-e0t1.20-audit-route-20260928-r7 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-audit-route-20260928-r7"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-audit-route-20260928-r8 ] && [ ! -L /var/tmp/ga-e0t1.20-audit-route-20260928-r8 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-audit-route-20260928-r8"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

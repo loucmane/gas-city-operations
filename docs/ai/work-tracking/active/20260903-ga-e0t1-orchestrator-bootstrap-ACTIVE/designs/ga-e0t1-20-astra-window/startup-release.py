@@ -13,13 +13,13 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = '4a1b2249424f8e537a7ff1746b9eba5dc51de552ab9eefa05cc6dbc978fee242'
-VALIDATOR_SHA = 'f6102dee7f7dd89f89236600aebe8035ebfe0ffde96aa5a4bda49221e4dac9a6'
-PROBE_SHA = '1cee785ea7a7fcdad4ef3f2b93fbbed13dc6fa0d55278d33857a65203db6aa47'
-INSPECT_SHA = '8f3a325e56ba78fc89303a71ef7d4c09f385a56285a7be3bd9e6d66a47ea942a'
+BASE_SHA = 'fc4b8c361868bc2f800d5f401ea346071a068f107661160dc6e5a54df8b352e6'
+VALIDATOR_SHA = '3c2ad7f7322b0560a74698d557ae016ab874a1ce02dfdc87ad2f1a3fc1eb2dd2'
+PROBE_SHA = '2cbd38c61a32f8d79d5a5782440c7cf8acaa3ffa1ed959a23257bc3078c10e8f'
+INSPECT_SHA = '122c36e10954ae14b891c08fab8700bdc97d0292ab561319b88c4ba55a3683fd'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
-ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r7')
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r7')
+ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r8')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r8')
 ROUTE = Path('/var/tmp/ga-e0t1.20-route-20260927-r1')
 CLIENT_INPUTS = tuple(Path(p) for p in (
     '/home/loucmane/.codex/config.toml', '/home/loucmane/.codex/hooks.json',
@@ -67,8 +67,8 @@ def worker_identity(pane, session, validator, read, runtime):
     argv=raw[:-1].decode('utf-8','strict').split('\0')
     require(hashlib.sha256(raw[:-1]).hexdigest()==proof['chain'][0]['argv_sha256'],'prompt argv changed')
     helper=load(HERE/'launch-contract-r5.py','cfd2467d3ce7c8600eb635d28a97249ccdc7bfa055386a423506d3f8e60edc7e',read)
-    body=read(HERE/'PRECLAIM-R7.md').decode('utf-8','strict')
-    require(hashlib.sha256(body.encode()).hexdigest()=='f6faecf0750a5b7c641d8734290d8d4516ecb9480db4cbca2738c9867df902cf','launch prompt file drift')
+    body=read(HERE/'PRECLAIM-R8.md').decode('utf-8','strict')
+    require(hashlib.sha256(body.encode()).hexdigest()=='547f5f57180c00798573026ea96bdb3f94f1dda32d9ff6710820b68a56bd1cf1','launch prompt file drift')
     require(helper.prompt_body(argv[-1],body)=='53682c1d8952f8f6345813a1519e9ee76ce72c70145b85de2663e80540c3eae8','assigned skills suffix differs')
     runtime.revalidate(proof,validator,read)
     return proof
@@ -80,7 +80,7 @@ def main():
     require(not os.path.lexists(ROOT),'startup release already consumed')
     w=load_base();w.read(Path(__file__),_SOURCE_SHA)
     v=w.module(HERE/'startup-validation.py',VALIDATOR_SHA)
-    probe=w.module(HERE/'worker-startup-r7.py',PROBE_SHA)
+    probe=w.module(HERE/'worker-startup-r8.py',PROBE_SHA)
     inspector=w.module(HERE/'candidate-inspect.py',INSPECT_SHA)
     runtime=w.module(HERE/'runtime-process-r7.py','ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65')
     common=w.module(HERE/'common-snapshot-r1.py',COMMON_SHA)

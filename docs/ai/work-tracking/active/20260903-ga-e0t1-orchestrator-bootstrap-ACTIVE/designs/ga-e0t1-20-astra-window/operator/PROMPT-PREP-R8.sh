@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "COMPLETED OPERATION - replay prohibited" >&2
+exit 125
 # R8 PROMPT PREP: read-only host observation and uninstalled image. No worker launch.
 S=/home/loucmane/.local/share/gas-city-staging/ga-e0t1-20-astra-window
 W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
