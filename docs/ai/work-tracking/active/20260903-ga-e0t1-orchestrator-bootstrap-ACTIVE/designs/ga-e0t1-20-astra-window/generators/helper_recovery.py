@@ -160,21 +160,12 @@ def inspect(before_archive):
     require(image == v.workspace_image(w.WORK, i.file_bytes), 'inspection workspace mutation')
     return dict(ok=True, before_archive=before_archive, entries=len(image),
                 original_entries=len(expected), zero_sessions=True, all_rigs_suspended=True,
-                read_only_mounts=True, workspace_unchanged=True)
+                read_only_mounts=True, workspace_unchanged=True,
+                pair_sha256=digest(json.dumps({k:legacy.normalized(v) for k,v in pair.items()},
+                                              sort_keys=True, separators=(',', ':')).encode()))
 
 
-def host_state(w, load):
-    b, o, owned = w.load_support()
-    host = w.host(o)
-    for name in ('core', 'broker', 'signer'):
-        require(host[name]['NRestarts'] == '0', 'service restarted')
-    load('runtime-process-r7.py').verify_assets(load('worker-startup-r7.py').read_regular)
-    pins = {str(p): digest(w.read(p)) for p in (w.CITY / 'city.toml', w.RECEIPT, Path(w.SUSPENSION))}
-    require(pins[str(w.CITY / 'city.toml')] == w.CITY_SHA[0], 'city bytes drift')
-    require(pins[str(w.RECEIPT)] == w.RECEIPT_SHA[0], 'receipt drift')
-    suspension = json.loads(w.read(Path(w.SUSPENSION)))
-    require(suspension['city']['suspended'] and all(v['suspended'] for v in suspension['rigs'].values()),
-            'suspension drift')
+def job_context(w):
     jobs = Path('/home/loucmane/.local/share/gas-city-staging/jobs')
     # Admission clears HALTED before launching this one exact reviewed job.
     # Requiring HALTED inside the job would make the supported route impossible.
@@ -186,23 +177,72 @@ def host_state(w, load):
             and (jobs / 'done' / (JOB + '.started.json')).is_file()
             and not (jobs / 'done' / (JOB + '.json')).exists(), 'recovery job state')
     require(not w.ROOT.exists(), 'window already entered')
+
+
+def confined_host_observation(w, o, owned, prefix):
+    original = o.command
+    def guarded(argv, timeout=30):
+        if argv and argv[0] == o.GC:
+            shapes = {tuple(w.GC + ['status', '--json']): 'status',
+                      tuple(w.GC + ['session', 'list', '--json']): 'sessions'}
+            require(tuple(argv) in shapes, 'unexpected host diagnostic')
+            return isolated(w, owned, prefix + '-' + shapes[tuple(argv)], argv,
+                            min(timeout, 90)).encode()
+        return original(argv, timeout=timeout)
+    # All original actual-host PID, image, namespace, listener and service checks
+    # remain in place. Only its two closed GC diagnostic calls are confined.
+    o.command = guarded
+    try:
+        return w.host(o)
+    finally:
+        o.command = original
+
+
+def host_state(w, load, prefix):
+    job_context(w)
+    b, o, owned = w.load_support()
+    host = confined_host_observation(w, o, owned, prefix)
+    for name in ('core', 'broker', 'signer'):
+        require(host[name]['NRestarts'] == '0', 'service restarted')
+    load('runtime-process-r7.py').verify_assets(load('worker-startup-r7.py').read_regular)
+    pins = {str(p): digest(w.read(p)) for p in (w.CITY / 'city.toml', w.RECEIPT, Path(w.SUSPENSION))}
+    require(pins[str(w.CITY / 'city.toml')] == w.CITY_SHA[0], 'city bytes drift')
+    require(pins[str(w.RECEIPT)] == w.RECEIPT_SHA[0], 'receipt drift')
+    suspension = json.loads(w.read(Path(w.SUSPENSION)))
+    require(suspension['city']['suspended'] and all(v['suspended'] for v in suspension['rigs'].values()),
+            'suspension drift')
     return dict(host=host, pins=pins)
 
 
-def child(w, owned, mode):
-    require(mode in ('inner-before', 'inner-after'), 'unknown inspection')
-    evidence = ARCHIVE / (mode + '-phase.json')
+def persist_phase(path, record):
+    require(path.parent == ARCHIVE and re.fullmatch(r'[a-z-]+-phase\.json', path.name), 'phase evidence path')
+    save(ARCHIVE, path.name, record)
+
+
+def isolated(w, owned, name, command, timeout):
+    evidence = ARCHIVE / (name + '-phase.json')
     require(not os.path.lexists(evidence), 'inspection already consumed')
-    command = ['/usr/bin/python3', '-I', '-S', '-B', str(w.LAUNCH), __file__, _SOURCE_SHA, mode]
-    result = owned._run_owned_phase(name=mode, argv=read_only_argv(command, w.CITY),
-        cwd=w.CITY, environment=dict(w.load_support()[1].ENV, GC_CITY=str(w.CITY), BD_DISABLE_METRICS='1'),
-        timeout=300, evidence_path=evidence)
+    owned._write_phase_evidence = persist_phase
+    env = dict(w.load_support()[1].ENV, GC_HOME='/home/loucmane/gascity/home',
+               GC_CITY=str(w.CITY), GIT_OPTIONAL_LOCKS='0', BD_DISABLE_METRICS='1')
+    for key in list(env):
+        if key.startswith('BEADS_'):del env[key]
+    result = owned._run_owned_phase(name=name, argv=read_only_argv(command, w.CITY),
+        cwd=w.CITY, environment=env, timeout=timeout, evidence_path=evidence)
     cleanup = result['cleanup']
     require(cleanup['direct_child_reaped'] and cleanup['owned_process_group_gone']
             and not cleanup['failures'] and not cleanup['unexpected_survivors'], 'inspection containment')
     require(not result['timed_out'] and not result['primary_error'] and result['exit_code'] == 0,
-            'read-only child refused ' + mode)
-    report = json.loads(result['stdout'])
+            'read-only child refused ' + name)
+    require(len(result['stdout'].encode()) <= 4*1024*1024
+            and len(result['stderr'].encode()) <= 1024*1024, 'diagnostic output bound')
+    return result['stdout']
+
+
+def child(w, owned, mode):
+    require(mode in ('inner-before', 'inner-after'), 'unknown inspection')
+    command = ['/usr/bin/python3', '-I', '-S', '-B', str(w.LAUNCH), __file__, _SOURCE_SHA, mode]
+    report = json.loads(isolated(w, owned, mode, command, 300))
     require(report['ok'] and report['read_only_mounts'] and report['original_entries'] == 8036,
             'child proof incomplete')
     return report
@@ -215,6 +255,9 @@ def save(root, name, value):
         stream.write(raw)
         stream.flush()
         os.fsync(stream.fileno())
+    parent = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+    try:os.fsync(parent)
+    finally:os.close(parent)
 
 
 def archive_exact(source, destination):
@@ -254,29 +297,32 @@ def main():
     require(digest(read(Path(__file__))) == _SOURCE_SHA, 'recovery source drift')
     verify_sandbox_binary()
     w, load = load_package()
-    before = host_state(w, load)
+    job_context(w)
     verify_helper(w.WORK / REL)
     require(not os.path.lexists(ARCHIVE), 'consumed archive root')
     ARCHIVE.mkdir(mode=0o700)
     save(ARCHIVE, 'intent.json', dict(source=str(w.WORK / REL), source_stat=STAT,
-         source_sha256=HELPER_SHA, executor_sha256=_SOURCE_SHA, host_before=before,
+         source_sha256=HELPER_SHA, executor_sha256=_SOURCE_SHA,
          worker_launched=False, replay=False))
     owned = w.load_support()[2]
     moved = False
     try:
+        before = host_state(w, load, 'before')
+        save(ARCHIVE, 'host-before.json', before)
         first = child(w, owned, 'inner-before')
-        require(before == host_state(w, load), 'pre-archive host drift')
+        require(before == host_state(w, load, 'pre-archive'), 'pre-archive host drift')
         save(ARCHIVE, 'rename-intent.json', dict(source_stat=attrs(w.WORK / REL), destination='gc-beads-bd.sh'))
         archive_exact(w.WORK / REL, ARCHIVE / 'gc-beads-bd.sh')
         moved = True
         second = child(w, owned, 'inner-after')
-        require(before == host_state(w, load), 'post-archive host drift')
+        require(first['pair_sha256'] == second['pair_sha256'], 'bead pair changed during archive')
+        require(before == host_state(w, load, 'after'), 'post-archive host drift')
         save(ARCHIVE, 'result.json', dict(ok=True, source_absent=True, archived_stat=attrs(ARCHIVE / 'gc-beads-bd.sh'),
              helper_sha256=HELPER_SHA, original_workspace_restored=True, before=first, after=second,
              actual_host_verified=True, host_unchanged=True, worker_launched=False))
         print(json.dumps(dict(ok=True, archive=str(ARCHIVE), original_workspace_restored=True, worker_launched=False)))
     except BaseException as exc:
-        save(ARCHIVE, 'failure.json', dict(error=str(exc), moved=moved, retry=False,
+        save(ARCHIVE, 'failure.json', dict(error=str(exc), archive_call_completed=moved, retry=False,
              source_exists=os.path.lexists(w.WORK / REL), archive_exists=os.path.lexists(ARCHIVE / 'gc-beads-bd.sh')))
         raise
 

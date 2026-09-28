@@ -5,7 +5,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: RECOVER-HELPER-R7.sh reviewed-commit}
-EXECUTOR_SHA=63c03b7ce73f5e467f3a0b5a7148050421daab72855739f0fd9a6d5ed00deb4a
+EXECUTOR_SHA=0b2458d691d93a1672757314a34f9e8c1efbc97f87df42adee18b4be28aec90a
 OUT=/var/tmp/ga-e0t1.20-helper-archive-20260928-r1
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

@@ -100,7 +100,7 @@ def test_child_requires_containment_and_complete_proof(tmp_path, monkeypatch, fa
     monkeypatch.setattr(h, '_SOURCE_SHA', 'a'*64, raising=False)
     cleanup=dict(direct_child_reaped=True, owned_process_group_gone=True, failures=[], unexpected_survivors=False)
     report=dict(ok=True, read_only_mounts=True, original_entries=8036)
-    result=dict(cleanup=cleanup, timed_out=False, primary_error=None, exit_code=0)
+    result=dict(cleanup=cleanup, timed_out=False, primary_error=None, exit_code=0, stderr='')
     if fault=='reap':cleanup['direct_child_reaped']=False
     if fault=='group':cleanup['owned_process_group_gone']=False
     if fault=='failures':cleanup['failures']=['injected']
@@ -121,3 +121,73 @@ def test_child_requires_containment_and_complete_proof(tmp_path, monkeypatch, fa
     if fault is None:assert h.child(w,owned,'inner-before')==report
     else:
         with pytest.raises(RuntimeError):h.child(w,owned,'inner-before')
+
+
+def test_transitive_host_gc_calls_confined_other_checks_unchanged(tmp_path, monkeypatch):
+    gc=['/exact/gc','--city',str(tmp_path)]
+    calls=[]
+    def original(argv, timeout=30):
+        assert argv[0]!='/exact/gc'
+        calls.append(('host',argv,timeout));return b'service'
+    o=SimpleNamespace(command=original,GC='/exact/gc')
+    def host(observer):
+        assert observer is o
+        assert observer.command(['/usr/bin/systemctl','show','fixed.service'])==b'service'
+        assert observer.command(gc+['status','--json'])==b'status'
+        assert observer.command(gc+['session','list','--json'])==b'sessions'
+        with pytest.raises(RuntimeError):observer.command(gc+['resume'])
+        return 'host-process-checks-retained'
+    def isolated(w,owned,name,argv,timeout):
+        calls.append(('confined',argv,timeout))
+        assert timeout==30 and name in ('before-status','before-sessions')
+        return name.split('-')[-1]
+    monkeypatch.setattr(h,'isolated',isolated)
+    w=SimpleNamespace(GC=gc,host=host)
+    assert h.confined_host_observation(w,o,object(),'before')=='host-process-checks-retained'
+    assert o.command is original and [x[0] for x in calls]==['host','confined','confined']
+
+
+def test_phase_persistence_is_exclusive_no_follow_and_durable(tmp_path, monkeypatch):
+    monkeypatch.setattr(h,'ARCHIVE',tmp_path)
+    path=tmp_path/'before-status-phase.json'
+    h.persist_phase(path,{'ok':True})
+    saved=path.read_bytes()
+    with pytest.raises(FileExistsError):h.persist_phase(path,{'ok':False})
+    assert path.read_bytes()==saved
+    link=tmp_path/'after-status-phase.json';link.symlink_to(path)
+    with pytest.raises(FileExistsError):h.persist_phase(link,{'ok':False})
+    assert path.read_bytes()==saved
+    with pytest.raises(RuntimeError):h.persist_phase(tmp_path.parent/'escape-phase.json',{})
+
+
+@pytest.mark.parametrize('fault',[None,'bead-note-drift','interrupt-after-rename'])
+def test_main_success_or_preserved_partial_never_replays(pair, tmp_path, monkeypatch, fault):
+    source,unused=pair
+    destination=tmp_path/'fresh-evidence'
+    monkeypatch.setattr(h,'ARCHIVE',destination)
+    monkeypatch.setattr(h,'REL',source.name)
+    monkeypatch.setattr(h,'_SOURCE_SHA',h.digest(h.read(Path(h.__file__))),raising=False)
+    monkeypatch.setattr(sys,'argv',['helper','apply'])
+    monkeypatch.setattr(h,'verify_sandbox_binary',lambda:None)
+    w=SimpleNamespace(WORK=source.parent,load_support=lambda:(None,None,None))
+    monkeypatch.setattr(h,'load_package',lambda:(w,None))
+    monkeypatch.setattr(h,'job_context',lambda value:None)
+    monkeypatch.setattr(h,'host_state',lambda *args:{'exact_host':'same'})
+    def child(*args):
+        mode=args[-1]
+        return dict(ok=True,pair_sha256='b'*64 if fault=='bead-note-drift' and mode=='inner-after' else 'a'*64)
+    monkeypatch.setattr(h,'child',child)
+    if fault=='interrupt-after-rename':
+        archive=h.archive_exact
+        def interrupted(*args):archive(*args);raise KeyboardInterrupt('fixture after rename')
+        monkeypatch.setattr(h,'archive_exact',interrupted)
+    if fault is None:
+        h.main()
+        assert json.loads((destination/'result.json').read_text())['ok']
+    else:
+        with pytest.raises((RuntimeError,KeyboardInterrupt)):h.main()
+        failed=json.loads((destination/'failure.json').read_text())
+        assert failed['source_exists'] is False and failed['archive_exists'] is True
+        assert failed['retry'] is False and not (destination/'result.json').exists()
+    assert not source.exists() and (destination/'gc-beads-bd.sh').read_bytes()==b'preserve exactly\n'
+    with pytest.raises(FileNotFoundError):h.main()
