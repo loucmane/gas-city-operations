@@ -1,4 +1,38 @@
-# ga-e0t1.20 S2 operational successor — r4 terminal recovery only
+# ga-e0t1.20 S2 operational successor — R9 assembled window
+
+## Current disposition — September 29 R9 before independent package review
+
+This section supersedes the preserved historical dispositions below. R8 was
+fully contained, closed and restored with no product edit and no release nudge.
+Supplemental R9 preparation has now passed through the reviewed host runner at
+signed 3808f5b5b83d7e8c813cad4de5b64dcece560698. Its uninstalled result is
+9da96928da9fcbb49828231f36065a3f5cb2c8ffa07068128b896c4ed12c6fd6.
+Neither that preparation nor any earlier completed job may be repeated.
+
+The deterministic generator is generators/window_r9.py. The assembly pins the
+actual preparation outputs, exact R8 closed claim and all six historical startup
+files. It integrates the independently reviewed native waiting and Core
+progress-stall consistency checks; no attention record is erased. Exact native
+policy refusals, source/workspace/process/claim checks and one session-bound
+release remain mandatory. No product implementation is in this package.
+
+After tests, signed clean HEAD and two independent exact-package Astra reviews,
+run only AMEND-STARTUP-R9 then OBSERVE, PREFLIGHT, STAGE and RESUME through the
+existing runner. Do not run BIND, ROUTE, WORKTREE, PREP or PROMPT-PREP again.
+Observe startup with fresh WATCH slots, obtain two evidence-only startup reviews,
+then RELEASE once only if every live check passes. On failure contain immediately.
+The inherited bounded close, zero-residue, restore and terminal sequence remains
+required. Run INSPECT only for a real completed product candidate; otherwise
+preserve the strict pristine-workspace disposition after terminal restoration.
+
+From PREFLIGHT through TERMINAL and any required INSPECT, freeze this checkout:
+no workflow or Bead writes, no unguarded gc, no operator tmux and no coordinator
+Git in the worker workspace. All other rigs remain suspended. No Claude/Fable
+inference. Each runner halt is adjudicated from native results before a fresh
+next job; no consumed root or ambiguous operation is replayed. See the tracked
+R9-WINDOW.md report for bindings, tests and limitations. The full goal is active.
+
+## Preserved R4 recovery disposition
 
 ## Current disposition — September 28 r4 startup failure and bounded restoration
 

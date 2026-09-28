@@ -17,7 +17,7 @@ BASE = 'c6b789bbe6ff677dd04336803dbf2c2e017812ba'
 TASK = 'ga-e0t1.20'
 BRANCH = 'codex/ga-e0t1.20-c1-close-admission'
 CODEX = '/home/loucmane/.codex/packages/standalone/releases/0.153.4-x86_64-unknown-linux-musl/bin/codex'
-EVIDENCE = '.gc/worker-evidence/ga-e0t1.20/r9'
+EVIDENCE = '.gc/worker-evidence/ga-e0t1.20/r8'
 NEGATIVE_SCRIPT = ('try { text({probe_return: await tools.exec_command({"cmd":"gpg --version",'
     '"workdir":"'+WORK+'","sandbox_permissions":"use_default","max_output_tokens":1000})}); } '
     'catch (error) { text({probe_error: String(error)}); }')
@@ -89,7 +89,7 @@ def claim_time(task, routed, session):
     # bookkeeping, not identity evidence; exact claim/source checks remain.
     if 'started_at' in routed:
         require(routed['started_at']=='2026-09-28T13:01:54Z'
-            and routed.get('metadata')=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T21:09:34Z; inspect session codex-ci-sgd80 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-sgd80', 'gc.progress_attention_signature': 'bc2c7f90f4b2563aaa35fe4468545c40114057cac6f309dc25d824a961a00ec1', 'gc.progress_last_observed_at': '2026-09-28T21:09:34Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-sgd80', 'gc.session_name': 'codex-ci-sgd80', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'unbound prior claim')
+            and routed.get('metadata')=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T17:37:20Z; inspect session codex-ci-zcoet and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-zcoet', 'gc.progress_attention_signature': '575c8b2b58ecf16d8f0695677eb5c869c2139efe8f458eaf950e21f938c5ebdd', 'gc.progress_last_observed_at': '2026-09-28T17:37:20Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-zcoet', 'gc.session_name': 'codex-ci-zcoet', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'unbound prior claim')
         started=native_time(task.get('started_at'))
         prior=native_time(routed['started_at'])
         routed_at=native_time(routed.get('updated_at'))
@@ -114,13 +114,10 @@ def live_task(task, routed, session, contract, startup_digest):
     expected = dict(routed['metadata'], **{
         'gc.session_id':session['id'],'gc.session_name':session['session_name']})
     if 'started_at' in routed:
-        require(routed['metadata']=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T21:09:34Z; inspect session codex-ci-sgd80 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-sgd80', 'gc.progress_attention_signature': 'bc2c7f90f4b2563aaa35fe4468545c40114057cac6f309dc25d824a961a00ec1', 'gc.progress_last_observed_at': '2026-09-28T21:09:34Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-sgd80', 'gc.session_name': 'codex-ci-sgd80', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'closed claim metadata differs')
+        require(routed['metadata']=={'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T17:37:20Z; inspect session codex-ci-zcoet and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-zcoet', 'gc.progress_attention_signature': '575c8b2b58ecf16d8f0695677eb5c869c2139efe8f458eaf950e21f938c5ebdd', 'gc.progress_last_observed_at': '2026-09-28T17:37:20Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-zcoet', 'gc.session_name': 'codex-ci-zcoet', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'}, 'closed claim metadata differs')
         # The exact rig-store branch remains bookkeeping only.
     elif 'gc.work_branch' in task.get('metadata',{}):expected['gc.work_branch']=BRANCH
-    if 'started_at' in routed:
-        monitoring_state(task,routed,session,datetime.now(timezone.utc).isoformat(timespec='microseconds').replace('+00:00','').rstrip('0').rstrip('.')+'Z')
-    else:
-        require(task.get('metadata') == expected, 'claim metadata differs')
+    require(task.get('metadata') == expected, 'claim metadata differs')
     note = 'STARTUP READY: '+TASK+' report_sha256='+startup_digest
     require(task.get('notes') == routed['notes']+'\n'+note, 'startup note is not exact or single')
     claim_time(task,routed,session)
@@ -307,165 +304,3 @@ def pristine_startup(before, after, report_sha, runtime):
     item=after.get(EVIDENCE+'/startup.json',{})
     require(item.get('sha256') == report_sha and item.get('mode') == 0o600
             and item.get('type') == stat.S_IFREG, 'startup report file differs')
-
-
-import calendar
-
-from datetime import datetime, timezone
-
-import hashlib
-
-import json
-
-import re
-
-KEYS = frozenset((
-    'gc.controller_error', 'gc.failure_owner', 'gc.failure_reason',
-    'gc.failure_subject', 'gc.progress_attention_signature',
-    'gc.progress_last_observed_at',
-))
-
-def stamp(value, *, offset=False, canonical=True):
-    """RFC3339Nano without float or sub-microsecond truncation."""
-    require(isinstance(value, str), 'review wait timestamp type')
-    match = re.fullmatch(
-        r'(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2})(?:\.(\d{1,9}))?'
-        r'(Z|[+-]\d{2}:\d{2})', value)
-    require(match is not None and (offset or match[3] == 'Z'),
-            'review wait timestamp format')
-    zone = match[3]
-    require(zone == 'Z' or (int(zone[1:3]) < 24 and int(zone[4:]) < 60
-                           and zone != '-00:00'), 'review wait timestamp offset')
-    fraction = match[2] or ''
-    # Core uses RFC3339Nano, whose fractional suffix has no redundant zeros.
-    require(not canonical or not fraction or not fraction.endswith('0'),
-            'noncanonical review wait fraction')
-    try:
-        whole = datetime.fromisoformat(match[1] + match[3].replace('Z', '+00:00'))
-        seconds = calendar.timegm(whole.astimezone(timezone.utc).utctimetuple())
-    except (ValueError, OverflowError) as exc:
-        raise RuntimeError('review wait timestamp calendar or offset') from exc
-    return seconds * 10**9 + int(fraction.ljust(9, '0'))
-
-def monitoring_state(task, routed, session, observed_at):
-    """Return an auditable classification; never alter either input.
-
-    Frozen historical monitoring is exact. The only alternative is the complete
-    deployed-Core stall envelope for this same live claim, corroborated by the
-    independent host session census. Every other metadata field stays exact.
-    """
-    require(isinstance(task, dict) and isinstance(routed, dict) and isinstance(session, dict),
-            'review wait input shape')
-    baseline = routed.get('metadata')
-    actual = task.get('metadata')
-    require(isinstance(baseline, dict) and isinstance(actual, dict), 'review wait metadata shape')
-    require(task.get('id') == routed.get('id') == 'ga-e0t1.20'
-            and task.get('status') == 'in_progress'
-            and task.get('assignee') == session.get('session_name')
-            and isinstance(session.get('id'), str)
-            and re.fullmatch(r'ci-[a-z0-9]+', session['id'])
-            and session.get('session_name') == 'codex-' + session['id'],
-            'review wait claim identity')
-    expected = dict(baseline, **{'gc.session_id': session['id'],
-                                'gc.session_name': session['session_name']})
-    if actual == expected:
-        return {'kind': 'exact-inherited-monitoring'}
-    require({k: v for k, v in actual.items() if k not in KEYS}
-            == {k: v for k, v in expected.items() if k not in KEYS},
-            'non-monitoring claim metadata differs')
-    require(KEYS <= actual.keys(), 'incomplete current-session monitoring envelope')
-    require(task.get('labels') == routed.get('labels') == ['needs/operator'],
-            'review wait labels differ')
-    last = actual['gc.progress_last_observed_at']
-    last_ns = stamp(last)
-    require(stamp(session.get('created_at')) <= last_ns
-            == stamp(session.get('last_active'), offset=True)
-            <= stamp(task.get('updated_at')) <= stamp(observed_at),
-            'review wait chronology or independent progress differs')
-    require(stamp(task['updated_at']) - last_ns >= 300 * 10**9,
-            'stall predates reviewed inactivity threshold')
-    signature = hashlib.sha256('\0'.join((session['id'], task['id'],
-        task['status'], task['assignee'], last)).encode()).hexdigest()
-    envelope = {
-        'gc.controller_error': 'claimed work has had no observable progress since '
-            + last + '; inspect session ' + session['session_name']
-            + ' and decide whether to resume, repair, or stop',
-        'gc.failure_owner': 'gc.session-reconciler',
-        'gc.failure_reason': 'progress_stall',
-        'gc.failure_subject': session['id'],
-        'gc.progress_attention_signature': signature,
-        'gc.progress_last_observed_at': last,
-    }
-    require({k: actual[k] for k in KEYS} == envelope, 'current-session monitoring envelope differs')
-    return {'kind': 'verified-current-session-review-wait', 'session_id': session['id'],
-            'last_progress': last, 'core_signature': signature,
-            'attention_preserved': True, 'source_release_authorized_by_this_check': False}
-
-def waiting_turn(raw, session, report_digest, probe_digest, observed_at):
-    """Require native completion of the exact waiting turn, not a stuck tool.
-
-    The existing native transcript reader separately binds CLI identity and
-    permissions. This additional proof is deliberately non-authoritative.
-    """
-    require(isinstance(raw, bytes) and len(raw) <= 32 << 20 and raw.endswith(b'\n'),
-            'waiting transcript bound or partial line')
-    rows = [json.loads(line) for line in raw.splitlines()]
-    require(rows and rows[0].get('type') == 'session_meta', 'waiting transcript metadata')
-    for value in (report_digest, probe_digest):
-        require(isinstance(value, str) and re.fullmatch('[0-9a-f]{64}', value),
-                'waiting digest format')
-    marker = ('WAITING FOR SOURCE RELEASE: ga-e0t1.20 session=' + session['id']
-              + ' report_sha256=' + report_digest + ' probe_sha256=' + probe_digest)
-    meaningful = [r for r in rows if not (r.get('type') == 'token_usage_record'
-                  or r.get('type') == 'event_msg'
-                  and r.get('payload', {}).get('type') == 'token_count')]
-    require(len(meaningful) >= 3, 'incomplete waiting turn')
-    final, done = meaningful[-2:]
-    payload = final.get('payload', {})
-    require(final.get('type') == 'response_item' and payload.get('type') == 'message'
-            and payload.get('role') == 'assistant' and payload.get('phase') == 'final_answer'
-            and payload.get('content') == [{'type': 'output_text', 'text': marker}],
-            'native final answer is not exact waiting marker')
-    require(done.get('type') == 'event_msg'
-            and done.get('payload', {}).get('type') == 'task_complete'
-            and done['payload'].get('last_agent_message') == marker,
-            'native waiting turn is not complete')
-    # Native records retain millisecond zero suffixes. Core strings remain canonical.
-    final_ns = stamp(final.get('timestamp'), canonical=False)
-    complete_ns = stamp(done.get('timestamp'), canonical=False)
-    require(stamp(session.get('created_at')) <= final_ns
-            <= complete_ns <= stamp(observed_at), 'native waiting chronology')
-    native_id = rows[0].get('payload', {}).get('id')
-    turn_id = done['payload'].get('turn_id')
-    usage_keys = {'input_tokens', 'cached_input_tokens', 'cache_write_input_tokens',
-                  'output_tokens', 'reasoning_output_tokens', 'total_tokens'}
-    for row in rows[rows.index(final) + 1:]:
-        if row.get('type') != 'token_usage_record':
-            continue  # Only the already classified token_count and completion remain.
-        accounting = row.get('payload')
-        require(set(row) == {'timestamp', 'ordinal', 'type', 'payload'}
-                and type(row['ordinal']) is int and row['ordinal'] >= 0,
-                'native accounting record shape')
-        require(isinstance(accounting, dict) and set(accounting) == {
-            'thread_id', 'turn_id', 'session_id', 'root_turn_id', 'response_id',
-            'usage', 'turn_token_usage', 'thread_token_usage'}, 'native accounting payload')
-        require(isinstance(native_id, str) and native_id
-                and accounting['thread_id'] == accounting['session_id'] == native_id
-                and isinstance(turn_id, str) and turn_id
-                and accounting['turn_id'] == accounting['root_turn_id'] == turn_id,
-                'native accounting identity')
-        require(isinstance(accounting['response_id'], str)
-                and re.fullmatch(r'resp_[0-9a-f]+', accounting['response_id']),
-                'native accounting response identity')
-        for key in ('usage', 'turn_token_usage', 'thread_token_usage'):
-            counters = accounting[key]
-            require(isinstance(counters, dict) and set(counters) == usage_keys
-                    and all(type(value) is int and value >= 0 for value in counters.values()),
-                    'native accounting counters')
-        require(final_ns <= stamp(row['timestamp'], canonical=False) <= complete_ns,
-                'native accounting chronology')
-    require(complete_ns // 10**9 == stamp(session.get('last_active'), offset=True) // 10**9,
-            'waiting turn differs from independently observed last activity')
-    return {'completed_waiting_turn': True, 'session_id': session['id'],
-            'completed_at': done['timestamp'], 'rollout_sha256': hashlib.sha256(raw).hexdigest(),
-            'source_release_authorized_by_this_check': False}

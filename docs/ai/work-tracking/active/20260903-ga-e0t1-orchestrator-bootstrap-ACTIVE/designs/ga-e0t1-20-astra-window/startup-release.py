@@ -3,6 +3,7 @@
 Any refusal leaves the worker waiting for supported containment. A consumed
 nudge intent is never replayed, even if its response was lost.
 """
+from datetime import datetime, timezone
 import hashlib
 import json
 import os
@@ -13,13 +14,13 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = 'fc4b8c361868bc2f800d5f401ea346071a068f107661160dc6e5a54df8b352e6'
-VALIDATOR_SHA = '3c2ad7f7322b0560a74698d557ae016ab874a1ce02dfdc87ad2f1a3fc1eb2dd2'
-PROBE_SHA = '2cbd38c61a32f8d79d5a5782440c7cf8acaa3ffa1ed959a23257bc3078c10e8f'
-INSPECT_SHA = '122c36e10954ae14b891c08fab8700bdc97d0292ab561319b88c4ba55a3683fd'
+BASE_SHA = 'f06c242b64612e793cb5765fc531d39b99fdb48104e41f7a8d568e6284b76198'
+VALIDATOR_SHA = 'bee09009ca9ef83bb226b3fd89b4017267a214bc1e2a1ac3464a3788fba1f2b9'
+PROBE_SHA = '9d66d510aec6a81bcfe1e57c2bb248e0a274ea17c2f85cf3f33c3ca9b09cd29d'
+INSPECT_SHA = '0f5250c1680b6851735ae09adec28b3d0f8fe48df6ff43797b54acb15d826d3a'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
-ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r8')
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r8')
+ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260929-r9')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260929-r9')
 ROUTE = Path('/var/tmp/ga-e0t1.20-route-20260927-r1')
 CLIENT_INPUTS = tuple(Path(p) for p in (
     '/home/loucmane/.codex/config.toml', '/home/loucmane/.codex/hooks.json',
@@ -67,8 +68,8 @@ def worker_identity(pane, session, validator, read, runtime):
     argv=raw[:-1].decode('utf-8','strict').split('\0')
     require(hashlib.sha256(raw[:-1]).hexdigest()==proof['chain'][0]['argv_sha256'],'prompt argv changed')
     helper=load(HERE/'launch-contract-r5.py','cfd2467d3ce7c8600eb635d28a97249ccdc7bfa055386a423506d3f8e60edc7e',read)
-    body=read(HERE/'PRECLAIM-R8.md').decode('utf-8','strict')
-    require(hashlib.sha256(body.encode()).hexdigest()=='547f5f57180c00798573026ea96bdb3f94f1dda32d9ff6710820b68a56bd1cf1','launch prompt file drift')
+    body=read(HERE/'PRECLAIM-R9.md').decode('utf-8','strict')
+    require(hashlib.sha256(body.encode()).hexdigest()=='2b31feaa7f83e8afcf5d01695eedd4ea780a49929e9800754da7b7f1a984e619','launch prompt file drift')
     require(helper.prompt_body(argv[-1],body)=='53682c1d8952f8f6345813a1519e9ee76ce72c70145b85de2663e80540c3eae8','assigned skills suffix differs')
     runtime.revalidate(proof,validator,read)
     return proof
@@ -80,7 +81,7 @@ def main():
     require(not os.path.lexists(ROOT),'startup release already consumed')
     w=load_base();w.read(Path(__file__),_SOURCE_SHA)
     v=w.module(HERE/'startup-validation.py',VALIDATOR_SHA)
-    probe=w.module(HERE/'worker-startup-r8.py',PROBE_SHA)
+    probe=w.module(HERE/'worker-startup-r9.py',PROBE_SHA)
     inspector=w.module(HERE/'candidate-inspect.py',INSPECT_SHA)
     runtime=w.module(HERE/'runtime-process-r7.py','ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65')
     common=w.module(HERE/'common-snapshot-r1.py',COMMON_SHA)
@@ -114,6 +115,10 @@ def main():
     sha=hashlib.sha256(raw).hexdigest()
     routed=json.loads(w.read(WINDOW/'admitted-task.json'))
     v.live_task(task,routed,s,w.contract(),sha)
+    monitoring=v.monitoring_state(task,routed,s,datetime.now(timezone.utc).isoformat(timespec='microseconds').replace('+00:00','').rstrip('0').rstrip('.')+'Z')
+    waiting_raw=inspector.file_bytes(Path(proof['transcript_path']),32<<20)
+    require(hashlib.sha256(waiting_raw).hexdigest()==proof['native']['rollout_sha256'],'native transcript changed during initial proof')
+    waiting=v.waiting_turn(waiting_raw,s,sha,PROBE_SHA,datetime.now(timezone.utc).isoformat(timespec='microseconds').replace('+00:00','').rstrip('0').rstrip('.')+'Z')
     require(not os.path.lexists(probe.FOREIGN/'unexpected-write'),'sandbox negative left a marker')
     for rel,pin in probe.RULES.items():require(hashlib.sha256(inspector.file_bytes(Path(v.WORK)/rel)).hexdigest()==pin,
                                               'local permission input drift')
@@ -124,14 +129,17 @@ def main():
     after=v.workspace_image(Path(v.WORK),inspector.file_bytes)
     v.pristine_startup(before,after,sha,w.contract().RUNTIME_IMAGE)
     w.save('proof.json',dict(session=s,worker=proof,report_sha256=sha,
-        workspace_pristine=True,client_inputs=client_after,common_git_unchanged=True))
+        workspace_pristine=True,client_inputs=client_after,common_git_unchanged=True,
+        monitoring_adjudication=monitoring,waiting_turn=waiting))
     epoch()
     s2=census('sessions-immediate')
     for key in ('id','session_name','template','rig','provider','work_dir','worker_dir','created_at','closed'):
         require(s2.get(key)==s.get(key),'same-session release binding changed')
     v.transcript_key(proof['transcript_path'],s2)
     [task2]=json.loads(phase('task-immediate',w.GC+['--rig','gascity','bd','show',v.TASK,'--json'])['stdout'])
+    v.live_task(task2,routed,s2,w.contract(),sha)
     require(task2==task,'claim or task changed before release')
+    require(inspector.file_bytes(Path(proof['transcript_path']),32<<20)==waiting_raw,'native waiting transcript changed before release')
     runtime.revalidate(proof,v,inspector.file_bytes)
     pidfd=os.pidfd_open(proof['pid'])
     try:

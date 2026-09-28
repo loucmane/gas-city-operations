@@ -46,7 +46,7 @@ def test_control_metadata_is_exact_by_phase(task):
     task['notes'] = c.BOUND_NOTE
     c.validate_task(task, 'bound')
     with pytest.raises(RuntimeError): c.validate_task(task, 'unbound')
-    task['metadata'].update({'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T17:37:20Z; inspect session codex-ci-zcoet and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-zcoet', 'gc.progress_attention_signature': '575c8b2b58ecf16d8f0695677eb5c869c2139efe8f458eaf950e21f938c5ebdd', 'gc.progress_last_observed_at': '2026-09-28T17:37:20Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-zcoet', 'gc.session_name': 'codex-ci-zcoet', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'})
+    task['metadata'].update({'gc.continuation_group': '', 'gc.controller_error': 'claimed work has had no observable progress since 2026-09-28T21:09:34Z; inspect session codex-ci-sgd80 and decide whether to resume, repair, or stop', 'gc.failure_owner': 'gc.session-reconciler', 'gc.failure_reason': 'progress_stall', 'gc.failure_subject': 'ci-sgd80', 'gc.progress_attention_signature': 'bc2c7f90f4b2563aaa35fe4468545c40114057cac6f309dc25d824a961a00ec1', 'gc.progress_last_observed_at': '2026-09-28T21:09:34Z', 'gc.routed_to': 'gascity/codex', 'gc.session_affinity': '', 'gc.session_id': 'ci-sgd80', 'gc.session_name': 'codex-ci-sgd80', 'gc.work_branch': 'agent/upstream-pending-create-lease', 'gc.work_dir': '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'})
     task['started_at']='2026-09-28T13:01:54Z'
     task['labels']=['needs/operator']
     task.pop('parent')
@@ -59,7 +59,7 @@ def test_control_metadata_is_exact_by_phase(task):
 
 
 def candidate_rows():
-    return rules()+b' M '+c.SOURCE_PATHS[1].encode()+b'\0?? .gc/worker-evidence/'+c.TASK.encode()+b'/r8/report.json\0'
+    return rules()+b' M '+c.SOURCE_PATHS[1].encode()+b'\0?? .gc/worker-evidence/'+c.TASK.encode()+b'/r9/report.json\0'
 
 
 def test_candidate_inventory_separates_scoped_source_and_evidence():
@@ -84,7 +84,7 @@ def test_candidate_staged_change_or_duplicate_or_no_source_refuses():
 
 
 def rules():
-    return b'\0'.join(b'!! '+path.encode() for path in sorted(set(c.RULES)|(c.RUNTIME_FILES-{'.codex/hooks.json'})|set(('.gc/worker-evidence/ga-e0t1.20/positive-write.txt', '.gc/worker-evidence/ga-e0t1.20/startup.json', '.gc/worker-evidence/ga-e0t1.20/r7/positive-write.txt', '.gc/worker-evidence/ga-e0t1.20/r7/startup.json')))) + b'\0?? .codex/hooks.json\0'
+    return b'\0'.join(b'!! '+path.encode() for path in sorted(set(c.RULES)|(c.RUNTIME_FILES-{'.codex/hooks.json'})|set(('.gc/worker-evidence/ga-e0t1.20/positive-write.txt', '.gc/worker-evidence/ga-e0t1.20/startup.json', '.gc/worker-evidence/ga-e0t1.20/r7/positive-write.txt', '.gc/worker-evidence/ga-e0t1.20/r7/startup.json', '.gc/worker-evidence/ga-e0t1.20/r8/positive-write.txt', '.gc/worker-evidence/ga-e0t1.20/r8/startup.json')))) + b'\0?? .codex/hooks.json\0'
 
 
 def test_exact_restored_runtime_and_two_policy_files():

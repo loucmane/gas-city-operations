@@ -8,12 +8,12 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = 'fc4b8c361868bc2f800d5f401ea346071a068f107661160dc6e5a54df8b352e6'
+BASE_SHA = 'f06c242b64612e793cb5765fc531d39b99fdb48104e41f7a8d568e6284b76198'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
-VALIDATOR_SHA = '3c2ad7f7322b0560a74698d557ae016ab874a1ce02dfdc87ad2f1a3fc1eb2dd2'
-TERMINAL_SHA = '0e2edf1da4d65f9c0601f954e1e4a2aec1f8e4be3ae8fab96b2c342e9f69f60f'
-ROOT = Path('/var/tmp/ga-e0t1.20-candidate-inspection-20260928-r8')
-TERMINAL = Path('/var/tmp/ga-e0t1.20-terminal-20260928-r8')
+VALIDATOR_SHA = 'bee09009ca9ef83bb226b3fd89b4017267a214bc1e2a1ac3464a3788fba1f2b9'
+TERMINAL_SHA = '4083b3dbb0df77e8b5f38d0485634ee629329e39a472d8517289f6ba2b80729f'
+ROOT = Path('/var/tmp/ga-e0t1.20-candidate-inspection-20260929-r9')
+TERMINAL = Path('/var/tmp/ga-e0t1.20-terminal-20260929-r9')
 CG = HERE.parent/'ga-6utp-activation-r10/candidate_git.py'
 CG_SHA = 'd2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe'
 
@@ -99,7 +99,7 @@ def inspect(w, b, o, owned, common):
     workspace_before=w.record('workspace-before.json')
     observed = common.observe()
     w.require(not common.compare(before, observed), 'common Git changed before candidate inspection')
-    close = w.module(HERE/'close-r11.py', 'eb991994ba5f35ff3d88dd2cfa5e8fe645eafc3e0907da0ac78ef5492986f7b0')
+    close = w.module(HERE/'close-r11.py', 'dc134c77705239ba9d05f8028e707ddc2cc8be6ad55f25482549cc289b84ab3a')
     w.require(not close.processes(w.WORK), 'candidate worker process remains')
     cg = w.module(CG, CG_SHA)
     admin = cg.verify_linked(w.WORK.parent, common.COMMON, w.WORK, 'ga-e0t1.20')
@@ -107,7 +107,7 @@ def inspect(w, b, o, owned, common):
     w.ROOT = ROOT
     ROOT.mkdir(mode=0o700)
     w.save('intent.json', dict(source_sha256=_SOURCE_SHA, common_before_sha256=
-        w.digest(w.read(Path('/var/tmp/ga-e0t1.20-window-20260928-r8')/'common-before.json')),
+        w.digest(w.read(Path('/var/tmp/ga-e0t1.20-window-20260929-r9')/'common-before.json')),
         product_execution=False, intake=False))
     # Reuse reviewed hardened Git grammar, but all subprocesses also receive
     # owned-phase containment rather than cg.git's ordinary subprocess runner.
@@ -131,8 +131,8 @@ def inspect(w, b, o, owned, common):
     for rel, pin in w.contract().RULES.items():
         w.require(w.digest(file_bytes(w.WORK/rel)) == pin
                   and stat.S_IMODE((w.WORK/rel).lstat().st_mode) == 0o644, 'candidate policy drift')
-    evidence_root = w.WORK/'.gc/worker-evidence/ga-e0t1.20/r8'
-    prefix = '.gc/worker-evidence/ga-e0t1.20/r8/'
+    evidence_root = w.WORK/'.gc/worker-evidence/ga-e0t1.20/r9'
+    prefix = '.gc/worker-evidence/ga-e0t1.20/r9/'
     evidence = inventory(evidence_root, [p[len(prefix):] for p in accepted['evidence']])
     sources = {rel: dict(sha256=w.digest(file_bytes(w.WORK/rel)),
                          mode=stat.S_IMODE((w.WORK/rel).lstat().st_mode)) for rel in accepted['source']}
