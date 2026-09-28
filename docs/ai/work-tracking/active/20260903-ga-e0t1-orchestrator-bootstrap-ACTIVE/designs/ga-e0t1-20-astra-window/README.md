@@ -1,4 +1,39 @@
-# ga-e0t1.20 S2 operational successor — execution candidate, not yet admitted
+# ga-e0t1.20 S2 operational successor — recovery-only candidate
+
+## Current disposition — September 28 r3 restoration only
+
+This section supersedes all execution instructions below for the current
+checkout. Signed predecessor cdf7e3784d18358e099c444b48bf43387f9175a7 and
+every original attempt remain preserved.
+
+OBSERVE, PREFLIGHT and STAGE passed. RESUME applied only the rig-resume command,
+then refused because the status reader required an active_sessions field that
+Core omits for zero. City resume never ran; the separate census contained zero
+sessions. The reviewed HOLD restored rig suspension; CLOSE proved zero native
+sessions, city tmux sessions and workspace processes. The staged city and receipt
+still require restoration. No worker has run or edited product source.
+
+The operator explicitly authorized a narrow recovery-only successor, two
+independent Astra reviews, and baseline restoration. This is the sole exception
+to the source freeze below. It permits neither worker retry nor policy
+relaxation. Runtime Bead and workflow logging are deferred until terminal
+restoration to preserve the live-state baseline.
+
+Generate with generators/recovery.py. Its 58-file output changes only the
+terminal lifecycle disposition and associated digest bindings. The new verifier
+pins the exact failed-resume and successful-HOLD/CLOSE records, checks the two
+actual native command phases and the final suspension identity, and preserves
+every failure record. It never invents a success event. All non-recovery
+wrappers are inert, and the base executor refuses preflight, stage and resume.
+
+After two exact signed-head reviews, the existing host runner alone executes
+ADMIT -> RESTORE -> TERMINAL, once each with readback between jobs. The existing
+preservation, protected-cache, host-epoch, no-worker, deadline, writer sandbox
+and final integrity checks remain mandatory. Any failure stops this sequence;
+no script or evidence root is replayed. See the tracked report
+reports/ga-e0t1.20-s2-review/RECOVERY-ONLY-R1.md.
+
+## Preserved r3 launch instructions — not executable authority now
 
 ## Current continuation — September 28 window r3
 

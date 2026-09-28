@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "RECOVERY ONLY - this operation is prohibited" >&2
+exit 125
 # ga-e0t1.20 window observe: the fresh accepted-state admission plus a full native integrity read,
 # immediately before PREFLIGHT.sh. It writes only its root and the log, installs nothing
 # and launches no worker. Outside the read-only sandbox it runs gc status, gc session
@@ -12,7 +14,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: OBSERVE.sh <reviewed commit>}
-OBSERVE_SHA=091457e1027f2115b5321f894278fcbe3d8dc57639f871f0d9486ffc243651ed
+OBSERVE_SHA=ef57f025c45c25730d64bb706adf004315cadfe03726fd50562528ecb9316104
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

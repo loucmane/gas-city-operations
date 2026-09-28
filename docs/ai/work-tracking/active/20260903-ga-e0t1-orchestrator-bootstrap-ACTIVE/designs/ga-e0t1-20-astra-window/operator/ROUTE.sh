@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "RECOVERY ONLY - this operation is prohibited" >&2
+exit 125
 echo "COMPLETED OPERATION - replay prohibited" >&2
 exit 125
 # ga-e0t1.20 window route: one raw route of the bound task while every rig is suspended, then the
@@ -12,7 +14,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: ROUTE.sh <reviewed commit>}
-ROUTE_SHA=6eb173855ba77adcfb76dc383c848e63e8416f02283ed64baf51a5d450a6d880
+ROUTE_SHA=d18e345feb4fb69edb9a326f75d6422327ac7363ed830e84f5eab941068795a5
 AUDIT_SHA=10d21decd095eb5fdf9cff19d10b066f611c1aacd232f39da868b634f80c2ec7
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
