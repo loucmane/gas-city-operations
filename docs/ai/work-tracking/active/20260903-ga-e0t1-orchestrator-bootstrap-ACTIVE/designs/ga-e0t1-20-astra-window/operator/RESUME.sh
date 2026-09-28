@@ -9,7 +9,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: RESUME.sh <reviewed commit>}
-WINDOW_SHA=a08d4ced16ce529959012db49359a284ff2c88346edbfeb2431bfe8ba75df5a7
+WINDOW_SHA=7e7b8b6b85513f540b3aca31911d2c1539895851fd8626f65b521352405b8e03
 AUDIT_SHA=8ab56a0739c81a10e04bb6386634588b08a15d35bda8dfafd8f3f60d9e661853
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
@@ -56,7 +56,7 @@ for proc in /proc/[0-9]*; do
 done
 echo "== worktree gate: no process names the candidate worktree"
 { [ ! -e /var/tmp/ga-e0t1.20-audit-resume-20260927-r1 ] && [ ! -L /var/tmp/ga-e0t1.20-audit-resume-20260927-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-audit-resume-20260927-r1"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/ga-e0t1.20-window-20260927-r1/rig-resume-started.json ] && [ ! -L /var/tmp/ga-e0t1.20-window-20260927-r1/rig-resume-started.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-window-20260927-r1/rig-resume-started.json"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r2/rig-resume-started.json ] && [ ! -L /var/tmp/ga-e0t1.20-window-20260928-r2/rig-resume-started.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-window-20260928-r2/rig-resume-started.json"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

@@ -18,7 +18,7 @@ import time
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-ROOT = Path('/var/tmp/ga-e0t1.20-window-20260927-r1')
+ROOT = Path('/var/tmp/ga-e0t1.20-window-20260928-r2')
 PREP = Path('/var/tmp/ga-e0t1.20-prep-20260927-r1')
 SUSPENSION = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
 LINEAGE_SHA = '4b0d4c5bb713dc4ac802efc5c45f126d026c83fb5ea03fcb5f40d0c680cacbf0'
@@ -189,8 +189,8 @@ def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
 CACHE_PREV_NS = 1790510685769555369
-CACHE_PINNED_NS = 1790554248061328174
-# Read-only observation SHA-256 071d34df5a8ddef27c5494e6639df22575c4311c5225159876f74463fbf1ea67
+CACHE_PINNED_NS = 1790567947546740632
+# Read-only observation SHA-256 41738a4334862812de6a90bf8530a5f3814ea75f806aa1063ca653c08ff93e5e
 
 def approved_candidate_cache_image(prior):
     require(CACHE_PINNED_NS is not None, 'S2 cache disposition is not approved or pinned')
@@ -741,7 +741,7 @@ def main():
         module(HERE/'suspension-lineage.py',LINEAGE_SHA).image(baseline)
         require(baseline['pin']==record('before.json')['pins'][SUSPENSION],'suspension baseline drift')
         save('suspension-baseline.json',baseline)
-        common=module(HERE/'common-snapshot-r1.py','1647eee642bdb9b38e5c422958f0118e914aa01c5cddf5037de2b8f4854ae24c')
+        common=module(HERE/'common-snapshot-r1.py','a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d')
         common_before=common.observe()
         require(common_before['candidate_branch']==BASE and not common.baseline_problems(common_before),
             'candidate common Git baseline')

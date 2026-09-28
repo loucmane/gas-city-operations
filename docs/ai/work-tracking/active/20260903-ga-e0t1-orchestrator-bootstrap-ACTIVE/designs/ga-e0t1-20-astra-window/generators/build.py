@@ -21,8 +21,8 @@ HERE = Path(__file__).parent
 WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20'
 PREP = '/var/tmp/ga-e0t1.20-prep-20260927-r1'
 HEX = re.compile(r'(?<![0-9a-f])[0-9a-f]{64}(?![0-9a-f])')
-FINAL_CACHE_NS = 1790554248061328174
-FINAL_OBSERVATION_SHA = '071d34df5a8ddef27c5494e6639df22575c4311c5225159876f74463fbf1ea67'
+FINAL_CACHE_NS = 1790567947546740632
+FINAL_OBSERVATION_SHA = '41738a4334862812de6a90bf8530a5f3814ea75f806aa1063ca653c08ff93e5e'
 COMPLETED_BIND_EXECUTOR = '9fd6c49adecf7fb991f9b8cd2c6279c25fcf73455bfa0911609a2079928495e7'
 
 
@@ -84,10 +84,10 @@ def rebind(name, text):
     for old, new in MAP.items():
         text = text.replace(old, new)
     text = re.sub(r'(/var/tmp/ga-e0t1\.20-[a-z%-]+)-20260926-r[123]', r'\1-20260927-r1', text)
-    # r1 refused before creating its evidence root. Preserve its failed job;
-    # the successor uses a fresh root and must not repeat completed BIND.
+    # Preserve both the failed r1 and successful r2 observations. New package
+    # pins receive a new observation root; completed BIND is never replayed.
     text = text.replace('/var/tmp/ga-e0t1.20-integrity-20260927-r1',
-                        '/var/tmp/ga-e0t1.20-integrity-20260928-r2')
+                        '/var/tmp/ga-e0t1.20-integrity-20260928-r3')
     # Explicit rig selectors only. Preserve the complete four-rig inventory set.
     for old, new in (("'--rig','gas-city-template'", "'--rig','gascity'"),
                      ("'--rig', 'gas-city-template'", "'--rig', 'gascity'"),
@@ -284,11 +284,24 @@ def watch(text):
 
 def common(text):
     text = text.replace('Template common git', 'Operations common Git')
+    raw = (HERE/'common-config-exceptions.json').read_bytes()
+    assert sha(raw) == '5b2f7a167ffadb8879d859121b4a4cfbc44e79d1a5615950df0bdf73ed65e8b2', 'approved config exception manifest'
+    exceptions = json.loads(raw)
+    assert len(exceptions) == 44
+    # Embed immutable pins into the reviewed executable, not a live sidecar.
+    text = once(text, 'LIMIT=1<<30', 'LIMIT=1<<30\n\n# Operator-approved exact baseline only. No permission is changed.\nCONFIG_EXCEPTIONS = '+repr(exceptions))
     text = replace_function(text, 'entry', '''def entry(path):
     path=Path(path)
     s=path.lstat()
     value=dict(mode=stat.S_IMODE(s.st_mode),type=stat.S_IFMT(s.st_mode),uid=s.st_uid,gid=s.st_gid)
-    assert s.st_uid==s.st_gid==1000 and not s.st_mode&0o022, 'common Git authority'
+    assert s.st_uid==s.st_gid==1000, 'common Git authority'
+    try:relative=str(path.relative_to(COMMON))
+    except ValueError:relative=None
+    exception=CONFIG_EXCEPTIONS.get(relative)
+    if exception is None:
+        assert not s.st_mode&0o022, 'common Git authority'
+    else:
+        assert value=={key:exception[key] for key in value}, 'common Git exception metadata'
     if stat.S_ISREG(s.st_mode):
         assert s.st_size<=LIMIT and s.st_nlink==1, 'common Git file bound or links'
         fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NONBLOCK|os.O_NOATIME|os.O_CLOEXEC)
@@ -303,7 +316,10 @@ def common(text):
     elif stat.S_ISLNK(s.st_mode):
         raise AssertionError('common Git symlink requires review')
     else:assert stat.S_ISDIR(s.st_mode), 'common Git special file'
+    if exception is not None:assert value==exception, 'common Git exception content or links'
     return value''')
+    text = once(text, '    return out\n\ndef plain(',
+        "    assert CONFIG_EXCEPTIONS.keys()<=out.keys(), 'common Git exception missing'\n    return out\n\ndef plain(")
     text = replace_function(text, 'plain', '''def plain(path):
     if not os.path.lexists(path):return None
     s=path.lstat()
@@ -411,6 +427,10 @@ def assemble(final=False):
     for name in ('contract.py','test_contract.py','task-own-fields.json','worker-startup.py','WORKER-BRIEF.md',
                  'candidate-inspect.py','startup-validation.py','startup-release.py'):
         out[name] = (HERE/name).read_bytes()
+    # The first PREFLIGHT consumed its root but never staged. Preserve it and
+    # bind every successor consumer to the fresh window, without rebinding BIND.
+    out = {name: raw.replace(b'/var/tmp/ga-e0t1.20-window-20260927-r1',
+                             b'/var/tmp/ga-e0t1.20-window-20260928-r2') for name, raw in out.items()}
     # The inspector runs only after TERMINAL and before any coordinator Git or
     # workflow operation. This wrapper retains the same deliberate draft barrier.
     inspect_wrapper=out['operator/WATCH-1.sh'].decode()

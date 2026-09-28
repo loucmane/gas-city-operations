@@ -12,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: OBSERVE.sh <reviewed commit>}
-OBSERVE_SHA=decc7120f34472f4ffb78dd9a001f886387452d09a64cd1621e8d516f8a53e1d
+OBSERVE_SHA=93765bf16b295f568b8a49a0725ad75ada48f30b3beb33054425dbc62a01cb88
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,7 +27,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-e0t1.20-integrity-20260928-r2 ] && [ ! -L /var/tmp/ga-e0t1.20-integrity-20260928-r2 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-integrity-20260928-r2"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-integrity-20260928-r3 ] && [ ! -L /var/tmp/ga-e0t1.20-integrity-20260928-r3 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-integrity-20260928-r3"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
