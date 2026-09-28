@@ -13,13 +13,13 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = 'dae488e52d350681e6444d083562830a41d680d8139fda5cfa333df185b32fda'
+BASE_SHA = '4f5ceea3159f1f9a70a615ad543dc1a441dda7076e5362ebeb9821d43926cecb'
 VALIDATOR_SHA = '7d2026c1e184937f8cd20b28acfaac6d6f45791b309c1b55f36ac9db0822d0dd'
 PROBE_SHA = '7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3'
-INSPECT_SHA = '2e2f3b5769c3c8dbebdf1d0c90606a13325a2bd1794bd813105aae9a55859a91'
+INSPECT_SHA = 'dfa2147be77da9996388e316ba7c89c9e8e9ecd6849333b81ef66bbdeb287f6d'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
-ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r3')
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r3')
+ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260928-r4')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r4')
 ROUTE = Path('/var/tmp/ga-e0t1.20-route-20260927-r1')
 CLIENT_INPUTS = tuple(Path(p) for p in (
     '/home/loucmane/.codex/config.toml', '/home/loucmane/.codex/hooks.json',

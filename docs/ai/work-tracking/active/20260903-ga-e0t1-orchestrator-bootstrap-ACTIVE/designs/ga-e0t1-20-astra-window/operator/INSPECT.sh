@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "RECOVERY ONLY - this operation is prohibited" >&2
-exit 125
 # ga-e0t1.20 window watch: read-only in-window observation; repeatable, one fresh root per run.
 # Slot 1 of 12: the job runner starts each wrapper path once per commit.
 #
@@ -12,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: INSPECT.sh <reviewed commit>}
-WATCH_SHA=2e2f3b5769c3c8dbebdf1d0c90606a13325a2bd1794bd813105aae9a55859a91
+WATCH_SHA=dfa2147be77da9996388e316ba7c89c9e8e9ecd6849333b81ef66bbdeb287f6d
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

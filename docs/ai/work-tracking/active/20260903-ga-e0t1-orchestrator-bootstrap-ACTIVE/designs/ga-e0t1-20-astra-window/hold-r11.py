@@ -31,8 +31,8 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/window-base-r11.py')
-BASE_SHA = 'dae488e52d350681e6444d083562830a41d680d8139fda5cfa333df185b32fda'
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r3')
+BASE_SHA = '4f5ceea3159f1f9a70a615ad543dc1a441dda7076e5362ebeb9821d43926cecb'
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260928-r4')
 VAR = Path('/var/tmp')
 DONE = Path('/home/loucmane/.local/share/gas-city-staging/jobs/done')
 CONTAIN = tuple('designs/ga-e0t1-20-astra-window/operator/CONTAIN-%d.sh' % slot for slot in (1, 2))
@@ -90,7 +90,7 @@ def main():
         epoch = 'verified'
     except Exception as exc:  # recorded; the hold still acts
         epoch = 'refused: ' + str(exc)[:500]
-    root = VAR/('ga-e0t1.20-r3-hold-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
+    root = VAR/('ga-e0t1.20-r4-hold-' + datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ'))
     root.mkdir(mode=0o700)
     w.ROOT = root
     w.save('intent.json', dict(executor_sha256=_SOURCE_SHA, stranded_records=records, lifecycle_replay=False,

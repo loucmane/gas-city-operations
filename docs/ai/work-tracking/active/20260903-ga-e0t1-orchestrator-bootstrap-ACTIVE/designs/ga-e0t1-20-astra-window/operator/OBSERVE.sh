@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "RECOVERY ONLY - this operation is prohibited" >&2
-exit 125
 # ga-e0t1.20 window observe: the fresh accepted-state admission plus a full native integrity read,
 # immediately before PREFLIGHT.sh. It writes only its root and the log, installs nothing
 # and launches no worker. Outside the read-only sandbox it runs gc status, gc session
@@ -14,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: OBSERVE.sh <reviewed commit>}
-OBSERVE_SHA=ef57f025c45c25730d64bb706adf004315cadfe03726fd50562528ecb9316104
+OBSERVE_SHA=3c44fae8d318378eb20f0f2cbdb358ea775a60626805155f3f3fe4fd38e9c304
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -29,7 +27,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-e0t1.20-integrity-20260928-r5 ] && [ ! -L /var/tmp/ga-e0t1.20-integrity-20260928-r5 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-integrity-20260928-r5"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-integrity-20260928-r6 ] && [ ! -L /var/tmp/ga-e0t1.20-integrity-20260928-r6 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-integrity-20260928-r6"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

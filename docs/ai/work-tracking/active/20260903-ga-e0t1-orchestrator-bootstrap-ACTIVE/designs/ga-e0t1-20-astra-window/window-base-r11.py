@@ -18,7 +18,7 @@ import time
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-ROOT = Path('/var/tmp/ga-e0t1.20-window-20260928-r3')
+ROOT = Path('/var/tmp/ga-e0t1.20-window-20260928-r4')
 PREP = Path('/var/tmp/ga-e0t1.20-prep-20260927-r1')
 SUSPENSION = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
 LINEAGE_SHA = '26acf7ebd1ca9e1832db64b1ede34b3e7858c548463d3bde9581b1900d50cd90'
@@ -45,8 +45,8 @@ INPUT_SHA = ('7b8472f6cc339f261abc32b32e27b1d7f2a3c494ec24be021c396dbac2d9969d',
              None)  # The isolated input is compared to the exact native-finalized wire below.
 RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
 # Accepted restored TERMINAL observation; all host, pin and protected fields remain exact.
-ACCEPTED = Path('/var/tmp/ga-e0t1.20-terminal-20260927-r1/observed-after.json')
-ACCEPTED_SHA = '32bb73640151244d73e3ef6227702f5ac5ec879a00f976989139216cd763717e'
+ACCEPTED = Path('/var/tmp/ga-e0t1.20-terminal-20260928-r3/observed-after.json')
+ACCEPTED_SHA = '9c2cf3244c5b922c9845c1a06d56e6ed9ef87e2ce8fcaacce67ee2ec566541ed'
 ACCEPTED_KEYS = ('cache', 'host', 'pins', 'protected')
 PROVIDER = Path('/var/tmp/gct-oak5-p13-adoption-20260927/after.json.provider-pins')
 PROVIDER_SHA = '82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b'
@@ -106,7 +106,7 @@ def record(name):
     return json.loads(read(ROOT/name))
 
 def contract():
-    return module(HERE/'contract.py', '693f31ab5d1043cedca6434826e63947f0b0b70c2dcb7556468f8604c3dc7045')
+    return module(HERE/'contract.py', '98a5ba0f9d38a6d546a638a607aef8b176a186c82e998b35b3603568c4881bcf')
 
 
 def load_support():
@@ -119,7 +119,7 @@ def load_support():
     return b, o, owned
 
 def pins():
-    previous=json.loads(read(Path('/var/tmp/ga-e0t1.20-terminal-20260927-r1/result.json'),
+    previous=json.loads(read(Path('/var/tmp/ga-e0t1.20-terminal-20260928-r3/result.json'),
         'dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8'))
     require(previous['ok'] is True and previous['accepted_restoration_bound'] is True
         and previous['actual_host_verified'] is True and previous['worker_launched'] is False,
@@ -193,9 +193,9 @@ def approved_restore_image(prior):
 def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
-CACHE_PREV_NS = 1790575978569227372
-CACHE_PINNED_NS = 1790582919791915505
-# Successor read-only observation 49a7405a6e17c25c69ec9fbfba9b75d7e83c2c2fdde5bb42b1fea98ef726d926. Fresh OBSERVE remains mandatory.
+CACHE_PREV_NS = 1790582919791915505
+CACHE_PINNED_NS = 1790591514698290119
+# Recovered r3 observation 9c2cf3244c5b922c9845c1a06d56e6ed9ef87e2ce8fcaacce67ee2ec566541ed. Fresh OBSERVE remains mandatory.
 
 def approved_candidate_cache_image(prior):
     require(CACHE_PINNED_NS is not None, 'S2 cache disposition is not approved or pinned')
@@ -393,8 +393,10 @@ def lifecycle_records(s):
 def verified_lifecycle(terminal=False):
     s=module(HERE/'suspension-lineage.py',LINEAGE_SHA)
     b,o,owned=load_support()
-    recovery=module(HERE/'stranded-recovery.py','6bb66da92133eb0a41fc817432f6b033413287ed17493fd31d0b7a3dede9afe6')
-    return recovery.verify(types.SimpleNamespace(**globals()),s,suspension_record(o),terminal=terminal)
+    require(not list(ROOT.glob('suspension-*-failure.json'))
+        and not list(ROOT.glob('suspension-*-refused-after.json')), 'unreviewed stranded lifecycle')
+    return s.chain(record('suspension-baseline.json'),lifecycle_records(s),
+        suspension_record(o),str(ROOT),terminal,read_account=suspension_read_equal)
 
 def active_epoch(o):
     # Lifecycle observations cannot use the quiescent observer while the one
@@ -712,8 +714,6 @@ def transition(i, b, o, owned, prefix):
     host(o)
 
 def main():
-    require(sys.argv[1:]==['restore'] or (len(sys.argv)==4 and sys.argv[1]=='inner'),
-        'recovery-only package cannot preflight stage or resume')
     require(globals().get('_SOURCE_SHA') and os.getuid()==os.geteuid()==1000, 'bound user entry')
     read(Path(__file__),_SOURCE_SHA)
     b,o,owned = load_support()

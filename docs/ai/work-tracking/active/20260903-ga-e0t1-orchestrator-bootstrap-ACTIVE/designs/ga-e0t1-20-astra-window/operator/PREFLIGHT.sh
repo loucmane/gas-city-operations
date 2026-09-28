@@ -1,6 +1,4 @@
 #!/bin/sh
-echo "RECOVERY ONLY - this operation is prohibited" >&2
-exit 125
 # ga-e0t1.20 window preflight: read-only admission of the window against the fresh integrity
 # observation (OBSERVE.sh). It creates the window root and stages nothing.
 #
@@ -12,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: PREFLIGHT.sh <reviewed commit>}
-WINDOW_SHA=074fb5e263fb2c95f708c4e5e1c7e54914869d6a79b5a499d206dbfa10247839
+WINDOW_SHA=6d629876dd22410320ac5fd1694ebd9be22de555ba9174ab665a641edd9675b4
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,7 +25,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r3 ] && [ ! -L /var/tmp/ga-e0t1.20-window-20260928-r3 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-window-20260928-r3"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-window-20260928-r4 ] && [ ! -L /var/tmp/ga-e0t1.20-window-20260928-r4 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-window-20260928-r4"; echo "== end"; exit 1; }
 # s5: the window accounts read-only access-time changes (window-base account_read_times), so no
 # FRESHEN pass is required before PREFLIGHT.
 tmux_out=$(/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>&1); tmux_rc=$?

@@ -1,9 +1,43 @@
-# ga-e0t1.20 S2 operational successor — recovery-only candidate
+# ga-e0t1.20 S2 operational successor — restored worker window r4
 
-## Current disposition — September 28 r3 restoration only
+## Current disposition — fresh r4 candidate after proven r3 restoration
 
-This section supersedes all execution instructions below for the current
-checkout. Signed predecessor cdf7e3784d18358e099c444b48bf43387f9175a7 and
+This section supersedes the preserved recovery-only and earlier launch records
+below. Recovery completed at 11:08 CEST on September 28. Terminal result
+dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8
+and full postimage 9c2cf3244c5b922c9845c1a06d56e6ed9ef87e2ce8fcaacce67ee2ec566541ed
+prove restored baseline and no worker. The recovery grant itself is not retry
+authority. This successor instead uses the standing corrected-package grant
+after verified restoration and requires two fresh exact-package Astra reviews.
+
+Generate with generators/retry.py. The 58-file package preserves the independently
+reviewed omitted-zero parser from 04408abe73d844a5731724fd1561a1e264865197.
+Only an independently exact empty census and zero running count permit an omitted
+active_sessions field. Malformed, ambiguous or nonzero state still refuses.
+The unreferenced stranded-recovery.py is byte-exact historical evidence only.
+
+Final read-only baseline r12 permits only the already-authorized cache directory
+mtime/ctime pair 1790582919791915505 to 1790591514698290119. Its host observation
+is fb56f08c7970fdb8b8b823ba7d1979626d7ad6365f61a115a08b8564d3b03a34.
+Providers and all 8015 candidate workspace entries are unchanged. No timestamp
+was written. Other metadata, content, permissions and worker protections remain exact.
+
+WORKTREE, PREP, BIND, ROUTE and task-link reconciliation are completed operations;
+never repeat them. Fresh OBSERVE then PREFLIGHT, STAGE and RESUME precede the
+bounded startup WATCH, independently checked startup proof and one RELEASE.
+Candidate WATCH then CONTAIN, CLOSE, WATCH, ADMIT, RESTORE, TERMINAL and INSPECT
+complete this window. Preserve every consumed root and halt. Use only the existing
+reviewed host runner, one exact job at a time. All stop conditions and the no-write
+interval from PREFLIGHT through INSPECT below remain binding.
+
+Reports RESTORED-WINDOW-R4.md and ZERO-SESSION-R1-VERIFIED.md bind the source,
+tests, current baseline and preserved history. This is not product acceptance,
+implementation-worker parity, handover completion or closure of the full goal.
+
+## Preserved disposition — September 28 r3 restoration only
+
+This historical section governed the completed recovery-only checkout.
+Signed predecessor cdf7e3784d18358e099c444b48bf43387f9175a7 and
 every original attempt remain preserved.
 
 OBSERVE, PREFLIGHT and STAGE passed. RESUME applied only the rig-resume command,

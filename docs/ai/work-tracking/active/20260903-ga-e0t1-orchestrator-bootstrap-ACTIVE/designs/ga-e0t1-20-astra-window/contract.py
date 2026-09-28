@@ -156,7 +156,21 @@ def running_rows(value, census, action):
     summary = value.get('summary', {})
     require(type(summary.get('running_agents')) is int and summary['running_agents'] == len(running),
             'running count mismatch')
-    require(type(summary.get('active_sessions')) is int and 0 <= summary['active_sessions'] <= 1,
+    active_sessions = summary.get('active_sessions')
+    if 'active_sessions' not in summary:
+        # The Core integer field is omitempty. Accept only its absent-zero form,
+        # corroborated by a complete independent census and no running rows.
+        # A suspended record is not an active session; still bind its identity
+        # above and require its explicit state rather than guessing from count.
+        counts = census.get('summary')
+        expected = dict(total=len(sessions), active=0, suspended=len(sessions), closed=0)
+        require(isinstance(counts, dict) and not running
+                and all(type(counts.get(key)) is int and counts[key] == count
+                        for key, count in expected.items())
+                and all(session.get('state') == 'suspended' for session in sessions),
+                'omitted active session count lacks independent zero proof')
+        active_sessions = 0
+    require(type(active_sessions) is int and 0 <= active_sessions <= len(sessions),
             'active session count')
     require(not running or len(sessions) == 1, 'running worker without a session')
     return running
