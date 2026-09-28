@@ -270,3 +270,44 @@ def test_only_native_token_accounting_may_follow_completion(case):
     rows = wait_rows(case)
     rows.append(dict(type='event_msg', payload=dict(type='token_count')))
     assert guard.waiting_turn(wait_bytes(rows), case[2], SHA, 'a' * 64, NOW)['completed_waiting_turn']
+
+
+def captured_wait_rows(case):
+    path = Path('/home/loucmane/.codex/sessions/2026/09/28/rollout-2026-09-28T23-08-40-01a0e9d9-331e-7943-864b-f638923703d8.jsonl')
+    raw = path.read_bytes()
+    assert hashlib.sha256(raw).hexdigest() == '606cc6668ac00b1655cb9a648ece40cba296848bc461f78a02b3776d208c9147'
+    rows = [json.loads(line) for line in raw.splitlines()]
+    marker = wait_rows(case)[1]['payload']['content'][0]['text']
+    assert [row['type'] for row in rows[-4:]] == ['response_item', 'token_usage_record', 'event_msg', 'event_msg']
+    # Synthetic marker substitution only; actual native ordering/accounting stays exact.
+    rows[-4]['payload']['content'] = [{'type': 'output_text', 'text': marker}]
+    rows[-1]['payload']['last_agent_message'] = marker
+    return rows
+
+
+def test_actual_native_completion_sequence_with_synthetic_wait_marker(case):
+    rows = captured_wait_rows(case)
+    assert guard.waiting_turn(wait_bytes(rows), case[2], SHA, 'a' * 64, NOW)['completed_waiting_turn']
+
+
+@pytest.mark.parametrize('fraction', ['000', '050', '510', '830', '123456780'])
+def test_native_fractional_zero_suffix_is_valid_not_core_canonicalization(case, fraction):
+    rows = wait_rows(case)
+    rows[1]['timestamp'] = rows[2]['timestamp'] = '2026-09-28T21:09:34.' + fraction + 'Z'
+    assert guard.waiting_turn(wait_bytes(rows), case[2], SHA, 'a' * 64, NOW)['completed_waiting_turn']
+
+
+@pytest.mark.parametrize('fault', ['thread', 'session', 'turn', 'root_turn', 'extra', 'counter', 'boolean', 'time', 'type', 'activity'])
+def test_native_accounting_is_bounded_and_cannot_hide_activity(case, fault):
+    rows = captured_wait_rows(case)
+    row = rows[-3]
+    if fault in ('thread', 'session', 'turn', 'root_turn'):
+        row['payload'][fault + '_id'] = 'foreign'
+    elif fault == 'extra': row['payload']['tool_call'] = {}
+    elif fault == 'counter': row['payload']['usage']['input_tokens'] = -1
+    elif fault == 'boolean': row['payload']['usage']['input_tokens'] = True
+    elif fault == 'time': row['timestamp'] = '2026-09-28T21:10:34.510Z'
+    elif fault == 'type': row['type'] = 'turn_context'
+    else: rows.insert(-1, dict(type='event_msg', payload=dict(type='task_started')))
+    with pytest.raises(RuntimeError):
+        guard.waiting_turn(wait_bytes(rows), case[2], SHA, 'a' * 64, NOW)

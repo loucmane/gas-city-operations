@@ -23,7 +23,7 @@ def require(ok, reason):
         raise RuntimeError(reason)
 
 
-def stamp(value, *, offset=False):
+def stamp(value, *, offset=False, canonical=True):
     """RFC3339Nano without float or sub-microsecond truncation."""
     require(isinstance(value, str), 'review wait timestamp type')
     match = re.fullmatch(
@@ -36,7 +36,8 @@ def stamp(value, *, offset=False):
                            and zone != '-00:00'), 'review wait timestamp offset')
     fraction = match[2] or ''
     # Core uses RFC3339Nano, whose fractional suffix has no redundant zeros.
-    require(not fraction or not fraction.endswith('0'), 'noncanonical review wait fraction')
+    require(not canonical or not fraction or not fraction.endswith('0'),
+            'noncanonical review wait fraction')
     try:
         whole = datetime.fromisoformat(match[1] + match[3].replace('Z', '+00:00'))
         seconds = calendar.timegm(whole.astimezone(timezone.utc).utctimetuple())
@@ -115,7 +116,8 @@ def waiting_turn(raw, session, report_digest, probe_digest, observed_at):
                 'waiting digest format')
     marker = ('WAITING FOR SOURCE RELEASE: ga-e0t1.20 session=' + session['id']
               + ' report_sha256=' + report_digest + ' probe_sha256=' + probe_digest)
-    meaningful = [r for r in rows if not (r.get('type') == 'event_msg'
+    meaningful = [r for r in rows if not (r.get('type') == 'token_usage_record'
+                  or r.get('type') == 'event_msg'
                   and r.get('payload', {}).get('type') == 'token_count')]
     require(len(meaningful) >= 3, 'incomplete waiting turn')
     final, done = meaningful[-2:]
@@ -128,9 +130,40 @@ def waiting_turn(raw, session, report_digest, probe_digest, observed_at):
             and done.get('payload', {}).get('type') == 'task_complete'
             and done['payload'].get('last_agent_message') == marker,
             'native waiting turn is not complete')
-    complete_ns = stamp(done.get('timestamp'))
-    require(stamp(session.get('created_at')) <= stamp(final.get('timestamp'))
+    # Native records retain millisecond zero suffixes. Core strings remain canonical.
+    final_ns = stamp(final.get('timestamp'), canonical=False)
+    complete_ns = stamp(done.get('timestamp'), canonical=False)
+    require(stamp(session.get('created_at')) <= final_ns
             <= complete_ns <= stamp(observed_at), 'native waiting chronology')
+    native_id = rows[0].get('payload', {}).get('id')
+    turn_id = done['payload'].get('turn_id')
+    usage_keys = {'input_tokens', 'cached_input_tokens', 'cache_write_input_tokens',
+                  'output_tokens', 'reasoning_output_tokens', 'total_tokens'}
+    for row in rows[rows.index(final) + 1:]:
+        if row.get('type') != 'token_usage_record':
+            continue  # Only the already classified token_count and completion remain.
+        accounting = row.get('payload')
+        require(set(row) == {'timestamp', 'ordinal', 'type', 'payload'}
+                and type(row['ordinal']) is int and row['ordinal'] >= 0,
+                'native accounting record shape')
+        require(isinstance(accounting, dict) and set(accounting) == {
+            'thread_id', 'turn_id', 'session_id', 'root_turn_id', 'response_id',
+            'usage', 'turn_token_usage', 'thread_token_usage'}, 'native accounting payload')
+        require(isinstance(native_id, str) and native_id
+                and accounting['thread_id'] == accounting['session_id'] == native_id
+                and isinstance(turn_id, str) and turn_id
+                and accounting['turn_id'] == accounting['root_turn_id'] == turn_id,
+                'native accounting identity')
+        require(isinstance(accounting['response_id'], str)
+                and re.fullmatch(r'resp_[0-9a-f]+', accounting['response_id']),
+                'native accounting response identity')
+        for key in ('usage', 'turn_token_usage', 'thread_token_usage'):
+            counters = accounting[key]
+            require(isinstance(counters, dict) and set(counters) == usage_keys
+                    and all(type(value) is int and value >= 0 for value in counters.values()),
+                    'native accounting counters')
+        require(final_ns <= stamp(row['timestamp'], canonical=False) <= complete_ns,
+                'native accounting chronology')
     require(complete_ns // 10**9 == stamp(session.get('last_active'), offset=True) // 10**9,
             'waiting turn differs from independently observed last activity')
     return {'completed_waiting_turn': True, 'session_id': session['id'],
