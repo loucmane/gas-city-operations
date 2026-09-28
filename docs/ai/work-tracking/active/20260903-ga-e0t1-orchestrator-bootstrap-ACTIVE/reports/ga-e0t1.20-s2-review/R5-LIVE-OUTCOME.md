@@ -95,4 +95,3 @@ ownership, native permission and signing-negative checks. Unknown warnings,
 API identity, mixed identities and nonzero status must still refuse.
 Require tests and independent review; do not rerun R5 or change credentials.
 Preserve all completion evidence when preparing the append-forward successor.
-

@@ -75,4 +75,3 @@ After successful native preparation, assemble a complete append-forward window
 binding the new outputs and preserved R5 session/claim/STOPPED-note disposition,
 then test and independently review that complete successor before any worker.
 No live acceptance or product delivery is implied by this preparation.
-
