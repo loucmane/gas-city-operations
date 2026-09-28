@@ -1,0 +1,87 @@
+{
+  "/home/loucmane/.codex/rules": {
+    "stat": {
+      "ctime_ns": 1785761543210232800,
+      "dev": 2096,
+      "gid": 1000,
+      "ino": 4495386,
+      "mode": 16893,
+      "mtime_ns": 1785761543210232800,
+      "nlink": 2,
+      "size": 4096,
+      "uid": 1000
+    },
+    "xattrs": {}
+  },
+  "/home/loucmane/.codex/rules/default.rules": {
+    "sha256": "3d80d7351c83161cadea1a7bbb3271a567c43fe4bc9c6074dd53f684cc576516",
+    "stat": {
+      "ctime_ns": 1788971140063847700,
+      "dev": 2096,
+      "gid": 1000,
+      "ino": 4495447,
+      "mode": 33204,
+      "mtime_ns": 1788971140063847700,
+      "nlink": 1,
+      "size": 852,
+      "uid": 1000
+    },
+    "xattrs": {}
+  },
+  "/home/loucmane/.codex/sessions": {
+    "stat": {
+      "ctime_ns": 1780394866638709800,
+      "dev": 2096,
+      "gid": 1000,
+      "ino": 500769,
+      "mode": 16877,
+      "mtime_ns": 1780394866638709800,
+      "nlink": 4,
+      "size": 4096,
+      "uid": 1000
+    },
+    "xattrs": {}
+  },
+  "/home/loucmane/.codex/sessions/2026": {
+    "stat": {
+      "ctime_ns": 1788276110962141000,
+      "dev": 2096,
+      "gid": 1000,
+      "ino": 1732318,
+      "mode": 16877,
+      "mtime_ns": 1788276110962141000,
+      "nlink": 7,
+      "size": 4096,
+      "uid": 1000
+    },
+    "xattrs": {}
+  },
+  "/home/loucmane/.codex/sessions/2026/09": {
+    "stat": {
+      "ctime_ns": 1790592732078061800,
+      "dev": 2096,
+      "gid": 1000,
+      "ino": 7321215,
+      "mode": 16893,
+      "mtime_ns": 1790592732078061800,
+      "nlink": 16,
+      "size": 4096,
+      "uid": 1000
+    },
+    "xattrs": {}
+  },
+  "/home/loucmane/.codex/sessions/2026/09/28": {
+    "stat": {
+      "ctime_ns": 1790616986573482200,
+      "dev": 2096,
+      "gid": 1000,
+      "ino": 8484847,
+      "mode": 16893,
+      "mtime_ns": 1790616986573482200,
+      "nlink": 2,
+      "size": 4096,
+      "uid": 1000
+    },
+    "xattrs": {}
+  }
+}
