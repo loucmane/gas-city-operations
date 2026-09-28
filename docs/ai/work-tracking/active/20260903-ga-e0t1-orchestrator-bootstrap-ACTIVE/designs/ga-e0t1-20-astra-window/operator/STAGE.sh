@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "RECOVERY ONLY - this operation is prohibited" >&2
+exit 125
 # ga-e0t1.20 window stage: the single-worker overlay city and its native-finalized receipt, through
 # the confined writers and one observed reload. Every rig stays suspended.
 #
@@ -10,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: STAGE.sh <reviewed commit>}
-WINDOW_SHA=6d629876dd22410320ac5fd1694ebd9be22de555ba9174ab665a641edd9675b4
+WINDOW_SHA=2a38b931ee3e506f50ddc793b9eab0db76c9e8463f834327a23dc6b2f3dc308f
 AUDIT_SHA=ee9998b37c4aef8a0e982c5abd242511ba4777199fc2cc2e7b98b067b04482f3
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH

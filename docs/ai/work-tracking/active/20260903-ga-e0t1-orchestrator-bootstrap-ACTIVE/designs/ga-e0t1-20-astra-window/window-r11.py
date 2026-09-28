@@ -16,7 +16,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA='4f5ceea3159f1f9a70a615ad543dc1a441dda7076e5362ebeb9821d43926cecb'
+BASE_SHA='0948748661a07cdf83a828c8c032664418f43aa7ff2948c5d21846b7c227ea05'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):

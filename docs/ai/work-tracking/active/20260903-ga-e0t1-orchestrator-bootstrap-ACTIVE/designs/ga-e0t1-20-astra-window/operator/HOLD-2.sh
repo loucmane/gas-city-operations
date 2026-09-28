@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "RECOVERY ONLY - this operation is prohibited" >&2
+exit 125
 # ga-e0t1.20 window hold: emergency scheduling hold for a STRANDED window only (a lifecycle failure record
 # exists, so CONTAIN.sh cannot act). Suspends the city and the gascity rig; never
 # replays lifecycle, never restores, writes nothing in the window root.
@@ -12,7 +14,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: HOLD-2.sh <reviewed commit>}
-HOLD_SHA=0d72025d771701b8ad41252c4f2c92cba87fada79c0346cb6a4f844289b55f4d
+HOLD_SHA=a61c87da43878487a3e0d22c848cb1f899086d91c2a85af3addb1168a41f64cb
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1

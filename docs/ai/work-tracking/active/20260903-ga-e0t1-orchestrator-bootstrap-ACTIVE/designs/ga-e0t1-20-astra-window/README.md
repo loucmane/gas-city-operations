@@ -1,4 +1,25 @@
-# ga-e0t1.20 S2 operational successor — restored worker window r4
+# ga-e0t1.20 S2 operational successor — r4 terminal recovery only
+
+## Current disposition — September 28 r4 startup failure and bounded restoration
+
+The worker session ci-72ehy started but failed before claim, startup proof or
+source release. CONTAIN applied city suspension but its count observation
+refused. The separate reviewed HOLD suspended gascity, and CLOSE proved zero
+sessions and workspace processes and closed the empty city tmux server.
+
+This recovery-only successor is prepared under the latest operator approval
+and standing corrected-package authority. It is a narrow exception to source
+freeze solely to restore this known partial. Runtime logging remains deferred.
+The failed signed source and all runtime evidence remain immutable.
+
+Use generators/recovery_r4.py. Two independent exact-candidate Astra reviews
+must precede the only permitted jobs: ADMIT then RESTORE then TERMINAL.
+All other operational wrappers are inert. No worker retry or product change.
+The new terminal lineage verifier binds the exact r4 history, preserves the
+failed observation as failed and retains every unrelated protection. See
+reports/ga-e0t1.20-s2-review/R4-TERMINAL-RECOVERY.md for evidence and limits.
+
+## Preserved restored-worker r4 launch instructions — consumed, do not replay
 
 ## Current disposition — fresh r4 candidate after proven r3 restoration
 

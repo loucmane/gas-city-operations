@@ -393,10 +393,8 @@ def lifecycle_records(s):
 def verified_lifecycle(terminal=False):
     s=module(HERE/'suspension-lineage.py',LINEAGE_SHA)
     b,o,owned=load_support()
-    require(not list(ROOT.glob('suspension-*-failure.json'))
-        and not list(ROOT.glob('suspension-*-refused-after.json')), 'unreviewed stranded lifecycle')
-    return s.chain(record('suspension-baseline.json'),lifecycle_records(s),
-        suspension_record(o),str(ROOT),terminal,read_account=suspension_read_equal)
+    recovery=module(HERE/'stranded-r4-recovery.py','c79fc96808c2248910a5f11a8b4d12a5810ca648ef98a67e596c50b20ce9d074')
+    return recovery.verify(types.SimpleNamespace(**globals()),s,suspension_record(o),terminal=terminal)
 
 def active_epoch(o):
     # Lifecycle observations cannot use the quiescent observer while the one
@@ -714,6 +712,8 @@ def transition(i, b, o, owned, prefix):
     host(o)
 
 def main():
+    require(sys.argv[1:]==['restore'] or (len(sys.argv)==4 and sys.argv[1]=='inner'
+        and sys.argv[3]=='0'), 'recovery-only package cannot preflight stage or resume')
     require(globals().get('_SOURCE_SHA') and os.getuid()==os.geteuid()==1000, 'bound user entry')
     read(Path(__file__),_SOURCE_SHA)
     b,o,owned = load_support()

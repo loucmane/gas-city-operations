@@ -14,9 +14,9 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
 ROOT=Path('/var/tmp/ga-e0t1.20-terminal-20260928-r4')
 WINDOW=Path('/var/tmp/ga-e0t1.20-window-20260928-r4')
-WINDOW_SHA='6d629876dd22410320ac5fd1694ebd9be22de555ba9174ab665a641edd9675b4'
+WINDOW_SHA='2a38b931ee3e506f50ddc793b9eab0db76c9e8463f834327a23dc6b2f3dc308f'
 BUILD=Path('/var/tmp/gct-oak5-platform-inspector-m12-20260927')
-W_SHA='3f1423b2276936e807ab42d88d120781db80ee004197ee9948446a6ce0968e59'
+W_SHA='81cade2c751385057ae0ffd110b3ae28d09b14d1d081364044b2204c5034a57d'
 BINARY_SHA='0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='114b4a000471ee145d494732db361521ea237b3e4857607b06720b7b105327b9'
@@ -111,7 +111,9 @@ def main():
             runtime_child_metadata_policy='unchanged pinned R6',timestamp_writes=False))
     w.save('result.json',dict(ok=True,report=report,actual_host_verified=True,
         root_cache_protected_read_only=True,window_preservation=True,worker_launched=False,
-        terminal_suspension_endpoint_bound=True,accepted_restoration_bound=True))
-    print(json.dumps(dict(ok=True,worker_launched=False,full_native_integrity=True)))
+        terminal_suspension_endpoint_bound=True,accepted_restoration_bound=True,
+        worker_started_in_window=True,source_release_sent=False,open_sessions=0))
+    print(json.dumps(dict(ok=True,worker_launched=False,full_native_integrity=True,
+        worker_started_in_window=True,source_release_sent=False,open_sessions=0)))
 
 if __name__=='__main__':main()
