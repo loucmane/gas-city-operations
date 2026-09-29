@@ -14,13 +14,13 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
-BASE_SHA = 'd9b55497b6cc53f6d92fc53efa2351fb1375f32860b4d46d031ae759ff8ec585'
-VALIDATOR_SHA = 'b6380f86b3205e95471e38a9303034fb5a11b96f9690d5b86c184953a4639595'
-PROBE_SHA = '3b48e7c6524005244b4d8c09ba43b9eadb24c0cd98b7001095db6144647e1b97'
-INSPECT_SHA = 'f7186707f2e0938ecacb5bfff624353655a5bff9891704ffd284833e878f1c7e'
+BASE_SHA = '746e3dcdea4412380dc8d7e5f1b622f4637ad05d26605e19bbedee6e71e000d0'
+VALIDATOR_SHA = '1a7751461abeece16453018e0c083cdea7f7ca16341449aef7d07a14af8c342e'
+PROBE_SHA = '28a27692c3a21ece32dbe0f40b15e32fcf0e82b5db697ba729a6d681f1df09d5'
+INSPECT_SHA = '3a204f4adf9bbd4f1b3723e8941a0266c3ea69bc711cb36e80c79cf1340a3e53'
 COMMON_SHA = 'a9679c5520265f1a1b488393cdf68437c97f36ec9728172d7098c3be594eb70d'
-ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260929-r10')
-WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260929-r10')
+ROOT = Path('/var/tmp/ga-e0t1.20-startup-release-20260929-r11')
+WINDOW = Path('/var/tmp/ga-e0t1.20-window-20260929-r11')
 ROUTE = Path('/var/tmp/ga-e0t1.20-route-20260927-r1')
 CLIENT_INPUTS = tuple(Path(p) for p in (
     '/home/loucmane/.codex/config.toml', '/home/loucmane/.codex/hooks.json',
@@ -68,8 +68,8 @@ def worker_identity(pane, session, validator, read, runtime):
     argv=raw[:-1].decode('utf-8','strict').split('\0')
     require(hashlib.sha256(raw[:-1]).hexdigest()==proof['chain'][0]['argv_sha256'],'prompt argv changed')
     helper=load(HERE/'launch-contract-r5.py','cfd2467d3ce7c8600eb635d28a97249ccdc7bfa055386a423506d3f8e60edc7e',read)
-    body=read(HERE/'PRECLAIM-R10.md').decode('utf-8','strict')
-    require(hashlib.sha256(body.encode()).hexdigest()=='10c5244db6814456e1fa2bd1895759d1adf48c6c90bdf631a850b8b08ff85395','launch prompt file drift')
+    body=read(HERE/'PRECLAIM-R11.md').decode('utf-8','strict')
+    require(hashlib.sha256(body.encode()).hexdigest()=='572d5dedf858bd7fcb3c59452662ed0c71be86387e555bdc308eceb7b7d16c9f','launch prompt file drift')
     require(helper.prompt_body(argv[-1],body)=='53682c1d8952f8f6345813a1519e9ee76ce72c70145b85de2663e80540c3eae8','assigned skills suffix differs')
     runtime.revalidate(proof,validator,read)
     return proof
@@ -81,10 +81,12 @@ def main():
     require(not os.path.lexists(ROOT),'startup release already consumed')
     w=load_base();w.read(Path(__file__),_SOURCE_SHA)
     v=w.module(HERE/'startup-validation.py',VALIDATOR_SHA)
-    probe=w.module(HERE/'worker-startup-r10.py',PROBE_SHA)
+    probe=w.module(HERE/'worker-startup-r11.py',PROBE_SHA)
     inspector=w.module(HERE/'candidate-inspect.py',INSPECT_SHA)
     runtime=w.module(HERE/'runtime-process-r7.py','ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65')
     common=w.module(HERE/'common-snapshot-r1.py',COMMON_SHA)
+    delivery=w.module(HERE/'release-delivery-r11.py','370bd378c1d57246a7b20e3f7628e8234e2eea1e8bf29482f0a841bef56eec3d')
+    transport=w.module(HERE/'release-runtime-r11.py','8e318c1c2ce315feb661f3ab684a6ff2849f9491470bc07aae331aabf59c7494')
     b,o,owned=w.load_support()
     w.active_epoch(o)
     require(w.record('stage-pass.json')==dict(ok=True,worker_launched=False),'window not staged')
@@ -95,7 +97,7 @@ def main():
     require(not common.compare(common_before,common.observe()),'shared Git changed before startup release')
     ROOT.mkdir(mode=0o700);w.ROOT=ROOT
     w.save('inspection-intent.json',dict(source_sha256=_SOURCE_SHA,source_released=False))
-    def phase(name,args):return w.phase(name,args,b,owned,timeout=90)
+    def phase(name,args,timeout=90):return w.phase(name,args,b,owned,timeout=timeout)
     def epoch():
         w.ROOT=WINDOW
         try:w.active_epoch(o)
@@ -147,12 +149,15 @@ def main():
         message='SOURCE RELEASE: '+v.TASK+' session='+s['id']+' report_sha256='+sha+' probe_sha256='+PROBE_SHA
         w.save('nudge-intent.json',dict(session_id=s['id'],pid=proof['pid'],start=proof['start'],message=message))
         # One supported session nudge. Intent persists before the only mutation.
-        phase('source-release',w.GC+['session','nudge',s['id'],message])
+        delivered=transport.execute(w,phase,inspector,runtime,delivery,s,proof,message,waiting_raw,
+            lambda:not poll.poll(0))
+        require(delivered.get('delivered') is True,'source release not acknowledged')
         require(not poll.poll(0),'worker exited during source release')
     finally:os.close(pidfd)
     epoch();w.complete_containment()
     w.save('result.json',dict(ok=True,session_id=s['id'],source_release_sent=True,
-        report_sha256=sha,worker_launched=False,worker_result_unproven=True,retry=False))
+        report_sha256=sha,source_delivery_acknowledged=True,delivery=delivered,
+        worker_launched=False,worker_result_unproven=True,retry=False))
     print(json.dumps(dict(ok=True,session_id=s['id'],source_release_sent=True,root=str(ROOT))))
 
 

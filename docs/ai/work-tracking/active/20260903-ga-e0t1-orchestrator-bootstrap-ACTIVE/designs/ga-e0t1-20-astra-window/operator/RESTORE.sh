@@ -10,8 +10,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: RESTORE.sh <reviewed commit>}
-WINDOW_SHA=72c3d4c7be625ceebb9e713f249b7e45b5322a61ab860289f3e818990818e046
-BUDGET_SHA=342a001025052053df743fba49609c1a204d2b30e5f0eac2b690890bde7c210d
+WINDOW_SHA=342f90b4b15f455491cb42e420f885ecca946191a1570cb667e813d3dc794e98
+BUDGET_SHA=54849c9e6824e492688a2f9d412b52a11313ab42053ac91114bb33e1f4bbe906
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -26,7 +26,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-e0t1.20-window-20260929-r10/restore-admission-pass.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260929-r10/restore-consumed.json ] || { echo "== STOP: restore admission has not passed or restore already consumed"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-e0t1.20-window-20260929-r11/restore-admission-pass.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260929-r11/restore-consumed.json ] || { echo "== STOP: restore admission has not passed or restore already consumed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

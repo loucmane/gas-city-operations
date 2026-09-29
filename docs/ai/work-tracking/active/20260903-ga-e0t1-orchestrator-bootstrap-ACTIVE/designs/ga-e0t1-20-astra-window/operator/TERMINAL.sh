@@ -10,8 +10,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: TERMINAL.sh <reviewed commit>}
-TERMINAL_SHA=575a834cde936e45b1b0a05385ce6a802cb287fad73f961746be6dec74bce90c
-BUDGET_SHA=342a001025052053df743fba49609c1a204d2b30e5f0eac2b690890bde7c210d
+TERMINAL_SHA=2e4d03b4e057c1097dbc7aa5c8d51a88df57665001c5a2f4de5b131c3f51b7fe
+BUDGET_SHA=54849c9e6824e492688a2f9d412b52a11313ab42053ac91114bb33e1f4bbe906
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -26,7 +26,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-e0t1.20-terminal-20260929-r10 ] && [ ! -L /var/tmp/ga-e0t1.20-terminal-20260929-r10 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-terminal-20260929-r10"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-terminal-20260929-r11 ] && [ ! -L /var/tmp/ga-e0t1.20-terminal-20260929-r11 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-terminal-20260929-r11"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
