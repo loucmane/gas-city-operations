@@ -38,14 +38,30 @@ def harness(monkeypatch, existing=True, fault=None):
                 record['metadata']['continuation_epoch'] = '2'
             value = [record]
         elif op[:2] == ['bd', 'list']:
-            assert op == ['bd','list','--type','chore','--label','gc:nudge','--include-infra',
-                '--all','--metadata-field','session_id='+S['id'],'--limit','2','--json']
+            assert op[:-3] == ['bd','list','--type','chore','--label','gc:nudge','--include-infra',
+                '--all','--metadata-field','session_id='+S['id']]
+            assert op[-3] == '--limit' and op[-1] == '--json'
+            limit = int(op[-2])
             value = snapshot(True, True)['receipts'] if enqueued else []
             if fault == 'ordinary-reminder' and not enqueued:
                 value = snapshot(True, True)['receipts']
                 value[0]['metadata']['message'] = 'Ordinary startup reminder'
             if fault == 'prior-release' and not enqueued:
                 value = snapshot()['receipts']
+            if fault in ('hidden-prior-release', 'many-reminders') and not enqueued:
+                reminders = []
+                for index in range(3):
+                    reminder = copy.deepcopy(snapshot(True, True)['receipts'][0])
+                    reminder['id'] = 'reminder-' + str(index)
+                    reminder['metadata']['message'] = 'Ordinary startup reminder ' + str(index)
+                    reminders.append(reminder)
+                value = reminders + (snapshot()['receipts'] if fault == 'hidden-prior-release' else [])
+            if fault == 'saturated-before' or (fault == 'saturated-after' and enqueued):
+                value = [copy.deepcopy(snapshot(True, True)['receipts'][0]) for _ in range(limit)]
+                for index, item in enumerate(value):
+                    item['id'] = 'reminder-' + str(index)
+                    item['metadata']['message'] = 'Ordinary startup reminder ' + str(index)
+            value = value[:limit]
             if fault == 'ack' and enqueued:
                 value[0]['metadata']['state'] = 'failed'
         else:
@@ -101,8 +117,13 @@ def harness(monkeypatch, existing=True, fault=None):
         return 123, dict(metadata=dict(inode=inode), sha256='a'*64)
 
     monkeypatch.setattr(r, 'marker_identity', marker)
+    monkeypatch.setattr(r, 'marker_directory', lambda *_: None, raising=False)
     monkeypatch.setattr(r.os.path, 'lexists', lambda p: existing or enqueued)
     monkeypatch.setattr(r.time, 'time', lambda: START)
+    from test_delivery_regression import Clock
+    clock = Clock()
+    monkeypatch.setattr(r.time, 'monotonic', clock.now)
+    monkeypatch.setattr(r.time, 'sleep', clock.sleep)
     rt = SimpleNamespace(PROC=Path('/proc'), proc_bytes=proc, node=node, process_table=process_table)
     w = SimpleNamespace(GC=[EXE,'--city',str(r.CITY)], b_gc_sha=lambda:digest,
                         save=lambda k,v:saved.setdefault(k,v))
@@ -134,6 +155,72 @@ def test_completed_ordinary_reminder_does_not_preclude_exact_release(monkeypatch
     run, calls, _ = harness(monkeypatch, fault='ordinary-reminder')
     assert run()['delivered']
     assert sum(c[3:5] == ['session','nudge'] for c in calls) == 1
+
+
+def test_more_than_two_reminders_do_not_hide_prior_release(monkeypatch):
+    run, calls, saved = harness(monkeypatch, fault='hidden-prior-release')
+    with pytest.raises(RuntimeError): run()
+    assert not any(c[3:5] == ['session','nudge'] for c in calls)
+    assert 'delivery-acknowledged.json' not in saved
+
+
+def test_complete_bounded_reminder_history_allows_one_release(monkeypatch):
+    run, calls, _ = harness(monkeypatch, fault='many-reminders')
+    assert run()['delivered']
+    assert sum(c[3:5] == ['session','nudge'] for c in calls) == 1
+
+
+@pytest.mark.parametrize('existing', [False, True])
+def test_saturated_history_refuses_before_enqueue(monkeypatch, existing):
+    run, calls, saved = harness(monkeypatch, existing=existing, fault='saturated-before')
+    with pytest.raises(RuntimeError, match='history incomplete'): run()
+    assert not any(c[3:5] == ['session','nudge'] for c in calls)
+    assert 'delivery-acknowledged.json' not in saved
+
+
+def test_saturated_observation_never_retries(monkeypatch):
+    run, calls, saved = harness(monkeypatch, fault='saturated-after')
+    with pytest.raises(RuntimeError, match='history incomplete'): run()
+    assert sum(c[3:5] == ['session','nudge'] for c in calls) == 1
+    assert 'delivery-acknowledged.json' not in saved
+
+
+@pytest.mark.parametrize('existing', [False, True])
+def test_directory_authority_is_checked_before_enqueue(monkeypatch, existing):
+    run, calls, saved = harness(monkeypatch, existing=existing)
+    def refuse(*_):
+        raise RuntimeError('native poller directory authority')
+    monkeypatch.setattr(r, 'marker_directory', refuse)
+    with pytest.raises(RuntimeError, match='directory authority'): run()
+    assert not any(c[3:5] == ['session','nudge'] for c in calls)
+    assert 'delivery-acknowledged.json' not in saved
+
+
+@pytest.mark.parametrize('changed', ['ppid', 'start', 'uid', 'gid', 'state', 'missing'])
+def test_process_identity_brackets_the_final_image_read(changed):
+    row = dict(start='123', uid=1000, gid=1000, ppid=99, state='S')
+    altered = dict(row)
+    altered[changed] = {'start':'124', 'state':'Z'}.get(changed, 42)
+    snapshots = iter([{8: row}, {8: row}, {} if changed == 'missing' else {8: altered}])
+    runtime = SimpleNamespace(PROC=Path('/proc'), process_table=lambda: next(snapshots),
+        node=lambda *_: dict(exe=EXE, argv=['fixture'], cgroup=CG),
+        proc_bytes=lambda *_: b'image')
+    with pytest.raises(RuntimeError, match='changed during read'):
+        r.process_identity(runtime, 8, hashlib.sha256(b'image').hexdigest(), d.require)
+
+
+@pytest.mark.parametrize('changed', ['exe', 'argv', 'cgroup', 'image'])
+def test_process_read_rejects_mid_read_runtime_race(changed):
+    row = dict(start='123', uid=1000, gid=1000, ppid=99, state='S')
+    first = dict(exe=EXE, argv=['fixture'], cgroup=CG)
+    last = dict(first)
+    last[changed] = ['other'] if changed == 'argv' else 'other'
+    nodes = iter([first, last])
+    images = iter([b'image', b'other' if changed == 'image' else b'image'])
+    runtime = SimpleNamespace(PROC=Path('/proc'), process_table=lambda: {8: row},
+        node=lambda *_: next(nodes), proc_bytes=lambda *_: next(images))
+    with pytest.raises(RuntimeError, match='changed during read'):
+        r.process_identity(runtime, 8, hashlib.sha256(b'image').hexdigest(), d.require)
 
 
 @pytest.mark.parametrize('changed', ['ppid', 'start', 'uid', 'gid'])

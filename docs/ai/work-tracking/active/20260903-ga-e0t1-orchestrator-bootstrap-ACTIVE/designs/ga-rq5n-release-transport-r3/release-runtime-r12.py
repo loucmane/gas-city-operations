@@ -18,6 +18,9 @@ CORE_PID = 2800348
 CORE_START_TICKS = 22964291
 CORE_ARGV = ['/home/loucmane/.local/bin/gc', 'supervisor', 'run']
 CORE_CGROUP = '0::/user.slice/user-1000.slice/user@1000.service/app.slice/gascity-supervisor-home-42adab5d.service\n'
+# The explicit query limit bounds work. A full page is not evidence of absence:
+# refuse it, since the supported CLI has no completeness token or pagination.
+RECEIPT_LIMIT = 129
 
 
 def process_identity(runtime, pid, expected_sha, require):
@@ -39,6 +42,10 @@ def process_identity(runtime, pid, expected_sha, require):
             'native process executable or cgroup changed during read')
     require(hashlib.sha256(runtime.proc_bytes(runtime.PROC / str(pid) / 'exe', 256 << 20)).hexdigest()
             == image, 'native process image changed during read')
+    final_row = runtime.process_table().get(pid)
+    require(final_row is not None and final_row.get('state') not in ('Z', 'X')
+            and all(final_row.get(k) == row.get(k) for k in ('start', 'uid', 'gid', 'ppid')),
+            'native process changed during read')
     return dict(alive=True, pid=pid, start_ticks=int(row['start']), ppid=row['ppid'],
                 uid=row['uid'], gid=row['gid'], argv=node['argv'],
                 cgroup=node['cgroup'], executable_sha256=image)
@@ -53,13 +60,18 @@ def core_identity(runtime, expected_sha, require):
     return value
 
 
-def marker_identity(path, inspector, require):
-    """Use the existing no-follow reader; bind file identity throughout delivery."""
+def marker_directory(path, require):
+    """Check the native writer's directory chain even when no marker exists."""
     for parent in (CITY, CITY / '.gc', CITY / '.gc/nudges', path.parent):
         info = parent.lstat()
         require(parent.resolve(strict=True) == parent and stat.S_ISDIR(info.st_mode)
                 and info.st_uid == info.st_gid == 1000 and not info.st_mode & 0o022,
                 'native poller directory authority')
+
+
+def marker_identity(path, inspector, require):
+    """Use the existing no-follow reader; bind file identity throughout delivery."""
+    marker_directory(path, require)
     first = path.lstat()
     raw = inspector.file_bytes(path, 64)
     last = path.lstat()
@@ -121,9 +133,12 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
         return dict(id=session['id'], session_name=session['session_name'], continuation_epoch=epoch)
 
     def receipts(timeout=15):
-        return command('receipts', gc + ['bd', 'list', '--type', 'chore', '--label', 'gc:nudge',
+        rows = command('receipts', gc + ['bd', 'list', '--type', 'chore', '--label', 'gc:nudge',
             '--include-infra', '--all', '--metadata-field', 'session_id=' + session['id'],
-            '--limit', '2', '--json'], timeout)
+            '--limit', str(RECEIPT_LIMIT), '--json'], timeout)
+        require(type(rows) is list and len(rows) < RECEIPT_LIMIT,
+                'native receipt history incomplete or malformed')
+        return rows
 
     bound = native_session()
     d.absence_before(receipts(), bound, message)
@@ -141,6 +156,7 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
                         owned_cgroup), 'release must retain its exact owned oneshot')
     key = hashlib.sha256((bound['session_name'] + '\0' + bound['id']).encode()).digest()[:8].hex()
     pid_path = CITY / '.gc/nudges/pollers' / (bound['session_name'] + '-' + key + '.pid')
+    marker_directory(pid_path, require)
     existing = os.path.lexists(pid_path)
     core = None
     initial_identity = None
@@ -159,6 +175,7 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
         require(core_identity(runtime, expected_sha, require) == core,
                 'Core changed before enqueue')
     require(native_session() == bound, 'session changed before enqueue')
+    marker_directory(pid_path, require)
     if existing:
         now_pid, now_marker = marker_identity(pid_path, inspector, require)
         now = process_identity(runtime, now_pid, expected_sha, require)

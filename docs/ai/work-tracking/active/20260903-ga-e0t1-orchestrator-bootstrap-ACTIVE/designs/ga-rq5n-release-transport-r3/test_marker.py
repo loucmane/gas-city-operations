@@ -66,3 +66,27 @@ def test_write_shared_parent_refuses(marker):
     path.parent.chmod(0o777)
     with pytest.raises(RuntimeError, match='directory authority'):
         r.marker_identity(path, inspector, d.require)
+
+
+@pytest.mark.parametrize('fault', ['shared', 'symlink', 'missing'])
+def test_absent_marker_directory_refuses_unsafe_chain(marker, fault):
+    path, _ = marker
+    absent = path.with_name('absent.pid')
+    assert not absent.exists()
+    if fault == 'shared':
+        absent.parent.chmod(0o777)
+    elif fault == 'symlink':
+        alias = absent.parent.with_name('alias')
+        alias.symlink_to(absent.parent, target_is_directory=True)
+        absent = alias / absent.name
+    else:
+        absent = absent.parent / 'missing' / absent.name
+    with pytest.raises((RuntimeError, FileNotFoundError)):
+        r.marker_directory(absent, d.require)
+
+
+def test_safe_directory_does_not_require_or_create_a_marker(marker):
+    path, _ = marker
+    absent = path.with_name('absent.pid')
+    assert r.marker_directory(absent, d.require) is None
+    assert not absent.exists()
