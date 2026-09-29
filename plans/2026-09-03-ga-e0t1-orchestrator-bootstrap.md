@@ -618,3 +618,33 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
   worker launch or rig transition has occurred for ga-1aa1. Do not replay any
   completed ga-e0t1.20 operation or silently retarget the frozen Claude C1
   handover contract. C1 package, C1/H1/X/H2/C2, final intake and step 5 remain.
+
+### 2026-09-29 continuation — image tool worker completed
+
+- The real Gas City Astra high worker ci-08vl1 completed ga-1aa1 with the exact
+  two-file image tool r3 patch fe193f17ee2cc2dbaaf533b77b068b9ae1621d98e307906e889e3ef3576d895a.
+  Both independent Astra source reviews passed with no must-fix findings.
+  Pins and generator remain unchanged. The coordinator intook only those exact
+  reviewed bytes after safe terminal inspection.
+- The reviewed window at signed 2ec961803d34c6cc699c17b23fb310c29122dbb2 passed
+  actual startup and delivery acknowledgement, containment, supported close,
+  exact restoration and full host integrity. All rigs are suspended with zero
+  sessions, city tmux sessions and worker-process residue. Do not replay any
+  completed job or relaunch the completed worker.
+- The focused delivery module passes 132 tests. Full adapter/meta regression is
+  running before the signed checkpoint. Record the real result separately.
+  Three direct negative-test additions suggested by both reviewers are saved
+  as nonblocking follow-ups; accepted product bytes remain unchanged.
+- Evidence: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/LIVE-OUTCOME.md.
+  This is candidate-only code readiness, not signing capability, useful Claude
+  execution, C1 acceptance or provider parity. The original full goal is active.
+  Next complete signed candidate recording, then build the C1 package under
+  its existing provider contract. C1/H1/X/H2/C2, intake, retirement, M13 and
+  terminal step 5 remain. Preserve all failed and completed history.
+
+- Final ga-1aa1 delivery verification is now PASS: full adapter/meta 3962 passes
+  with 21 existing skips and no failures, image module 132 passes, slot module
+  53 passes. Product bytes are unchanged after both independent reviews.
+  DELIVERY-VERIFICATION.md in the ga-1aa1 design folder binds exact JUnit hashes
+  and the preserved limitations. Proceed to the signed local checkpoint and
+  candidate-only task closure, then the unbuilt C1 operational package.

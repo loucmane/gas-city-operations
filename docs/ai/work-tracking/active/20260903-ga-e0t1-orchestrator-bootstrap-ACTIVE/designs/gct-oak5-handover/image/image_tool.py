@@ -1,4 +1,4 @@
-"""gct-oak5 handover image tool r2 (plan r18, "Handover images and the route gate").
+"""gct-oak5 handover image tool r3 (plan r18, "Handover images and the route gate").
 
   image_tool.py export  --worktree W --clone C --base B --out O --runtime none|claude|claude,codex [--codex-hooks-sha S]
   image_tool.py compare --step C1|X|C2 --prev P.json --next N.json
@@ -15,7 +15,7 @@ status comes from BASE's .gitignore files in a scratch mirror. It writes <out>/i
   files among them refuse);
 - runtime: every RUNTIME entry, checked against the digest-pinned pins.json for the lanes named by --runtime,
   and the RUNTIME directory modes;
-- skill_targets: a digest of every pinned skill target tree, so SKILL.md content cannot change unseen;
+- skill_targets: length-prefixed digests of every pinned skill tree, including file/directory modes and .git names;
 - git: the worktree .git gitfile (exactly the canonical admin path), the admin HEAD, gitdir, commondir and
   config.worktree, the branch ref (which must equal BASE) and the canonical HEAD, all read as files.
 It refuses a nested `.git` path component (any case), a stop path added, changed or deleted, a leftover
@@ -28,25 +28,37 @@ agent-control path, no ignored entry, RUNTIME entries unchanged across images (`
 per image to the live city file instead), skill targets and git metadata unchanged.
 
 verify is the tamper negative: it exports the content of a copy of the worktree (no git metadata) with the
-image's lanes and requires every content field to equal the image (the copy's own path is normalised).
+image's lanes and settings digest and requires every content field to equal the image (the copy's own path
+is normalised).
 
 holder prints the DIGEST lines of the step's contract paths from an image, for the image holder.
 
-Limits: empty directories outside RUNTIME, file modes other than git's 100644/100755 for contract entries, and
-group or other mode bits are not recorded.
+The common .git/config, hooks, info/* and admin index belong to the separate common snapshot, not this image.
+Schema v3 deliberately refuses historical v2 images; their skill digests must not be reinterpreted.
+
+Bounds: directory enumeration stops at MAX_WALK entries (including the root gitfile), at MAX_DEPTH levels;
+regular reads stop at their observed size (at most MAX_FILE_BYTES) plus one sentinel byte. MAX_TOTAL_BYTES
+bounds accepted regular content per worktree or skill tree, including unchanged and RUNTIME files; a failed
+read may consume one extra sentinel byte. MAX_FILES
+bounds modified, added, deleted and ignored image rows. These are input bounds, not a process memory limit.
+Limits: empty directories outside RUNTIME and full permission bits of contract entries are not recorded.
+Contract entries record only git's 100644/100755; skill trees record all permission bits and empty directories.
+An operator-owned, non-group/other-writable empty .claude/.cc-writes directory is admitted for the Claude lane;
+its presence is not part of RUNTIME. Every descendant, link, special file or unsafe mode there refuses.
 """
 import argparse
 import base64
 import hashlib
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 import shutil
 import stat
 import subprocess
 import sys
 
-SCHEMA = 'gct-oak5.handover-image.v2'
+SCHEMA = 'gct-oak5.handover-image.v3'
 HERE = Path(__file__).resolve().parent
 PINS_SHA256 = '84b0180f019bbf1441941308c7a299f53c38a311fd5e5620122fd9f51466158f'
 WORKTREE = '/home/loucmane/gas-city-template-candidate-worktrees/gct-oak5'
@@ -160,30 +172,38 @@ def base_tree(clone, base):
     return tree
 
 
-def walk(root):
-    """({path: lstat}, {dir: lstat}) for everything under root, by descriptor, never following a link."""
+def walk(root, *, skill=False):
+    """Bounded descriptor walk; only skill targets may contain ordinary .git names."""
     entries, dirs = {}, {}
+    count = 0
 
     def visit(fd, rel, depth):
+        nonlocal count
         require(depth <= MAX_DEPTH, 'directory depth over the bound at ' + rel)
-        for name in sorted(os.listdir(fd)):
-            path = rel + '/' + name if rel else name
-            path.encode('utf-8')
-            s = os.stat(name, dir_fd=fd, follow_symlinks=False)
-            require(len(entries) + len(dirs) < MAX_WALK, 'walk over the bound')
-            if not rel and name == '.git':
-                require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, 'worktree .git is not a single-link gitfile')
-                continue
-            require(name.lower() != '.git', 'nested .git component: ' + path)
-            if stat.S_ISDIR(s.st_mode):
-                dirs[path] = s
-                sub = os.open(name, DIR_FLAGS, dir_fd=fd)
-                try:
-                    visit(sub, path, depth + 1)
-                finally:
-                    os.close(sub)
-            else:
-                entries[path] = s
+        with os.scandir(fd) as scan:
+            for entry in scan:
+                count += 1
+                require(count <= MAX_WALK, 'walk over the bound')
+                name = entry.name
+                path = rel + '/' + name if rel else name
+                path.encode('utf-8')
+                s = os.stat(name, dir_fd=fd, follow_symlinks=False)
+                if not skill:
+                    if not rel and name == '.git':
+                        require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1,
+                                'worktree .git is not a single-link gitfile')
+                        continue
+                    require(name.lower() != '.git', 'nested .git component: ' + path)
+                if stat.S_ISDIR(s.st_mode):
+                    dirs[path] = s
+                    sub = os.open(name, DIR_FLAGS, dir_fd=fd)
+                    try:
+                        require(stat_key(os.fstat(sub)) == stat_key(s), 'directory changed after walk: ' + path)
+                        visit(sub, path, depth + 1)
+                    finally:
+                        os.close(sub)
+                else:
+                    entries[path] = s
     fd = os.open(root, DIR_FLAGS)
     try:
         visit(fd, '', 0)
@@ -206,26 +226,33 @@ def open_parent(root, path):
     return fd, parts[-1]
 
 
-def read_regular(root, path, lstat_before=None):
-    """(fstat, bytes) of a single-link regular file, opened component by component with O_NOFOLLOW."""
+def read_bounded(fd, path, lstat_before=None, remaining=None):
+    """Read at most the observed size plus one byte, with pre-read budget and post-read stat checks."""
+    s = os.fstat(fd)
+    require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, 'not a single-link regular file: ' + str(path))
+    limit = MAX_FILE_BYTES if remaining is None else min(MAX_FILE_BYTES, remaining)
+    require(s.st_size <= limit, 'file or total bytes over the bound: ' + str(path))
+    if lstat_before is not None:
+        require(stat_key(s) == stat_key(lstat_before), 'file changed after the walk: ' + str(path))
+    chunks, size = [], 0
+    while True:
+        chunk = os.read(fd, min(1 << 20, s.st_size - size + 1))
+        if not chunk:
+            break
+        size += len(chunk)
+        require(size <= s.st_size, 'file changed while read (size bound): ' + str(path))
+        chunks.append(chunk)
+    require(size == s.st_size and stat_key(os.fstat(fd)) == stat_key(s), 'file changed while read: ' + str(path))
+    return s, b''.join(chunks)
+
+
+def read_regular(root, path, lstat_before=None, remaining=None):
+    """Single-link regular file, opened component by component with O_NOFOLLOW."""
     fd, name = open_parent(root, path)
     try:
         f = os.open(name, FILE_FLAGS, dir_fd=fd)
         try:
-            s = os.fstat(f)
-            require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, 'not a single-link regular file: ' + path)
-            require(s.st_size <= MAX_FILE_BYTES, 'file over the bound: ' + path)
-            if lstat_before is not None:
-                require(stat_key(s) == stat_key(lstat_before), 'file changed after the walk: ' + path)
-            chunks = []
-            while True:
-                chunk = os.read(f, 1 << 20)
-                if not chunk:
-                    break
-                chunks.append(chunk)
-            data = b''.join(chunks)
-            require(len(data) == s.st_size and stat_key(os.fstat(f)) == stat_key(s), 'file changed while read: ' + path)
-            return s, data
+            return read_bounded(f, path, lstat_before, remaining)
         finally:
             os.close(f)
     finally:
@@ -241,16 +268,10 @@ def readlink_at(root, path):
 
 
 def read_file(path):
-    """(fstat, bytes) of a single-link regular file outside the worktree (git metadata, city files)."""
+    """Bounded single-link regular file outside the worktree (git metadata, city files)."""
     f = os.open(path, FILE_FLAGS)
     try:
-        s = os.fstat(f)
-        require(stat.S_ISREG(s.st_mode) and s.st_nlink == 1, 'not a single-link regular file: ' + str(path))
-        require(s.st_size <= MAX_FILE_BYTES, 'file over the bound: ' + str(path))
-        data = b''
-        while chunk := os.read(f, 1 << 20):
-            data += chunk
-        return s, data
+        return read_bounded(f, path)
     finally:
         os.close(f)
 
@@ -282,14 +303,18 @@ def ignored(clone, tree, dirs, paths, scratch):
         shutil.rmtree(mirror)
 
 
-def expected_runtime(lanes, codex_hooks_sha):
+def expected_runtime(lanes, codex_hooks_sha, settings_sha=None):
     """{path: spec} for every RUNTIME entry the named lanes write, from worker-independent pins."""
     expected = {}
     if not lanes:
         return expected
     for path, (source, mode) in CITY_FILES.items():
-        _, data = read_file(source)
-        expected[path] = dict(kind='file', mode=mode, sha256=sha256(data))
+        if path == '.gc/settings.json' and settings_sha is not None:
+            digest = settings_sha
+        else:
+            _, data = read_file(source)
+            digest = sha256(data)
+        expected[path] = dict(kind='file', mode=mode, sha256=digest)
     for lane in lanes:
         sink = LANES[lane]['sink']
         expected[sink + '/.gc-skill-ownership.json'] = dict(kind='file', mode=0o644, sha256=sha256(ownership_bytes()))
@@ -302,14 +327,34 @@ def expected_runtime(lanes, codex_hooks_sha):
     return expected
 
 
+def same_walk(before, after):
+    return all(set(a) == set(b) and all(stat_key(a[p]) == stat_key(b[p]) for p in a)
+               for a, b in zip(before, after))
+
+
 def tree_digest(root):
-    """sha256 over every regular file under a skill target (sorted relative path and bytes); links refuse."""
-    h = hashlib.sha256()
-    entries, dirs = walk(root)
-    for path in sorted(entries):
-        s = entries[path]
-        require(stat.S_ISREG(s.st_mode), 'skill target holds a non-regular entry: %s/%s' % (root, path))
-        h.update(path.encode() + b'\0' + read_regular(root, path)[1] + b'\0')
+    """v3: domain tag, then sorted (kind, UTF-8 path, octal mode, content) length-prefixed fields.
+
+    Every field has an unsigned 8-byte big-endian length. The root is a directory with path '';
+    directories have empty content. .git is ordinary skill content. Links and hard links refuse.
+    """
+    h = hashlib.sha256(b'gct-oak5.skill-tree.v3\0')
+    root_stat = os.lstat(root)
+    entries, dirs = walk(root, skill=True)
+    total = 0
+    for path, s in sorted({'': root_stat, **dirs, **entries}.items()):
+        if stat.S_ISDIR(s.st_mode):
+            kind, data = b'd', b''
+        else:
+            require(stat.S_ISREG(s.st_mode), 'skill target holds a non-regular entry: %s/%s' % (root, path))
+            _, data = read_regular(root, path, s, MAX_TOTAL_BYTES - total)
+            total += len(data)
+            kind = b'f'
+        for field in (kind, path.encode(), format(stat.S_IMODE(s.st_mode), '04o').encode(), data):
+            h.update(len(field).to_bytes(8, 'big'))
+            h.update(field)
+    require(same_walk((entries, dirs), walk(root, skill=True)) and stat_key(os.lstat(root)) == stat_key(root_stat),
+            'skill target changed during the export: ' + str(root))
     return h.hexdigest()
 
 
@@ -333,11 +378,17 @@ def catalog_ok(data):
     return value == pins()['catalog_value']
 
 
-def content(worktree, clone, base, lanes, codex_hooks_sha):
+def content(worktree, clone, base, lanes, codex_hooks_sha, settings_sha=None):
     """The content part of an image: entries, deleted, ignored, runtime, runtime dir modes."""
     check_clone(clone, base)
     tree = base_tree(clone, base)
     found, dirs = walk(worktree)
+    cc = '.claude/.cc-writes'
+    require(cc not in found and not any(p.startswith(cc + '/') for p in (*found, *dirs)),
+            cc + ' must be an empty directory')
+    if cc in dirs:
+        require('claude' in lanes and dirs[cc].st_uid == os.getuid()
+                and not stat.S_IMODE(dirs[cc].st_mode) & 0o7022, cc + ' has an unsafe lane, owner or mode')
     require(not [d for d in dirs if PurePosixPath(d).name == C2_TMP] and C2_TMP not in found,
             C2_TMP + ' is present')
     scratch = Path(os.path.realpath(clone)).parent / (Path(clone).name + '.scratch')
@@ -349,8 +400,18 @@ def content(worktree, clone, base, lanes, codex_hooks_sha):
     finally:
         scratch.rmdir()
 
-    expected = expected_runtime(lanes, codex_hooks_sha)
+    expected = expected_runtime(lanes, codex_hooks_sha, settings_sha)
     runtime, entries, ignored_entries, total = [], [], [], 0
+
+    def read_content(path, before):
+        nonlocal total
+        result = read_regular(worktree, path, before, MAX_TOTAL_BYTES - total)
+        total += len(result[1])
+        return result
+
+    def add_row(rows, row):
+        require(len(entries) + len(ignored_entries) < MAX_FILES, 'image over the bounds')
+        rows.append(row)
     for path in sorted(found):
         s = found[path]
         name = PurePosixPath(path).name
@@ -361,13 +422,12 @@ def content(worktree, clone, base, lanes, codex_hooks_sha):
                         'tracked link changed: ' + path)
                 continue
             require(stat.S_ISREG(s.st_mode), 'tracked file is not a regular file: ' + path)
-            st, data = read_regular(worktree, path, s)
+            st, data = read_content(path, s)
             now = '100755' if st.st_mode & stat.S_IXUSR else '100644'
             if blob_id(data) == oid and now == mode:
                 continue
             require(name not in STOP_NAMES, 'stop path changed: ' + path)
-            entries.append(dict(path=path, status='M', mode=now, blob=blob_id(data), sha256=sha256(data), size=len(data)))
-            total += len(data)
+            add_row(entries, dict(path=path, status='M', mode=now, blob=blob_id(data), sha256=sha256(data), size=len(data)))
             continue
         require(name not in STOP_NAMES, 'stop path added: ' + path)
         if path in expected:
@@ -378,7 +438,7 @@ def content(worktree, clone, base, lanes, codex_hooks_sha):
                 runtime.append(dict(path=path, kind='link', target=spec['target']))
             else:
                 require(stat.S_ISREG(s.st_mode), 'runtime entry is not a regular file: ' + path)
-                st, data = read_regular(worktree, path, s)
+                st, data = read_content(path, s)
                 require(stat.S_IMODE(st.st_mode) == spec['mode'] and st.st_uid == os.getuid(), 'runtime mode: ' + path)
                 if spec['kind'] == 'catalog':
                     require(catalog_ok(data), 'runtime catalog differs: ' + path)
@@ -390,15 +450,13 @@ def content(worktree, clone, base, lanes, codex_hooks_sha):
                 'unadmitted control-namespace entry: ' + path)
         if path in ignore:
             require(stat.S_ISREG(s.st_mode), 'ignored entry is not a regular file: ' + path)
-            st, data = read_regular(worktree, path, s)
-            ignored_entries.append(dict(path=path, mode=oct(stat.S_IMODE(st.st_mode)), size=len(data), sha256=sha256(data)))
-            total += len(data)
+            st, data = read_content(path, s)
+            add_row(ignored_entries, dict(path=path, mode=oct(stat.S_IMODE(st.st_mode)), size=len(data), sha256=sha256(data)))
             continue
         require(stat.S_ISREG(s.st_mode), 'new path is not a regular file: ' + path)
-        st, data = read_regular(worktree, path, s)
+        st, data = read_content(path, s)
         now = '100755' if st.st_mode & stat.S_IXUSR else '100644'
-        entries.append(dict(path=path, status='A', mode=now, blob=blob_id(data), sha256=sha256(data), size=len(data)))
-        total += len(data)
+        add_row(entries, dict(path=path, status='A', mode=now, blob=blob_id(data), sha256=sha256(data), size=len(data)))
     present = {r['path'] for r in runtime}
     require(present == set(expected), 'runtime set differs: missing %s' % sorted(set(expected) - present))
     dir_modes = {}
@@ -411,16 +469,57 @@ def content(worktree, clone, base, lanes, codex_hooks_sha):
         dir_modes[d] = oct(want)
     if 'codex' not in lanes:
         require(not [d for d in dirs if d == '.agents' or d.startswith('.agents/')], '.agents present before a codex segment')
-    require(not any(p.startswith('.claude/.cc-writes/') for p in found), '.claude/.cc-writes is not empty')
     deleted = sorted(p for p in tree if p not in found)
     for path in deleted:
         require(PurePosixPath(path).name not in STOP_NAMES, 'stop path deleted: ' + path)
     require(len(entries) + len(deleted) + len(ignored_entries) <= MAX_FILES and total <= MAX_TOTAL_BYTES,
             'image over the bounds')
     again, again_dirs = walk(worktree)
-    require(set(again) == set(found) and set(again_dirs) == set(dirs)
-            and all(stat_key(again[p]) == stat_key(found[p]) for p in found), 'worktree changed during the export')
+    require(same_walk((found, dirs), (again, again_dirs)), 'worktree changed during the export')
     return dict(entries=entries, deleted=deleted, ignored=ignored_entries, runtime=runtime, dir_modes=dir_modes)
+
+
+def packed_refs(data):
+    """Strict SHA-1 packed-refs grammar; reject duplicates anywhere, including conflicting values."""
+    require(data.endswith(b'\n'), 'packed-refs missing final newline')
+    refs, previous, peeled = {}, None, False
+    for number, line in enumerate(data.split(b'\n')[:-1]):
+        if line.startswith(b'#'):
+            require(number == 0 and line.startswith(b'# pack-refs with: '), 'packed-refs invalid header')
+            flags = line[len(b'# pack-refs with: '):].split()
+            require(len(flags) == len(set(flags)) and set(flags) <= {b'peeled', b'fully-peeled', b'sorted'},
+                    'packed-refs invalid header flags')
+            continue
+        if line.startswith(b'^'):
+            require(previous is not None and previous.startswith('refs/tags/') and not peeled
+                    and re.fullmatch(rb'\^[0-9a-f]{40}', line), 'packed-refs invalid peeled row')
+            peeled = True
+            continue
+        match = re.fullmatch(rb'([0-9a-f]{40}) (refs/[^\x00-\x20\x7f]+)', line)
+        require(match is not None, 'packed-refs malformed row')
+        oid, raw_ref = match.groups()
+        ref = raw_ref.decode('utf-8')
+        require(not any(c in ref for c in '~^:?*[\\') and '..' not in ref and '@{' not in ref
+                and not ref.endswith('.')
+                and all(part and not part.startswith('.') and not part.endswith('.lock') for part in ref.split('/')),
+                'packed-refs malformed ref name')
+        require(ref not in refs, 'packed-refs duplicate or conflicting ref: ' + ref)
+        refs[ref] = oid.decode()
+        previous, peeled = ref, False
+    return refs
+
+
+def branch_ref():
+    """A loose ref wins; only a missing loose file permits the strictly parsed packed fallback."""
+    ref = 'refs/heads/' + BRANCH
+    try:
+        _, raw = read_file(CANONICAL_GIT / ref)
+    except FileNotFoundError:
+        refs = packed_refs(read_file(CANONICAL_GIT / 'packed-refs')[1])
+        require(ref in refs, 'packed-refs missing exact handover branch')
+        return refs[ref]
+    require(re.fullmatch(rb'[0-9a-f]{40}\n', raw), 'malformed loose branch ref')
+    return raw.decode().strip()
 
 
 def export(args):
@@ -441,7 +540,7 @@ def export(args):
         meta['admin_' + name] = dict(sha256=sha256(data), mode=oct(stat.S_IMODE(s.st_mode)), text=data.decode())
     require(meta['admin_HEAD']['text'].strip() == 'ref: refs/heads/' + BRANCH, 'worktree HEAD is not the handover branch')
     require(meta['admin_gitdir']['text'] == '%s/.git\n' % worktree, 'admin gitdir does not name the worktree')
-    meta['branch_ref'] = read_file(CANONICAL_GIT / 'refs/heads' / BRANCH)[1].decode().strip()
+    meta['branch_ref'] = branch_ref()
     require(meta['branch_ref'] == args.base, 'the handover branch is not at BASE')
     meta['canonical_HEAD'] = read_file(CANONICAL_GIT / 'HEAD')[1].decode().strip()
     image['git'] = meta
@@ -517,7 +616,13 @@ def verify(args):
     image = load(args.image)
     copy = outside(args.copy)
     hooks = next((r['sha256'] for r in image['runtime'] if r['path'] == '.codex/hooks.json'), None)
-    got = content(copy, args.clone, image['base'], image['lanes'], hooks)
+    settings = [r for r in image['runtime'] if r['path'] == '.gc/settings.json']
+    settings_sha = None
+    if image['lanes']:
+        require(len(settings) == 1 and settings[0].get('kind') == 'file' and settings[0].get('mode') == '0o644'
+                and re.fullmatch(r'[0-9a-f]{64}', settings[0].get('sha256', '')), 'image settings digest invalid')
+        settings_sha = settings[0]['sha256']
+    got = content(copy, args.clone, image['base'], image['lanes'], hooks, settings_sha)
     problems = [k for k in ('entries', 'deleted', 'ignored', 'runtime', 'dir_modes') if got[k] != image[k]]
     print(json.dumps(dict(ok=not problems, differs=problems)))
     return 0 if not problems else 1
@@ -525,6 +630,7 @@ def verify(args):
 
 def holder(args):
     image = load(args.image)
+    require(image['lanes'] == STEPS[args.step]['next'], 'holder image lanes do not match step')
     raw = Path(args.image).read_bytes()
     entries = {e['path']: e for e in image['entries']}
     paths = STEPS[args.step]['contract'] if args.step == 'C1' else \
