@@ -1,0 +1,49 @@
+{
+  "schema": "gc.candidate-worktree-task-binding.v1",
+  "task": {
+    "id": "ga-xyqo",
+    "title": "C1 candidate after release transport repair",
+    "description": "One fresh candidate-only Astra Gas City worker after the ga-rq5n release transport refusal. Preserve ga-rq5n and ga-9olv with every consumed window and all evidence. Start from exact signed base 801a5a9d5b0d72f665c949a86573357f02c9f1ac in a fresh candidate worktree. Read the frozen ga-9olv 52-file candidate as immutable input and produce only the same finite product inventory with consolidated review repairs. Repair executable staged and runtime binding, actual aggregate deadlines, failed-window restoration, pre-close tmux baseline, fallback claim continuity, CLOSE nudge validation and H1 image byte binding. Reuse the proven reminder-stable startup and containment protocol with independently reviewed release transport from 01cff54c2ef0f467e2c590afdcc3ebd1d1e24717. No new design round, permission change, Claude inference or live C1 execution.",
+    "acceptance_criteria": "Exact task and workspace claim plus fresh capability release. Preserved seed digests and original workspace non-interference. Integrated RED and GREEN fixtures exercise real adapter sequencing with fake external operations and clocks for every review finding. Existing slots and image regressions remain byte-identical and green. Uncommitted candidate and complete evidence returned for two independent reviews. Expected single worker is contained and closed with exact baseline restoration and zero residue. No product activation or provider parity claimed.",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "task",
+    "owner": "lookmanbenali@gmail.com",
+    "created_at": "2026-09-29T18:54:44Z",
+    "created_by": "loucmane",
+    "updated_at": "2026-09-29T18:54:44Z",
+    "labels": [
+      "c1",
+      "gas-city",
+      "review-repair"
+    ],
+    "dependent_count": 0,
+    "dependency_count": 2,
+    "comment_count": 0,
+    "notes": "",
+    "dependencies": [
+      {
+        "id": "ga-e0t1",
+        "dependency_type": "relates-to"
+      },
+      {
+        "id": "ga-9olv",
+        "dependency_type": "relates-to"
+      }
+    ],
+    "dependents": []
+  },
+  "reverse_relationships": {
+    "ga-e0t1": {
+      "id": "ga-xyqo",
+      "dependency_type": "relates-to"
+    },
+    "ga-9olv": {
+      "id": "ga-xyqo",
+      "dependency_type": "relates-to"
+    }
+  },
+  "failed_attempt": "ga-rq5n",
+  "source_repair_commit": "01cff54c2ef0f467e2c590afdcc3ebd1d1e24717",
+  "worker_launched": false
+}
