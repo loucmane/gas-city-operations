@@ -202,7 +202,7 @@ def read_used(done, commit, own_job=None, own_job_id=None):
         info = os.lstat(done)
     except OSError:
         return set(), True
-    if (own_job is None) != (own_job_id is None) or own_job not in (None,) + JOBS \
+    if (own_job is None) != (own_job_id is None) or own_job not in (None, CLOSE) + JOBS \
             or not (stat.S_ISDIR(info.st_mode) and info.st_uid == os.getuid()) \
             or not (isinstance(commit, str) and HEX40.fullmatch(commit)):
         return set(), True
@@ -253,6 +253,11 @@ def read_state(window, done, commit, hold_roots, watcher_roots, boot_id, own_job
     window = Path(window)
     lifecycle = {a: action_state(window, a) for a in ACTIONS}
     used, broken = read_used(done, commit, own_job, own_job_id)
+    # CLOSE is terminal, not a fallback slot in JOBS; the runner enforces its once-per-commit use.
+    # A passing hold may select CLOSE for the coordinator, but cannot excuse CLOSE
+    # failing to prove its own started, unfinished wrapper/commit record.
+    if own_job == CLOSE and broken:
+        raise ValueError('CLOSE: unreadable runner state or invalid own record')
     hold_passed = False
     for root in hold_roots:
         try:

@@ -1,9 +1,11 @@
-# gct-oak5 C1 window — design (d10)
+# gct-oak5 C1 window — design (d11 candidate)
 
 C1 is the first segment of the gct-oak5 handover (accepted plan `designs/gct-oak5-handover/PLAN.md`, r18). It routes the
 open step **gct-9s1c** to the Template Claude candidate lane `gas-city-template/gc.implementation-worker` in the new
 handover worktree. This document fixes *what* the window package does before it is generated. d2 answered the d1
 reviews of `32e95862`, d3 answered the d2 reviews of `9b8f22ad`, d4 answered the d3 reviews of `cc51beed`, d5 answered the d4 reviews of `e8bbc592`, d6 answered the d5 reviews of `84bfeac4`, d7 answered the d6 reviews of `7d2d7b84` with code, d8 answered the d7 reviews of `a2112650`, d9 answered the d8 reviews of `b73ce77a`, and d10 answers the d9 reviews of `492be80c` (A PASS, B HOLD): the next-job rule is `slots/slots.py`, tested in `slots/test_slots.py`; see §9 to §17.
+
+d11 is the ga-e0t1.20 candidate correction for CLOSE self-admission; see §18. Prior review outcomes remain historical evidence.
 
 ## 1. Source and method
 
@@ -356,6 +358,7 @@ Each asserted with its count in the generator:
      package commit** (a `<id>.started.json`, finished or not, is a used job), matched on the wrapper exactly as the
      runner records it, **relative to the repository** (`WRAPPER_PREFIX`, `jobrunner.py:69-71, 311, 437-438`), except
      the caller's own run, whose record must be started, unfinished, and name its own wrapper and this commit;
+     CLOSE is also a valid caller, although it is a terminal result rather than a fallback slot in `JOBS`;
      whether a hold of this window passed (the hold roots by CLOSE's own glob, `close-r11.py:103-104`, retargeted,
      each result naming this window); and the newest final observation naming this window from the watcher roots
      (missing reads as not quiet). Every record is read like the runner's `read_owned`: no link, a regular
@@ -364,6 +367,9 @@ Each asserted with its count in the generator:
      included) is `broken`, which selects **HOLD-1** (only a hold, which only suspends, may act when `used` is
      unknown; HOLD-1 is admitted even when its own record is what is broken, and if the runner already ran it, the
      broken path has one hold fewer than the readable one before the stop); a passing hold still selects CLOSE.
+     These broken-state choices apply to the coordinator and the existing fallback admissions. CLOSE itself raises
+     `ValueError` on a broken runner read before selection, including with a passing hold: a hold is evidence of
+     containment, not an exception to CLOSE proving its own unfinished wrapper/commit identity.
      Records are also parsed like the runner's `strict_json` (a duplicate key or a too-deep record is `broken`), the
      done directory must be a real directory owned by the operator, the commit must be 40 lowercase hex digits, and
      the job id comes only from a unit directly under the runner's app slice matching the runner's job-id pattern. The real done directory (674 files) reads clean under these
@@ -383,7 +389,7 @@ Each asserted with its count in the generator:
      5. otherwise a worker may be live: the first unused of **WATCH-LOOP, WATCH-LOOP-2**, else a hold.
 
      The tests prove over every combination of records, used jobs, hold result and observation that `select()` never
-     picks a used job, picks CLOSE only when CLOSE's held predicate holds, stops only after both holds, holds on every
+     picks a used fallback slot, picks CLOSE only when CLOSE's held predicate holds, stops only after both holds, holds on every
      stranded record, and never leaves a possibly live worker without a watcher or a hold. A model of every job's
      possible effects (each lifecycle step completing, failing, being killed or refusing before its intent; each
      admission refusing) driven from every RESUME outcome ends only at CLOSE or STOP, and no job ever asks to repeat an
@@ -464,7 +470,7 @@ image); `holder` checking the image's lanes.
 
 ## 8. Run order
 
-1. The design (this document, d10) and `slots/`, two reviews.
+1. The design (this document, d11 candidate) and `slots/`, two reviews.
 2. s1: the generated package and image tool r3, two reviews. Jobs: WORKTREE (with image 0 and the common `before`),
    then PREP.
 3. s2: PREP pins and, with the operator's cache-disposition approval, `CACHE_PINNED_NS`; two reviews.
@@ -696,3 +702,26 @@ image); `holder` checking the image's lanes.
   cgroup parent and job-id pattern (A 6); observations ordered within one boot by `boot_id` (A 7); the per-commit
   run bound (A 8, in §6.5); the prefix, limit and patterns asserted against the runner module itself (A 9).
   `slots/test_slots.py`: 18 tests.
+
+
+## 18. d11 candidate (ga-e0t1.20: CLOSE self-admission)
+
+- **Reproduced on unchanged d10 code:** the coordinator selects CLOSE for a never-resumed window; after the runner
+  writes CLOSE's started record, `read_state(..., own_job=CLOSE, own_job_id=...)` marks it broken because CLOSE is
+  absent from the accepted caller names. Its own selector returns HOLD-1, so CLOSE refuses.
+- **Correction:** `read_used()` accepts CLOSE as a caller and applies the same exact relative wrapper, package commit,
+  started-record and unfinished-record checks. `JOBS` remains the five fallback slots, and `select()` keeps its
+  existing terminal CLOSE/STOP results and watcher/hold choices. CLOSE refuses a broken runner read explicitly,
+  so a passing hold cannot mask an invalid CLOSE identity. Coordinator selection on a broken read with a passing
+  hold and the existing broken HOLD-1 admission are unchanged.
+- **Once-only contract:** CLOSE remains subject to the runner's `(commit, wrapper)` check (`already_ran()` in
+  `gct-jobrunner/jobrunner.py`, called by `admit()`). Its started record burns that pair even if the job later refuses;
+  a new job id does not permit a retry. The coordinator may still select the terminal CLOSE result afterward, but
+  the runner refuses and the coordinator stops under §6.5. A finalized caller cannot pass CLOSE's own admission.
+- **Regression coverage:** all three held paths (never resumed, completed rig suspend, passing hold); malformed,
+  missing and finalized identities with and without a passing hold; wrong wrapper forms and commits; the actual
+  runner's once-only predicate; partial/live/stranded states preserving containment, watcher and hold selection;
+  and the broken HOLD-1 and coordinator passing-hold paths. The full pre-existing slot corpus remains in place.
+- **Evidence:** the ga-e0t1.20 r11 worker evidence preserves the unchanged-source RED, candidate test logs and
+  source byte inventory. This is an uncommitted source candidate; independent reviews, intake, delivery and
+  zero-residue acceptance remain coordinator work. It grants no C1 launch or Claude parity claim.

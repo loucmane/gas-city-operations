@@ -1,0 +1,24 @@
+SOURCE_PASS 52666932551053c0a2f7c2e8079dba545583e381463ea9a6014a0750836a84d9
+Review-Request-SHA256: 6a0de90d299388da1368e9b3682ea01f2236d07bee4d9552b236b84155f9e11e
+candidate=c6b789bbe6ff677dd04336803dbf2c2e017812ba
+bead=ga-e0t1.20
+
+must_fix: none.
+
+should_fix: none.
+
+verified:
+
+1. CLOSE is now an accepted caller without entering fallback `JOBS`. The unchanged selector still requires a held state; all three supported held paths have parser-to-selector regression coverage. [slots.py:205](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/slots/slots.py:205), [test_slots.py:406](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/slots/test_slots.py:406).
+
+2. Exact started-record filename identity, relative wrapper, commit and absence of a final record remain required. Broken CLOSE state raises before passing-hold selection. The 26-case matrix covers missing, finalized, malformed, linked and mismatched identities, with and without a passing hold. [slots.py:198](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/slots/slots.py:198), [slots.py:252](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/slots/slots.py:252), [test_slots.py:423](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/slots/test_slots.py:423).
+
+3. CLOSE remains terminal. The actual runner predicate matches `(commit, wrapper)` independently of a replacement job ID; `admit()` refuses a previously started pair. The new test calls that predicate before and after finalization. [jobrunner.py:392](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-jobrunner/jobrunner.py:392), [jobrunner.py:456](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-jobrunner/jobrunner.py:456), [test_slots.py:477](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/slots/test_slots.py:477).
+
+4. Watcher, containment, stranded-state, HOLD and coordinator selection remain unchanged. Explicit regressions demonstrate that valid CLOSE identity cannot override those choices and invalid CLOSE identity cannot borrow the coordinator’s passing-hold exception. [test_slots.py:459](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/slots/test_slots.py:459), [test_slots.py:501](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/slots/test_slots.py:501).
+
+5. Bound RED records coordinator CLOSE versus own HOLD-1, consistent with the original caller rejection. Bound GREEN logs report 53 full-suite passes and 36 negative passes; their source hashes match the candidate. These are inspected historical results, not reviewer reruns. [red.log:1](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.gc/worker-evidence/ga-e0t1.20/r11/red.log:1), [green-full.log:64](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.gc/worker-evidence/ga-e0t1.20/r11/green-full.log:64), [green-negative.log:47](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.gc/worker-evidence/ga-e0t1.20/r11/green-negative.log:47).
+
+6. Patch, inventory and all inventory artifact digests match. Exactly the three allowed paths occur in the patch, each source file remains 0644, and in-memory reversal reproduces each bound original digest. Documentation accurately states the correction and remaining gates. [source-inventory.json:1](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.gc/worker-evidence/ga-e0t1.20/r11/source-inventory.json:1), [DESIGN.md:707](/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/DESIGN.md:707).
+
+Source-only verdict. No product execution, tests, Git, Bead, service or lifecycle calls performed. No live acceptance or provider-parity claim. Terminal restoration, read-only INSPECT and exact-patch rebinding remain separate prerequisites before intake.

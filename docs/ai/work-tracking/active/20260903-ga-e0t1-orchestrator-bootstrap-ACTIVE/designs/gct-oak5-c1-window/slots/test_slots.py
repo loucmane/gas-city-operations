@@ -3,6 +3,8 @@ import json
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import slots as S  # noqa: E402
 
@@ -398,3 +400,116 @@ def test_read_state_failure_and_stray_phases(tmp_path):
     assert S.read_state(w2, d, COMMIT, [], [], BOOT)['stranded']
     touch(w, 'suspension-city-resume-refused-after.json')
     assert S.read_state(w, d, COMMIT, [], [], BOOT)['lifecycle']['city-resume'] == S.FAILED
+
+
+# CLOSE is a terminal selection, but still proves its own runner identity before acting.
+@pytest.mark.parametrize('held_by', ['never-resumed', 'rig-suspend', 'passing-hold'])
+def test_close_passes_its_own_admission_with_the_runner_layout(tmp_path, held_by):
+    w, d, h = tmp_path/'w', tmp_path/'done', tmp_path/'hold'
+    w.mkdir(), d.mkdir(), h.mkdir()
+    if held_by == 'rig-suspend':
+        touch(w, *full('rig-resume'), *full('rig-suspend'))
+    elif held_by == 'passing-hold':
+        touch(w, *full('rig-resume'), *full('city-resume'), 'city-suspend-started.json')
+        (h/'result.json').write_text(json.dumps(dict(ok=True, window=str(w))))
+    coordinator = S.read_state(w, d, COMMIT, [h], [], BOOT)
+    assert not coordinator['broken'] and S.select(**coordinator) == S.CLOSE
+    runner(d, 'close-own', S.CLOSE, final=False)
+    own = S.read_state(w, d, COMMIT, [h], [], BOOT, own_job=S.CLOSE, own_job_id='close-own')
+    assert not own['broken'] and S.select(**own) == S.CLOSE
+    assert own['used'] == set()                     # CLOSE is terminal, not a fallback slot
+
+
+@pytest.mark.parametrize('passing_hold', [False, True])
+@pytest.mark.parametrize('bad', ['missing', 'finished', 'wrong-job', 'wrong-commit', 'absolute',
+                                 'other-window', 'suffix', 'missing-id', 'other-id', 'bad-commit',
+                                 'bad-record', 'linked-record', 'unreadable-done'])
+def test_close_own_admission_rejects_malformed_identity(tmp_path, passing_hold, bad):
+    w, d, h = tmp_path/'w', tmp_path/'done', tmp_path/'hold'
+    w.mkdir(), d.mkdir(), h.mkdir()
+    touch(w, *full('rig-resume'), *full('rig-suspend'))
+    if passing_hold:
+        (h/'result.json').write_text(json.dumps(dict(ok=True, window=str(w))))
+    commit, job_id = COMMIT, 'close-own'
+    wrapper = {
+        'absolute': '/abs/' + S.WRAPPER_PREFIX + 'CLOSE.sh',
+        'other-window': 'docs/ai/x/designs/other/operator/CLOSE.sh',
+        'suffix': S.WRAPPER_PREFIX + 'CLOSE.sh.extra',
+    }.get(bad)
+    if bad != 'missing':
+        runner(d, job_id, S.WATCH_LOOP if bad == 'wrong-job' else S.CLOSE,
+               final=bad == 'finished', commit='d' * 40 if bad == 'wrong-commit' else COMMIT, wrapper=wrapper)
+    if bad == 'missing-id':
+        job_id = None
+    elif bad == 'other-id':
+        job_id = 'another-close'
+    elif bad == 'bad-commit':
+        commit = 'C' * 40
+    elif bad == 'bad-record':
+        (d/'close-own.started.json').write_text('not json')
+    elif bad == 'linked-record':
+        (d/'close-own.started.json').rename(tmp_path/'target.json')
+        (d/'close-own.started.json').symlink_to(tmp_path/'target.json')
+    elif bad == 'unreadable-done':
+        d = tmp_path/'absent-done'
+    with pytest.raises(ValueError, match='CLOSE: unreadable runner state or invalid own record'):
+        S.read_state(w, d, commit, [h], [], BOOT, own_job=S.CLOSE, own_job_id=job_id)
+
+
+@pytest.mark.parametrize('state,expected', [('live', S.WATCH_LOOP), ('partial', S.CONTAIN_2),
+                                           ('between', S.CONTAIN_2), ('stranded', S.HOLD_1)])
+def test_close_identity_does_not_override_watcher_or_hold_selection(tmp_path, state, expected):
+    w, d = tmp_path/'w', tmp_path/'done'
+    w.mkdir(), d.mkdir()
+    touch(w, *full('rig-resume'))
+    if state in ('live', 'between'):
+        touch(w, *full('city-resume'))
+    if state == 'between':
+        touch(w, *full('city-suspend'))
+    if state == 'stranded':
+        touch(w, 'city-resume-started.json')
+    runner(d, 'close-own', S.CLOSE, final=False)
+    own = S.read_state(w, d, COMMIT, [], [], BOOT, own_job=S.CLOSE, own_job_id='close-own')
+    assert not own['broken'] and S.select(**own) == expected
+    assert S.select(**S.read_state(w, d, COMMIT, [], [], BOOT)) == expected
+
+
+def test_close_once_only_is_enforced_by_the_runner_and_final_record(tmp_path):
+    import importlib.util
+    import os
+    spec = importlib.util.spec_from_file_location('jobrunner_close_test', RUNNER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)                  # read-only import, no runner process or host command
+    w, d = tmp_path/'w', tmp_path/'done'
+    w.mkdir(), d.mkdir()
+    cfg = dict(stage=str(tmp_path), uid=os.getuid())
+    wrapper = S.WRAPPER_PREFIX + 'CLOSE.sh'
+    assert module.WRAPPER.fullmatch(wrapper)
+    assert module.already_ran(cfg, COMMIT, wrapper) is None
+    runner(d, 'close-own', S.CLOSE, final=False)
+    assert S.select(**S.read_state(w, d, COMMIT, [], [], BOOT,
+                                  own_job=S.CLOSE, own_job_id='close-own')) == S.CLOSE
+    # The runner burns (commit, wrapper) at start: another id cannot re-open it, even after a refusal.
+    assert module.already_ran(cfg, COMMIT, wrapper) == 'close-own'
+    assert module.already_ran(cfg, 'd' * 40, wrapper) is None
+    runner(d, 'close-own', S.CLOSE, exit_code=1)
+    assert module.already_ran(cfg, COMMIT, wrapper) == 'close-own'
+    with pytest.raises(ValueError, match='CLOSE:'):
+        S.read_state(w, d, COMMIT, [], [], BOOT, own_job=S.CLOSE, own_job_id='close-own')
+
+
+def test_close_guard_preserves_broken_hold_admission(tmp_path):
+    w, d, h = tmp_path/'w', tmp_path/'done', tmp_path/'hold'
+    w.mkdir(), d.mkdir(), h.mkdir()
+    touch(w, *full('rig-resume'), *full('city-resume'))
+    (d/'broken.json').write_text('not json')
+    coordinator = S.read_state(w, d, COMMIT, [h], [], BOOT)
+    assert coordinator['broken'] and S.select(**coordinator) == S.HOLD_1
+    own_hold = S.read_state(w, d, COMMIT, [h], [], BOOT, own_job=S.HOLD_1, own_job_id='hold-own')
+    assert own_hold['broken'] and S.select(**own_hold) == S.HOLD_1
+    (h/'result.json').write_text(json.dumps(dict(ok=True, window=str(w))))
+    coordinator = S.read_state(w, d, COMMIT, [h], [], BOOT)
+    assert coordinator['broken'] and coordinator['hold_passed'] and S.select(**coordinator) == S.CLOSE
+    # That coordinator selection grants no exception to CLOSE's own record check.
+    with pytest.raises(ValueError, match='CLOSE:'):
+        S.read_state(w, d, COMMIT, [h], [], BOOT, own_job=S.CLOSE, own_job_id='close-own')

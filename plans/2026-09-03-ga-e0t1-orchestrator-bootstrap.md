@@ -561,3 +561,32 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
   ROUTE or recovery. Preserve the worker task and its three product files.
   Steps 1 through 3 remain complete; useful C1 execution and the full step 4
   handover acceptance remain outstanding. The original goal stays active.
+
+## Real worker repair delivered for checkpoint — 2026-09-29 CEST
+
+- ga-e0t1.20 R11 reached actual worker implementation through Astra session
+  ci-1mh3i. The worker returned the exact three-file CLOSE self-admission repair,
+  preserved RED, 53 full-slot passes and 36 negative passes. Both independent
+  Astra reviewers passed patch SHA-256
+  52666932551053c0a2f7c2e8079dba545583e381463ea9a6014a0750836a84d9.
+- Supported containment, close, exact restoration, actual-host terminal integrity
+  and candidate inspection passed with every rig suspended and zero residue.
+  The coordinator intook only that unchanged reviewed patch. The unsigned worker
+  worktree and all earlier failed attempts remain preserved.
+- Final focused delivery rerun passes all 53 slot tests. The required full
+  adapter/meta suite is running. Managed goldens, source drift and all six
+  supported workflow verification checks pass. Signing and publication are not
+  claimed by this entry.
+- The child outcome note and Aegis log are recorded. A concurrent child-note
+  update caused the parent's note transaction to refuse before Bead mutation.
+  The exact pending intent 38f4f7f38b75980a7c0f4c798b489d16255fa6175e1eb27306e36dc21fd01282
+  is preserved unchanged; no supported note-intent reconciliation verb exists.
+  Only the embedded child notes and updated_at differ. Do not replay the intent,
+  hand-edit the journal or conceal this recovery obligation. Serialize subsequent
+  ledger operations. Independent verification and checkpoint work may continue.
+- Durable evidence and next actions:
+  docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/R11-LIVE-OUTCOME.md.
+  Next finish the signed candidate checkpoint, then prepare the C1 package under
+  its existing contract. No completed WORKTREE, PREP, release or recovery job may
+  be repeated. C1/H1/X/H2/C2, final intake and step 5 remain unfinished. This is
+  not a signing-capability, Claude-provider-parity or full-goal completion claim.
