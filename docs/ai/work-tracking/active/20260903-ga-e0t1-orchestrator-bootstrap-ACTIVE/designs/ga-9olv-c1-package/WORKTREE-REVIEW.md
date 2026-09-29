@@ -74,6 +74,13 @@ git diff --check passed. Neither evidence is a live worker proof.
 
 ## Failure disposition
 
+The staged whitespace check found one trailing blank line in waiting-prompt.py.
+The coordinator command sequence incorrectly continued to the signed local
+checkpoint despite that check result. No review, job or runtime operation used
+that checkpoint. Its history is preserved; the blank line is removed in a
+signed append-forward correction, with no executable change. The final candidate
+must pass the staged whitespace check before the independent review.
+
 Any unexpected delta refuses. A partially created workspace is preserved,
 not deleted, reset or replayed. The result, runner record and log all need
 inspection before moving on. A successful WORKTREE is preparation only.

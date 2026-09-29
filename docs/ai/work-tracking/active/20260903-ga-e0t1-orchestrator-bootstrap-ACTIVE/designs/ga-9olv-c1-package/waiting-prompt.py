@@ -35,4 +35,3 @@ def corrected(raw):
     if text.count(ANCHOR) != 1:
         raise ValueError("waiting prompt anchor missing or ambiguous")
     return text.replace(ANCHOR, ANCHOR + INSERTION, 1).encode("utf-8")
-
