@@ -80,7 +80,7 @@
   "review_inputs": {
     "PRESTAGE-REFUSAL.md": "ca511ea532903ebe3db4a614e230a4c32c35161f93a6f1b26eecd0d6ab86410e",
     "assemble.py": "5ca7b4fa0ee61817b4add14dcdafcabc9cb608964c401f646f1c6ead60f8f0cd",
-    "preserve-halt.py": "552028fa8157e9da3cfe80e958a44959e5bc1d1907b49b9b7b934c836455159a",
+    "preserve-halt.py": "9cadeccccadfedb34448cefc879df7bf18d5663a52e824dbfea0ad89bb23e120",
     "test_retry.py": "116969c2a4b45b99d34971667097199e31db359e0694becaac35ecfc24e72ef9"
   },
   "schema": "ga-rq5n.operational-retry.v1"

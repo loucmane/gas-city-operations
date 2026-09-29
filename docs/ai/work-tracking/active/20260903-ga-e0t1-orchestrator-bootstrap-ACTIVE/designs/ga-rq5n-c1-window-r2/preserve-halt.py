@@ -91,4 +91,3 @@ finally:os.close(directory)
 assert not os.path.lexists(ROOT/'state/HALTED')
 assert hashlib.sha256((ROOT/'state'/archive).read_bytes()).hexdigest()==halt_sha
 print(json.dumps(dict(archived=archive,job=job,no_job_queued=True)))
-

@@ -87,7 +87,13 @@ All 8624 workspace entries match prior SHA256
 9da345d5bc5761199ef1ee0549a698097198dba08056db3dfd63949bc874765f.
 
 All 65 materialized files match pure assembly byte for byte. Manifest SHA256
-6190f4479288d7929d65622e6f6d76488cc3767948c147584c93e7a14bbe3400.
+f11bc73c0f12810329a801dc11320bd06e328b275271fd3d050f9d5c9dbf672e.
 Full inherited plus retry corpus: 367 passed, no failures or skips, 1.44 seconds.
 JUnit /tmp/ga-rq5n-window-r2-full-20260929-r1.xml SHA256
 89298b77480e4a4f068e84d2cbcd1f0eeb614132c8253f3bfd52a6dcc80cd748.
+
+Pre-review append-forward housekeeping removed one extra EOF blank line in
+preserve-halt.py after the staged diff check flagged it. The earlier signed
+commit remains preserved. No executable behavior or generated window byte
+changed; only that review-input digest and this manifest reference changed.
+Final materialized rerun also passed 367 tests in 1.39 seconds with no skips.
