@@ -128,3 +128,8 @@ readiness command used an unsupported subcommand and exited before execution;
 the documented source readiness adapter then passed. No state was altered to
 make readiness pass.
 
+Post-recording correction: the first signed preparation checkpoint was created
+despite a staged whitespace check reporting the report's blank final line.
+That orchestration error did not execute a job or change live state. This
+append-forward note preserves that checkpoint and gives the reviewed successor
+a clean whitespace check before any execution. No earlier evidence is erased.
