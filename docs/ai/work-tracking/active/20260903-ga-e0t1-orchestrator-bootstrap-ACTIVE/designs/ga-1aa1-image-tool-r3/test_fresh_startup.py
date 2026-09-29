@@ -174,6 +174,44 @@ def test_new_task_evidence_parent_requires_private_mode():
         v.pristine_startup({}, after, "a" * 64, {})
 
 
+def complete_workspace():
+    before = {p: dict(mode=0o644, type=stat.S_IFREG, size=4, sha256="c"*64)
+              for p in c.SOURCE_PATHS}
+    after = dict(copy.deepcopy(before), **copy.deepcopy(c.RUNTIME_IMAGE))
+    for p in ('.gc/worker-evidence', '.gc/worker-evidence/'+c.TASK, v.EVIDENCE):
+        after[p] = dict(mode=0o700, type=stat.S_IFDIR)
+    raw = b'Owned workspace write proof.\n'
+    after[v.EVIDENCE+'/positive-write.txt'] = dict(mode=0o600, type=stat.S_IFREG,
+        size=len(raw),sha256=hashlib.sha256(raw).hexdigest())
+    after[v.EVIDENCE+'/startup.json'] = dict(mode=0o600,type=stat.S_IFREG,size=1,sha256='a'*64)
+    return before,after
+
+
+def test_fresh_startup_through_terminal_workspace_admits_exact_evidence_parent():
+    before,after = complete_workspace()
+    v.pristine_startup(before,after,'a'*64,c.RUNTIME_IMAGE)
+    for path in c.SOURCE_PATHS:
+        after[path]['sha256'] = 'd'*64
+    v.workspace_delta(before,after,c.RUNTIME_IMAGE,c.SOURCE_PATHS,True)
+
+
+@pytest.mark.parametrize('path', sorted(c.RUNTIME_IMAGE))
+def test_every_missing_runtime_entry_refuses_source_release(path):
+    before,after = complete_workspace()
+    del after[path]
+    with pytest.raises(RuntimeError):
+        v.pristine_startup(before,after,'a'*64,c.RUNTIME_IMAGE)
+
+
+@pytest.mark.parametrize('path', ['.gc/worker-evidence', '.gc/worker-evidence/'+c.TASK, v.EVIDENCE])
+@pytest.mark.parametrize('mode,kind', [(0o755,stat.S_IFDIR),(0o700,stat.S_IFREG)])
+def test_terminal_evidence_parent_authority_is_exact(path,mode,kind):
+    before,after = complete_workspace()
+    after[path] = dict(mode=mode,type=kind)
+    with pytest.raises(RuntimeError):
+        v.workspace_delta(before,after,c.RUNTIME_IMAGE,c.SOURCE_PATHS,True)
+
+
 def test_unmodified_runtime_checks_match_successful_predecessor():
     old = HERE.parent / "ga-e0t1-20-astra-window/startup-validation.py"
     raw = old.read_bytes()
@@ -185,7 +223,7 @@ def test_unmodified_runtime_checks_match_successful_predecessor():
     before = {n.name: ast.dump(n) for n in ast.parse(normalized).body if isinstance(n, ast.FunctionDef)}
     after = {n.name: ast.dump(n) for n in ast.parse((HERE / "startup-validation.py").read_text()).body
              if isinstance(n, ast.FunctionDef)}
-    changed = {"claim_time", "live_task", "monitoring_state", "pristine_startup"}
+    changed = {"claim_time", "live_task", "monitoring_state", "pristine_startup", "workspace_delta"}
     assert set(after) == set(before) | {"claim_metadata"}
     for name in set(before) - changed:
         assert after[name] == before[name], name

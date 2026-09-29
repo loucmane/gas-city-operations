@@ -171,3 +171,32 @@ def test_real_queue_audit_refuses_drift(built,tmp_path,mode,defect):
     with pytest.raises((AssertionError,RuntimeError)):
         queue_fixture(built,tmp_path,mode,defect)
     assert not (tmp_path/'result.json').exists()
+
+
+@pytest.mark.parametrize('different', [False,True])
+def test_close_actual_release_session_binding_precedes_drain(built,tmp_path,different):
+    release=load(built[1]['startup-release.py'],'generated_release')
+    tree=ast.parse(built[1]['close-r11.py'])
+    main=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+    start=next(i for i,n in enumerate(main.body) if isinstance(n,ast.Assign)
+               and isinstance(n.targets[0],ast.Name) and n.targets[0].id=='release')
+    snippet=ast.Module(body=main.body[start:start+2],type_ignores=[])
+    observed=dict(id='ci-new',session_name='codex-ci-new',template=c.TARGET,
+        rig='gascity',provider=c.PROVIDER,work_dir=c.WORK,closed=False,created_at='today')
+    expected=c.close_identity(observed)
+    other=dict(observed, id='ci-other') if different else observed
+    target=tmp_path/release.ROOT.name/'proof.json'
+    target.parent.mkdir()
+    target.write_text(json.dumps(dict(session=other)))
+    reads=[]
+    def read(path):
+        reads.append(path)
+        return path.read_bytes()
+    ns=dict(VAR=tmp_path,os=__import__('os'),json=json,contract=c,expected=expected,
+            w=types.SimpleNamespace(read=read,require=c.require))
+    if different:
+        with pytest.raises(RuntimeError,match='released session'):
+            exec(compile(snippet,'close_release_binding','exec'),ns)
+    else:
+        exec(compile(snippet,'close_release_binding','exec'),ns)
+    assert ns['release']==target and reads==[target]

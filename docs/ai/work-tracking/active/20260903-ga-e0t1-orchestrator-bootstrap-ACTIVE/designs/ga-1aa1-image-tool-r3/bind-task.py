@@ -14,7 +14,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3')
 ROOT=Path('/var/tmp/ga-1aa1-bind-20260929-r1')
 HELPER=HERE/'window-base.py'
-HELPER_SHA='dc4c3e6845dcd7ee141b12ed5f77eb613befd3d6bc2caab91b57b108d2c01b43'
+HELPER_SHA='485b57b36fe8662ed115d94befaf7ebe139ff7a2f6607a668f68d7f6fbe316d8'
 WORKTREE_RESULT=Path('/var/tmp/ga-1aa1-worktree-20260929-r1/result.json')
 WORKTREE_SHA='a93cf77268174867f14179763f5a1c2700db8b490f68376b5c3128f1beed06ca'
 DESCRIPTION_SHA='543612b9becc69670df1f4285ede248d3eea880246da5d17e1190ad1090fc790'

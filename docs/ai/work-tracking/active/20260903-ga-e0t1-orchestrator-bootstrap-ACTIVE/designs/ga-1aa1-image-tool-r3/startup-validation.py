@@ -277,13 +277,17 @@ def workspace_image(root, read):
 
 
 def workspace_delta(before, after, runtime, source=(), evidence=False):
+    for path, expected in runtime.items():
+        require(after.get(path)==expected,'required Core materialization absent or different: '+path)
     for path in set(before)|set(after):
         if path in source:
             require(path in before and path in after and before[path]['type']==after[path]['type']==stat.S_IFREG
                     and before[path]['mode']==after[path]['mode'],'source authority changed: '+path)
         elif path in before:require(before[path]==after.get(path),'pre-edit workspace mutation: '+path)
         elif path in runtime:require(after[path]==runtime[path],'Core materialization differs: '+path)
-        elif evidence and (path==EVIDENCE or path.startswith(EVIDENCE+'/') or path=='.gc/worker-evidence'):
+        elif evidence and path in ('.gc/worker-evidence','.gc/worker-evidence/'+TASK,EVIDENCE):
+            require(after[path]==dict(mode=0o700,type=stat.S_IFDIR),'evidence directory authority')
+        elif evidence and path.startswith(EVIDENCE+'/'):
             require(after[path]['type'] in (stat.S_IFREG,stat.S_IFDIR),'unsafe evidence type')
         else:raise RuntimeError('unexpected startup file: '+path)
 

@@ -104,7 +104,8 @@ def retarget(text):
     text = text.replace('c6b789bbe6ff677dd04336803dbf2c2e017812ba',
                         '5b981444bf7d687c0367da4ee3d111ff4b443ead')
     text = text.replace('ga-e0t1.20', 'ga-1aa1')
-    text = re.sub(r'(/var/tmp/ga-1aa1-[a-z%0-9.-]+)-202609[0-9]{2}-r[0-9]+',
+    # Also bind Path(VAR) / relative names, not only absolute path literals.
+    text = re.sub(r'(ga-1aa1-[a-z%0-9.-]+)-202609[0-9]{2}-r[0-9]+',
                   r'\1-20260929-r1', text)
     text = text.replace('ga-1aa1-r11-', 'ga-1aa1-r1-')
     text = text.replace('.gc/worker-evidence/ga-1aa1/r11', '.gc/worker-evidence/ga-1aa1/r1')
@@ -258,4 +259,3 @@ def assemble(*, observation, observation_sha, cache_ns):
         if out[name] != local[name]:
             raise ValueError('prepared local component changed: '+name)
     return before, out
-

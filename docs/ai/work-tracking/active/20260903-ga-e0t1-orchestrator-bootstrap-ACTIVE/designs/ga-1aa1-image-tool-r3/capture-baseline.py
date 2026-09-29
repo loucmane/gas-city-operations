@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import types
 
-ROOT = Path('/tmp/ga-1aa1-readonly-baseline-20260929-r1')
+ROOT = Path('/tmp/ga-1aa1-readonly-baseline-20260929-r2')
 D = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
 PRIOR = Path('/var/tmp/ga-e0t1.20-terminal-20260929-r11/observed-after.json')
 PRIOR_SHA = '3c8f9df01798f975130aada647c35bfca80ba624bdc85c9ba6efd0d6a228e213'
@@ -58,7 +58,7 @@ provider_changes = delta(w.dependency_image(json.loads(w.read(w.PROVIDER, w.PROV
                          w.dependency_image(provider))
 save('providers.json', provider)
 N = Path(__file__).parent
-v = module(N/'startup-validation.py', '7a18a8ce5d80f3d24a834b78df695df86f5914699eb7361176cd1c4fa7101321')
+v = module(N/'startup-validation.py', '84ede27d133d2f68dae7885a356b3341e30e9d3adba6b94b71c5940697c9bddf')
 i = module(D/'candidate-inspect.py', '3a204f4adf9bbd4f1b3723e8941a0266c3ea69bc711cb36e80c79cf1340a3e53')
 workspace = v.workspace_image(Path(v.WORK), i.file_bytes)
 assert workspace == v.workspace_image(Path(v.WORK), i.file_bytes), 'workspace not stable'
