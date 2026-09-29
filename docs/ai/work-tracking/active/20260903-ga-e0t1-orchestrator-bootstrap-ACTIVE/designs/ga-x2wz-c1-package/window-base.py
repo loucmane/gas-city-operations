@@ -45,8 +45,8 @@ INPUT_SHA = ('7b8472f6cc339f261abc32b32e27b1d7f2a3c494ec24be021c396dbac2d9969d',
              None)  # The isolated input is compared to the exact native-finalized wire below.
 RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
 # Accepted restored TERMINAL observation; all host, pin and protected fields remain exact.
-ACCEPTED = Path('/tmp/ga-x2wz-readonly-baseline-20260929-r1/observed.json')
-ACCEPTED_SHA = '797227fc4c1b570b738efe0de2af05021bfe24c96f8bbadc97e839f72ebd9158'
+ACCEPTED = Path('/tmp/ga-x2wz-readonly-baseline-20260929-r2/observed.json')
+ACCEPTED_SHA = '68a7c144220e22a0967be0a1eb5dc92d39728285fd92f886c3272486a6875d6c'
 ACCEPTED_KEYS = ('cache', 'host', 'pins', 'protected')
 PROVIDER = Path('/var/tmp/gct-oak5-p13-adoption-20260927/after.json.provider-pins')
 PROVIDER_SHA = '82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b'
@@ -200,8 +200,8 @@ def approved_restore_image(prior):
 def approved_coordinator_cache_image(prior):
     raise RuntimeError('historical disposition is not authority for this window')
 
-CACHE_PREV_NS = 1790680217333537319
-CACHE_PINNED_NS = 1790680217333537319
+CACHE_PREV_NS = 1790681960125212946
+CACHE_PINNED_NS = 1790681960125212946
 # Recovered r3 observation 9c2cf3244c5b922c9845c1a06d56e6ed9ef87e2ce8fcaacce67ee2ec566541ed. Fresh OBSERVE remains mandatory.
 
 def approved_candidate_cache_image(prior):

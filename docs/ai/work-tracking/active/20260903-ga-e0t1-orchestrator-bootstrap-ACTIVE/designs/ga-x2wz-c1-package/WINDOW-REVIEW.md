@@ -85,3 +85,21 @@ and tracked inputs frozen throughout the window. Preserve every refusal and
 consumed root; never replay a completed operation or ambiguous mutation.
 No Fable/Claude inference, new privilege, installation, unrelated lifecycle,
 protected-project change or goal closeout is authorized by this packet.
+
+## Final binding order
+The normal supported workflow verification refreshes the managed import cache
+Git-directory timestamps. The first signed package is preserved but not launched
+or submitted for review. Final capture must follow that verification, with no
+further coordinator workflow or Bead calls until the window is terminal. The
+second capture and exact regenerated hash graph will be recorded below; no
+other observed difference or permission exception is accepted by this ordering.
+
+Final observation after the last supported verification at 13:39:20 CEST:
+/tmp/ga-x2wz-readonly-baseline-20260929-r2/result.json
+b883eb9e1fc854d819d819370869c473d9439c41d4b71a075a0578742e22b8c4.
+Observation SHA256 68a7c144220e22a0967be0a1eb5dc92d39728285fd92f886c3272486a6875d6c;
+exact cache mtime and ctime 1790681960125212946. No provider or other non-atime
+difference; fresh workspace image remains c64faa4fecead93b4354e628efafb69719f69f79cd16b8aabae01943627eba76.
+Regenerated assembly SHA256 aa879d3104ccb2198179a2ef44c8dcaf983435bb982d592d137ad0b0d69dc070.
+The first signed package and first capture are historical evidence only, never
+execution inputs. No coordinator workflow or Bead calls followed this capture.

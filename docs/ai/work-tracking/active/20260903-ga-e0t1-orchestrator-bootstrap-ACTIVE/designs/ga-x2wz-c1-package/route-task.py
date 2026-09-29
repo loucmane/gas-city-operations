@@ -16,7 +16,7 @@ import types
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-x2wz-c1-package')
 ROOT=Path('/var/tmp/ga-x2wz-route-20260929-r1')
 BIND=Path('/var/tmp/ga-x2wz-bind-20260929-r1')
-BIND_SHA='c58bff4ec639aade81bc1dc0ec697229a06fddaf12d620c71251a174be7c0fcb'
+BIND_SHA='7b0fcc3a2dbcc7e098acdae33e4f2b867e8cfadd79441ba4ce89180072489a98'
 DESCRIPTION_SHA='6738f491d8d882e7f387a5cf3620e6e81923882072b6f10d98ce08c210a26bd3'
 PREROUTE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/preroute.py')
 PREROUTE_SHA='d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6'
@@ -26,7 +26,7 @@ CANDIDATE_GIT_SHA='d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823b
 RECORD=Path('/home/loucmane/.local/share/gas-city-staging/ga-bebv-process-record-20260927/process-record.json')
 RECORD_SHA='df765fd0e357925bab51891c72019018bb43b65fcd6e97addf0582c9bdf5e5d7'
 HELPER=HERE/'window.py'
-SHA='67ac81819bd24efcbeee6789634b2107f9683129157645fbd265b250c4b266db'
+SHA='277ea97333046711b38ca582777251ebff4c6542c2e238ae307ee98fa9d3fc9d'
 TARGET='gascity/codex'
 
 def completed_binding(w):
