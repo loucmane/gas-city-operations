@@ -1,0 +1,55 @@
+{
+  "schema": "gc.successor-ledger-preparation.v1",
+  "task": {
+    "id": "ga-9olv",
+    "title": "Build C1 executable package with reminder-stable startup",
+    "description": "Fresh append-forward successor to closed FAIL ga-x2wz after verified restoration and zero residue. Implement only the unchanged accepted C1 d11 executable package and finite 52 new product paths with one reviewed Gas City Astra high worker. Exact signed Operations base 801a5a9d5b0d72f665c949a86573357f02c9f1ac. Reuse accepted image r3 slots and predecessor evidence. Coordinator preparation may change only the waiting prompt protocol and necessary identity digest baseline bindings with regression tests. Preserve the exact validator and all permission checks. Non-release reminders get the same exact waiting marker without tools. Legitimate release may arrive in the deferred envelope. Drain takes precedence and cannot be undone. All failed tasks and workspaces remain preserved. No launch until independent reviews and immediate preflight pass. No C1 live execution signing push delegation installs or protected project changes by the worker.",
+    "acceptance_criteria": "Before editing prove exact workspace control commands subscription sandbox native denial claim identity and acknowledged same-session release. Repeat-final fixtures pass and all existing negative checks remain. Produce deterministic C1 assembly from exact predecessor digests with replacement-count checks and create-only outputs. Tests cover controller cgroup and bounded census tmux jobs slot arbitration close self-admission restore deadlines and evidence confinement. Two independent reviewers pass the exact signed launch candidate and then the worker product. Preserve full file inventory and unchanged inputs. Supported drain suspension and terminal restoration prove zero residue. Candidate-only completion does not count as provider parity or handover acceptance.",
+    "status": "open",
+    "priority": 2,
+    "issue_type": "task",
+    "owner": "lookmanbenali@gmail.com",
+    "created_at": "2026-09-29T12:40:53Z",
+    "created_by": "loucmane",
+    "updated_at": "2026-09-29T12:40:53Z",
+    "labels": [
+      "candidate",
+      "handover",
+      "workflow"
+    ],
+    "dependencies": [
+      {
+        "id": "ga-e0t1",
+        "dependency_type": "relates-to",
+        "status": "in_progress"
+      }
+    ],
+    "dependent_count": 0,
+    "dependency_count": 1,
+    "comment_count": 0
+  },
+  "incoming": [
+    {
+      "id": "ga-9olv",
+      "title": "Build C1 executable package with reminder-stable startup",
+      "description": "Fresh append-forward successor to closed FAIL ga-x2wz after verified restoration and zero residue. Implement only the unchanged accepted C1 d11 executable package and finite 52 new product paths with one reviewed Gas City Astra high worker. Exact signed Operations base 801a5a9d5b0d72f665c949a86573357f02c9f1ac. Reuse accepted image r3 slots and predecessor evidence. Coordinator preparation may change only the waiting prompt protocol and necessary identity digest baseline bindings with regression tests. Preserve the exact validator and all permission checks. Non-release reminders get the same exact waiting marker without tools. Legitimate release may arrive in the deferred envelope. Drain takes precedence and cannot be undone. All failed tasks and workspaces remain preserved. No launch until independent reviews and immediate preflight pass. No C1 live execution signing push delegation installs or protected project changes by the worker.",
+      "acceptance_criteria": "Before editing prove exact workspace control commands subscription sandbox native denial claim identity and acknowledged same-session release. Repeat-final fixtures pass and all existing negative checks remain. Produce deterministic C1 assembly from exact predecessor digests with replacement-count checks and create-only outputs. Tests cover controller cgroup and bounded census tmux jobs slot arbitration close self-admission restore deadlines and evidence confinement. Two independent reviewers pass the exact signed launch candidate and then the worker product. Preserve full file inventory and unchanged inputs. Supported drain suspension and terminal restoration prove zero residue. Candidate-only completion does not count as provider parity or handover acceptance.",
+      "status": "open",
+      "priority": 2,
+      "issue_type": "task",
+      "owner": "lookmanbenali@gmail.com",
+      "created_at": "2026-09-29T12:40:53Z",
+      "created_by": "loucmane",
+      "updated_at": "2026-09-29T12:40:53Z",
+      "labels": [
+        "candidate",
+        "handover",
+        "workflow"
+      ],
+      "dependency_type": "relates-to"
+    }
+  ],
+  "mutation": false,
+  "predecessor": "ga-x2wz",
+  "source_base": "801a5a9d5b0d72f665c949a86573357f02c9f1ac"
+}
