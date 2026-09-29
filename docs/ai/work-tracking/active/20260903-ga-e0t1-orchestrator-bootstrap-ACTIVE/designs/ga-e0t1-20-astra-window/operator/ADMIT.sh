@@ -10,9 +10,9 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-e0t1-20-astra-window
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
-ADMIT_SHA=835c60c6dadf554ed314fbf1d851c7c2e26f9d813a8539dd4c17de535ad34d41
-BUDGET_SHA=b2f1178b0fabfffb2f73e13ebe9608d65dadf1f9e2d0b8cde720be5fa1d6eeaf
-CLOSE_SHA=83c3cf184a477e255328071b61698da6a31931d3abdee68ca2acbd2a8dc22b72
+ADMIT_SHA=fecda8354f0abd7098f0b5f6c2a17633d0bb9cfa30326d34dd0a24594acbbbfa
+BUDGET_SHA=342a001025052053df743fba49609c1a204d2b30e5f0eac2b690890bde7c210d
+CLOSE_SHA=9362df9405236b9a11277b4ddcab363632c988933d1e5fe83ae2d429038e46a9
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,9 +27,9 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-e0t1.20-window-20260929-r9/stage-consumed.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260929-r9/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/ga-e0t1.20-window-20260929-r9/restore-admission.json ] && [ ! -L /var/tmp/ga-e0t1.20-window-20260929-r9/restore-admission.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-window-20260929-r9/restore-admission.json"; echo "== end"; exit 1; }
-find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-e0t1.20-r9-close-*/result.json" -exec grep -l '"ok": true' {} + | xargs -r grep -l "$CLOSE_SHA" | grep -q . || { echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-e0t1.20-window-20260929-r10/stage-consumed.json ] && [ ! -e /var/tmp/ga-e0t1.20-window-20260929-r10/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-e0t1.20-window-20260929-r10/restore-admission.json ] && [ ! -L /var/tmp/ga-e0t1.20-window-20260929-r10/restore-admission.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-e0t1.20-window-20260929-r10/restore-admission.json"; echo "== end"; exit 1; }
+find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-e0t1.20-r10-close-*/result.json" -exec grep -l '"ok": true' {} + | xargs -r grep -l "$CLOSE_SHA" | grep -q . || { echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
