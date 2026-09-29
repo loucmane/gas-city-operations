@@ -677,3 +677,28 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
   goal remains active and unchanged. The held ga-9olv product repair, C1/H1/X/H2/C2,
   intake, retirement, M13 and terminal step 5 remain unproven. No provider parity
   or full-goal completion is claimed.
+
+### 2026-09-29 continuation — transport corrected and fresh preparation complete
+
+- The narrow direct-bootstrap exception is authorized for the release runtime,
+  delivery predicates, focused tests and deterministic package bindings only.
+  The unchanged broad grant covers safe append-forward execution without new
+  per-hash or per-checkpoint approval. Product code remains Gas City worker-only.
+  All stop conditions and the original full goal remain in force.
+- Exact source 01cff54c2ef0f467e2c590afdcc3ebd1d1e24717 passed both independent
+  Astra reviews. It admits a pinned existing Core poller without signals,
+  deletion or recreation, brackets process identity after hashing, checks
+  marker directory authority and refuses incomplete receipt histories.
+  Focused tests passed 134. Final adapter and meta regression passed 3962 with
+  21 existing skips. The interrupted sandbox result remains preserved.
+- Fresh task ga-xyqo is open unassigned and unrouted. WORKTREE and uninstalled
+  PREP each completed exactly once after two independent reviews. PREP at
+  e22252d7e3e81f1b21f6f5d89cff4df04b99dbe2 passed at 21:28 CEST. No installation,
+  worker launch or lifecycle transition occurred. Both prior workspaces and
+  every failed attempt remain intact. The jobrunner is halted after PREP.
+- Evidence is in designs/ga-rq5n-release-transport-r3 and
+  designs/ga-xyqo-c1-package under this tracker. Next finish the deterministic
+  full worker-window package and obtain two independent reviews, then run its
+  guarded jobs under the standing grant. Do not repeat WORKTREE or PREP.
+  No candidate-only result establishes useful Claude execution or provider
+  parity. Held C1 product repair and the original handover outcomes remain owed.
