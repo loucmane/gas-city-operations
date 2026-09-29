@@ -1,0 +1,24 @@
+{
+  "id": "ga-e0t1.21",
+  "title": "Finish preserved C1 repairs with private evidence creation",
+  "description": "Fresh candidate-only Gas City Astra continuation after preserved ga-xyqo evidence creation failure and fully verified restoration. Reuse only the exact finite partial product inventory as unaccepted input from the preserved workspace. Complete the existing consolidated review repairs. Require explicit private evidence creation and preserve all old files. Existing startup release sandbox subscription and lifecycle safeguards remain unchanged. No implementation or route follows from this ledger operation.",
+  "acceptance_criteria": "Exact fresh claim and capability release. Verified partial input inventory and unchanged original workspace. Integrated failing-before and passing-after fixtures for every review finding. Exact private evidence modes. Unchanged slots and image regressions. One uncommitted finite candidate with complete evidence for two independent reviews. Supported containment and exact restoration with zero residue. Product activation and provider parity remain unproven.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "lookmanbenali@gmail.com",
+  "created_at": "2026-09-29T21:00:49Z",
+  "created_by": "loucmane",
+  "updated_at": "2026-09-29T21:00:49Z",
+  "dependencies": [
+    {
+      "id": "ga-e0t1",
+      "status": "in_progress",
+      "dependency_type": "parent-child"
+    }
+  ],
+  "parent": "ga-e0t1",
+  "dependent_count": 0,
+  "dependency_count": 1,
+  "comment_count": 0
+}

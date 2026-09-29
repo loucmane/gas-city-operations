@@ -702,3 +702,26 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
   guarded jobs under the standing grant. Do not repeat WORKTREE or PREP.
   No candidate-only result establishes useful Claude execution or provider
   parity. Held C1 product repair and the original handover outcomes remain owed.
+
+### 2026-09-29 continuation — actual worker editing and contained evidence failure
+
+- The exact ga-xyqo window at bebe6bb810b3e963d3a5897c596f57019105d8e1
+  passed both independent reviews, actual startup and one same-session release.
+  Astra session ci-0rflg edited the candidate and preserved twelve RED failures.
+  It stopped on one newly created evidence file at mode 0664 instead of 0600.
+  No permission repair, candidate acceptance, signing or delivery occurred.
+- Supported containment and close proved zero worker residue. Original city
+  and receipt restoration passed at 22:45:23 CEST; terminal host integrity
+  passed at 22:46:49 with no drift, read-only cache protection and all rigs
+  suspended. Every failed record and partial source file remains intact.
+- ga-xyqo is blocked after exact supported status and append-only note readback.
+  The only changed own fields are status, notes and updated_at. Native metadata
+  is preserved. The final jobrunner latch remains, with no queued job.
+- The existing broad grant and narrow reviewed bootstrap scope remain valid;
+  no new per-hash or per-checkpoint approval is required. Product implementation
+  remains Gas City worker-only. Next prepare a bounded reviewed successor with
+  secure evidence creation at creation time, preserving and reusing valid
+  partial source only as unaccepted input. Do not chmod or replay this attempt.
+- Evidence: designs/ga-xyqo-c1-package/LIVE-OUTCOME.md and LIVE-BEAD-RECEIPT.json
+  under the active tracker. The full goal and all unproven C1/handover/terminal
+  acceptance items remain open. This recovery is not provider-parity success.
