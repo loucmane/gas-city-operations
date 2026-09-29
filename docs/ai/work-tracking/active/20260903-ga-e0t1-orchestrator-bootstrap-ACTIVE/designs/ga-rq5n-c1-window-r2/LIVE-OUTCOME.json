@@ -1,0 +1,96 @@
+{
+  "candidate": "2d7e3e3df963084c6189b000ed52ad7485d58af9",
+  "release": {
+    "status": "REFUSED",
+    "time_utc": "2026-09-29T17:28:56Z",
+    "session": "ci-b93t8",
+    "cause": "fresh session already has a poller PID file",
+    "classification": "pre-enqueue; no source release; no replay",
+    "done_sha": "1989ef6024e779f95705b32617d208003f512d658636fb4d8a4e258f176bdacc",
+    "halt_sha": "327cf08f3ed393a4c8d4603072440b888c4a2507cb02eae92177718d4413360e",
+    "log_sha": "8aa9f939e9fd99dfa7d543577a1cdbae9bf294ac4aa8ada848d78eff6ebc5811",
+    "startup_report_sha": "ab6ab0dc3d9018678a978bc5a412f87aae639ae4b854961e066c6c5fbfc1fc21"
+  },
+  "recovery_review": {
+    "agent": "/root/aegis_rq5n_release_recovery",
+    "verdict": "PASS recovery disposition only",
+    "helper_sha": "882e6119f814b1c2b0009a34abd7bc8873f0a9a60abba44bad0db1c0a724477e",
+    "note_sha": "fb4c2d2a3e7f011cdc99ffe31cb400f3ee655572594336ee05bf0541d1e7771a"
+  },
+  "contain": {
+    "status": "PASS",
+    "time_utc": "2026-09-29T17:35:10Z",
+    "done_sha": "75388b5fdc13e87c97b1da29200acb5d7358cd34a9b0f1f89da61b88d23d85ed"
+  },
+  "close": {
+    "status": "PASS",
+    "time_utc": "2026-09-29T17:37:21Z",
+    "done_sha": "291b3e0fd82713fd19fc78b6f1ebb21608c4069331cfada142f477714ed8afa2",
+    "sessions": 0,
+    "tmux_sessions": 0,
+    "worktree_processes": 0,
+    "signals_sent": false
+  },
+  "admit": {
+    "status": "PASS",
+    "time_utc": "2026-09-29T17:38:50Z",
+    "done_sha": "b2e1cdd9a1174fbcd41d61fad1506dd6cf0faa4c0d0280b86c8e94d445cbc207"
+  },
+  "restore": {
+    "status": "PASS",
+    "time_utc": "2026-09-29T17:48:43Z",
+    "done_sha": "dc2e6b30595e6aae95f5951ab13508fd44f06af0b65d0292d7f7e3c7f46b96a2"
+  },
+  "terminal": {
+    "status": "PASS",
+    "time_utc": "2026-09-29T17:51:04Z",
+    "done_sha": "41977a9b3ec6ffe176c3f79f5b9af81248a7429660e7274363977ae24f0bb0b6",
+    "result_sha": "dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8",
+    "halt_sha": "f8657f977b4fbcbe478aeb1f7755f5d7994f4a9bd62f283de8db9f9b2bfc416b",
+    "latch_preserved_in_place": true
+  },
+  "workspace": {
+    "ok": true,
+    "entries": 8646,
+    "before_entries": 8624,
+    "source_changes": false,
+    "additions": [
+      ".agents/skills",
+      ".agents/skills/.gc-skill-ownership.json",
+      ".agents/skills/core.gc-agents",
+      ".agents/skills/core.gc-city",
+      ".agents/skills/core.gc-dashboard",
+      ".agents/skills/core.gc-dispatch",
+      ".agents/skills/core.gc-mail",
+      ".agents/skills/core.gc-rigs",
+      ".agents/skills/core.gc-work",
+      ".agents/skills/gascity.mayor",
+      ".codex/hooks.json",
+      ".gc",
+      ".gc/scripts",
+      ".gc/scripts/mol-dog-stale-db.sh",
+      ".gc/settings.json",
+      ".gc/tmp",
+      ".gc/tmp/skill-catalog-gascity_codex.b64",
+      ".gc/worker-evidence",
+      ".gc/worker-evidence/ga-rq5n",
+      ".gc/worker-evidence/ga-rq5n/r1",
+      ".gc/worker-evidence/ga-rq5n/r1/positive-write.txt",
+      ".gc/worker-evidence/ga-rq5n/r1/startup.json"
+    ],
+    "image_sha256": "529fca162afeae66a04dba69c2bb53172b56b86bd4ecc962e714b3cd7940ed71",
+    "startup_report_sha256": "ab6ab0dc3d9018678a978bc5a412f87aae639ae4b854961e066c6c5fbfc1fc21",
+    "worker_launched_by_check": false
+  },
+  "inspection": {
+    "candidate_inspector_not_run": "No product candidate exists; positive inspector requires a nonempty patch. Reused hash-pinned pristine_startup and complete workspace_image read-only predicates after TERMINAL instead.",
+    "first_read_only_diagnostic": "Wrong launch-contract module lacked RUNTIME_IMAGE. No write occurred. Corrected to the actual hash-pinned contract.py and the same read-only proof passed."
+  },
+  "transport_review": {
+    "reviewer": "/root/aegis_rq5n_transport_diagnosis",
+    "verdict": "HOLD on unchanged release transport",
+    "new_runtime_observation": false,
+    "needed": "Admit an independently identity-verified existing native Core-owned poller as distinct from a new release-owned poller, retaining epoch, receipt, transcript, bounded observation and no-replay checks.",
+    "authority_boundary": "Worker cannot repair its own withheld release gate; direct code repair is outside mechanical preparation exception."
+  }
+}

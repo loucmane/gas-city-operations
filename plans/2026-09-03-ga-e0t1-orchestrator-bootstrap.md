@@ -648,3 +648,32 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
   DELIVERY-VERIFICATION.md in the ga-1aa1 design folder binds exact JUnit hashes
   and the preserved limitations. Proceed to the signed local checkpoint and
   candidate-only task closure, then the unbuilt C1 operational package.
+
+### 2026-09-29 continuation — ga-rq5n R2 release refused and restored
+
+- Signed operational candidate 2d7e3e3df963084c6189b000ed52ad7485d58af9
+  passed two independent source reviews. One real Astra high worker ci-b93t8
+  claimed ga-rq5n and passed the complete startup proof. RELEASE then refused
+  before enqueue because a native session poller marker already existed.
+  No source edit or C1 acceptance occurred. Preserve the consumed attempt.
+- Independently reviewed bounded recovery passed CONTAIN, CLOSE, ADMIT,
+  RESTORE and TERMINAL. The exact original city configuration and receipt are
+  restored, all rigs are suspended, native sessions and process residue are
+  zero, host integrity has no drift, and all pre-existing worker files are
+  unchanged. The final runner HALTED latch remains in place with no queued job.
+- The blocker is in the release transport, not worker coding permissions.
+  Pinned Core already supports native poller reuse. The runtime and delivery
+  wrappers assume marker absence and a RELEASE-owned poller cgroup. Independent
+  diagnosis requires identity-bound existing-poller admission with the current
+  session, queue, receipt, transcript and no-replay checks preserved.
+- The worker-only implementation rule cannot be bypassed as mechanical package
+  preparation. A narrow direct-bootstrap exception for that release gate or an
+  independently proven authorized worker path is needed before implementation.
+  No source repair, repeated window, poller deletion or service restart follows
+  from this recording. The direct child status/note update was refused before
+  execution by the command classifier and remains owed through a supported API.
+- Evidence: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-rq5n-c1-window-r2/LIVE-OUTCOME.md
+  and adjacent machine-readable outcome and full Bead before-state. The original
+  goal remains active and unchanged. The held ga-9olv product repair, C1/H1/X/H2/C2,
+  intake, retirement, M13 and terminal step 5 remain unproven. No provider parity
+  or full-goal completion is claimed.
