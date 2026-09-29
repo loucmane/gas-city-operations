@@ -1,0 +1,28 @@
+{
+  "id": "ga-x2wz",
+  "title": "Build executable C1 handover window package",
+  "description": "Candidate only implementation of the accepted C1 d11 window contract in Operations. Reuse exact gct-e8ex s5 predecessor and accepted image r3 and slots without another design cycle. Produce deterministic package assembly, generated bounded executors and isolated regression fixtures. Use one fresh Gas City Astra high worker with reviewed startup probes and acknowledged release. No C1 launch or changes to Template tasks, live settings, rigs or protected projects by the worker. No signing, push, delegation or activation by the worker. Preserve all historical packages and evidence.",
+  "acceptance_criteria": "Exact signed Operations base and scope bound before dispatch. Proven startup capability and single claim before any edit. Deterministic generation with asserted predecessor digests and replacement counts. Positive and negative offline tests cover every accepted C1 safety invariant including controller cgroup quiet points, bounded live census, tmux jobs, slot arbitration, close self admission, restore deadlines and create only evidence. Two independent read only reviews pass on the exact candidate. All worker files inventoried, unrelated inputs unchanged, supported drain and suspension with zero residue. Candidate only closure does not prove C1 execution or provider parity.",
+  "notes": "Preparation checkpoint only Exact intended signed base bf369ae41cf512f5f5563f842cadff394457da4c with candidate workspace ga-x2wz and branch codex/ga-x2wz-c1-package No worker workspace or branch created Automatic review twice refused coordinator materialization of mechanically rebound workspace controls before any write The second decision followed exact unchanged function proof and reread of standing authority No bypass or runtime mutation The only saved files are preparation evidence and ledger readback Await specific coordinator preparation exception with independent review before execution All C1 implementation remains Gas City worker only The task stays open unassigned and unrouted\nOperator approved the explicit bounded coordinator preparation exception on 20260929 It covers this tasks workspace and launch controls including exact task base file scope bindings and tests with independent review before execution Actual C1 implementation remains Gas City worker only Previous refusals remain preserved No worker launched No workspace created Task remains open unassigned and unrouted\nWORKTREE PASS at signed 1e4ac7ac after two independent Astra passes Result a538ebb3 binds exact clean workspace and frozen signed base bf369ae4 Both local rule files installed with global default unchanged Job ended inactive and exit zero No worker route claim receipt install or rig transition Task remains open unassigned and unrouted Next is uninstalled PREP and reviewed worker window Never replay completed WORKTREE All evidence preserved\nPREP PASS at exact signed 60320d683017e7a4a6fda617e268a2ae73ac10df after two independent Astra passes Result 21ad0d154fcb3d0ddf03b7ce2d708d41669495e12115316741441c741d6d86bd binds uninstalled one worker configuration and unchanged typed profiles Only two receipt fields changed in the uninstalled output Job ended inactive exit zero No worker launch claim route or rig transition occurred Completed WORKTREE and PREP are not repeatable Next is complete independently reviewed worker window Task remains open unassigned and unrouted",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "lookmanbenali@gmail.com",
+  "created_at": "2026-09-29T10:24:47Z",
+  "created_by": "loucmane",
+  "updated_at": "2026-09-29T11:21:34Z",
+  "labels": [
+    "candidate",
+    "handover",
+    "workflow"
+  ],
+  "dependencies": [
+    {
+      "id": "ga-e0t1",
+      "dependency_type": "relates-to"
+    }
+  ],
+  "dependent_count": 0,
+  "dependency_count": 1,
+  "comment_count": 0
+}
