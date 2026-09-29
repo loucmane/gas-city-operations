@@ -9,7 +9,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-5uc9-c1-package
 COMMIT=${1:?usage: BIND.sh <reviewed commit>}
-STEP_SHA=cbb1b73107005cfb06fd192727fb6d4b86982687d2f22fd104aa225ef0b5a4cb
+STEP_SHA=116ef94f140a853de0fe6c141c3cc010c8f2db783714f0231cf6307f28267973
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -24,12 +24,12 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-5uc9-bind-20260930-r1 ] && [ ! -L /var/tmp/ga-5uc9-bind-20260930-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-5uc9-bind-20260930-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-5uc9-bind-20260929-r1 ] && [ ! -L /var/tmp/ga-5uc9-bind-20260929-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-5uc9-bind-20260929-r1"; echo "== end"; exit 1; }
 echo "== bind $(date -u +%H:%M:%SZ)"
 /usr/bin/python3 -I -S -B "$D/gct-m1wh-p6/source-launch.py" "$C/bind-task.py" "$STEP_SHA"
 rc=$?
 if [ "$rc" != 0 ]; then
-  echo "== BIND REFUSED rc=$rc: read this log and /var/tmp/ga-5uc9-bind-20260930-r1 before any further step"
+  echo "== BIND REFUSED rc=$rc: read this log and /var/tmp/ga-5uc9-bind-20260929-r1 before any further step"
   echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
 fi
 echo "== BIND PASS"

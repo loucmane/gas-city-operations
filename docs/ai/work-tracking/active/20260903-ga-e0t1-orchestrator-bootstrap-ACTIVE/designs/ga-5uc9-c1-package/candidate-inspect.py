@@ -8,10 +8,10 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package')
-BASE_SHA = '1ab92f41331311b9a6de525a248ba7b6709cad3c8ac5923650dab6a51eac3150'
+BASE_SHA = '7479848721607ef2a84c4000a1aed12e94583d8dd4de3c7b4fe88819b1966efd'
 COMMON_SHA = 'a0ea07e3113217eb25c25276c11b9e222576bc52fe2a2895f2ac88b551f46332'
 VALIDATOR_SHA = '4e2c57549901c812ce7eee35f006bb53667729896cb3371ac5c39507da2c2569'
-TERMINAL_SHA = '2086f6da0fea1a4cda96dcf5b9093e27fe2e4295e99269f6cbd321c2061f841f'
+TERMINAL_SHA = '74d90e9f5d9d199dd55a610349c09f0314311f82f410420ca68a95b6f09f5821'
 ROOT = Path('/var/tmp/ga-5uc9-candidate-inspection-20260930-r1')
 TERMINAL = Path('/var/tmp/ga-5uc9-terminal-20260930-r1')
 CG = HERE.parent/'ga-6utp-activation-r10/candidate_git.py'
@@ -99,7 +99,7 @@ def inspect(w, b, o, owned, common):
     workspace_before=w.record('workspace-before.json')
     observed = common.observe()
     w.require(not common.compare(before, observed), 'common Git changed before candidate inspection')
-    close = w.module(HERE/'close-r11.py', '6c8c63f6012ce52e59d363b217d645142e154b8245f50c9224bc08ab6c634528')
+    close = w.module(HERE/'close-r11.py', '6f009bb1ac48fafcde113745b522aa3d71faf1f24fd5bbca180e8b573e9d72bb')
     w.require(not close.processes(w.WORK), 'candidate worker process remains')
     cg = w.module(CG, CG_SHA)
     admin = cg.verify_linked(w.WORK.parent, common.COMMON, w.WORK, 'ga-5uc9')

@@ -238,7 +238,7 @@ def test_generated_bind_references_completed_worktree(built):
 
 
 def test_materialized_package_matches_exact_final_baseline():
-    baseline=Path('/tmp/ga-5uc9-readonly-baseline-20260930-r1')
+    baseline=Path('/tmp/ga-5uc9-readonly-baseline-20260930-r2')
     result=json.loads((baseline/'result.json').read_bytes())
     _,out=a.assemble(observation=str(baseline/'observed.json'),
         observation_sha=result['observed_sha256'],cache_ns=result['cache_pin_ns'])

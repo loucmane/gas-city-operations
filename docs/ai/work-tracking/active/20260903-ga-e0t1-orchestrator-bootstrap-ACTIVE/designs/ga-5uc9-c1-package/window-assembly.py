@@ -116,6 +116,9 @@ def retarget(text):
                   r'\1-20260930-r1', text)
     text = text.replace('ga-5uc9-r11-', 'ga-5uc9-r1-')
     text = text.replace('.gc/worker-evidence/ga-5uc9/r11', '.gc/worker-evidence/ga-5uc9/r1')
+    # Preserve the completed PREP probe bytes. Its never-consumed sacrificial
+    # fixture is a frozen path identity, not the operation's wall-clock date.
+    text = text.replace('ga-5uc9-bind-20260930-r1', 'ga-5uc9-bind-20260929-r1')
     for before, after in RENAMES.items():
         text = text.replace(before, after)
     return text

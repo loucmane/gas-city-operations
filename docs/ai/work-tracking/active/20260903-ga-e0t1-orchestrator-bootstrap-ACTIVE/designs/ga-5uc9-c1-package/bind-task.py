@@ -12,9 +12,9 @@ import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package')
-ROOT=Path('/var/tmp/ga-5uc9-bind-20260930-r1')
+ROOT=Path('/var/tmp/ga-5uc9-bind-20260929-r1')
 HELPER=HERE/'window-base.py'
-HELPER_SHA='1ab92f41331311b9a6de525a248ba7b6709cad3c8ac5923650dab6a51eac3150'
+HELPER_SHA='7479848721607ef2a84c4000a1aed12e94583d8dd4de3c7b4fe88819b1966efd'
 WORKTREE_RESULT=Path('/var/tmp/ga-5uc9-worktree-20260930-r1/result.json')
 WORKTREE_SHA='5c88853a007282500eb52fd01144385fd0246b4b376cee65f2ef81060329f8f6'
 DESCRIPTION_SHA='f6cef1e79bd13c093043875e285b4bb63b85fccb8f761bfdd7fb4aef0eb94e83'
