@@ -724,6 +724,7 @@ except d.DelegationPolicyError as exc:
 - **2026-09-29 09:09 CEST** - [S:20260929|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/WORKTREE-RESULT.md] Verified ga-1aa1 workspace preparation PASS and ledger readback with no worker launch or rig transition
 - **2026-09-29 09:33 CEST** - [S:20260929|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/PREP-REVIEW.md] Prepared the fresh ga-1aa1 uninstalled image package and exact protected history continuation with 49 focused tests passing and no live activation
 - **2026-09-29 09:42 CEST** - [S:20260929|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/PREP-RESULT.md] Completed and recorded ga-1aa1 PREP with exact native outputs and unchanged live city receipt and suspension state after two independent Astra passes and no worker launch
+- **2026-09-29 10:32 CEST** - [S:20260929|W:ga-e0t1-orchestrator-bootstrap|H:workflow-coordinate|E:docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/WINDOW-REVIEW.md] Prepared the fresh bounded image worker package with exact task admission and preserved runtime controls. All fixture tests passed and no worker launched.
 
 ## Review and evidence
 

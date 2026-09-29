@@ -1,0 +1,28 @@
+{
+  "id": "ga-1aa1",
+  "title": "Implement reviewed handover image tool r3",
+  "description": "Operations code task under the existing provider independent handover goal. Implement only image tool r3 requirements from gct-oak5 C1 DESIGN section 7 on exact signed Operations base 5b981444bf7d687c0367da4ee3d111ff4b443ead. Use a fresh isolated Operations candidate worktree and the proven gascity codex Astra high candidate lane after a separately reviewed bounded window. Scope is the existing gct-oak5-handover image tool and its tests only. Preserve pins and existing evidence. No Claude or Fable inference. No signing staging push install live execution new permissions or changes to the frozen C1 lane. No native delegation. Remain unassigned and unrouted until the exact worktree brief and execution package are reviewed.",
+  "acceptance_criteria": "Prove RED and GREEN for length prefixed skill tree hashing with modes including dot git names in pinned skill targets and image settings digest binding in verify and strictly parsed packed refs fallback and early walk and byte bounds and empty Claude cc writes positive case and holder lane checks and remaining refusal branches. Preserve common Git protection and no coordinator Git in an active handover worktree. Deliver only uncommitted image_tool.py and test_image_tool.py with exact diff inventory and test evidence. Existing pins.json and make_pins.py stay byte identical. Independent review and safe terminal inspection precede intake. This task proves code readiness only and cannot satisfy C1 launch or provider parity.",
+  "notes": "WORKTREE preparation PASS on 20260929 under signed package bbc9dd899c1f6955964712d979aeb04f60043c8f with two independent Astra reviews. Job ga-1aa1-worktree-r1 exited zero and its unit is inactive. Result digest a93cf77268174867f14179763f5a1c2700db8b490f68376b5c3128f1beed06ca. Exact base 5b981444bf7d687c0367da4ee3d111ff4b443ead and branch codex/ga-1aa1-handover-image-r3 verified with only two expected local policy files. No worker launched or rig changed. Remains open unassigned and unrouted pending reviewed PREP and bounded worker window.\nPREP r1 PASS on 20260929 under signed package 1648bfdf6115ec52dbdde09d7214b71fdc7925b9 after two independent Astra reviews. Job ga-1aa1-prep-r1 completed with exit zero and inactive unit. Result digest 9d2f728c09901014528b6760c8fa4fcbeedb80eb295b723fd82330dce742a898. Uninstalled image and native receipt verified with exactly permission revision and receipt hash changed. Live city receipt and suspended rig state unchanged. Both owned phases reaped with no survivors or signals. No worker launched. Next is the fresh bounded worker window and exact startup proof. Task remains open unassigned and unrouted.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "lookmanbenali@gmail.com",
+  "created_at": "2026-09-29T06:37:43Z",
+  "created_by": "loucmane",
+  "updated_at": "2026-09-29T07:42:26Z",
+  "labels": [
+    "candidate-only",
+    "handover",
+    "image-tool"
+  ],
+  "dependencies": [
+    {
+      "id": "ga-e0t1",
+      "dependency_type": "relates-to"
+    }
+  ],
+  "dependent_count": 0,
+  "dependency_count": 1,
+  "comment_count": 0
+}

@@ -1,0 +1,240 @@
+"""Pure admission rules for the fresh ga-1aa1 operational window.
+
+Preparation component only: no executor, launch, route or permission grant.
+The successful R11 runtime-image and single-session rules are preserved. Its
+consumed claims, retry notes and startup-file exceptions are NOT inherited.
+"""
+import hashlib
+import json
+import re
+import stat
+
+TASK = 'ga-1aa1'
+PARENT = 'ga-e0t1'
+TARGET = 'gascity/codex'
+PROVIDER = 'codex-managed'
+WORK = '/home/loucmane/gas-city-ops-candidate-worktrees/ga-1aa1'
+BASE = '5b981444bf7d687c0367da4ee3d111ff4b443ead'
+BRANCH = 'codex/ga-1aa1-handover-image-r3'
+# Fresh same-store readback; parent audit history is not worker input.
+BASELINE = json.loads("{\"id\":\"ga-1aa1\",\"title\":\"Implement reviewed handover image tool r3\",\"description\":\"Operations code task under the existing provider independent handover goal. Implement only image tool r3 requirements from gct-oak5 C1 DESIGN section 7 on exact signed Operations base 5b981444bf7d687c0367da4ee3d111ff4b443ead. Use a fresh isolated Operations candidate worktree and the proven gascity codex Astra high candidate lane after a separately reviewed bounded window. Scope is the existing gct-oak5-handover image tool and its tests only. Preserve pins and existing evidence. No Claude or Fable inference. No signing staging push install live execution new permissions or changes to the frozen C1 lane. No native delegation. Remain unassigned and unrouted until the exact worktree brief and execution package are reviewed.\",\"acceptance_criteria\":\"Prove RED and GREEN for length prefixed skill tree hashing with modes including dot git names in pinned skill targets and image settings digest binding in verify and strictly parsed packed refs fallback and early walk and byte bounds and empty Claude cc writes positive case and holder lane checks and remaining refusal branches. Preserve common Git protection and no coordinator Git in an active handover worktree. Deliver only uncommitted image_tool.py and test_image_tool.py with exact diff inventory and test evidence. Existing pins.json and make_pins.py stay byte identical. Independent review and safe terminal inspection precede intake. This task proves code readiness only and cannot satisfy C1 launch or provider parity.\",\"notes\":\"WORKTREE preparation PASS on 20260929 under signed package bbc9dd899c1f6955964712d979aeb04f60043c8f with two independent Astra reviews. Job ga-1aa1-worktree-r1 exited zero and its unit is inactive. Result digest a93cf77268174867f14179763f5a1c2700db8b490f68376b5c3128f1beed06ca. Exact base 5b981444bf7d687c0367da4ee3d111ff4b443ead and branch codex/ga-1aa1-handover-image-r3 verified with only two expected local policy files. No worker launched or rig changed. Remains open unassigned and unrouted pending reviewed PREP and bounded worker window.\\nPREP r1 PASS on 20260929 under signed package 1648bfdf6115ec52dbdde09d7214b71fdc7925b9 after two independent Astra reviews. Job ga-1aa1-prep-r1 completed with exit zero and inactive unit. Result digest 9d2f728c09901014528b6760c8fa4fcbeedb80eb295b723fd82330dce742a898. Uninstalled image and native receipt verified with exactly permission revision and receipt hash changed. Live city receipt and suspended rig state unchanged. Both owned phases reaped with no survivors or signals. No worker launched. Next is the fresh bounded worker window and exact startup proof. Task remains open unassigned and unrouted.\",\"status\":\"open\",\"priority\":2,\"issue_type\":\"task\",\"owner\":\"lookmanbenali@gmail.com\",\"created_at\":\"2026-09-29T06:37:43Z\",\"created_by\":\"loucmane\",\"updated_at\":\"2026-09-29T07:42:26Z\",\"labels\":[\"candidate-only\",\"handover\",\"image-tool\"],\"dependencies\":[{\"id\":\"ga-e0t1\",\"dependency_type\":\"relates-to\"}],\"dependent_count\":0,\"dependency_count\":1,\"comment_count\":0}")
+DESCRIPTION = hashlib.sha256(BASELINE['description'].encode()).hexdigest()
+ACCEPTANCE = hashlib.sha256(BASELINE['acceptance_criteria'].encode()).hexdigest()
+UNBOUND_NOTE = BASELINE['notes']
+BIND_NOTE = "Operational startup contract for ga-1aa1. Completed WORKTREE and PREP results supersede the preparatory brief's proposed and not-yet-created wording; their preserved outputs bind the actual workspace and base. Scope remains exactly image_tool.py and test_image_tool.py. Read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/WORKER-BRIEF.md sha256 b0c225a577554540d0d85ea0fa012f330b4228def5bfdb573b83392478e2d0f3 and /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/PRECLAIM.md sha256 60dc27d5d3f4bf9c2a9a642b25fa84ba800cbef0485779a0f1a4b0a759ab9786. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/worker-startup.py sha256 11002eaef7fc742df0974360824e8cb8278c3c16a06a92f472fba696b4d1fcbc only in the actual worker sandbox with its real session ID. Fresh startup proof and one acknowledged same-session source release are mandatory before editing. Preserve subscription-only authentication, sandbox and native denials, candidate-only scope and all historical evidence. No staging signing commits pushes task close native delegation installs or live product execution. Store new evidence only in .gc/worker-evidence/ga-1aa1/r1. Return an uncommitted candidate only."
+BOUND_NOTE = UNBOUND_NOTE + '\n' + BIND_NOTE
+RULES = {
+    '.codex/rules/gas-city-native-control.rules': '0a2c32485d71ef31875010ea810deffb0f2936e8c89bb5da2f7f2aeed5044123',
+    '.codex/rules/window-restrictions.rules': 'ea2645785163d3f9b6d5ddfe8a08c5ff40b97a8cb1739bca94dd4b2844f15773',
+}
+DEFAULT_RULES = '3d80d7351c83161cadea1a7bbb3271a567c43fe4bc9c6074dd53f684cc576516'
+SCOPE_ROOT = 'docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-handover/image/'
+SOURCE_PATHS = tuple(SCOPE_ROOT + path for path in ('image_tool.py', 'test_image_tool.py'))
+EVIDENCE_ROOT = '.gc/worker-evidence/ga-1aa1/r1/'
+
+# Core f45a6262 materializes these existing city inputs for an external
+# workspace. These are exact possible outputs, not a generic ignored-path
+# allowance. The reviewer packet cites the Core producer and prior real output.
+RUNTIME_IMAGE = {path:dict(mode=mode,type=stat.S_IFDIR) for path,mode in (
+    ('.gc',0o700),('.gc/tmp',0o700),('.gc/scripts',0o755),('.agents/skills',0o755))}
+for path,mode,size,digest in (
+    ('.gc/settings.json',0o644,5360,'fdd32781975c43c69687c5a9a6ad470f88d2ca54c211a045164a52173d1ef136'),
+    ('.gc/scripts/mol-dog-stale-db.sh',0o755,9692,'f201cd2894ad6250d2a5093085b5a136dcc0c4d37299d0af9acc428c4a635522'),
+    ('.gc/tmp/skill-catalog-gascity_codex.b64',0o600,3620,'9dd0fb78454c73aeb38c66765506a208600ab77c801d55145e6bbf1a154448d9'),
+    ('.agents/skills/.gc-skill-ownership.json',0o644,1348,'f51ef6490bbc3ae9c595b2fe0aaf5a4d825c0db4e5edbc56c59d315e6dc3cf10')):
+    RUNTIME_IMAGE[path]=dict(mode=mode,type=stat.S_IFREG,size=size,sha256=digest)
+for skill in ('gc-agents','gc-city','gc-dashboard','gc-dispatch','gc-mail','gc-rigs','gc-work'):
+    RUNTIME_IMAGE['.agents/skills/core.'+skill]=dict(mode=0o777,type=stat.S_IFLNK,
+        target='/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/'+skill)
+RUNTIME_IMAGE['.agents/skills/gascity.mayor']=dict(mode=0o777,type=stat.S_IFLNK,
+    target='/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills/mayor')
+RUNTIME_IMAGE['.codex/hooks.json']={'mode': 420, 'type': 32768, 'size': 1238, 'sha256': '55e21a9d981805afb62da110b022bc847f7ad2b9a62bada45de95dbdfa472410'}
+RUNTIME_FILES={path for path,row in RUNTIME_IMAGE.items() if row['type']!=stat.S_IFDIR}
+
+
+def require(ok, message):
+    if not ok:
+        raise RuntimeError(message)
+
+
+def own_fields(value):
+    require(isinstance(value, dict), 'task shape')
+    return {key: val for key, val in value.items()
+            if key not in ('dependencies', 'dependents', 'metadata', 'notes', 'updated_at')}
+
+
+def validate_task(value, phase):
+    """Fresh task only: the informational edge and pre-existing notes persist."""
+    require(phase in ('unbound', 'bound', 'routed'), 'task phase')
+    require(own_fields(value) == own_fields(BASELINE), 'task own fields differ')
+    require(value.get('status') == 'open' and not value.get('assignee')
+            and 'parent' not in value, 'task is owned or has a parent')
+    require(value.get('notes') == (UNBOUND_NOTE if phase == 'unbound' else BOUND_NOTE),
+            'task evidence or startup contract differs')
+    deps = value.get('dependencies')
+    require(isinstance(deps, list) and len(deps) == 1 and isinstance(deps[0], dict),
+            'dependency cardinality')
+    require((deps[0].get('id'), deps[0].get('dependency_type')) == (PARENT, 'relates-to'),
+            'informational relationship differs')
+    require(not value.get('dependents') and value.get('dependency_count') == 1
+            and value.get('dependent_count') == 0, 'unexpected dependency counts')
+    expected = {} if phase == 'unbound' else {'gc.work_dir': WORK}
+    if phase == 'routed':
+        expected['gc.routed_to'] = TARGET
+    actual = value.get('metadata', {})
+    require(isinstance(actual, dict) and actual == expected, 'task control metadata drift')
+
+
+def validate_binding_delta(before, after):
+    validate_task(before, 'unbound')
+    validate_task(after, 'bound')
+    require(after['notes'] == before['notes'] + '\n' + BIND_NOTE, 'notes not append-forward')
+    for key in set(before) | set(after):
+        if key not in ('metadata', 'notes', 'updated_at'):
+            require(before.get(key) == after.get(key), 'unexpected binding delta: ' + key)
+
+
+def validate_route_delta(before, after):
+    validate_task(before, 'bound')
+    validate_task(after, 'routed')
+    for key in set(before) | set(after):
+        if key not in ('metadata', 'updated_at'):
+            require(before.get(key) == after.get(key), 'unexpected route delta: ' + key)
+
+
+def validate_rule_status(raw):
+    # Fresh prelaunch workspace: Core has not materialized runtime files yet.
+    expected = {b'!! ' + path.encode() for path in RULES}
+    require(isinstance(raw, bytes) and raw.endswith(b'\0'), 'unterminated Git status')
+    entries = raw[:-1].split(b'\0')
+    require(len(entries) == len(expected) and set(entries) == expected,
+            'fresh workspace contains more than its exact two policy files')
+
+
+def close_identity(session):
+    require(isinstance(session,dict) and session.get('template')==TARGET
+            and session.get('rig')=='gascity' and session.get('provider')==PROVIDER
+            and session.get('work_dir')==WORK and not session.get('closed'), 'close worker capability differs')
+    for key in ('id','session_name'):
+        require(isinstance(session.get(key),str)
+                and re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9_.-]{1,127}',session[key]), 'close identity missing')
+    require(isinstance(session.get('created_at'),str) and session['created_at'], 'close creation identity missing')
+    return {key:session.get(key) for key in ('id','session_name','template','rig','provider','work_dir','worker_dir','created_at')}
+
+
+def close_census(value, expected):
+    require(isinstance(value,dict) and value.get('ok') is True
+            and isinstance(value.get('sessions'),list) and len(value['sessions'])<=1, 'close census not singleton')
+    rows=value['sessions']
+    if rows:require(close_identity(rows[0])==expected, 'close session substituted or not bound')
+    return rows
+
+
+def running_rows(value, census, action):
+    """Admit the real single-worker duplicate display only during suspension.
+
+    Do not change Core's count, erase duplicate rows, or permit a second session.
+    The canonical and session rows are two views of one census-bound worker.
+    """
+    require(action in ('rig-resume', 'city-resume', 'city-suspend', 'rig-suspend'), 'lifecycle action')
+    require(isinstance(census, dict) and census.get('ok') is True, 'session census failed')
+    sessions = census.get('sessions')
+    require(isinstance(sessions, list) and len(sessions) <= 1, 'extra session')
+    allowed = {TARGET: ('codex', 'rig')}
+    if sessions:
+        session = sessions[0]
+        require(isinstance(session, dict) and session.get('template') == TARGET
+                and not session.get('closed'), 'wrong session template')
+        require(session.get('work_dir') == WORK and session.get('rig') == 'gascity'
+                and session.get('provider') == PROVIDER, 'session workspace or provider drift')
+        # A fresh live session must carry its native ID and real tmux session name.
+        require(isinstance(session.get('id'), str) and bool(session['id'])
+                and isinstance(session.get('session_name'), str) and bool(session['session_name']),
+                'session identity missing')
+        require(session['session_name'] != TARGET, 'ambiguous session identity')
+        if action.endswith('-suspend'):
+            allowed[session['session_name']] = (session['session_name'], 'city')
+    agents = value.get('agents')
+    require(isinstance(agents, list), 'agent rows')
+    require(all(isinstance(row, dict) and type(row.get('running')) is bool for row in agents), 'agent row shape')
+    running = [row for row in agents if row['running']]
+    names = [row.get('qualified_name') for row in running]
+    require(len(names) == len(set(names)) and set(names) <= set(allowed), 'unexpected running row')
+    for row in running:
+        require((row.get('name'), row.get('scope')) == allowed[row['qualified_name']], 'running row identity')
+    summary = value.get('summary', {})
+    require(type(summary.get('running_agents')) is int and summary['running_agents'] == len(running),
+            'running count mismatch')
+    active_sessions = summary.get('active_sessions')
+    if 'active_sessions' not in summary:
+        # The Core integer field is omitempty. Accept only its absent-zero form,
+        # corroborated by a complete independent census and no running rows.
+        # A suspended record is not an active session; still bind its identity
+        # above and require its explicit state rather than guessing from count.
+        counts = census.get('summary')
+        expected = dict(total=len(sessions), active=0, suspended=len(sessions), closed=0)
+        require(isinstance(counts, dict) and not running
+                and all(type(counts.get(key)) is int and counts[key] == count
+                        for key, count in expected.items())
+                and all(session.get('state') == 'suspended' for session in sessions),
+                'omitted active session count lacks independent zero proof')
+        active_sessions = 0
+    require(type(active_sessions) is int and 0 <= active_sessions <= len(sessions),
+            'active session count')
+    require(not running or len(sessions) == 1, 'running worker without a session')
+    return running
+
+
+def close_claim(task, session, admitted=None):
+    # No historical failed-claim allowance from R11. An unclaimed new session
+    # may close only against the exact admitted, fresh routed task.
+    close_identity(session)
+    require(task.get('id') == TASK and task.get('status') in ('open', 'in_progress'),
+            'close task identity or state')
+    for key, digest in (('description', DESCRIPTION), ('acceptance_criteria', ACCEPTANCE)):
+        require(isinstance(task.get(key), str)
+                and hashlib.sha256(task[key].encode()).hexdigest() == digest,
+                'close task contract differs')
+    metadata = task.get('metadata')
+    require(isinstance(metadata, dict) and metadata.get('gc.work_dir') == WORK
+            and metadata.get('gc.routed_to') == TARGET, 'close route or workspace differs')
+    owner = {'gc.session_id': session['id'], 'gc.session_name': session['session_name']}
+    if task['status'] == 'open':
+        require(isinstance(admitted, dict) and task == admitted, 'unclaimed task differs from admission')
+        validate_task(admitted, 'routed')
+    else:
+        require(task.get('assignee') == session['session_name']
+                and all(metadata.get(key) == val for key, val in owner.items()),
+                'close claim owner differs')
+
+
+def require_source_scope(paths):
+    require(bool(paths) and len(paths) == len(set(paths)), 'empty or duplicate source inventory')
+    require(set(paths) <= set(SOURCE_PATHS), 'source change outside the two-file image-tool scope')
+
+
+def candidate_status(raw):
+    """Post-terminal only; byte/mode/evidence bounds are checked by the inspector."""
+    require(isinstance(raw, bytes) and raw.endswith(b'\0'), 'unterminated candidate status')
+    changes, evidence, rules, runtime, seen = [], [], [], [], set()
+    for row in raw[:-1].split(b'\0'):
+        require(len(row) > 3 and row[2:3] == b' ', 'candidate status record')
+        code, path = row[:2], row[3:].decode('utf-8', 'strict')
+        require(path not in seen and not path.startswith('/')
+                and all(part not in ('', '.', '..') for part in path.split('/')),
+                'candidate path shape')
+        seen.add(path)
+        if code == b' M' and path in SOURCE_PATHS:
+            changes.append(path)
+        elif code == b'!!' and path in RULES:
+            rules.append(path)
+        elif (code == b'!!' and path in RUNTIME_FILES) or (code == b'??' and path == '.codex/hooks.json'):
+            runtime.append(path)
+        elif code in (b'??', b'!!') and path.startswith(EVIDENCE_ROOT):
+            evidence.append(path)
+        else:
+            raise RuntimeError('unaccepted candidate status or path')
+    require_source_scope(changes)
+    require(set(rules) == set(RULES), 'candidate policy inventory')
+    require(0 < len(evidence) <= 128, 'candidate evidence inventory')
+    return dict(source=sorted(changes), evidence=sorted(evidence), rules=sorted(rules), runtime=sorted(runtime))
