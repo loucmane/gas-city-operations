@@ -57,8 +57,15 @@ def harness(monkeypatch, fault=None):
         return dict(exe=EXE, argv=poller['argv'], cgroup='0::/other.service\n' if fault=='cgroup' else CG)
     monkeypatch.setattr(r.os.path, 'lexists', lambda p: False)
     monkeypatch.setattr(r.time, 'time', lambda: START)
-    rt = SimpleNamespace(PROC=Path('/proc'),proc_bytes=proc,node=node,
-        process_table=lambda:{123:dict(start='456',uid=1000)})
+    reads = 0
+    def process_table():
+        nonlocal reads
+        reads += 1
+        row=dict(start='456',uid=1000,gid=1000,ppid=1,state='R' if reads%2 else 'S')
+        if reads > 1 and fault == 'pid-reuse': row['start'] = '999'
+        if reads > 1 and fault == 'zombie': row['state'] = 'Z'
+        return {123:row}
+    rt = SimpleNamespace(PROC=Path('/proc'),proc_bytes=proc,node=node,process_table=process_table)
     w = SimpleNamespace(GC=[EXE,'--city',str(r.CITY)],b_gc_sha=lambda:digest,
         save=lambda k,v:saved.setdefault(k,v))
     def run():
@@ -76,7 +83,7 @@ def test_adapter_enqueues_once_and_requires_real_observation_contract(monkeypatc
     assert saved['delivery-acknowledged.json']['delivered']
 
 
-@pytest.mark.parametrize('fault', ['existing','ack','epoch','cgroup'])
+@pytest.mark.parametrize('fault', ['existing','ack','epoch','cgroup','pid-reuse','zombie'])
 def test_adapter_failure_never_resends_or_declares_success(monkeypatch, fault):
     run,calls,saved = harness(monkeypatch,fault)
     with pytest.raises(RuntimeError): run()

@@ -109,7 +109,14 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
                       argv=node['argv'], cgroup=node['cgroup'], executable_sha256=image)
         queue = json.loads(stable_read(queue_path, 16 << 20))
         transcript = stable_read(Path(proof['transcript_path']), 32 << 20)
-        require(runtime.process_table().get(pid) == table[pid], 'native poller changed during read')
+        after = runtime.process_table().get(pid)
+        require(after is not None and after.get('state') not in ('Z','X')
+                and table[pid].get('state') not in ('Z','X')
+                and all(after.get(k) == table[pid].get(k) for k in ('start','uid','gid')),
+                'native poller changed during read')
+        final_node = runtime.node(pid, after)
+        require(all(final_node.get(k) == node.get(k) for k in ('exe','argv','cgroup')),
+                'native poller executable or cgroup changed during read')
         require(alive(), 'worker exited during release')
         w.save('delivery-observation-' + str(counter) + '.json', dict(receipts=rows, queue=queue,
             poller=poller, transcript_sha256=hashlib.sha256(transcript).hexdigest()))

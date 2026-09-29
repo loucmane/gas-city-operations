@@ -71,6 +71,23 @@ def test_native_enqueue_has_no_nudge_id_and_is_not_delivery():
         run([snapshot()])
 
 
+def test_literal_pinned_non_acp_formatter_not_self_generated_expected_value():
+    # Core f45a6262 cmd/gc/cmd_nudge.go:1408-1413,1679-1698.
+    expected = ('<system-reminder>\n'
+        'You have a deferred reminder that was queued until a safe boundary:\n\n'
+        '- [session] SOURCE RELEASE: ga-e0t1.20 session=ci-example report_sha256=' + 'a'*64 +
+        '\n\nHandle them after this turn.\n</system-reminder>\n')
+    literal = json.dumps(dict(type='response_item', payload=dict(type='message', role='user',
+        content=[dict(type='input_text', text=expected)]))).encode()+b'\n'
+    assert d.native_payload(M) == expected
+    assert d.transcript_ingress(BEFORE, BEFORE+literal, M)
+    acp = 'Deferred reminders:\n- [session] '+M+'\n\nThese were queued until the session went idle.\n'
+    wrong = json.dumps(dict(type='response_item', payload=dict(type='message', role='user',
+        content=[dict(type='input_text', text=acp)]))).encode()+b'\n'
+    with pytest.raises(RuntimeError, match='payload differs'):
+        d.transcript_ingress(BEFORE, BEFORE+wrong, M)
+
+
 def test_preserved_r10_response_proves_only_enqueue():
     root = Path('/var/tmp/ga-e0t1.20-startup-release-20260929-r10')
     phase = json.loads((root/'source-release-phase.json').read_bytes())

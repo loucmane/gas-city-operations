@@ -54,8 +54,13 @@ Two actual-source details prevent invented contracts:
    unique exact message/session native nudge record; bind `metadata.nudge_id`.
    Terminal success is closed/injected with `commit_boundary=provider-nudge-return`.
    Queue disappearance alone does not prove delivery.
-2. The native poller sends `formatNudgeRuntimeMessage`, beginning `Deferred reminders`;
-   it does not send the provider-hook `formatNudgeInjectOutput` wrapper.
+2. Initial diagnostic interpretation claimed the native poller sends
+   `formatNudgeRuntimeMessage`, beginning `Deferred reminders`. The independent
+   R11 source reviews disproved this before execution: at Core
+   `f45a6262` lines 1408–1413 that formatter is ACP-only. The observed tmux worker
+   uses `formatNudgeInjectOutput`, including its `system-reminder` wrapper.
+   The initial interpretation is preserved here as a corrected finding, not
+   runtime authority.
 
 Focused tests must prove enqueue-only false success, delayed delivery, exact
 session/message, early helper death, timeout, absent native acknowledgement,

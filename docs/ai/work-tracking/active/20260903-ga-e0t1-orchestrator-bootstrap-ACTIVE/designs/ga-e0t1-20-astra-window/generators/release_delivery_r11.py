@@ -30,8 +30,13 @@ def enqueue_result(value, session):
 def native_payload(message):
     require(isinstance(message, str) and message.startswith('SOURCE RELEASE: ')
             and '\n' not in message and '\r' not in message, 'release message shape')
-    return ('Deferred reminders:\n- [session] ' + message
-            + '\n\nThese were queued until the session went idle.\n')
+    # Pinned Core f45a6262 cmd_nudge.go:1408-1413 selects this formatter
+    # for the observed tmux/non-ACP transport. The ACP formatter differs.
+    require(re.fullmatch(r'SOURCE RELEASE: [A-Za-z0-9_.:= -]+', message),
+            'release message requires reviewed sanitization')
+    return ('<system-reminder>\n'
+            'You have a deferred reminder that was queued until a safe boundary:\n\n'
+            '- [session] ' + message + '\n\nHandle them after this turn.\n</system-reminder>\n')
 
 
 def matching_receipts(rows, session, message):

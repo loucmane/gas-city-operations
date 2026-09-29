@@ -57,3 +57,23 @@ roots, pending fenced message and complete restoration evidence. Do not replay
 WORKTREE, BIND, ROUTE or any consumed R10 job. Reuse the actual startup proof as
 historical evidence but require the fresh worker's own identity and startup.
 This draft grants no worker execution and cannot replace runner admission.
+
+## Independent review correction before any live fixture
+
+Both read-only Astra reviewers held exact signed draft
+`f2615fb1218d59c45d27260b1f881359db7742ef` on the wrong formatter selection.
+Reviewer A additionally held the comparison of transient scheduler states.
+No synthetic unit or worker had run. The source now binds the non-ACP
+`formatNudgeInjectOutput` selected by exact live Core `f45a6262`, and its test
+uses a literal independently specified native message rather than generating
+the expected value through the implementation. The ACP format explicitly
+refuses. Poller identity checks retain PID, start, owner, executable, arguments
+and cgroup while permitting ordinary R to S scheduling; zombie/dead and reused
+PID cases refuse. The original diagnostic assertion is explicitly corrected in
+R10-LIVE-OUTCOME rather than hidden.
+
+Focused corrected result: 73 passed, zero failures, two opt-in fixture skips;
+`/tmp/ga-e0t1-r11-delivery-focused-r5-20260929.xml`. The service fixture itself
+is byte-unchanged. Its future invocation must first prove its proposed
+basetemp root absent, since pytest may erase a pre-existing basetemp. No retry
+will reuse a consumed fixture root. Independent delta review remains required.
