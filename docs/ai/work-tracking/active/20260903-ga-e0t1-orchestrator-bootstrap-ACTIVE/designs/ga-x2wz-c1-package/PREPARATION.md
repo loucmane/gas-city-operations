@@ -63,3 +63,9 @@ journal ready and no pending event. Do not rerun ga-1aa1 or its completed jobs.
 With clarified authority, finish the mechanically derived worker preparation and
 its tests/reviews, then route only the fresh scoped task through the normal
 reviewed launch controls. No frozen Template C1 provider substitution is implied.
+
+## Append-forward approval — 2026-09-29
+
+The operator explicitly approved the bounded coordinator preparation exception.
+AUTHORIZATION.md preserves the question and response. The previous refusals
+remain history; independent review is still mandatory before any execution.
