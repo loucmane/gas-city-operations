@@ -1,0 +1,49 @@
+{
+  "id": "ga-x2wz",
+  "title": "Build executable C1 handover window package",
+  "description": "Candidate only implementation of the accepted C1 d11 window contract in Operations. Reuse exact gct-e8ex s5 predecessor and accepted image r3 and slots without another design cycle. Produce deterministic package assembly, generated bounded executors and isolated regression fixtures. Use one fresh Gas City Astra high worker with reviewed startup probes and acknowledged release. No C1 launch or changes to Template tasks, live settings, rigs or protected projects by the worker. No signing, push, delegation or activation by the worker. Preserve all historical packages and evidence.",
+  "acceptance_criteria": "Exact signed Operations base and scope bound before dispatch. Proven startup capability and single claim before any edit. Deterministic generation with asserted predecessor digests and replacement counts. Positive and negative offline tests cover every accepted C1 safety invariant including controller cgroup quiet points, bounded live census, tmux jobs, slot arbitration, close self admission, restore deadlines and create only evidence. Two independent read only reviews pass on the exact candidate. All worker files inventoried, unrelated inputs unchanged, supported drain and suspension with zero residue. Candidate only closure does not prove C1 execution or provider parity.",
+  "notes": "Preparation checkpoint only Exact intended signed base bf369ae41cf512f5f5563f842cadff394457da4c with candidate workspace ga-x2wz and branch codex/ga-x2wz-c1-package No worker workspace or branch created Automatic review twice refused coordinator materialization of mechanically rebound workspace controls before any write The second decision followed exact unchanged function proof and reread of standing authority No bypass or runtime mutation The only saved files are preparation evidence and ledger readback Await specific coordinator preparation exception with independent review before execution All C1 implementation remains Gas City worker only The task stays open unassigned and unrouted\nOperator approved the explicit bounded coordinator preparation exception on 20260929 It covers this tasks workspace and launch controls including exact task base file scope bindings and tests with independent review before execution Actual C1 implementation remains Gas City worker only Previous refusals remain preserved No worker launched No workspace created Task remains open unassigned and unrouted\nWORKTREE PASS at signed 1e4ac7ac after two independent Astra passes Result a538ebb3 binds exact clean workspace and frozen signed base bf369ae4 Both local rule files installed with global default unchanged Job ended inactive and exit zero No worker route claim receipt install or rig transition Task remains open unassigned and unrouted Next is uninstalled PREP and reviewed worker window Never replay completed WORKTREE All evidence preserved\nPREP PASS at exact signed 60320d683017e7a4a6fda617e268a2ae73ac10df after two independent Astra passes Result 21ad0d154fcb3d0ddf03b7ce2d708d41669495e12115316741441c741d6d86bd binds uninstalled one worker configuration and unchanged typed profiles Only two receipt fields changed in the uninstalled output Job ended inactive exit zero No worker launch claim route or rig transition occurred Completed WORKTREE and PREP are not repeatable Next is complete independently reviewed worker window Task remains open unassigned and unrouted\nOperational startup contract for ga-x2wz. Completed WORKTREE and PREP bind the exact clean workspace and signed base. Scope is create only and finite at /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-x2wz-c1-package/FILE-SCOPE.json sha256 3ffdeb52a9d527d3a598cde728ecea590baca02ef10b4c61bd5a952de697f31e. New product parent directories use mode 0755. Read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-x2wz-c1-package/WORKER-BRIEF.md sha256 c389dc4a1a624c8cf0193e346fc1b8fb230a08dfee47d512915c717ff9c1b6b8 and /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-x2wz-c1-package/PRECLAIM.md sha256 2b0bf9bae1983e7efd8015233d45c9e26db9cc1d360b7c271b97e498ec8f1d58. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-x2wz-c1-package/worker-startup.py sha256 b7c33d703ebc2ba30df2074ea392abcdb94b7c596cc4b27d3ab42d2bf8e80c3c only in the actual worker sandbox with its real session ID. Fresh startup proof including two immutable predecessor reads and one acknowledged same session release are mandatory before editing. Preserve subscription only authentication sandbox and native denials candidate only scope and all historical evidence. No staging signing commits pushes task close native delegation installs or live product execution. New evidence belongs only in .gc/worker-evidence/ga-x2wz/r1. Return an uncommitted candidate only.\nSTARTUP READY: ga-x2wz report_sha256=819c79d6ba2c6613a79251437670eb3ecb64115aabfe9127f50de3ddf663e2bc",
+  "status": "closed",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "lookmanbenali@gmail.com",
+  "created_at": "2026-09-29T10:24:47Z",
+  "created_by": "loucmane",
+  "updated_at": "2026-09-29T12:36:50Z",
+  "started_at": "2026-09-29T12:04:26Z",
+  "closed_at": "2026-09-29T12:36:50Z",
+  "close_reason": "FAIL before editing Exact waiting marker changed after a deferred reminder Release was not delivered No product changes Supported containment and restoration PASS with zero residue and Drifts null Terminal evidence dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8 Detailed LIVE-OUTCOME.md remains in the ga-x2wz package Preserve this attempt and all native history Never replay it The original full goal remains active",
+  "metadata": {
+    "gc.continuation_group": "",
+    "gc.controller_error": "claimed work has had no observable progress since 2026-09-29T12:05:22Z; inspect session codex-ci-di744 and decide whether to resume, repair, or stop",
+    "gc.failure_owner": "gc.session-reconciler",
+    "gc.failure_reason": "progress_stall",
+    "gc.failure_subject": "ci-di744",
+    "gc.progress_attention_signature": "7aa088e3332122ab283c82346d6d7ad69d3f6c1a687c0d6cf8806d520086a22e",
+    "gc.progress_last_observed_at": "2026-09-29T12:05:22Z",
+    "gc.routed_to": "gascity/codex",
+    "gc.session_affinity": "",
+    "gc.session_id": "ci-di744",
+    "gc.session_name": "codex-ci-di744",
+    "gc.work_branch": "agent/upstream-pending-create-lease",
+    "gc.work_dir": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-x2wz",
+    "gc.work_outcome": "blocked"
+  },
+  "labels": [
+    "candidate",
+    "handover",
+    "needs/operator",
+    "workflow"
+  ],
+  "dependencies": [
+    {
+      "id": "ga-e0t1",
+      "dependency_type": "relates-to"
+    }
+  ],
+  "dependent_count": 0,
+  "dependency_count": 1,
+  "comment_count": 0
+}
+
