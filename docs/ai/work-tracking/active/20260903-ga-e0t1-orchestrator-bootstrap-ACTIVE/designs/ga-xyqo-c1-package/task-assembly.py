@@ -100,7 +100,15 @@ COMPLETED_BINDING = """def completed_binding(w):
 """
 
 
-def routing(raw, *, window_sha, binding_sha, contract):
+CONTINUED_TASK = """def continued_task(current,bound,w):
+    # Use the already-reviewed exact fresh-task predicate, including both
+    # informational edges, immutable held evidence and parent audit continuity.
+    admission=w.module(HERE/'fresh-admission.py',ADMISSION_SHA)
+    admission.continued_task(current,bound,w.contract())
+"""
+
+
+def routing(raw, *, window_sha, binding_sha, admission_sha, contract):
     if sha(raw) != OLD_ROUTE:
         raise ValueError('ROUTE predecessor differs')
     text = retarget(raw.decode())
@@ -109,6 +117,11 @@ def routing(raw, *, window_sha, binding_sha, contract):
                 pin(binding_sha))
     text = once(text, OLD_DESCRIPTION, contract.DESCRIPTION)
     text = function(text, 'completed_binding', COMPLETED_BINDING)
+    text = function(text, 'continued_task', CONTINUED_TASK)
+    text = once(text, "TARGET='gascity/codex'",
+                "TARGET='gascity/codex'\nADMISSION_SHA=" + repr(pin(admission_sha)))
+    text = once(text, '    continued_task(before,bound)',
+                '    continued_task(before,bound,w)')
     # Preserve supported dry run and one real raw route. Freeze the exact new
     # routed image for startup/close; do not substitute a preflight bound image.
     text = once(text, "    assert after['metadata']==dict(before['metadata'],**{'gc.routed_to':TARGET})",

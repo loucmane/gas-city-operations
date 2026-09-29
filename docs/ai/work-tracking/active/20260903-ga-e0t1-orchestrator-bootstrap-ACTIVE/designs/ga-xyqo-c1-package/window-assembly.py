@@ -231,7 +231,8 @@ def assemble(*, observation, observation_sha, cache_ns):
     out['bind-task.py'] = tasks.binding(before['bind-task-r5.py'],
         base_sha=sha(before['window-base-r11.py']), contract=c)
     out['route-task.py'] = tasks.routing(before['route-task-r5.py'],
-        window_sha=sha(before['window-r11.py']), binding_sha=sha(before['bind-task-r5.py']), contract=c)
+        window_sha=sha(before['window-r11.py']), binding_sha=sha(before['bind-task-r5.py']),
+        admission_sha=sha(local['fresh-admission.py']), contract=c)
     out['audit-queue-r3.py'] = queue_source(before['audit-queue-r3.py'], sha(local['contract.py']))
     # Release and containment bind the actual post-route task, not the fresh
     # preflight bound snapshot. This is still the same task, not a retry.

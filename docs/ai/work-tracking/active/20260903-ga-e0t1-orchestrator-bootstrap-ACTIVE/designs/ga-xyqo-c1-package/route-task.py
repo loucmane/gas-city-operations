@@ -28,6 +28,7 @@ RECORD_SHA='df765fd0e357925bab51891c72019018bb43b65fcd6e97addf0582c9bdf5e5d7'
 HELPER=HERE/'window.py'
 SHA='3ffda561473ec9b4a3ffe6260059ef11e73a7d568f8deb8d5864da780c7050d6'
 TARGET='gascity/codex'
+ADMISSION_SHA='7063b96faa44069a45de13de2a4856d6bd2149f8cc2fa1930ce46e042eb4a1b7'
 
 def completed_binding(w):
     s=BIND.lstat()
@@ -47,22 +48,11 @@ def completed_binding(w):
     return bound
 
 
-def continued_task(current,bound):
-    # gc embeds parent audit history in each child read. Retain exact own
-    # fields and all parent fields except a monotonic append-only audit update.
-    from datetime import datetime
-    assert set(current)==set(bound), 'bound task field set'
-    for key in bound:
-        if key!='dependencies':assert current[key]==bound[key], ('bound task changed',key)
-    old=bound['dependencies'];new=current['dependencies']
-    assert isinstance(old,list) and isinstance(new,list) and len(old)==len(new)==1
-    old=old[0];new=new[0]
-    assert set(old)==set(new), 'parent field set'
-    for key in old:
-        if key not in ('notes','updated_at'):assert new[key]==old[key], ('parent changed',key)
-    assert isinstance(new['notes'],str) and new['notes'].startswith(old['notes']), 'parent audit erased'
-    a=datetime.fromisoformat(old['updated_at']);z=datetime.fromisoformat(new['updated_at'])
-    assert a.tzinfo is not None and z.tzinfo is not None and z>=a, 'parent audit time'
+def continued_task(current,bound,w):
+    # Use the already-reviewed exact fresh-task predicate, including both
+    # informational edges, immutable held evidence and parent audit continuity.
+    admission=w.module(HERE/'fresh-admission.py',ADMISSION_SHA)
+    admission.continued_task(current,bound,w.contract())
 
 
 def main():
@@ -83,7 +73,7 @@ def main():
         return v[0]
     before_host=w.host(o)
     before=bead('task-before-read');w.save('task-before.json',before)
-    continued_task(before,bound)
+    continued_task(before,bound,w)
     assert before['status']=='open' and not before.get('assignee')
     assert 'gc.routed_to' not in before['metadata']
     # ga-xyqo: the Template pre-route, built from the reviewed ga-6utp preroute pieces (preroute.check itself

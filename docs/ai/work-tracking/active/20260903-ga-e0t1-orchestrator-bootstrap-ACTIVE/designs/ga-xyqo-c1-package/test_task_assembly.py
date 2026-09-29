@@ -31,7 +31,8 @@ BASE_SHA, WINDOW_SHA = 'a' * 64, 'b' * 64
 def scripts():
     bind = a.binding((OLD / 'bind-task-r5.py').read_bytes(), base_sha=BASE_SHA, contract=c)
     route = a.routing((OLD / 'route-task-r5.py').read_bytes(), window_sha=WINDOW_SHA,
-                      binding_sha=a.sha(bind), contract=c)
+                      binding_sha=a.sha(bind),
+                      admission_sha=a.sha((HERE / 'fresh-admission.py').read_bytes()), contract=c)
     return bind, route
 
 
@@ -57,7 +58,7 @@ def test_changed_predecessor_refuses(which):
             a.binding(b'not the reviewed predecessor', base_sha=BASE_SHA, contract=c)
         else:
             a.routing(b'not the reviewed predecessor', window_sha=WINDOW_SHA,
-                      binding_sha=BASE_SHA, contract=c)
+                      binding_sha=BASE_SHA, admission_sha=BASE_SHA, contract=c)
 
 
 @pytest.mark.parametrize('value', ['', 'short', 'A' * 64, 'a' * 65, None])
@@ -229,3 +230,90 @@ def test_unrelated_preroute_controls_are_unchanged():
     previous = previous.replace("variant='template-root-pieces'", "variant='candidate-root-pieces'")
     text = route.decode()
     assert previous == text[text.index("    # ga-xyqo:"):text.index(stop)]
+
+
+class RoutePrefixAccepted(Exception):
+    """Stops the real ROUTE body before reading any host preroute implementation."""
+
+
+def setup_route_prefix(tmp_path):
+    bind, w, state, _ = setup_binding(tmp_path)
+    # Native show embeds audit projections; the minimal own-field fixture does not.
+    for row in state['task']['dependencies']:
+        row.update(notes='preserved audit', title='unchanged projection',
+                   updated_at='2026-09-29T19:29:29Z')
+    bind.main()
+    bound = copy.deepcopy(state['task'])
+    _, raw = scripts()
+    path = tmp_path / 'route-task.py'
+    path.write_bytes(raw)
+    r = load(raw, path=path)
+    r._SOURCE_SHA = a.sha(raw)
+    r.BIND, r.BIND_SHA = bind.ROOT, bind._SOURCE_SHA
+    r.ROOT = tmp_path / 'route'
+    r.HELPER = tmp_path / 'route-window.py'
+    r.HELPER.write_bytes(b'pass\n')
+    r.SHA = a.sha(r.HELPER.read_bytes())
+    r.types = types.SimpleNamespace(ModuleType=lambda name: types.SimpleNamespace(w=w))
+    w.WORK = Path(c.WORK)
+    w.CITY_SHA = ['city-before', 'city-before']
+    w.RECEIPT_SHA = ['receipt-before', 'receipt-before']
+    w.ROOT = tmp_path / 'staged-window'
+    w.ROOT.mkdir()
+    w.save('stage-pass.json', dict(ok=True, worker_launched=False))
+    def module(path, expected):
+        assert path == r.HERE / 'fresh-admission.py'
+        content = (HERE / 'fresh-admission.py').read_bytes()
+        assert a.sha(content) == expected
+        return load(content, 'reviewed_admission')
+    w.module = module
+    def stop_before_host_code():
+        raise RoutePrefixAccepted()
+    r.PREROUTE = types.SimpleNamespace(read_bytes=stop_before_host_code)
+    return r, w, state, bound
+
+
+@pytest.mark.parametrize('audit', [False, True])
+def test_actual_route_main_accepts_two_edge_bound_task(tmp_path, audit):
+    r, w, state, bound = setup_route_prefix(tmp_path)
+    assert {row['id'] for row in bound['dependencies']} == {'ga-e0t1', 'ga-9olv'}
+    if audit:
+        parent = next(row for row in state['task']['dependencies'] if row['id'] == 'ga-e0t1')
+        parent['notes'] += '\nappend-only parent audit'
+        parent['updated_at'] = '2026-09-30T00:00:00Z'
+    with pytest.raises(RoutePrefixAccepted):
+        r.main()
+    assert len(state['mutations']) == 1  # only the fixture BIND, never a route
+    assert w.record('task-before.json') == state['task']
+    assert not (r.ROOT / 'route-intent.json').exists()
+
+
+@pytest.mark.parametrize('drift', [
+    'missing-edge', 'duplicate-edge', 'held-note', 'parent-title',
+    'parent-erasure', 'parent-backward-time', 'own-title', 'own-notes',
+])
+def test_actual_route_main_refuses_drift_before_host_or_route(tmp_path, drift):
+    r, w, state, bound = setup_route_prefix(tmp_path)
+    task = state['task']
+    parent = next(row for row in task['dependencies'] if row['id'] == 'ga-e0t1')
+    held = next(row for row in task['dependencies'] if row['id'] == 'ga-9olv')
+    if drift == 'missing-edge':
+        task['dependencies'].pop()
+    elif drift == 'duplicate-edge':
+        task['dependencies'].append(copy.deepcopy(held))
+    elif drift == 'held-note':
+        held['notes'] += '\nunapproved held change'
+    elif drift == 'parent-title':
+        parent['title'] += ' changed'
+    elif drift == 'parent-erasure':
+        parent['notes'] = 'erased'
+    elif drift == 'parent-backward-time':
+        parent['updated_at'] = '2000-01-01T00:00:00Z'
+    elif drift == 'own-title':
+        task['title'] += ' changed'
+    elif drift == 'own-notes':
+        task['notes'] += '\nchanged'
+    with pytest.raises((AssertionError, RuntimeError)):
+        r.main()
+    assert len(state['mutations']) == 1
+    assert not (r.ROOT / 'route-intent.json').exists()
