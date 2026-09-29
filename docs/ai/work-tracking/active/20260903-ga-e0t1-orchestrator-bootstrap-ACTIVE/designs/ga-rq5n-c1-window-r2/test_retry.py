@@ -206,3 +206,38 @@ def test_failed_halt_disposition_exact_proof_passes(tmp_path):
     'stage-consumed.json','stage-pass.json','rig-resume-started.json'])
 def test_failed_halt_disposition_refuses_drift(tmp_path,defect):
     with pytest.raises(AssertionError):halt_fixture(tmp_path,defect)
+
+def test_actual_common_branch_consumer_preserves_prepared_ref(built):
+    common=load(built[1]['common-snapshot-r1.py'],'common')
+    expected='refs/heads/'+c.BRANCH
+    # Actual production branch_target/observe against a fixture containing only
+    # the genuinely prepared branch. No subprocess or real Git write.
+    common.plain=lambda p: c.BASE+'\n' if str(p).endswith('/'+expected) else None
+    common.walk=lambda: {}
+    assert common.observe()['candidate_branch']==c.BASE
+    assert common.BRANCH==expected
+
+@pytest.mark.parametrize('different',[False,True])
+def test_actual_close_binds_r2_release_before_drain(built,tmp_path,different):
+    release=load(built[1]['startup-release.py'],'release')
+    tree=ast.parse(built[1]['close-r11.py'])
+    main=next(n for n in tree.body if isinstance(n,ast.FunctionDef) and n.name=='main')
+    index=next(i for i,n in enumerate(main.body) if isinstance(n,ast.Assign)
+        and isinstance(n.targets[0],ast.Name) and n.targets[0].id=='release')
+    snippet=ast.Module(body=main.body[index:index+2],type_ignores=[])
+    session=dict(id='ci-new',session_name='codex-ci-new',template=c.TARGET,
+        rig='gascity',provider=c.PROVIDER,work_dir=c.WORK,closed=False,created_at='today')
+    expected=c.close_identity(session)
+    recorded=dict(session,id='ci-other') if different else session
+    proof=tmp_path/release.ROOT.name/'proof.json';proof.parent.mkdir()
+    proof.write_text(json.dumps(dict(session=recorded)))
+    reads=[]
+    def read(path):reads.append(path);return path.read_bytes()
+    ns=dict(VAR=tmp_path,os=__import__('os'),json=json,contract=c,expected=expected,
+            w=types.SimpleNamespace(read=read,require=c.require))
+    if different:
+        with pytest.raises(RuntimeError,match='released session'):
+            exec(compile(snippet,'actual_close_binding','exec'),ns)
+    else:
+        exec(compile(snippet,'actual_close_binding','exec'),ns)
+    assert ns['release']==proof and reads==[proof]

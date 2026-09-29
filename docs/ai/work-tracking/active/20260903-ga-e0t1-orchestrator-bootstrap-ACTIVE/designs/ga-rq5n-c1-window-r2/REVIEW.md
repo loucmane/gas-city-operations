@@ -97,3 +97,37 @@ preserve-halt.py after the staged diff check flagged it. The earlier signed
 commit remains preserved. No executable behavior or generated window byte
 changed; only that review-input digest and this manifest reference changed.
 Final materialized rerun also passed 367 tests in 1.39 seconds with no skips.
+
+## Review correction before any R2 execution
+
+Both independent reviewers held signed candidate
+c647c67c03b294dbe11ed3832c5d78679497507c. Both genuine native envelopes
+are filed against that candidate under the runner. No R2 job was queued.
+A export SHA256 c96aaf59547ee39afcae9b494f4518e068e703b39a55f6f4c1972df1e51c9def.
+B export SHA256 4d34b8eae4bd57a31bc7afe853499fc73dfaa1c7e8abc1a949b0beb0ded7b89e.
+B's verdict line has a shortened hash typo; its untouched request and envelope
+bind the actual candidate and its disposition is HOLD, never an execution grant.
+
+Must-fix one: unrestricted package-name substitution also changed the prepared
+branch in common Git observation and candidate inspection. Retargeting now
+matches only package/staging path prefixes. The exact prepared branch remains.
+Must-fix two: CLOSE constructed its release proof from VAR and a relative R1
+fragment. Retargeting now covers absolute and constructed operational roots,
+while retaining only completed WORKTREE PREP and BIND R1 references.
+
+The actual common branch consumer and actual CLOSE binding snippet reproduce
+three failing assertions before the fix. RED evidence
+/tmp/ga-rq5n-r2-review-red-20260929.xml SHA256
+320fb0a889a7ec5699f401e9f8a85aa3fc5e38c6a545d1e26e76ef8a10445864.
+Matching and mismatched current-release sessions now pass their respective
+positive and refusal cases. No preexisting assertion was weakened.
+All 46 focused tests pass. Full 370-test corpus passes in 1.43 seconds with
+zero failures or skips at /tmp/ga-rq5n-r2-corrected-full-20260929.xml SHA256
+32d5a67b8529cb0ca502adc4a89afb949e47824aff794d4ef8b03a878422dd3f.
+
+This supersedes only the earlier R2 candidate manifest with current SHA256
+c0e21b91c682612fdfab848ebb7493f082a5f0c7eb73faaefe82346f25a686be.
+All 65 generated files match the corrected pure assembler. All eleven prepared
+inputs and the held predecessor disposition remain byte-identical. The final
+baseline and all consumed artifacts remain valid and unchanged. No workflow or
+Bead call occurred after capture. Two fresh independent reviews remain required.

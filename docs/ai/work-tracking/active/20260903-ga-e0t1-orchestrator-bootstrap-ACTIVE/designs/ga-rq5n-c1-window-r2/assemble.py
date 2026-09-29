@@ -45,10 +45,13 @@ def replace_function(text, name, replacement):
     return "".join(lines[:n.lineno-1])+replacement.rstrip()+"\n"+"".join(lines[n.end_lineno:])
 
 def retarget(text):
-    text=text.replace("ga-rq5n-c1-package","ga-rq5n-c1-window-r2")
+    # Package locations are not the prepared Git branch identity.
+    for prefix in ('designs/', '$D/', 'gas-city-staging/'):
+        text=text.replace(prefix+'ga-rq5n-c1-package',prefix+'ga-rq5n-c1-window-r2')
     def root(match):
         return match[0] if match["phase"] in ("prep","bind","worktree") else match[0][:-2]+"r2"
-    text=re.sub(r"/var/tmp/ga-rq5n-(?P<phase>[a-z%0-9.-]+)-20260929-r1",root,text)
+    # Include path fragments combined with VAR or another Path object.
+    text=re.sub(r"ga-rq5n-(?P<phase>[a-z%0-9.-]+)-20260929-r1",root,text)
     text=text.replace("ga-rq5n-r1-","ga-rq5n-r2-")
     return text
 
@@ -110,6 +113,13 @@ def assemble(*, observation, observation_sha, cache_ns):
     out["held-predecessor-disposition.json"]=disposition
     out=helper.rebind(out,before,{},LOCAL|{"held-predecessor-disposition.json"})
     if any(out[n]!=before[n] for n in LOCAL):raise ValueError("prepared worker input changed")
+    if b"BRANCH='refs/heads/codex/ga-rq5n-c1-package'" not in out['common-snapshot-r1.py']:
+        raise ValueError('prepared branch changed')
+    for name,body in out.items():
+        if name in LOCAL or name=='held-predecessor-disposition.json':continue
+        phases=re.findall(rb'ga-rq5n-([a-z%0-9.-]+)-20260929-r1',body)
+        if any(phase not in (b'prep',b'bind',b'worktree') for phase in phases):
+            raise ValueError('stale operational root in '+name)
     for name,body in out.items():
         if name.endswith(".py"):ast.parse(body,filename=name)
     return before,out

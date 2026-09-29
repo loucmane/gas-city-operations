@@ -29,7 +29,7 @@ from pathlib import Path
 
 COMMON=Path('/home/loucmane/gas-city-ops/.git')
 BASE='801a5a9d5b0d72f665c949a86573357f02c9f1ac'
-BRANCH='refs/heads/codex/ga-rq5n-c1-window-r2'
+BRANCH='refs/heads/codex/ga-rq5n-c1-package'
 LIMIT=1<<30
 
 # Operator-approved exact baseline only. No permission is changed.

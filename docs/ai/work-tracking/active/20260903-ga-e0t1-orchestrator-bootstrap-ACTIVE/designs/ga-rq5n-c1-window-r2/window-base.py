@@ -764,7 +764,7 @@ def main():
         module(HERE/'suspension-lineage.py',LINEAGE_SHA).image(baseline)
         require(suspension_pin_equal(record('before.json')['pins'][SUSPENSION],baseline['pin']),'suspension baseline drift')
         save('suspension-baseline.json',baseline)
-        common=module(HERE/'common-snapshot-r1.py','13f33b7a669f5a6b92efbd2a6593b15b2b6f0e43fa17d29e0fea29c79a85fdea')
+        common=module(HERE/'common-snapshot-r1.py','eedbd17243be6b9e9a80cd2ac87e251fb88e0fce1530f63752d89a77520d4585')
         common_before=common.observe()
         require(common_before['candidate_branch']==BASE and not common.baseline_problems(common_before),
             'candidate common Git baseline')
