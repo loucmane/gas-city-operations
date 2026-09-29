@@ -590,3 +590,31 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
   its existing contract. No completed WORKTREE, PREP, release or recovery job may
   be repeated. C1/H1/X/H2/C2, final intake and step 5 remain unfinished. This is
   not a signing-capability, Claude-provider-parity or full-goal completion claim.
+
+### 2026-09-29 continuation — journal recovered and next worker scoped
+
+- The preceding R11 full regression run completed with 3962 passes and 21
+  existing skips. All 53 slot tests passed. The exact reviewed three-file
+  candidate is signed in c046a8981171ff70106a604216d80fe30aa0970a; its evidence
+  closeout is signed in 5b981444bf7d687c0367da4ee3d111ff4b443ead. ga-e0t1.20
+  is closed PASS for that candidate-only contract, not full provider parity.
+- The exact pending note described above is now historically preserved as
+  aborted-before-bead-mutation. After two independent R2 reviews and the fresh
+  explicit operator authorization, the one-off recovery exited PASS. Its
+  byte-exact backup and failed intent remain preserved. Separate readback
+  proved the expected journal postimage, zero pending coordination and no
+  Bead or source change. A fresh supported parent note and all six workflow
+  checks subsequently passed. Do not replay the consumed recovery package.
+- Detailed recovery evidence:
+  docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/NOTE-RECOVERY-RESULT.md.
+- The existing original goal is active, unchanged and incomplete. Next bounded
+  implementation is ga-1aa1, the already-designed image tool r3 changes to two
+  files only. It is P2 open, unassigned and unrouted, linked informationally to
+  ga-e0t1. Its exact base is the signed 5b981444 commit. Duplicate checks and
+  relation readback are in reports/ga-1aa1-kickoff.md under this tracker; its
+  brief is designs/ga-1aa1-image-tool-r3/WORKER-BRIEF.md.
+- Prepare a fresh reviewed Astra worker window using the proven R11 behavior
+  and new task/workspace bindings. No product edit, workspace provisioning,
+  worker launch or rig transition has occurred for ga-1aa1. Do not replay any
+  completed ga-e0t1.20 operation or silently retarget the frozen Claude C1
+  handover contract. C1 package, C1/H1/X/H2/C2, final intake and step 5 remain.
