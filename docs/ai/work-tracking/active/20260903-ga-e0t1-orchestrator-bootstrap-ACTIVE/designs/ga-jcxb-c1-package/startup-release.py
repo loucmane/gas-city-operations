@@ -86,7 +86,7 @@ def main():
     runtime=w.module(HERE/'runtime-process-r7.py','ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65')
     common=w.module(HERE/'common-snapshot-r1.py',COMMON_SHA)
     delivery=w.module(HERE/'release-delivery-r13.py','45431e2971636f814a9876992a0694751531b414d2bb5ed7ccb8a4d5ba184f99')
-    transport=w.module(HERE/'release-runtime-r13.py','b9c0cf4ea3ae81a3c0abdab1d3269fb52262cba48914356f240bc755e1a4b1f8')
+    transport=w.module(HERE/'release-runtime-r13.py','9acd8664a35fd120e12a6eacc92eb81dd3701dac86f134bbea33079a996e08ba')
     b,o,owned=w.load_support()
     w.active_epoch(o)
     require(w.record('stage-pass.json')==dict(ok=True,worker_launched=False),'window not staged')

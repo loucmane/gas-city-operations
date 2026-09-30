@@ -84,3 +84,10 @@ No operator tmux; no coordinator Git inside candidate workspace before intake.
 Worker returns an unsigned uncommitted candidate and private test evidence.
 Actual candidate inspection and independent product review precede delivery.
 This window alone is neither implementation-worker parity nor full-goal acceptance.
+
+## Append-forward review disposition
+The initial operational candidate dd3a9ef0b9cd87e852da81a1ccc2312cf6fcc0dd was
+held independently by both reviewers before any operational launch. Its historical
+byte-identical runtime and test-count statements above are superseded by
+TASK-BINDING-SUCCESSOR.md. That exact one-literal task correction and ten new
+regressions retain every other contract and the completed preparation receipts.

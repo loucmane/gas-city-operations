@@ -214,7 +214,15 @@ def test_exact_reviewed_transport_only_task_identity_changes(built,name,pin):
     prior=HERE.parent/'ga-goo5-release-expiry-r1'/name
     raw=prior.read_bytes()
     assert a.sha(raw)==pin
-    assert built[1][name]==raw
+    if name == 'release-runtime-r13.py':
+        old = b"m.get('gc.trigger_bead_id') == 'ga-goo5'"
+        new = b"m.get('gc.trigger_bead_id') == 'ga-jcxb'"
+        assert c.TASK == 'ga-jcxb'
+        assert raw.count(old) == 1
+        raw = raw.replace(old, new)
+        assert built[1][name].count(new) == 1
+        assert old not in built[1][name]
+    assert built[1][name]==raw  # exactly one task literal; delivery remains identical
     assert built[1][name]==(HERE/name).read_bytes()
 
 

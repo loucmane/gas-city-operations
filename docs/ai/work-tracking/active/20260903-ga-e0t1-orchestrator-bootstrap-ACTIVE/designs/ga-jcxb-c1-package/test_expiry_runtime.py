@@ -73,11 +73,17 @@ def test_capture_and_recording_failures_never_pass_or_reenqueue(monkeypatch, fau
     assert 'delivery-acknowledged.json' not in saved
 
 
-def test_existing_regression_files_are_byte_identical_to_frozen_predecessor():
+def test_existing_regression_files_preserve_exact_corpus_with_task_binding_only():
     from pathlib import Path
     here = Path(__file__).parent
     for name in ('test_delivery_regression.py', 'test_runtime.py'):
-        assert (here / name).read_bytes() == (here.parent / 'ga-goo5-c1-package' / name).read_bytes()
+        before = (here.parent / 'ga-goo5-c1-package' / name).read_bytes()
+        if name == 'test_runtime.py':
+            old = b"fault=None, task='ga-goo5'"
+            new = b"fault=None, task='ga-jcxb'"
+            assert before.count(old) == 1
+            before = before.replace(old, new)
+        assert (here / name).read_bytes() == before
 
 
 def test_source_diff_preserves_unrelated_authority_functions():

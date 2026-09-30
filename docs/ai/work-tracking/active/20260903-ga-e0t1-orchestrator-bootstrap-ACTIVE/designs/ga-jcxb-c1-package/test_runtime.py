@@ -11,7 +11,7 @@ import release_runtime_r12 as r
 from test_delivery_regression import S, M, BEFORE, BASELINE, EXE, CG, START, ingress, snapshot
 
 
-def harness(monkeypatch, existing=True, fault=None, task='ga-goo5'):
+def harness(monkeypatch, existing=True, fault=None, task='ga-jcxb'):
     enqueued = False
     calls, saved = [], {}
     binary = b'fixture-core'

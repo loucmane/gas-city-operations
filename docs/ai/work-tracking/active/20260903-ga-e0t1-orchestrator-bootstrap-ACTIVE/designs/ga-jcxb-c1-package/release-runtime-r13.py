@@ -126,7 +126,7 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
                 and row.get('status') == 'open' and 'gc:session' in row.get('labels', [])
                 and m.get('session_name') == session['session_name']
                 and m.get('template') == 'gascity/codex' and m.get('provider') == 'codex-managed'
-                and m.get('gc.trigger_bead_id') == 'ga-goo5'
+                and m.get('gc.trigger_bead_id') == 'ga-jcxb'
                 and m.get('gc.trigger_bead_store_ref') == 'rig:gascity', 'native session authority')
         epoch = m.get('continuation_epoch')
         require(isinstance(epoch, str) and re.fullmatch(r'[1-9][0-9]*', epoch), 'native session epoch')
