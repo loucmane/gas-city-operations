@@ -1,0 +1,61 @@
+{
+  "predecessor": "ga-jcxb-c1-package/permissions-baseline.py",
+  "replacements": [
+    [
+      "failed ga-goo5",
+      "failed ga-jcxb"
+    ],
+    [
+      "PRIOR = Path('/tmp/ga-goo5-permission-capture-20260930-r1')",
+      "PRIOR = Path('/tmp/ga-jcxb-permission-capture-20260930-r1')"
+    ],
+    [
+      "CAPTURE = Path('/tmp/ga-jcxb-permission-capture-20260930-r1')",
+      "CAPTURE = Path('/tmp/ga-mb91-permission-capture-20260930-r1')"
+    ],
+    [
+      "719a48e3c841cecc0e6b0d73055b2ce535e1bcfa76629d6a38e413efc37a6b0e",
+      "1c01117e466acc94faa41f764ea6a35a706f28b24ab5781810a900c838587684"
+    ],
+    [
+      "3aafa560064c18341c49725aabe01fa9dec0588eeb9ec6863616990336a44bc1",
+      "38105b8429a71376ba7d0344a3f63328ac4d572ef51da88bbadfdafb652dfa72"
+    ],
+    [
+      "IMAGES_SHA = '1c01117e466acc94faa41f764ea6a35a706f28b24ab5781810a900c838587684'",
+      "IMAGES_SHA = 'a8130fad4e16273226659209f96bcb5f458f4a49fe70e2a4f70f1b22fbf15dd3'"
+    ],
+    [
+      "HISTORY_SHA = '38105b8429a71376ba7d0344a3f63328ac4d572ef51da88bbadfdafb652dfa72'",
+      "HISTORY_SHA = '5088cbcf499a37a5e99654af6ad882ed3035b7ebe6811e82db83bc27854e62d4'"
+    ],
+    [
+      "1888c1b54a3e8464291d79cbb4572578fca716d2c3c3fe15b5e66f96884bed97",
+      "05337358d85e2355c79034d43709b29dd2e53ef8d9748d195828c138dfd5facf"
+    ],
+    [
+      "rollout-2026-09-30T04-06-11-01a0f00f-ee65-7722-abaa-891ed4de4b09.jsonl",
+      "rollout-2026-09-30T06-02-25-01a0f07a-5bfe-7082-9f37-d03b7217886f.jsonl"
+    ],
+    [
+      "TRANSCRIPT_SIZE = 157587",
+      "TRANSCRIPT_SIZE = 914734"
+    ],
+    [
+      "bbbd74ef9764a68795edb67ae5e99e297b6f55fcd2f76710d43cfd538ece94fb",
+      "1682f38779c6920b8d78b4a8645257fa79535d160b5ab4d0cbf98027e0c271c3"
+    ],
+    [
+      "1790733971479389408",
+      "1790740946322072573"
+    ],
+    [
+      "ci-n1xe4",
+      "ci-mzoxg"
+    ],
+    [
+      "    entries = {}\n    def observe(path, fd):\n",
+      "    immediate = module(HERE.parent/'ga-jcxb-c1-package/permissions-baseline.py',\n        '60c0b823051d51693e1898f266eea0aecea4a4d5a91c02e164e7a8b87e1ab9b5',\n        'immediate_exact_permission_reader')\n    entries = {}\n    def observe(path, fd):\n        if path == immediate.TRANSCRIPT:\n            return immediate.completed_transcript_image(m, fd)\n"
+    ]
+  ]
+}

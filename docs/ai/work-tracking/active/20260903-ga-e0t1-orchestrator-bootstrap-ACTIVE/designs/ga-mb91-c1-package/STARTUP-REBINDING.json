@@ -1,0 +1,13 @@
+{
+  "predecessor": "ga-jcxb-c1-package/worker-startup.py",
+  "replacements": [
+    [
+      "ga-jcxb",
+      "ga-mb91"
+    ],
+    [
+      "9c815d86f4eb87d3eca8135530063e173e5d497a4d56bf500d6c6221da5059db",
+      "96560832152e6f653e305ddb2f95b5fcc43f73f6a22b05f01695dfb37016d489"
+    ]
+  ]
+}

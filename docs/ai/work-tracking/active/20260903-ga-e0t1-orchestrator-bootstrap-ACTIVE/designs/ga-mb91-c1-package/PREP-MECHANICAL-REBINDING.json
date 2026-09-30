@@ -1,0 +1,219 @@
+{
+  "changes": {
+    "PRECLAIM.md": {
+      "predecessor_sha256": "baf8aafad93bdf717d07e5a3ed3066d212d92261df2672b05189a1545c69805a",
+      "replacements": [
+        [
+          "ga-jcxb",
+          "ga-mb91"
+        ],
+        [
+          "bf10646d757d512d100bbaddaacb81c4c8f75ef520b467048603ee0e3d190ecc",
+          "327d9928b4167642d67a1899f64dafca36ba460012a6ea7e03dfb04bbb86d0e1"
+        ]
+      ],
+      "sha256": "09472ad7d608c6207c6ba8f79725603ff217c2cdaf48a7f0061b32e2e4d93944"
+    },
+    "WORKER-BRIEF.md": {
+      "predecessor_sha256": "f9d72acb43510d558e3bbc590e21f18e8a9cb02e3e0d4490ed91502d9cef3533",
+      "replacements": [
+        [
+          "ga-jcxb",
+          "ga-mb91"
+        ]
+      ],
+      "sha256": "b624c055134b314826ce15d6ef72db3f202cf80c574164174fc45bb7a3edddc1"
+    },
+    "launch-contract.py": {
+      "predecessor_sha256": "9c815d86f4eb87d3eca8135530063e173e5d497a4d56bf500d6c6221da5059db",
+      "replacements": [
+        [
+          "ga-jcxb",
+          "ga-mb91"
+        ]
+      ],
+      "sha256": "96560832152e6f653e305ddb2f95b5fcc43f73f6a22b05f01695dfb37016d489"
+    },
+    "permissions-baseline.py": {
+      "predecessor_sha256": "60c0b823051d51693e1898f266eea0aecea4a4d5a91c02e164e7a8b87e1ab9b5",
+      "replacements": [
+        [
+          "failed ga-goo5",
+          "failed ga-jcxb"
+        ],
+        [
+          "PRIOR = Path('/tmp/ga-goo5-permission-capture-20260930-r1')",
+          "PRIOR = Path('/tmp/ga-jcxb-permission-capture-20260930-r1')"
+        ],
+        [
+          "CAPTURE = Path('/tmp/ga-jcxb-permission-capture-20260930-r1')",
+          "CAPTURE = Path('/tmp/ga-mb91-permission-capture-20260930-r1')"
+        ],
+        [
+          "719a48e3c841cecc0e6b0d73055b2ce535e1bcfa76629d6a38e413efc37a6b0e",
+          "1c01117e466acc94faa41f764ea6a35a706f28b24ab5781810a900c838587684"
+        ],
+        [
+          "3aafa560064c18341c49725aabe01fa9dec0588eeb9ec6863616990336a44bc1",
+          "38105b8429a71376ba7d0344a3f63328ac4d572ef51da88bbadfdafb652dfa72"
+        ],
+        [
+          "IMAGES_SHA = '1c01117e466acc94faa41f764ea6a35a706f28b24ab5781810a900c838587684'",
+          "IMAGES_SHA = 'a8130fad4e16273226659209f96bcb5f458f4a49fe70e2a4f70f1b22fbf15dd3'"
+        ],
+        [
+          "HISTORY_SHA = '38105b8429a71376ba7d0344a3f63328ac4d572ef51da88bbadfdafb652dfa72'",
+          "HISTORY_SHA = '5088cbcf499a37a5e99654af6ad882ed3035b7ebe6811e82db83bc27854e62d4'"
+        ],
+        [
+          "1888c1b54a3e8464291d79cbb4572578fca716d2c3c3fe15b5e66f96884bed97",
+          "05337358d85e2355c79034d43709b29dd2e53ef8d9748d195828c138dfd5facf"
+        ],
+        [
+          "rollout-2026-09-30T04-06-11-01a0f00f-ee65-7722-abaa-891ed4de4b09.jsonl",
+          "rollout-2026-09-30T06-02-25-01a0f07a-5bfe-7082-9f37-d03b7217886f.jsonl"
+        ],
+        [
+          "TRANSCRIPT_SIZE = 157587",
+          "TRANSCRIPT_SIZE = 914734"
+        ],
+        [
+          "bbbd74ef9764a68795edb67ae5e99e297b6f55fcd2f76710d43cfd538ece94fb",
+          "1682f38779c6920b8d78b4a8645257fa79535d160b5ab4d0cbf98027e0c271c3"
+        ],
+        [
+          "1790733971479389408",
+          "1790740946322072573"
+        ],
+        [
+          "ci-n1xe4",
+          "ci-mzoxg"
+        ],
+        [
+          "    entries = {}\n    def observe(path, fd):\n",
+          "    immediate = module(HERE.parent/'ga-jcxb-c1-package/permissions-baseline.py',\n        '60c0b823051d51693e1898f266eea0aecea4a4d5a91c02e164e7a8b87e1ab9b5',\n        'immediate_exact_permission_reader')\n    entries = {}\n    def observe(path, fd):\n        if path == immediate.TRANSCRIPT:\n            return immediate.completed_transcript_image(m, fd)\n"
+        ]
+      ],
+      "sha256": "c1c30b227a6e65dd900e9a54aae5e67821aa771b9a7e9285aff99aa4f22e47d9"
+    },
+    "prepare.py": {
+      "predecessor_sha256": "f03f17c400cbaaad96ee2d424bbd24ac9ae5e4b329e37ca2d030f7aedb13df12",
+      "replacements": [
+        [
+          "ga-jcxb",
+          "ga-mb91"
+        ],
+        [
+          "f9d72acb43510d558e3bbc590e21f18e8a9cb02e3e0d4490ed91502d9cef3533",
+          "b624c055134b314826ce15d6ef72db3f202cf80c574164174fc45bb7a3edddc1"
+        ],
+        [
+          "baf8aafad93bdf717d07e5a3ed3066d212d92261df2672b05189a1545c69805a",
+          "09472ad7d608c6207c6ba8f79725603ff217c2cdaf48a7f0061b32e2e4d93944"
+        ],
+        [
+          "9c815d86f4eb87d3eca8135530063e173e5d497a4d56bf500d6c6221da5059db",
+          "96560832152e6f653e305ddb2f95b5fcc43f73f6a22b05f01695dfb37016d489"
+        ],
+        [
+          "bf10646d757d512d100bbaddaacb81c4c8f75ef520b467048603ee0e3d190ecc",
+          "327d9928b4167642d67a1899f64dafca36ba460012a6ea7e03dfb04bbb86d0e1"
+        ],
+        [
+          "60c0b823051d51693e1898f266eea0aecea4a4d5a91c02e164e7a8b87e1ab9b5",
+          "c1c30b227a6e65dd900e9a54aae5e67821aa771b9a7e9285aff99aa4f22e47d9"
+        ],
+        [
+          "591149b731952d881908de73184ee62c5d531e8b4420d753e0fa5f3d1559ac1c",
+          "c95506c64aca2b7765ce6e39982cfbc91448dbbc019c352b29520d1637297e9a"
+        ],
+        [
+          "/var/tmp/ga-goo5-terminal-20260930-r1/result.json",
+          "/var/tmp/ga-jcxb-terminal-20260930-r1/result.json"
+        ],
+        [
+          "/var/tmp/ga-goo5-r1-close-20260930T021025Z/result.json",
+          "/var/tmp/ga-jcxb-r1-close-20260930T041304Z/result.json"
+        ],
+        [
+          "76255c9d60fc79bc89d13d56850ebe136649c1147bee60a430dd90a138908796",
+          "8f65d7d473dacdddbb6a6654f74c6d749346375bf47b3989f335ca229e3d656c"
+        ],
+        [
+          "ci-n1xe4",
+          "ci-mzoxg"
+        ],
+        [
+          "760a5db3263c6865be316850f0bff5f29ebd973309b488c446eb31a54b8bc7a3",
+          "fb7e9dd7221bdba1936eedd7ffc4482d0595486b3155cbb0c3c39479f144d7cb"
+        ]
+      ],
+      "sha256": "dbb19d8dbc3938e1db025179f7fa25ccc1a7b1ed072bd2a568672d1d7b03dcf8"
+    },
+    "preserve-worktree-halt.py": {
+      "predecessor_sha256": "25ebbb04a286b224b46e628c183aa6ea66ae0a76ed67e23882bfcc621708bc9d",
+      "replacements": [
+        [
+          "ga-jcxb",
+          "ga-mb91"
+        ]
+      ],
+      "sha256": "98d1180608af533d59d9ddff775331e0a7fd49a643b246848329f1fef6b3d136"
+    },
+    "test_prep_package.py": {
+      "predecessor_sha256": "661a4108851342fd8044c4fffa1f5c2a137ec4a7ddd7d4aff04b0b860d377e8d",
+      "replacements": [
+        [
+          "ga-jcxb",
+          "ga-mb91"
+        ]
+      ],
+      "sha256": "fa4cb185976c524799b92c61c540214bc0926ebb3dd52ce75fd07792ecfd4269"
+    },
+    "test_probe_fixture_binding.py": {
+      "predecessor_sha256": "ba57813e6975e7d4a7fc574f2f04a24a8d0a3600f9cbd9f4a6b3a526e1953b95",
+      "replacements": [
+        [
+          "ga-jcxb",
+          "ga-mb91"
+        ]
+      ],
+      "sha256": "adaab30ddf89225e5c9ed9b233ee661559ee47a1342f79cad442666170c8b9f0"
+    },
+    "worker-startup.py": {
+      "predecessor_sha256": "bf10646d757d512d100bbaddaacb81c4c8f75ef520b467048603ee0e3d190ecc",
+      "replacements": [
+        [
+          "ga-jcxb",
+          "ga-mb91"
+        ],
+        [
+          "9c815d86f4eb87d3eca8135530063e173e5d497a4d56bf500d6c6221da5059db",
+          "96560832152e6f653e305ddb2f95b5fcc43f73f6a22b05f01695dfb37016d489"
+        ]
+      ],
+      "sha256": "327d9928b4167642d67a1899f64dafca36ba460012a6ea7e03dfb04bbb86d0e1"
+    }
+  },
+  "files": {
+    "FILE-SCOPE.json": "020ec6bceaf5b6052ce3d5cb3fef30b07f9d9553c02fe4a2d144d06e963e8851",
+    "PRECLAIM.md": "09472ad7d608c6207c6ba8f79725603ff217c2cdaf48a7f0061b32e2e4d93944",
+    "PREP-REBINDING.json": "600bbc477daf3cb5f6608064f751a2aea171568d5439a430e7c21f431162999f",
+    "PRESERVED-PARTIAL-INPUT.json": "0eca15350cac8d7e559b55fe2be69f3b5b2d0cf95df4bd5eef298046a2b51626",
+    "STARTUP-REBINDING.json": "889bc718a043d42fdac9b80cfd3eac84ea69cd67087ab4067fa8b499c814717b",
+    "WORKER-BRIEF.md": "b624c055134b314826ce15d6ef72db3f202cf80c574164174fc45bb7a3edddc1",
+    "conftest.py": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f",
+    "launch-contract.py": "96560832152e6f653e305ddb2f95b5fcc43f73f6a22b05f01695dfb37016d489",
+    "permission-capture.py": "7c62ffcefd936782d728341025ab2e83cf43fa297d79cd74778be9a048b0722b",
+    "permissions-baseline.py": "c1c30b227a6e65dd900e9a54aae5e67821aa771b9a7e9285aff99aa4f22e47d9",
+    "prepare.py": "dbb19d8dbc3938e1db025179f7fa25ccc1a7b1ed072bd2a568672d1d7b03dcf8",
+    "preserve-worktree-halt.py": "e06ab5b34db24030bb478e10806a8919a7be4f8fa8200b0afcf42acd9c5f0a9e",
+    "test_marker.py": "474ae14f98e9fda1bf7cfd5d699465c7397e43e8883c98171d49e92c531ef0e1",
+    "test_prep_package.py": "fa4cb185976c524799b92c61c540214bc0926ebb3dd52ce75fd07792ecfd4269",
+    "test_probe_fixture_binding.py": "adaab30ddf89225e5c9ed9b233ee661559ee47a1342f79cad442666170c8b9f0",
+    "test_waiting_reminders.py": "b95cd10ddf60e2f865ce71dc121d1ad30e5e36202a7e4c6125a2ebd63f5ba7a7",
+    "waiting-prompt.py": "a13268fd23d85eaea01c1eac65712d8a2441638fb001f73db1c5a523f094ce53",
+    "worker-startup.py": "327d9928b4167642d67a1899f64dafca36ba460012a6ea7e03dfb04bbb86d0e1"
+  },
+  "schema": "ga-mb91.prep-mechanical-rebinding.v1"
+}
