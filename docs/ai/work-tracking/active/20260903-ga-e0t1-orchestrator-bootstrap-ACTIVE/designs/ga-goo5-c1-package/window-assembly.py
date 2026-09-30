@@ -116,6 +116,8 @@ def retarget(text):
                   r'\1-20260930-r1', text)
     text = text.replace('ga-goo5-r11-', 'ga-goo5-r1-')
     text = text.replace('.gc/worker-evidence/ga-goo5/r11', '.gc/worker-evidence/ga-goo5/r1')
+    # OBSERVE r1 refused before invocation; preserve it and use a fresh root.
+    text = text.replace('ga-goo5-integrity-20260930-r1','ga-goo5-integrity-20260930-r2')
     # The completed PREP probe and fresh BIND both bind September 30.
     for before, after in RENAMES.items():
         text = text.replace(before, after)
@@ -275,7 +277,12 @@ def assemble(*, observation, observation_sha, cache_ns):
            "    require(all(w.digest(raw)==sources[rel]['sha256'] for rel,raw in payload.items()), 'new file read drift')\n"
            "    patch=encoder.encode(payload,w.contract().SOURCE_MODES,w.contract().MAX_PRODUCT_BYTES)")
     out['candidate-inspect.py'] = once(inspector,old,new).encode()
-    out = rebind(out, before, references, set(LOCAL))
+    # BIND completed under the exact prior signed package. Never rebind or replay it.
+    completed_bind = (HERE/'bind-task.py').read_bytes()
+    if sha(completed_bind) != '44c8db6cc3ef3a2a3616b5ea60c5ee8ccb983ee1844859058e5b297177c16c12':
+        raise ValueError('completed BIND source drift')
+    out['bind-task.py'] = completed_bind
+    out = rebind(out, before, references, set(LOCAL) | {'bind-task.py'})
     for name, raw in out.items():
         if name.endswith('.py'):
             ast.parse(raw, filename=name)

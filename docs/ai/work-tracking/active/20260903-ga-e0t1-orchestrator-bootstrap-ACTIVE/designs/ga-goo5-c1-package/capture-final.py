@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 import types
 
-ROOT = Path('/tmp/ga-goo5-readonly-baseline-20260930-r1')
+ROOT = Path('/tmp/ga-goo5-readonly-baseline-20260930-r2')
 D = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window')
 PRIOR = Path('/var/tmp/ga-5uc9-terminal-20260930-r1/observed-after.json')
 PRIOR_SHA = '8402af1f87cf131ed08e7d754bae82a993240e04dffd2f42edddf07bdfbab5dc'

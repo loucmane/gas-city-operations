@@ -1,4 +1,4 @@
-"""Archive one successful ga-goo5 window latch after outcome adjudication; never queue or execute a job."""
+"""Preserve only the exact ga-goo5 OBSERVE preflight refusal; never replay or queue."""
 import ctypes
 import hashlib
 import json
@@ -13,12 +13,8 @@ ROOT=Path('/home/loucmane/.local/share/gas-city-staging/jobs')
 O='/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap'
 CANDIDATE,job,halt_sha,done_sha=sys.argv[1:]
 assert re.fullmatch('[0-9a-f]{40}',CANDIDATE)
-JOB_COMMITS={'ga-goo5-prep-r1':'783b1c4db35d6fc8f7fa1e6ad370227c940bcf9b',
-    **{f'ga-goo5-{name}-r2':CANDIDATE for name in
-    ('bind','observe','preflight','stage','route','resume','release','contain-1','contain-2',
-     'hold-1','hold-2','close-1','close-2','admit','restore','terminal','inspect',
-     *[f'watch-{i}' for i in range(1,13)])}}
-EXPECTED_EXIT=0
+JOB_COMMITS={'ga-goo5-observe-r1':'a5e924eb7c9a406b6b2475970d75e8a5730f818a'}
+EXPECTED_EXIT=1
 assert job in JOB_COMMITS
 assert all(re.fullmatch('[0-9a-f]{64}',v) for v in (halt_sha,done_sha))
 assert os.getuid()==os.geteuid()==1000
@@ -34,11 +30,23 @@ signed=subprocess.run(['/usr/bin/git','--no-optional-locks','-C',O,'verify-commi
     capture_output=True,text=True)
 assert signed.returncode==0 and '[GNUPG:] VALIDSIG ' in signed.stderr
 assert '7720D1FE503A88EDECA61A6F0C7D823543E01875' in signed.stderr
-if job=='ga-goo5-prep-r1':
-    raw=Path('/var/tmp/ga-goo5-prep-20260930-r1/result.json').read_bytes()
-    assert hashlib.sha256(raw).hexdigest()=='599d47182a4a6095beb7c463bbff5bd6dbeb894349e70e4f2c936480e67c2099'
-    result=json.loads(raw)
-    assert result['ok'] is True and result['installed'] is False and result['worker_launched'] is False
+failed=Path('/var/tmp/ga-goo5-integrity-20260930-r1')
+expected={
+    'intent.json':'3415e29c59d50c143ae66a66135b7101b616376d80698a897a6f6d8ab0526829',
+    'before-refused-observation.json':'3f97554b5355ffd1bb5469b8388a1c17f334ebd874844aecba2757e8c34fe625'}
+assert set(p.name for p in failed.iterdir())==set(expected),'refusal phase advanced'
+for name,pin in expected.items():
+    fd=os.open(failed/name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NOATIME|os.O_NONBLOCK)
+    try:
+        st=os.fstat(fd)
+        assert stat.S_ISREG(st.st_mode) and st.st_uid==1000 and st.st_nlink==1
+        assert stat.S_IMODE(st.st_mode)==0o600 and st.st_size<16<<20
+        with os.fdopen(os.dup(fd),'rb') as stream: raw=stream.read()
+        assert hashlib.sha256(raw).hexdigest()==pin and os.fstat(fd)==st
+    finally:os.close(fd)
+assert not os.path.lexists('/var/tmp/ga-goo5-window-20260930-r1'),'window already started'
+assert not os.path.lexists('/var/tmp/ga-goo5-route-20260930-r1'),'task already routed'
+assert hashlib.sha256(Path('/var/tmp/ga-goo5-bind-20260930-r1/result.json').read_bytes()).hexdigest()=='42eb79daae25d4da8673ad7aa15623016eed07d97626cab5bf918ca0fb69b685'
 path=ROOT/'done'/f'{job}.json'
 fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NOATIME|os.O_NONBLOCK)
 try:
