@@ -1,0 +1,91 @@
+{
+  "done_sha256": "416955892ebb6471ba44c5845b6c6883916b466041b12511fc358cfa386edbef",
+  "executed": false,
+  "files": {
+    "before.json": {
+      "mode": 384,
+      "sha256": "d9cbbf37e822b921367fc70dc2b57b2fdf45f5366a65e480d52526b5472c93da"
+    },
+    "cache-atime-59ba3ac7478287ffa46e5c5cb9e83d8e86d6864d06c28ba3bc5f5c3548f258a6-5494e3638cf5daf213b7093b95fd802f7649456e16557b6b8c20b603284ae350.json": {
+      "mode": 384,
+      "sha256": "e5b2c088994630620f6c407b992940175c6d1133775632328234a9f440291111"
+    },
+    "integrity-phase.json": {
+      "mode": 420,
+      "sha256": "74e9053322faef353f0c86600d42c5fc6ba576d1b3f3207b9eebc5f0415f0b0c"
+    },
+    "integrity-started.json": {
+      "mode": 384,
+      "sha256": "d5a8ebdaebc05a0e0ec4c90c2e5dbf448976076551183674244c693bb6585210"
+    },
+    "intent.json": {
+      "mode": 384,
+      "sha256": "9c66b9d489ac8702e284b83bb106530be617731a643fefe99024d6003e05eb6f"
+    },
+    "observed-after.json": {
+      "mode": 384,
+      "sha256": "0209ce0be36c9301e6708ce5d62448a07d1ad0c13bb7d5de4e86d1f63717f243"
+    },
+    "preservation.json": {
+      "mode": 384,
+      "sha256": "02c43c416b8e88877865422b50aaa7f22f4dca9b620bc901b4d553e76cbac305"
+    },
+    "primary-failure.json": {
+      "mode": 384,
+      "sha256": "4dda78c9f508e264e0c4079c28c83b2619f4d3f9dff794fe6ce1f5431697e578"
+    }
+  },
+  "halt_sha256": "2cf563ffddf144c85898e54d30badafcfe39328c59f588a998ae6d28f89308a3",
+  "phase": {
+    "argv": [
+      "/usr/bin/bwrap",
+      "--ro-bind",
+      "/",
+      "/",
+      "--unshare-net",
+      "--unshare-pid",
+      "--new-session",
+      "--die-with-parent",
+      "--proc",
+      "/proc",
+      "--dev",
+      "/dev",
+      "--",
+      "/usr/bin/python3",
+      "-I",
+      "-S",
+      "-B",
+      "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-m1wh-p6/source-launch.py",
+      "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package/observe-integrity-r11.py",
+      "f5a85e76ef03cf5fb7fcdf3f3e32f5aa36430c317a26a34816841ffa7f6fa710",
+      "inner"
+    ],
+    "cleanup": {
+      "direct_child_reaped": true,
+      "failures": [],
+      "group_present_after_phase": false,
+      "group_present_after_term": false,
+      "kill_sent": false,
+      "kill_wait_timed_out": false,
+      "owned_process_group_gone": true,
+      "term_sent": false,
+      "term_wait_timed_out": false,
+      "unexpected_survivors": false
+    },
+    "cwd": "/var/tmp/ga-mb91-integrity-20260930-r2",
+    "duration_seconds": 0.328381,
+    "exit_code": 1,
+    "phase": "integrity",
+    "pid": 1113472,
+    "primary_error": null,
+    "process_group_id": 1113472,
+    "start_new_session": true,
+    "stderr": "manifest bytes drift\n",
+    "stdout": "",
+    "timed_out": false,
+    "timeout_seconds": 90
+  },
+  "production_mutation": false,
+  "root": "/var/tmp/ga-mb91-integrity-20260930-r2",
+  "worker_launched": false
+}

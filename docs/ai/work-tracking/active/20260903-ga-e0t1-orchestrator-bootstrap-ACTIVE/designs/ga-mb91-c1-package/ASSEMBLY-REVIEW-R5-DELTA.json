@@ -1,0 +1,83 @@
+{
+  "changes": {
+    "candidate-inspect.py": {
+      "after": "887e19267bd90e95baab90885ca5298cbfc48d7837f4ee7533c289290378f57e",
+      "before": "57ebb82e466216479f184c5fc4d40f43c493cd7e2dec42af94f0694902ed911d"
+    },
+    "observe-integrity-r11.py": {
+      "after": "c22c72aa6ce237d6d0e168d68f03f4cca6121f9222a6a97f209a7404f0b9b7e5",
+      "before": "f5a85e76ef03cf5fb7fcdf3f3e32f5aa36430c317a26a34816841ffa7f6fa710"
+    },
+    "observe-terminal-r11.py": {
+      "after": "6562db4f2b295b4fda6b3d71de249f05683592dcf097ad80a077a0f05b4cfcc5",
+      "before": "89b4b2720328e4fd959617ebd24e7368a21de2b5ed486b39977fb5ea7b59e061"
+    },
+    "operator/ADMIT.sh": {
+      "after": "6bc1f3f95c0a462f88d6ba6a744d31d50bd5f894018f973bdf7c3b3886041c38",
+      "before": "f7a605752b9fe64217e1469d1345bbddcdaa3e21fde66774f6996e00ff7b1db3"
+    },
+    "operator/CONTAIN-1.sh": {
+      "after": "ec8483fc5d933d9779acfd14b2187d2289389dc489019fd91faa28fab107afae",
+      "before": "c95bd0b98ff3a61563e512e6d40d866df50a61b8bc78a58080a6389d526d454c"
+    },
+    "operator/CONTAIN-2.sh": {
+      "after": "ff9cc704a397f9beae2cdff9ca6943313d9fde981cf54b5a360ff2584945cdeb",
+      "before": "6eecd5988d7fd5c76b205126f0c6747c4df61bc70941893a2fc85dec2a3fbb5a"
+    },
+    "operator/INSPECT.sh": {
+      "after": "2c59596bfeb72572152296a5d1971aa729cb25e995418526cd915107f376a684",
+      "before": "f4a067b332f66789f1b39ed1a38324c13eac1f3221e4604685214efdc21a2388"
+    },
+    "operator/OBSERVE.sh": {
+      "after": "a2efdb2fc23b7cad2975d719e4e25598ad85c6f1b058a5a633b1c32d7e95f6f1",
+      "before": "b869f31c0cfcc20726adb4589e0cc691863cf5ad74fc943d3c0a40e94c5f34de"
+    },
+    "operator/PREFLIGHT.sh": {
+      "after": "a9b9a8ba85b41277c2e519d45d6a92534fefa45e62eb02ec0e409dfb51dc348d",
+      "before": "824ba3187a1e562b96da1bf5eacb74c68380bad2fc16ee9dc0cf5b675438547d"
+    },
+    "operator/RELEASE.sh": {
+      "after": "f98491bc1288a625cc41fb9e6efde720da66ca84f6bcfbaac973415bc080e345",
+      "before": "176be939c5a5f20d0a3369c2fb67f95a465f20a3e526632a442b8a6a7af594c1"
+    },
+    "operator/RESTORE.sh": {
+      "after": "982e8578eb579553ec71de5bb053cb1abc2ed993cc7061c1d5cb9f75a18cf73c",
+      "before": "7758980a5eada4f05a0550a346c0c3ba8a78211a2b40fdb7c9174b181be83d39"
+    },
+    "operator/RESUME.sh": {
+      "after": "40749ef64c331a82d72befe9ade4e1522bc52a5d9412ae27ecf6fc19d6b2ccb5",
+      "before": "97b8c753665a3bda726f79b979220d4782ff6e000b3da4f48dba3ec7c4002bd9"
+    },
+    "operator/ROUTE.sh": {
+      "after": "b31a1ac1e8e752dce6b1df94a84838bf3e9ddf95026464466cbfcb40fff64096",
+      "before": "c8293adf23f45210014972a063eb3107ce7cf57d3c46edfa1af21a0be2b76772"
+    },
+    "operator/STAGE.sh": {
+      "after": "7354408748ae706d857876ba5a1ca1d50191ad3c02ce1d9567b028458ca6a022",
+      "before": "3326db4fe0f5a6da086e913331b6957fddf91a4b2facacb0f2cb75df4187dc5d"
+    },
+    "operator/TERMINAL.sh": {
+      "after": "3db528a7063180fc859f869461acd98a2631ca901b0352eca2bf7d345b5c0dbe",
+      "before": "31fe2d4c423b93d14af1198ef60433f8895a6383a72dcfdf1dbf1de9e89491e1"
+    },
+    "restore-admission-r3.py": {
+      "after": "d0360a5dade6f43a5ac859b997fad2b5e97c3c509f3251b7c03bebdc0913b3a3",
+      "before": "390d608167cebd3a36b65a70207eac5c53d3be4ff1ce5f1b22fdef9ffb8e9a09"
+    },
+    "route-task.py": {
+      "after": "a2201d2ef6e9009dfbbc9ea7d490524dc3bb9258c6dbc2ea6ccfaa0fd0a3cd42",
+      "before": "55e2aa816749962db80d78d5092bf8e266a1de68001cb141a03ac7cda848054e"
+    },
+    "startup-release.py": {
+      "after": "467d18fb767704154fdacc1ea92755fba283244bd7b7742ecafd1206ad6c81c3",
+      "before": "c5c1afede174abf1a4f23f079d1c193ae44c7825164611dafe1e65df599c6310"
+    },
+    "window.py": {
+      "after": "32cd0d252eadb4c908eb2a798688cceb55bf410976be538ed90c341345caaa42",
+      "before": "8843245fd033769e70b08e247d4408bbbb78050f60f7532e738a117a25f1b422"
+    }
+  },
+  "executed": false,
+  "inspector_result_sha256": "eb6ceaa800c4c5b07d6deef1e7246edff119882f5cc96aa6b397675382b13e51",
+  "parent": "99470070947b50a10a7a89f8e816043af332af7b"
+}

@@ -12,10 +12,10 @@ import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-ROOT=Path('/var/tmp/ga-mb91-integrity-20260930-r2')
-BUILD=Path('/var/tmp/gct-oak5-platform-inspector-m12-20260927')
+ROOT=Path('/var/tmp/ga-mb91-integrity-20260930-r3')
+BUILD=Path('/var/tmp/ga-mb91-platform-inspector-m15-20260930-r1')
 W_SHA='3a23ed9b8281ff662a42f4151c2919b60fa24a885ec0be9019ab67a575fb8268'
-BINARY_SHA='0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6'
+BINARY_SHA='1c999e8147759505e434149668b95e70b727efad584e5659a0969a8ddefbfa87'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='d02a3adbd044ebaf4f1dd4606c0af5dea50bcab4bca5efb2f3da5aab14e68481'
 
@@ -59,10 +59,11 @@ def main():
     # No recovery admission; the accepted image is the ga-mb91 s3 TERMINAL record (window-base).
     b,o,owned=w.load_support();w.pins()
     w.read(BUILD/'platform-inspect',BINARY_SHA)
-    result=json.loads(w.read(BUILD/'build-result.json','2ec7df2d33d0fddc9b9204c51cf65879a683f628dfd2cf2109c04c030416aed0'))
-    w.require(result['binary_sha256']==BINARY_SHA and result['core_commit']=='f45a626213dc5b8d0b52f097d978cca56e506df0'
-        and result['core_tree']=='f1011adaf673937fbda1d254a53c8f0eadf17c5c'
-        and result['entrypoint_sha256']=='367056c801f85a4409589d231a0e91243f7ed1d9c6ded9a2e658865c8e3b0ad4',
+    result=json.loads(w.read(BUILD/'build-result.json','eb6ceaa800c4c5b07d6deef1e7246edff119882f5cc96aa6b397675382b13e51'))
+    w.require(result['binary_sha256']==BINARY_SHA and result['core_commit']=='53f2e232da03a1e176cf64cf4fe1aa9c3f3beb6b'
+        and result['core_tree']=='2a253aabadc432c3c9f8953961b7a0db96291191'
+        and result['entrypoint_sha256']=='eff2436ad99084781c6e437b56ccb9412f3cc0b0aea458173078cfee199a9e2e'
+        and result['manifest_sha256']==MANIFEST_SHA,
         'build binding')
     provider_pins(w,o)
     if sys.argv[1:]==['inner']:

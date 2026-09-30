@@ -248,8 +248,9 @@ def test_observation_successor_preserves_exact_completed_binding(built):
     assert a.sha(out['bind-task.py']) == '028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'
     assert b"BIND_SHA='028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'" in out['route-task.py']
     for name in ('observe-integrity-r11.py','operator/OBSERVE.sh','window.py'):
-        assert b'ga-mb91-integrity-20260930-r2' in out[name]
+        assert b'ga-mb91-integrity-20260930-r3' in out[name]
         assert b'ga-mb91-integrity-20260930-r1' not in out[name]
+        assert b'ga-mb91-integrity-20260930-r2' not in out[name]
     assert b'/var/tmp/ga-mb91-bind-20260930-r1' in out['route-task.py']
 
 

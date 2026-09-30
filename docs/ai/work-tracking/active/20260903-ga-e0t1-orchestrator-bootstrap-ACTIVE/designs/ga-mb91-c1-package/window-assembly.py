@@ -116,10 +116,10 @@ def retarget(text):
     # Also bind Path(VAR) / relative names, not only absolute path literals.
     text = re.sub(r'(ga-mb91-[a-z%0-9.-]+)-202609[0-9]{2}-r[0-9]+',
                   r'\1-20260930-r1', text)
-    # R1 OBSERVE was consumed before inspection. Only its successor uses r2;
+    # R1/R2 OBSERVE were consumed without live mutation. Only the successor uses r3;
     # WORKTREE, PREP and the completed BIND retain their original receipts.
     text = text.replace('ga-mb91-integrity-20260930-r1',
-                        'ga-mb91-integrity-20260930-r2')
+                        'ga-mb91-integrity-20260930-r3')
     text = text.replace('ga-mb91-r11-', 'ga-mb91-r1-')
     text = text.replace('.gc/worker-evidence/ga-mb91/r11', '.gc/worker-evidence/ga-mb91/r1')
     # The completed PREP probe and fresh BIND both bind September 30.
@@ -226,6 +226,40 @@ def rebind(out, initial, references, immutable):
     raise ValueError('source binding graph did not settle')
 
 
+def bind_inspector(sources):
+    """Bind both readers and their consumer to one exact offline-built M15 adapter."""
+    build = Path('/var/tmp/ga-mb91-platform-inspector-m15-20260930-r1')
+    result_raw = (build/'build-result.json').read_bytes()
+    if sha(result_raw) != 'eb6ceaa800c4c5b07d6deef1e7246edff119882f5cc96aa6b397675382b13e51':
+        raise ValueError('M15 inspector build receipt drift')
+    result = json.loads(result_raw)
+    if (result['manifest_sha256'] != 'd02a3adbd044ebaf4f1dd4606c0af5dea50bcab4bca5efb2f3da5aab14e68481'
+            or result['core_commit'] != '53f2e232da03a1e176cf64cf4fe1aa9c3f3beb6b'
+            or result['core_tree'] != '2a253aabadc432c3c9f8953961b7a0db96291191'
+            or sha((build/'platform-inspect').read_bytes()) != result['binary_sha256']
+            or sha((HERE/'inspector-m15/platform-inspect-main.go').read_bytes()) != result['entrypoint_sha256']
+            or sha((HERE/'inspector-m15/inspector-build.py').read_bytes()) != result['builder_sha256']):
+        raise ValueError('M15 inspector source or binary drift')
+    out = dict(sources)
+    for name in ('observe-integrity-r11.py', 'observe-terminal-r11.py'):
+        text = out[name].decode()
+        for before, after in (
+            ('/var/tmp/gct-oak5-platform-inspector-m12-20260927', str(build)),
+            ('0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6', result['binary_sha256']),
+            ('2ec7df2d33d0fddc9b9204c51cf65879a683f628dfd2cf2109c04c030416aed0', sha(result_raw)),
+            ('f45a626213dc5b8d0b52f097d978cca56e506df0', result['core_commit']),
+            ('f1011adaf673937fbda1d254a53c8f0eadf17c5c', result['core_tree']),
+            ('367056c801f85a4409589d231a0e91243f7ed1d9c6ded9a2e658865c8e3b0ad4', result['entrypoint_sha256']),
+            (",\n        'build binding')", "\n        and result['manifest_sha256']==MANIFEST_SHA,\n        'build binding')"),
+        ):
+            text = once(text, before, after)
+        out[name] = text.encode()
+    out['window.py'] = once(out['window.py'].decode(),
+        '0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6',
+        result['binary_sha256']).encode()
+    return out
+
+
 def assemble(*, observation, observation_sha, cache_ns):
     if re.fullmatch(r'/tmp/ga-mb91-readonly-baseline-20260930-r[1-9][0-9]*/observed.json',
                     observation) is None:
@@ -284,6 +318,7 @@ def assemble(*, observation, observation_sha, cache_ns):
     out['candidate-inspect.py'] = once(inspector,old,new).encode()
     wiring=load((HERE/'queue-wiring.py').read_bytes(),'queue_wiring')
     out=wiring.apply(out,prep)
+    out=bind_inspector(out)
     out = rebind(out, before, references, set(LOCAL) | {'bind-task.py'})
     for name, raw in out.items():
         if name.endswith('.py'):

@@ -125,9 +125,9 @@ routes=load(HERE/'restore-r9-routes-r3.py',
     '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2','window_routes')
 routes_policy=load(HERE/'route-chain-r1.py',
     'c8faa7a629eca9560a75a86487273baa6409a635cd39ea54c5673ce5265bba09','window_route_chain')
-INTEGRITY=Path('/var/tmp/ga-mb91-integrity-20260930-r2')
-OBSERVER_SHA='f5a85e76ef03cf5fb7fcdf3f3e32f5aa36430c317a26a34816841ffa7f6fa710'
-INSPECTOR_SHA='0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6'
+INTEGRITY=Path('/var/tmp/ga-mb91-integrity-20260930-r3')
+OBSERVER_SHA='c22c72aa6ce237d6d0e168d68f03f4cca6121f9222a6a97f209a7404f0b9b7e5'
+INSPECTOR_SHA='1c999e8147759505e434149668b95e70b727efad584e5659a0969a8ddefbfa87'
 
 def integrity_baseline(first):
     # The reviewed observer creates INTEGRITY exclusively (0700) and records its executor digest

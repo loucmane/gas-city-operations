@@ -17,7 +17,7 @@
       "before_sha256": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f"
     },
     "preserve-halt.py": {
-      "after_sha256": "63a5231804126d3408d6d02f03053e6efe4e99619c73382e419ac9956ca14636",
+      "after_sha256": "996e2a7a4a1e4194119681f6318f48ac02d8bde34e6f220e2e472ae266b03bb9",
       "before_sha256": "5ad5aff5ccc2bee2fb2b8bfa9d5e65d9619fe9d4eafd48af9a76d2a125b50a8b"
     },
     "test_create_only_candidate.py": {
@@ -57,7 +57,7 @@
       "before_sha256": "caf93eb741b81fe22a7fa25ff2fadf40d0083399c000cbd4ce9159b61e10f8d7"
     },
     "test_window_assembly.py": {
-      "after_sha256": "a5cb8604beec542118384d8a0740d3bee73aa3d5e35d9549cc1989ac916ecd5a",
+      "after_sha256": "acaa34f6093ff60ea251b7f8406cd850a400aeb0cbb844bb51e38221c8002f15",
       "before_sha256": "b41feb179be25b5ab942d49e6370d7a41b10d825226a2b8a8286d2792a62b50a"
     }
   },
@@ -65,6 +65,5 @@
   "r2": "Native 0644 descriptor reader; receipt-bound owned routing reminders and exact release ingress; real complete lifecycle body with failing preservation guard.",
   "r3": "Native metadata-injected then separate close transition is pending only; bounded pre-enqueue settling; closed AND ingress proof remains required.",
   "r4": "Exact observed cache directory time pair; fresh observation root; completed BIND executor and result remain exact; replay wrapper disabled.",
-  "r5": "Both integrity observers and window consumer bind the rebuilt M15 inspector from adopted Core; fresh OBSERVE r3; all failed evidence preserved.",
   "reason": "Previous expiry exception superseded by exact pre-poller preservation. Historical tests retained unchanged in predecessor. New queue suites cover strict rejection and owned transitions."
 }
