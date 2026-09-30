@@ -1,0 +1,77 @@
+{
+  "predecessor": "/tmp/ga-e0t1-21-permission-capture-20260929.py",
+  "replacements": [
+    [
+      "restored failed ga-xyqo worker",
+      "restored failed ga-goo5 worker"
+    ],
+    [
+      "/tmp/ga-xyqo-permission-capture-20260929-r1",
+      "/tmp/ga-goo5-permission-capture-20260930-r1"
+    ],
+    [
+      "/tmp/ga-e0t1-21-permission-capture-20260929-r1",
+      "/tmp/ga-jcxb-permission-capture-20260930-r1"
+    ],
+    [
+      "/home/loucmane/.codex/sessions/2026/09/29",
+      "/home/loucmane/.codex/sessions/2026/09/30"
+    ],
+    [
+      "rollout-2026-09-29T22-08-11-01a0eec8-2e4c-7ce1-9fec-47e18eec13ed.jsonl",
+      "rollout-2026-09-30T04-06-11-01a0f00f-ee65-7722-abaa-891ed4de4b09.jsonl"
+    ],
+    [
+      "2495928",
+      "157587"
+    ],
+    [
+      "8892e76c047946f0d7cabab705566724e9754c077b71c207b188d5e5ff47e492",
+      "719a48e3c841cecc0e6b0d73055b2ce535e1bcfa76629d6a38e413efc37a6b0e"
+    ],
+    [
+      "34909bf1af330f5c970ad7fde780bb6bcb53d562be3fe6ce6a864d507d69e0df",
+      "3aafa560064c18341c49725aabe01fa9dec0588eeb9ec6863616990336a44bc1"
+    ],
+    [
+      "/var/tmp/ga-xyqo-terminal-20260929-r1/result.json",
+      "/var/tmp/ga-goo5-terminal-20260930-r1/result.json"
+    ],
+    [
+      "/var/tmp/ga-xyqo-r1-close-20260929T203258Z/result.json",
+      "/var/tmp/ga-goo5-r1-close-20260930T021025Z/result.json"
+    ],
+    [
+      "7e72b99efc965b6c648bc029b595d468d7323f5dd699856310dafd4abe009f88",
+      "76255c9d60fc79bc89d13d56850ebe136649c1147bee60a430dd90a138908796"
+    ],
+    [
+      "ci-0rflg",
+      "ci-n1xe4"
+    ],
+    [
+      "0e9afadc4366ae7c733372816809badb6f1531162985c0bd3da4062589cddc9d",
+      "760a5db3263c6865be316850f0bff5f29ebd973309b488c446eb31a54b8bc7a3"
+    ],
+    [
+      "17c0eb04687b6271642c49efaed2c4fa836b69ac844cd30fb4f17783421cbd37",
+      "bbbd74ef9764a68795edb67ae5e99e297b6f55fcd2f76710d43cfd538ece94fb"
+    ],
+    [
+      "01a0eec8-2e4c-7ce1-9fec-47e18eec13ed",
+      "01a0f00f-ee65-7722-abaa-891ed4de4b09"
+    ],
+    [
+      "/home/loucmane/gas-city-ops-candidate-worktrees/ga-xyqo",
+      "/home/loucmane/gas-city-ops-candidate-worktrees/ga-goo5"
+    ],
+    [
+      "assert aligned[\"stat\"][\"mtime_ns\"] == aligned[\"stat\"][\"ctime_ns\"]",
+      "assert aligned[\"stat\"][\"mtime_ns\"] == aligned[\"stat\"][\"ctime_ns\"] == 1790733971479389408"
+    ],
+    [
+      "    def observe(path, fd):\n",
+      "    last_path = D / \"ga-5uc9-c1-package/permissions-baseline.py\"\n    last_raw = pinned(last_path, \"a1e721390e3c2bcd31790f4bfe40e7b85af0b5df577334bf1ac644e97c395f04\")\n    last = types.ModuleType(\"last_permission_baseline\")\n    last.__file__ = str(last_path)\n    exec(compile(last_raw, str(last_path), \"exec\"), last.__dict__)\n    completed_path = D / \"ga-goo5-c1-package/permissions-baseline.py\"\n    completed_raw = pinned(completed_path, \"e655c6cb042f7ff44b3e71ae12cc4770eae8452010f2c44e2faf31e0e1280090\")\n    completed = types.ModuleType(\"completed_permission_baseline\")\n    completed.__file__ = str(completed_path)\n    exec(compile(completed_raw, str(completed_path), \"exec\"), completed.__dict__)\n    def observe(path, fd):\n        if path == last.TRANSCRIPT:\n            return last.completed_transcript_image(m, fd)\n        if path == completed.TRANSCRIPT:\n            return completed.completed_transcript_image(m, fd)\n"
+    ]
+  ]
+}

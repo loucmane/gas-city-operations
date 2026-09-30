@@ -1,0 +1,13 @@
+{
+  "predecessor": "ga-goo5-c1-package/worker-startup.py",
+  "replacements": [
+    [
+      "ga-goo5",
+      "ga-jcxb"
+    ],
+    [
+      "509a70efb8a7add6a705910d6448e7f3e01e41b61af458985f62869b11b1eeff",
+      "9c815d86f4eb87d3eca8135530063e173e5d497a4d56bf500d6c6221da5059db"
+    ]
+  ]
+}
