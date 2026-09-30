@@ -15,7 +15,7 @@ import stat
 WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r2')
 CITY = Path('/home/loucmane/gascity/city')
 TASK = 'ga-mb91'
-POLICY_SHA = '2f84cb048ae68a9738277cd1ca908a36147764cc333556936b06df7951b1b138'
+POLICY_SHA = '86e29f2593b75f98818308cdf3d11840bbd8276ab17bdd660a9880a3df7153a3'
 ABSENCE_SHA = '44c2507fc5f6b2c226c24637f6e775ac1fd8e17bf69379c1947fddc13d325482'
 CORE = '/home/loucmane/gascity/bin/gc'
 CORE_CGROUP = '0::/user.slice/user-1000.slice/user@1000.service/app.slice/gascity-supervisor-home-42adab5d.service\n'
@@ -187,6 +187,13 @@ def checkpoint(w, label, b, o, owned_phase, *, capture=False, scoped=True, fatal
             w.require(count_value(p, command('absent-ids',
                 ['bd', 'count', '--id', ids, '--include-infra', '--json'])) == 0,
                 'historical shadow reappeared')
+            # Core's fallback finds any Bead by this label, independently of
+            # type, gc:nudge, metadata or ownership. Mirror that unfiltered
+            # lookup rather than inferring absence from the shadow census.
+            labels = ','.join('nudge:' + identity for identity in sorted(absent))
+            w.require(count_value(p, command('absent-labels',
+                ['bd', 'count', '--label-any', labels, '--include-infra', '--json'])) == 0,
+                'historical shadow label remapped')
         last = read_queue(w)
         if frozen is None:
             w.require(first == last, 'queue changed around shadow read')

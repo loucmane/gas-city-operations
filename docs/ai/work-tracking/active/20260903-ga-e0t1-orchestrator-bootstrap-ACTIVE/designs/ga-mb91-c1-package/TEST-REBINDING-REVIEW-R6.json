@@ -1,8 +1,8 @@
 {
   "added_tests": {
-    "test_historical_absence.py": "5a33db41e4514eea0ec63e83a0c259759c61b4d2c07175421003a3af2994f515",
+    "test_historical_absence.py": "ae19587628ac030288cbfdf1d55cea844ca2c19ad03ce13f39140d4aec8749d2",
     "test_owned_reminders.py": "fc4be1f5df9f234bc3fbb536310179741046c5200404d0481cd75ec6bc5e4de5",
-    "test_queue_guard.py": "3101bd1e54ca5be9eec1caeb5b5eec8282b9fab46986017b990b2c19142f895e",
+    "test_queue_guard.py": "79da5e8c127577cf4fe15d11b69d8028501ff0b8238234d60270ab2f670e0106",
     "test_queue_preservation.py": "194f6a35a1f933b0b125b925a03d890643dd48099f6ed87dcae3c866e0798015",
     "test_queue_reader.py": "8f97f63d5143ac0d4a094f949ff3eedd783467be8c66359b2d5d3ad9853982ca",
     "test_queue_scope_prep.py": "9a00f1ec0e89b97b28c0aeb79ed4a48a9908fe784c7761acdde0a7bdf07933b5",
@@ -68,6 +68,5 @@
   "r4": "Exact observed cache directory time pair; fresh observation root; completed BIND executor and result remain exact; replay wrapper disabled.",
   "r5": "Both integrity observers and window consumer bind the rebuilt M15 inspector from adopted Core; fresh OBSERVE r3; all failed evidence preserved.",
   "r6": "Exact digest-only historical DEAD-shadow absence binding with complete count/list census and fresh exact-ID absence count. No history rewrite, generic missing exception, worker authority or payload export.",
-  "r7": "Exact Core label fallback absence query without type or class-label filtering, independent of metadata and ownership. Retains all R6 exact-ID, census, history and containment checks.",
   "reason": "Previous expiry exception superseded by exact pre-poller preservation. Historical tests retained unchanged in predecessor. New queue suites cover strict rejection and owned transitions."
 }

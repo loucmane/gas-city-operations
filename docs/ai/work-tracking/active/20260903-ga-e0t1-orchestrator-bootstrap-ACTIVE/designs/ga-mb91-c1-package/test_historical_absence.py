@@ -88,6 +88,8 @@ def test_adapter_complete_census_and_exact_absence_commands(tmp_path, monkeypatc
     ids = ','.join(sorted(record['bead_id'] for record in a.values()))
     assert ['bd', 'count', '--id', ids, '--include-infra', '--json'] in calls
     assert ['bd', 'count', '--type', 'chore', '--label', 'gc:nudge', '--include-infra', '--json'] in calls
+    labels = ','.join('nudge:'+identity for identity in sorted(a))
+    assert ['bd', 'count', '--label-any', labels, '--include-infra', '--json'] in calls
 
 
 @pytest.mark.parametrize('fault', ['truncated', 'appearance', 'malformed', 'transport'])
@@ -157,3 +159,40 @@ def test_fresh_window_root_is_shared_and_completed_bind_unchanged():
         assert b'ga-mb91-window-20260930-r1' not in raw
         assert b'ga-mb91-window-20260930-r2' in raw
     assert hashlib.sha256((HERE/'bind-task.py').read_bytes()).hexdigest() == '028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'
+
+
+@pytest.mark.parametrize('owned_alias', [False, True])
+def test_label_alias_with_wrong_metadata_refuses_before_ownership(owned_alias):
+    q, b, a = absent_fixture()
+    frozen = p.baseline(q, b, a)
+    identity = next(iter(a))
+    metadata = dict(nudge_id='nudge-eeeeeeeeeeee')
+    if owned_alias:
+        metadata.update(session_id=SESSION['id'], continuation_epoch=SESSION['continuation_epoch'],
+                        agent='gascity/codex')
+    b.append(dict(id='ci-labelalias', issue_type='chore', status='open',
+                  labels=['gc:nudge', 'nudge:'+identity], metadata=metadata))
+    with pytest.raises(RuntimeError, match='historical shadow'):
+        p.baseline(q, b, a)
+    with pytest.raises(RuntimeError, match='historical shadow'):
+        p.preserve(frozen, q, b, SESSION)
+
+
+@pytest.mark.parametrize('kind', ['retyped', 'missing-class-label', 'wrong-metadata-owned'])
+def test_native_fallback_count_catches_aliases_outside_filtered_census(tmp_path, monkeypatch, kind):
+    g, w, s = rig(tmp_path, monkeypatch)
+    q, b, a = absent_fixture()
+    s.update(queue=q, beads=b)
+    monkeypatch.setattr(g, 'absence', lambda w: a)
+    actual = w.phase
+    def phase(label, args, *pos, **kw):
+        if args[3:5] == ['bd', 'count'] and '--label-any' in args:
+            # Models a native hit independent of its type, class labels,
+            # metadata or owner. It remains invisible to the filtered census.
+            return {'stdout': json.dumps(dict(count=1, schema_version=1))}
+        return actual(label, args, *pos, **kw)
+    w.phase = phase
+    with pytest.raises(RuntimeError, match='historical shadow label'):
+        g.checkpoint(w, 'preflight', None, None, None, capture=True, scoped=False)
+    assert not (g.WINDOW/'foreign-before.json').exists()
+    assert (g.WINDOW/'foreign-preflight-failure.json').exists()

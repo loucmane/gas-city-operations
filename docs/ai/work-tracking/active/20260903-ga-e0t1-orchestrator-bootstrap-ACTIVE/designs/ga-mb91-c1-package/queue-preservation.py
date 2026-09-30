@@ -68,6 +68,7 @@ def absent_records(q, b, absent_dead):
                 and bid not in ids, 'historical absence Bead identity')
         ids.add(bid)
         require(bid not in b and not any(row['metadata'].get('nudge_id') == identity
+                                        or 'nudge:' + identity in row['labels']
                                         for row in b.values()),
                 'historical shadow appeared or was remapped')
     return copy.deepcopy(absent_dead)

@@ -47,7 +47,10 @@ def rig(tmp_path, monkeypatch):
         elif args[:2]==['bd','list']:value=state['beads']
         elif args[:2]==['bd','count']:
             ids = set(args[args.index('--id')+1].split(',')) if '--id' in args else None
-            value=dict(count=sum(ids is None or row['id'] in ids for row in state['beads']),
+            labels = set(args[args.index('--label-any')+1].split(',')) if '--label-any' in args else None
+            value=dict(count=sum((ids is None or row['id'] in ids)
+                                 and (labels is None or bool(labels.intersection(row['labels'])))
+                                 for row in state['beads']),
                        schema_version=1)
         elif args[:2]==['config','show']:value=c
         elif args[:2]==['order','list']:value=orders
