@@ -15,6 +15,7 @@ CORE_CGROUP = '0::/user.slice/user-1000.slice/user@1000.service/app.slice/gascit
 
 MAX_WAIT_SECONDS = 90
 MAX_OBSERVATIONS = 90
+ORDINARY_REMINDER = 'check for assigned work'
 
 
 def require(condition, message):
@@ -89,12 +90,40 @@ def poller_identity(value, session, expected_executable, expected_sha256, owned_
                                  'executable_sha256', 'cgroup')}
 
 
-def transcript_ingress(before, after, message):
+def ordinary_receipts(rows, session):
+    """Only the pinned nudge-on-route text in the exact current epoch."""
+    require(type(rows) is list and len(rows) <= 4096, 'ordinary receipt bound')
+    result = {}
+    for row in rows:
+        require(type(row) is dict and type(row.get('metadata', {})) is dict,
+                'ordinary receipt shape')
+        m = row.get('metadata', {})
+        if not (m.get('message') == ORDINARY_REMINDER and m.get('session_id') == session['id']
+                and m.get('continuation_epoch') == session['continuation_epoch']):
+            continue
+        identity = m.get('nudge_id', '')
+        require(isinstance(identity, str) and re.fullmatch(r'nudge-[0-9a-f]{12}', identity)
+                and identity not in result and isinstance(row.get('id'), str) and row['id']
+                and row.get('issue_type') == 'chore' and 'gc:nudge' in row.get('labels', [])
+                and m.get('agent') == 'gascity/codex' and m.get('source') == 'session',
+                'ordinary receipt authority differs')
+        state = m.get('state')
+        require((state in ('queued', 'in_flight') and row.get('status') == 'open')
+                or (state == 'injected' and row.get('status') == 'closed'
+                    and m.get('commit_boundary') == 'provider-nudge-return'
+                    and m.get('terminal_reason') == '' and not m.get('last_error')),
+                'ordinary receipt failed or unknown')
+        result[identity] = row
+    return result
+
+
+def transcript_counts(before, after, message):
     require(type(before) is bytes and type(after) is bytes and len(after) <= 32 << 20,
             'native transcript size or type')
     require(before.endswith(b'\n') and after.startswith(before), 'native transcript prefix changed')
-    expected = native_payload(message).rstrip('\n')
+    native_payload(message)  # Validate the exact release string first.
     found = []
+    ordinary_count = 0
     suffix = after[len(before):]
     # A writer can be between bytes of its last line. Only complete records count.
     lines = suffix.split(b'\n')[:-1]
@@ -114,11 +143,41 @@ def transcript_ingress(before, after, message):
                 'native user message shape')
         texts = [x.get('text') for x in content if x.get('type') in ('input_text', 'text')]
         require(all(isinstance(t, str) for t in texts), 'native user text shape')
-        require(len(texts) == 1 and texts[0].rstrip('\n') == expected,
+        require(len(texts) == 1, 'native release payload differs')
+        text = texts[0].rstrip('\n')
+        parts = text.split('\n')
+        require(len(parts) >= 7 and parts[0] == '<system-reminder>' and parts[2] == ''
+                and parts[-3:] == ['', 'Handle them after this turn.', '</system-reminder>'],
                 'native release payload differs')
-        found.append(record)
+        entries = parts[3:-3]
+        require(0 < len(entries) <= 129, 'native reminder batch bound')
+        header = ('You have a deferred reminder that was queued until a safe boundary:'
+                  if len(entries) == 1 else
+                  'You have '+str(len(entries))+' deferred reminders that were queued until a safe boundary:')
+        require(parts[1] == header and all(x in ('- [session] '+message,
+                '- [session] '+ORDINARY_REMINDER) for x in entries), 'native release payload differs')
+        found.extend(record for x in entries if x == '- [session] '+message)
+        ordinary_count += entries.count('- [session] '+ORDINARY_REMINDER)
     require(len(found) <= 1, 'duplicate native release ingress')
-    return bool(found)
+    return len(found), ordinary_count
+
+
+def transcript_before(before, after, message, rows, session):
+    releases, ordinary_count = transcript_counts(before, after, message)
+    ordinary = ordinary_receipts(rows, session)
+    injected = sum(r['metadata']['state'] == 'injected' for r in ordinary.values())
+    require(releases == 0 and ordinary_count <= injected,
+            'unreceipted or release ingress before enqueue')
+    return dict(ordinary_ingress=ordinary_count, release_ingress=0)
+
+
+def transcript_ingress(before, after, message, *, rows=None, session=None):
+    releases, ordinary_count = transcript_counts(before, after, message)
+    ordinary = ordinary_receipts(rows, session) if rows is not None else {}
+    # Receipt read may precede native injection/close by a few milliseconds.
+    # Never infer delivery from transcript alone; the bounded observer rereads.
+    injected = sum(r['metadata']['state'] == 'injected' for r in ordinary.values())
+    return releases == 1 and ordinary_count <= injected
 
 
 def queue_items(queue):
@@ -179,6 +238,35 @@ def preserved_history(prior, current, session, baseline_window_ns=None,
     return []
 
 
+def fresh_release_items(prior, current, rows, session, message):
+    ordinary = ordinary_receipts(rows, session)
+    release = []
+    for identity, (bucket, item) in current.items():
+        if identity in prior:
+            continue
+        require(item.get('session_id') == session['id'] and item.get('source') == 'session'
+                and item.get('agent') == 'gascity/codex'
+                and item.get('continuation_epoch') == session['continuation_epoch'],
+                'new queued release identity differs')
+        require(bucket != 'dead', 'native release delivery failed')
+        if item.get('message') == message:
+            release.append((bucket, item))
+        else:
+            row = ordinary.get(identity)
+            require(item.get('message') == ORDINARY_REMINDER and row is not None
+                    and item.get('bead_id') == row['id'], 'unbacked or unknown owned reminder')
+    require(len(release) <= 1, 'unexpected or duplicate new nudge')
+    return release
+
+
+def admit_before(rows, queue, queue_before, session, message):
+    absence_before(rows, session, message)
+    prior = queue_baseline(queue_before, session); current = queue_items(queue)
+    preserved_history(prior, current, session)
+    require(not fresh_release_items(prior, current, rows, session, message), 'release already queued')
+    return sorted(key for key in current if key not in prior)
+
+
 def acknowledged(rows, queue, session, message, started_epoch, queue_before, *,
                  baseline_window_ns=None, observed_window_ns=None, previous_history=None):
     require(type(started_epoch) in (int, float) and math.isfinite(started_epoch),
@@ -188,14 +276,7 @@ def acknowledged(rows, queue, session, message, started_epoch, queue_before, *,
     current = queue_items(queue)
     preserved_history(prior, current, session, baseline_window_ns,
                       observed_window_ns, previous_history)
-    fresh = [value for key, value in current.items() if key not in prior]
-    require(len(fresh) <= 1, 'unexpected or duplicate new nudge')
-    for name, item in fresh:
-        require(item.get('session_id') == session['id'] and item.get('message') == message
-                and item.get('source') == 'session' and item.get('agent') == 'gascity/codex'
-                and item.get('continuation_epoch') == session['continuation_epoch'],
-                'new queued release identity differs')
-        require(name != 'dead', 'native release delivery failed')
+    fresh = fresh_release_items(prior, current, rows, session, message)
     if not matches:
         return None
     row = matches[0]
@@ -265,7 +346,8 @@ def wait(observe, monotonic, sleep, session, message, before, started_epoch, que
         previous_history = {key: current_queue[key] for key in prior}
         if observed_window is not None:
             previous_window = tuple(time_window_ns(observed_window))
-        ingress = transcript_ingress(before, snapshot['transcript'], message)
+        ingress = transcript_ingress(before, snapshot['transcript'], message,
+                                     rows=snapshot['receipts'], session=session)
         if receipt is not None and ingress:
             return dict(delivered=True, receipt=receipt, poller=identity,
                         historical_expirations=list(recorded_expirations.values()),

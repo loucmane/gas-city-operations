@@ -1,11 +1,9 @@
 {
   "added_tests": {
-    "test_owned_reminders.py": "31d6bb36de407e384c7eff6b3b6fa983dbeb05be12b01985f652b5d1d6768b19",
     "test_queue_guard.py": "27b41c4576418d4db6792067014452b6d9d914e8b4359d9ba3f96d49770605ee",
     "test_queue_preservation.py": "194f6a35a1f933b0b125b925a03d890643dd48099f6ed87dcae3c866e0798015",
-    "test_queue_reader.py": "8f97f63d5143ac0d4a094f949ff3eedd783467be8c66359b2d5d3ad9853982ca",
     "test_queue_scope_prep.py": "9a00f1ec0e89b97b28c0aeb79ed4a48a9908fe784c7761acdde0a7bdf07933b5",
-    "test_queue_wiring.py": "a164c2c90aeb1d768ad6778806a4de9c71c9df44d6dde7ab44252f6fc925fe06"
+    "test_queue_wiring.py": "a7be4ebecb819f4b176cf9d48d4cc1400cd09e3b02df1af881d233e37c2fd173"
   },
   "excluded": [
     "test_expiry.py",
@@ -45,7 +43,7 @@
       "before_sha256": "474ae14f98e9fda1bf7cfd5d699465c7397e43e8883c98171d49e92c531ef0e1"
     },
     "test_runtime.py": {
-      "after_sha256": "8a7055a4821208c8cd7fc25c4e387d4144bbee649d20952ef00ea9709be76b90",
+      "after_sha256": "abfa2ae8e7b552137f6a256f7835cee47ebd9fa1af5bd11bf0432a8da9703014",
       "before_sha256": "4651140e368175b9148496bc2350230d674ee4e256dd8e1f806cc41ef99cdd9f"
     },
     "test_task_assembly.py": {
@@ -62,6 +60,5 @@
     }
   },
   "fixture_corrections": "Native LEDGER-BINDING fixture and synthetic times after creation. Exact accepted Core PID/start literal rebinding. No production guard weakened.",
-  "r2": "Native 0644 descriptor reader; receipt-bound owned routing reminders and exact release ingress; real complete lifecycle body with failing preservation guard.",
   "reason": "Previous expiry exception superseded by exact pre-poller preservation. Historical tests retained unchanged in predecessor. New queue suites cover strict rejection and owned transitions."
 }

@@ -893,7 +893,7 @@ def route_read_account(before, after, window, *, regenerated=False):
 
 
 def foreign_queue(label,b,o,owned,**kwargs):
-    guard=module(HERE/'queue-guard.py','d04e7eccc73c5e361bfca307110a931e192ce045d46b734b7645e97195da7041')
+    guard=module(HERE/'queue-guard.py','a6320c19fa9cc103b88d99e020595dfa99efb1e7de1c683c71f4014ad29519ee')
     return guard.checkpoint(types.SimpleNamespace(**globals()),label,b,o,owned,**kwargs)
 
 if __name__=='__main__':

@@ -14,10 +14,10 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-BASE_SHA = '8cda13e81dd67ac9654eba96d7dc4630d350e25a6b0b684cf8bb2f274f192e28'
+BASE_SHA = '9194f1f89374189d7f9c6146d944997cb55e12f6f3e5a7174f2a37dd0351da23'
 VALIDATOR_SHA = '41f41ebba0bc7f74dbb5221d68472e274c6dc482d7564a72ec828b75851d44e3'
 PROBE_SHA = '327d9928b4167642d67a1899f64dafca36ba460012a6ea7e03dfb04bbb86d0e1'
-INSPECT_SHA = '042c3056809f5477883378dcc39c6b41b24d679dda629468a7ea5fa8bad129c6'
+INSPECT_SHA = 'b34092df435b4aed7a778e35ca14c4a898ec52e74efa9115c3f6beb842a7a2c9'
 COMMON_SHA = '34ce775b59318acc01499e3cc27e9d09c4d39d8bb64d723b7970fc6dcf8b6301'
 ROOT = Path('/var/tmp/ga-mb91-startup-release-20260930-r1')
 WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r1')
@@ -85,8 +85,8 @@ def main():
     inspector=w.module(HERE/'candidate-inspect.py',INSPECT_SHA)
     runtime=w.module(HERE/'runtime-process-r7.py','ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65')
     common=w.module(HERE/'common-snapshot-r1.py',COMMON_SHA)
-    delivery=w.module(HERE/'release-delivery-r13.py','97f45c79a028cdff1a1ebfa8c86fc93a1a6406fb99dd3ddddd5f2c34bed2604e')
-    transport=w.module(HERE/'release-runtime-r13.py','d237a3878e97f5686578d0721190b4bea029c74cfe24114bfb24ef76439f8c79')
+    delivery=w.module(HERE/'release-delivery-r13.py','fba71bb2edcdf62beee7c1c7884dde8904ba29c378df1383c16b24703bb80f02')
+    transport=w.module(HERE/'release-runtime-r13.py','c04d4c9c8a12bf5b1d39ab0ff1d0d92a6db0bffda78eb53c6993c42b15e5e060')
     b,o,owned=w.load_support()
     w.active_epoch(o)
     require(w.record('stage-pass.json')==dict(ok=True,worker_launched=False),'window not staged')

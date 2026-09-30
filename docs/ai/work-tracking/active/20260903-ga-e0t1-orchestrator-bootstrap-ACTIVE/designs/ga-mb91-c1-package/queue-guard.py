@@ -32,12 +32,29 @@ def read_queue(w):
                   and st.st_uid == st.st_gid == 1000 and not st.st_mode & 0o022,
                   'queue parent authority')
     for attempt in range(3):
-        st = path.lstat()
-        w.require(stat.S_ISREG(st.st_mode) and st.st_size <= 16 << 20
-                  and st.st_uid == st.st_gid == 1000 and st.st_nlink == 1
-                  and stat.S_IMODE(st.st_mode) == 0o600, 'queue file authority or bound')
         try:
-            return w.read(path)
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NOATIME
+                         | os.O_CLOEXEC | os.O_NONBLOCK)
+            try:
+                st = os.fstat(fd)
+                # Core's state.go writes state.json as 0644. Its separate
+                # lock is 0600; never chmod either to satisfy this reader.
+                w.require(stat.S_ISREG(st.st_mode) and st.st_size <= 16 << 20
+                          and st.st_uid == st.st_gid == 1000 and st.st_nlink == 1
+                          and stat.S_IMODE(st.st_mode) == 0o644,
+                          'queue file authority or bound')
+                chunks = []; remaining = st.st_size + 1
+                while remaining:
+                    chunk = os.read(fd, min(65536, remaining))
+                    if not chunk:
+                        break
+                    chunks.append(chunk); remaining -= len(chunk)
+                raw = b''.join(chunks)
+                w.require(st == os.fstat(fd) == path.lstat()
+                          and len(raw) == st.st_size, 'file read drift')
+                return raw
+            finally:
+                os.close(fd)
         except RuntimeError as exc:
             if str(exc) != 'file read drift' or attempt == 2:
                 raise

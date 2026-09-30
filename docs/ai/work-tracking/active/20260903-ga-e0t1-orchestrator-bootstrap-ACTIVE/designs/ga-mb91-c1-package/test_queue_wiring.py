@@ -69,3 +69,41 @@ def test_shadow_failure_before_release_cannot_enqueue(monkeypatch):
     with pytest.raises(RuntimeError,match='foreign shadow drift'):run()
     assert not any(c[3:5]==['session','nudge'] for c in calls)
     assert 'delivery-enqueued.json' not in saved
+
+
+def test_full_generated_suspend_chain_reaches_both_native_phases_on_guard_failure(tmp_path,monkeypatch):
+    """Real lifecycle bodies + real failing preservation guard; native APIs are fixtures."""
+    from test_queue_guard import rig
+    g,adapter,state=rig(tmp_path,monkeypatch)
+    g.checkpoint(adapter,'preflight',None,None,None,capture=True,scoped=False)
+    state['queue']['dead'].pop()
+    w=load('window-base.py');w.ROOT=adapter.ROOT
+    events=[dict(action='rig-resume'),dict(action='city-resume')]
+    records={'stage-pass.json':dict(ok=True,worker_launched=False),'suspension-baseline.json':{}}
+    calls=[]
+    lineage=types.SimpleNamespace(ACTIONS={x:(None,None,[x]) for x in
+        ('rig-resume','city-resume','city-suspend','rig-suspend')},chain=lambda *a,**k:None)
+    w.module=lambda *a:lineage
+    w.record=lambda name:records[name]
+    w.read=lambda *a:b'fixture'
+    w.active_epoch=lambda *a:None
+    w.lifecycle_records=lambda *a:list(events)
+    w.suspension_record=lambda *a:dict(pin=dict(sha256='a'*64))
+    w.observed_suspension_endpoint=lambda *a:dict(pin=dict(sha256='b'*64))
+    def save(name,value):
+        assert name not in records
+        records[name]=value
+        if name.endswith('-event.json'):events.append(value)
+    w.save=save
+    def phase(action,*args):
+        calls.append(action);save(action+'-started.json',dict(action=action))
+        return dict(exit_code=0)
+    w.phase=phase
+    w.foreign_queue=lambda label,*args,**kwargs:g.checkpoint(adapter,label,None,None,None,**kwargs)
+    w.lifecycle('city-suspend',None,None,None)
+    w.lifecycle('rig-suspend',None,None,None)
+    assert calls==['city-suspend','rig-suspend']
+    assert (w.ROOT/'foreign-city-suspend-after-failure.json').is_file()
+    assert (w.ROOT/'foreign-rig-suspend-after-failure.json').is_file()
+    with pytest.raises(RuntimeError):g.checkpoint(adapter,'restore-admission',None,None,None)
+    assert not (w.ROOT/'foreign-restore-admission-pass.json').exists()

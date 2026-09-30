@@ -27,6 +27,12 @@ def harness(monkeypatch, existing=True, fault=None, task='ga-mb91'):
             provider='codex-managed', continuation_epoch='1',
             **{'gc.trigger_bead_id':task, 'gc.trigger_bead_store_ref':'rig:gascity'}))
     transcript = Path('/fixture/rollout.jsonl')
+    def ordinary(state):
+        row = copy.deepcopy(snapshot(True, True)['receipts'][0])
+        row['id'] = 'ci-ordinary'
+        row['status'] = 'closed' if state == 'injected' else 'open'
+        row['metadata'].update(nudge_id='nudge-999999999999', message='check for assigned work', state=state)
+        return row
 
     def phase(label, args, timeout):
         nonlocal enqueued
@@ -44,6 +50,8 @@ def harness(monkeypatch, existing=True, fault=None, task='ga-mb91'):
             assert op[-3] == '--limit' and op[-1] == '--json'
             limit = int(op[-2])
             value = snapshot(True, True)['receipts'] if enqueued else []
+            if fault in ('pending-ordinary', 'unknown-pending', 'ordinary-ingress-before'):
+                value += [ordinary('injected' if enqueued or fault == 'ordinary-ingress-before' else 'queued')]
             if fault == 'ordinary-reminder' and not enqueued:
                 value = snapshot(True, True)['receipts']
                 value[0]['metadata']['message'] = 'Ordinary startup reminder'
@@ -76,8 +84,21 @@ def harness(monkeypatch, existing=True, fault=None, task='ga-mb91'):
 
     def read(path, limit):
         if path == Path(EXE): return binary
-        if path == r.CITY / '.gc/nudges/state.json': return json.dumps(BASELINE).encode()
+        if path == r.CITY / '.gc/nudges/state.json':
+            value = copy.deepcopy(BASELINE)
+            if fault in ('pending-ordinary', 'unknown-pending') and not enqueued:
+                row = ordinary('queued'); m = row['metadata']
+                item = dict(id=m['nudge_id'],bead_id=row['id'],**{k:m[k] for k in
+                    ('session_id','continuation_epoch','message','agent','source')})
+                if fault == 'unknown-pending': item['message'] = 'not reviewed'
+                value.setdefault('pending',[]).append(item)
+            return json.dumps(value).encode()
         if path == transcript:
+            if fault in ('pending-ordinary', 'ordinary-ingress-before'):
+                from test_owned_reminders import ingress as batch
+                if fault == 'ordinary-ingress-before':
+                    return BEFORE + batch(['check for assigned work']) + (ingress() if enqueued else b'')
+                return BEFORE + (batch(['check for assigned work',M]) if enqueued else b'')
             return BEFORE + (ingress() if enqueued else b'')
         raise AssertionError(path)
 
@@ -159,6 +180,26 @@ def test_completed_ordinary_reminder_does_not_preclude_exact_release(monkeypatch
     run, calls, _ = harness(monkeypatch, fault='ordinary-reminder')
     assert run()['delivered']
     assert sum(c[3:5] == ['session','nudge'] for c in calls) == 1
+
+
+@pytest.mark.parametrize('existing',[False,True])
+def test_pending_ordinary_admitted_then_batched_release_delivered_once(monkeypatch,existing):
+    run,calls,saved=harness(monkeypatch,existing=existing,fault='pending-ordinary')
+    assert run()['delivered']
+    assert saved['delivery-baseline.json']['admitted_owned_reminders']==['nudge-999999999999']
+    assert sum(c[3:5]==['session','nudge'] for c in calls)==1
+
+
+def test_unknown_pending_reminder_refuses_before_irreversible_enqueue(monkeypatch):
+    run,calls,saved=harness(monkeypatch,fault='unknown-pending')
+    with pytest.raises(RuntimeError,match='unknown owned reminder'):run()
+    assert not any(c[3:5]==['session','nudge'] for c in calls)
+
+
+def test_receipted_ordinary_ingress_before_enqueue_is_not_a_release(monkeypatch):
+    run,calls,saved=harness(monkeypatch,fault='ordinary-ingress-before')
+    assert run()['delivered']
+    assert sum(c[3:5]==['session','nudge'] for c in calls)==1
 
 
 def test_more_than_two_reminders_do_not_hide_prior_release(monkeypatch):

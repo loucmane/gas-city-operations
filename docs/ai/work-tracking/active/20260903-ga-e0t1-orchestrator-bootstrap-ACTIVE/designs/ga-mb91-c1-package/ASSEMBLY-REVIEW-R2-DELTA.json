@@ -1,0 +1,187 @@
+{
+  "changes": {
+    "bind-task.py": {
+      "after": "028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea",
+      "before": "a1a402fa333aae0d4e7c0d2cf806a7bfd153d562e9972ede1a61f9db4dfc058b"
+    },
+    "candidate-inspect.py": {
+      "after": "b34092df435b4aed7a778e35ca14c4a898ec52e74efa9115c3f6beb842a7a2c9",
+      "before": "042c3056809f5477883378dcc39c6b41b24d679dda629468a7ea5fa8bad129c6"
+    },
+    "close-r11.py": {
+      "after": "7acfbf4b2c49ae7eec1ed8822be0fa51162313dd21d37b37d68670e228fbc0d6",
+      "before": "4326f5b694ea33b35fb7d816b433ba9e68e8cb49dab38f001092d17566841354"
+    },
+    "hold-r11.py": {
+      "after": "b774af54181e92869a9756b1bf576b1d3b76cba2f8584d90d72ab9a2ffb8d52c",
+      "before": "4eb272f0ba890a0551579cf07ac39dfb5d580be4cb786744393d5508a913200b"
+    },
+    "observe-integrity-r11.py": {
+      "after": "86d0483d749b99b1eceb7d12a82715762c87b7e367bad9b9bc8f5a0a304658ab",
+      "before": "a17f3d75e24b01692450514cec0021787f87054d30f1bb756d2d08d57cc7606e"
+    },
+    "observe-terminal-r11.py": {
+      "after": "24131b0d1d80a1fb4bdcc7111533f31d3678c6216bb2ed7844a1446d40d26302",
+      "before": "493199b607503ab28e028d56139fd174af665d11d721963e1955dd7690835cc3"
+    },
+    "operator/ADMIT.sh": {
+      "after": "93bdff7c9db0f918ba926520992b945ec96a3b1cd0b21251d000633c3636a167",
+      "before": "d25d30d68eb58d9ec6d08290a5066f6f533d5b1bb4de3dde5c221de5500a1188"
+    },
+    "operator/BIND.sh": {
+      "after": "3f0fff7452e92200c1594aa13f548af5d8dfcd1f519277452d5e1b5783220307",
+      "before": "5262e0abb0b595490b269eddf2ef16d06a89241c46a4ad3c38500e538ac0f537"
+    },
+    "operator/CLOSE-1.sh": {
+      "after": "4af8d9c2adfc20c8733e59d26ea82f513cd3988e46b4011457960e2c91adf7f2",
+      "before": "1608ab71d3a2c18eb78c3c213c4f58a8093dc9a0bd0ac72727a133238a404eab"
+    },
+    "operator/CLOSE-2.sh": {
+      "after": "4b0fc5518e56eeba02813f64beb66fd701209c54e3d7ccb5442342290c015cc4",
+      "before": "daa75528671b868b63c8954ef7f7b46d30c0a0da7ba67156d487ccf689b7cb6d"
+    },
+    "operator/CONTAIN-1.sh": {
+      "after": "2acea9956a2ee996f59ba71e7c6fd466d1924d482a20402a91db7701da6b547c",
+      "before": "17ea81e33bb3bd22ef9cfd8ecdf2aafabf71a7696f474459488b71fcdd89aedb"
+    },
+    "operator/CONTAIN-2.sh": {
+      "after": "27628b5084e69c505e14f80278f83a8aaf24844c1ff2cd77f75cd399cfa648ee",
+      "before": "0635a5cc8b079fc87fdc655f6d4351b05390a6cc5e90e4ec6e04adc4fb96a8a9"
+    },
+    "operator/HOLD-1.sh": {
+      "after": "d5c09467e9afaf844c10afd24ae6dc3c820050a9ec7e17ce9d2275d7b4e013e1",
+      "before": "0641fb60b6548739e8ca31d686d500ea620150171f60951b0749a00c21e88cc9"
+    },
+    "operator/HOLD-2.sh": {
+      "after": "a1aef3086a02f0b0dd14dba97c9bd2a85bc8e90c0a2346c6d903156dd3a52f62",
+      "before": "e7ec0f1632e03d4db5668e465aadaf7bbd09e5f99bd97ba38194ba049936bd37"
+    },
+    "operator/INSPECT.sh": {
+      "after": "df0f23191d8b20f61e5dd721129f72f277889d8b44ad3444cd1bc089032fbe54",
+      "before": "37c163e94be70d1440c71d86678b6f47cceb0e0315ec83216ba432b4b8fada69"
+    },
+    "operator/OBSERVE.sh": {
+      "after": "d701a147a3bd4c4613b408452695cd208a03456e686586941331005b3e4f3ab9",
+      "before": "949812d5460690ba80cc13141f7731abb0c498838dad87a27baba464b8bd6dab"
+    },
+    "operator/PREFLIGHT.sh": {
+      "after": "b7b4cac66cc855c39057ec73563985c86cb9dc8304c8ab43cfaca3c61fb2bae9",
+      "before": "b4a570a8b23c237ba6b85d936904d761d8c4ed01fb0f5c59d559033a80f4f29b"
+    },
+    "operator/RELEASE.sh": {
+      "after": "34f376ff24fc424de5c484ede0fee2d40ca751cbca768f63aee7edb179b11150",
+      "before": "93878b769d0e9885b938aeeba34a6eb29a29a2f04f502a19fbff7340f1c1e59b"
+    },
+    "operator/RESTORE.sh": {
+      "after": "96497aee7691bfb3021aa1cd663262b831b5b6d398d33297eeb906be43167a4e",
+      "before": "04ade5670474f48bcb584879012cff4eb1da03c9a799fe02f2262b96901b034d"
+    },
+    "operator/RESUME.sh": {
+      "after": "24307e96c2b5998091370f954bf314d6783ddb006fdf05b0dd3dd345ccaf6d41",
+      "before": "8742f7c939c61eb388e8e539d38125370fedb46c74aa5a03423c3b9cc00f6e9f"
+    },
+    "operator/ROUTE.sh": {
+      "after": "c34c1088fa47de91b9b0b114e5604b21a559c02ea33b3f0a1ddb23ec8fe8570e",
+      "before": "2453052cc8971dd5755a70740d3610541ee27bfb42024de7de873fc1ea3e9459"
+    },
+    "operator/STAGE.sh": {
+      "after": "f3ea3aef1d8a552c3b1f05ef9383fbf237a13e865781d99d72bc7a1d7aba404d",
+      "before": "ab92cc664669340195db4a602bcc443af6ddd4591cc97e8fcec18f2ffc19c544"
+    },
+    "operator/TERMINAL.sh": {
+      "after": "0e5dedb35d9d2eaac84d3198a83a5242566127bf3088b689340b4804f2bef233",
+      "before": "8b6b3ecf2081a7156b1617417bb9ab1b2b9dbf955c75c82617d2054474cdaac8"
+    },
+    "operator/WATCH-1.sh": {
+      "after": "2bd61a9f36d67f4a68a812e4e2469838f1960c8127d855ed31e6c0de425b44e0",
+      "before": "2431fca738713edcdd23d2a2a66119ca9b3746cda3a6d5346fae27218267f47a"
+    },
+    "operator/WATCH-10.sh": {
+      "after": "44e13b7437db3a57f54c149dce680e360550f55d980ffe37fe6dc019c6d53778",
+      "before": "793d2cbba5fcb5d9b833d63cc049c72f3d6d64df54161f3364f4980b0a3e7d34"
+    },
+    "operator/WATCH-11.sh": {
+      "after": "d52f4ccfd81792429a8d9f440347f6c47227fc84e95b2dbbfc5528bdbc27ba22",
+      "before": "559681471baa6f4eec11fd4bf03aa8e5aa30d2038c5a5c2da9a2c9f2d4b1811e"
+    },
+    "operator/WATCH-12.sh": {
+      "after": "7a74432859aefbb391f84d438587a763ddfa20c1eb7ce4f476988e92a56e7375",
+      "before": "c7807f0d71a8e3df38ef2a7dc71cfafa9477629d79772f8e9618d964aab013e0"
+    },
+    "operator/WATCH-2.sh": {
+      "after": "6b90e1a5e668ec262593f8449a1a3f5eeaa8e3f8aef300af068ce04719eaaf37",
+      "before": "8b39b1c9a0126bee9be387922420fcb92e8c516a1afd6726025fe0a175be0544"
+    },
+    "operator/WATCH-3.sh": {
+      "after": "bd22de0cbbd3ff9756de624437a32fb25c53e2671d98d17f4b99fb577c694965",
+      "before": "65a29997d183e1528e948c8626a8a89aad70bbf18c574cb0f4d1570a942ee5e1"
+    },
+    "operator/WATCH-4.sh": {
+      "after": "4984508d582336d8e07586a71f7b76da7a327aef40831927e2648f7a229d75cf",
+      "before": "d7577aa64157030a8c5e071c3218e99561d670cb48ad262081f335bc78e1e89f"
+    },
+    "operator/WATCH-5.sh": {
+      "after": "dfe123e506c696f46d39fb61e146c5cc2cca1956cfb881d3f52b4b51f0b40ce1",
+      "before": "e5c130015eb2ff5813abc994653cb6f0a312eee9eac8df4c8f834d3e250dc587"
+    },
+    "operator/WATCH-6.sh": {
+      "after": "4e27b79f956f5d96b84edb4be5fcb263cad5ac602956d0887beebb5844381323",
+      "before": "3d5382985199ff9f6cb99380b242cca8ec8a26161eaf6277169ba774e087a3c2"
+    },
+    "operator/WATCH-7.sh": {
+      "after": "059f9958d8008ac16e17b74647ee427da7d17a498d696887cb5636d69dce50b9",
+      "before": "a8a0a36b50ef0f040fee019bd10db3896c827bce6018ac84e02fa5b668ea441e"
+    },
+    "operator/WATCH-8.sh": {
+      "after": "6732e9aeb8e6f4f691d0e26891ee74374fe10e83225f204c8d2c6756b3ed8833",
+      "before": "50052045a5bd7bb7a8a9344ec5613d78e55f2fba2b3dbd9b623db524d114b2fb"
+    },
+    "operator/WATCH-9.sh": {
+      "after": "88bb02dfb05015940189cccb9ff07cc094bbd7d90a13813b614076e4b65ffa12",
+      "before": "c04a68f9c652047b3a32c6e99ed07839f0785243af56f1b43b70a84827278689"
+    },
+    "queue-guard.py": {
+      "after": "a6320c19fa9cc103b88d99e020595dfa99efb1e7de1c683c71f4014ad29519ee",
+      "before": "d04e7eccc73c5e361bfca307110a931e192ce045d46b734b7645e97195da7041"
+    },
+    "release-delivery-r13.py": {
+      "after": "fba71bb2edcdf62beee7c1c7884dde8904ba29c378df1383c16b24703bb80f02",
+      "before": "97f45c79a028cdff1a1ebfa8c86fc93a1a6406fb99dd3ddddd5f2c34bed2604e"
+    },
+    "release-runtime-r13.py": {
+      "after": "c04d4c9c8a12bf5b1d39ab0ff1d0d92a6db0bffda78eb53c6993c42b15e5e060",
+      "before": "d237a3878e97f5686578d0721190b4bea029c74cfe24114bfb24ef76439f8c79"
+    },
+    "restore-admission-r3.py": {
+      "after": "f226a3808560ed67fce15bd6bf154a85e225866f8c3fab34ba0f006c91d71b11",
+      "before": "820c7696c66fff8de257fa437fa0383d5eace3a56de348e806faf866832edee5"
+    },
+    "route-task.py": {
+      "after": "7601ceed5b79b5e5b01197b73cdb7eee52ff13ec8205c4ede227178bc0670c82",
+      "before": "1a2eaca35d70b6b8a9a463d07f597fbf2b68f33aaa179cf1392da030efc9de02"
+    },
+    "startup-release.py": {
+      "after": "9741a6c1c872af0519b9f0a3472ddeaf638c8f0f3b2e03d2364a40e6fa1581f8",
+      "before": "a0957f09d81ac8fc39f507cd6562f9960ab5780ae544e557bd442221e43a4ea9"
+    },
+    "watch-r11.py": {
+      "after": "45adf0f6932b0629d535801a4789cfb6ef18758127190333b1420c79f7012d7d",
+      "before": "5773c13c089fd4406cbabdab912a681a624b79c252dec6be49e7f79628534124"
+    },
+    "window-base.py": {
+      "after": "9194f1f89374189d7f9c6146d944997cb55e12f6f3e5a7174f2a37dd0351da23",
+      "before": "8cda13e81dd67ac9654eba96d7dc4630d350e25a6b0b684cf8bb2f274f192e28"
+    },
+    "window-obs-r11.py": {
+      "after": "d621f16722874b2bed07f672052fb1415371cd7a31fd30f4e9b266b5319e708c",
+      "before": "4f0ff006ee4ec3231fb13fb51fbdd2644494ba6ecbf23a7551c2a9358b7d020d"
+    },
+    "window.py": {
+      "after": "401c2823c7bc9f5b2aa15fbd25f74cc194f9b0b9b247cf52a5127008730a196c",
+      "before": "82890ed353c7b7e407d610c26d47fa84952574930fd644122d95f045d13f2d4b"
+    }
+  },
+  "executed": false,
+  "parent": "b3c0e019b0de2caa7e6cbd4f90877c3ecd578976",
+  "reason": "Both independent R1 HOLDs addressed before any window launch"
+}

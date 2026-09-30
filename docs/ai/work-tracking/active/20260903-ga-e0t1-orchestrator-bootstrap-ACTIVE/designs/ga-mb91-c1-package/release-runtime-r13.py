@@ -144,7 +144,8 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
     support = w.load_support()
     w.foreign_queue('release-before', *support)
     bound = native_session()
-    d.absence_before(receipts(), bound, message)
+    initial_receipts = receipts()
+    d.absence_before(initial_receipts, bound, message)
     queue_path = CITY / '.gc/nudges/state.json'
     baseline_lower_ns = time.time_ns()
     queue_raw = stable_read(queue_path, 16 << 20)
@@ -154,8 +155,9 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
     early = json.loads(w.read(Path('/var/tmp/ga-mb91-window-20260930-r1/foreign-before.json')))
     queue_before = json.loads(base64.b64decode(early['raw_base64'], validate=True))
     d.queue_baseline(queue_before, bound)
-    require(stable_read(Path(proof['transcript_path']), 32 << 20) == before,
-            'native waiting transcript changed before enqueue')
+    d.admit_before(initial_receipts, json.loads(queue_raw), queue_before, bound, message)
+    d.transcript_before(before, stable_read(Path(proof['transcript_path']), 32 << 20),
+                        message, receipts(), bound)
     expected_sha = w.b_gc_sha()
     require(hashlib.sha256(inspector.file_bytes(Path(EXE), 256 << 20)).hexdigest() == expected_sha,
             'native poller source differs')
@@ -191,6 +193,10 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
                 and now_marker == marker_before, 'native poller changed before enqueue')
     else:
         require(not os.path.lexists(pid_path), 'native poller appeared before enqueue')
+    # Reconcile allowed owned reminders before the single irreversible enqueue.
+    # Foreign history stays bound to PREFLIGHT, never to this later observation.
+    admitted_reminders = d.admit_before(receipts(),
+        json.loads(stable_read(queue_path, 16 << 20)), queue_before, bound, message)
     started = time.time()
     w.save('delivery-baseline.json', dict(session=bound, queue=queue_before,
         transcript_sha256=hashlib.sha256(before).hexdigest(), owned_cgroup=owned_cgroup,
@@ -198,7 +204,8 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
         exactly_one_enqueue=True, source_delivery_unproven=True,
         poller_mode='existing-core' if existing else 'new-release-owned',
         expected_poller_cgroup=expected_cgroup, initial_poller=initial_identity,
-        marker_before=marker_before, core=core, baseline_window_ns=baseline_window_ns))
+        marker_before=marker_before, core=core, baseline_window_ns=baseline_window_ns,
+        admitted_owned_reminders=admitted_reminders))
     # Intent is persisted by the caller before entering this function. Do not
     # replay this command if any later check refuses or its result is lost.
     result = command('enqueue', gc + ['session', 'nudge', bound['id'], message,
