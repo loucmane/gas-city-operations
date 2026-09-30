@@ -1,0 +1,192 @@
+"""Offline assembly and real generated-function tests; no lifecycle command."""
+import ast
+import hashlib
+import importlib.util
+import json
+from pathlib import Path
+import re
+import subprocess
+import types
+
+import pytest
+
+HERE=Path(__file__).parent
+
+
+def load(path,name):
+    spec=importlib.util.spec_from_file_location(name,path)
+    module=importlib.util.module_from_spec(spec);spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope='module')
+def built():
+    g=load(HERE/'build.py','assembler')
+    old,new=g.assemble()
+    return g,old,new
+
+
+def test_deterministic_and_original_input_unchanged(built):
+    g,old,new=built
+    assert g.assemble()==(old,new)
+    assert len(new)==56  # One source-pinned four-object read-accounting helper.
+    assert 'operator/WORKTREE.sh' not in new and 'operator/PREP.sh' not in new
+
+
+def test_all_wrappers_are_inert_drafts_and_parse(built,tmp_path):
+    g,old,new=built
+    for name,raw in new.items():
+        if not name.endswith('.sh'):continue
+        path=tmp_path/Path(name).name;path.write_bytes(raw)
+        assert subprocess.run(['/bin/sh','-n',str(path)]).returncode==0
+        result=subprocess.run(['/bin/sh',str(path)],capture_output=True)
+        assert result.returncode==125 and result.stdout==b''
+        assert b'DRAFT ONLY' in result.stderr
+
+
+def test_every_wrapper_hash_matches_generated_source(built):
+    g,old,new=built
+    for name,raw in new.items():
+        if not name.endswith('.sh'):continue
+        text=raw.decode()
+        for script,var in re.findall(r'"\$C/([a-z0-9-]+\.py)" "\$([A-Z_]+)"',text):
+            [pin]=re.findall(r'^%s=([0-9a-f]{64})$'%var,text,re.M)
+            assert pin==hashlib.sha256(new[script]).hexdigest(),(name,script)
+
+
+def test_no_old_mutation_target_or_consumed_window_survives(built):
+    g,old,new=built
+    for name,raw in new.items():
+        if name in ('task-own-fields.json','test_contract.py'):continue
+        text=raw.decode()
+        assert 'gct-mbg6' not in text,name
+        assert 'gas-city-template/codex' not in text,name
+        assert not re.search(r'/var/tmp/ga-e0t1\.20-[a-z%_-]+-20260926-r[123]',text),name
+        assert not re.search(r"['\"]--rig['\"], ?['\"]gas-city-template['\"]",text),name
+
+
+def test_no_inherited_stranded_acceptance_or_approval(built):
+    g,old,new=built
+    text=new['window-base-r11.py'].decode()
+    assert 'STRANDED_RECORDS' not in text and 'STRANDED_HOLD' not in text
+    assert 'CACHE_PINNED_NS = None' in text
+    assert "'unreviewed stranded lifecycle'" in text
+    assert text.count("historical disposition is not authority for this window")==5
+
+
+def test_startup_contract_is_bound_before_route(built):
+    g,old,new=built
+    text=new['bind-task-r5.py'].decode()
+    assert "argv += ['--append-notes',note]" in text
+    assert "if key not in ('metadata','notes','updated_at'):" in text
+    assert "(ROOT/'sandbox-negative').mkdir(mode=0o700)" in text
+    assert "w.contract().validate_task(after,'bound')" in text
+    note=new['contract.py'].decode()
+    for name in ('WORKER-BRIEF.md','worker-startup.py'):
+        assert hashlib.sha256(new[name]).hexdigest() in note
+    assert 'DRAFT worker brief is not yet bound' not in note
+    assert 'No product edit until the coordinator verifies startup' in note
+
+
+def test_real_generated_status_matcher_uses_census(built):
+    g,old,new=built
+    m=types.ModuleType('generated_base');m.__file__='window-base-r11.py'
+    exec(compile(new['window-base-r11.py'],m.__file__,'exec',dont_inherit=True),m.__dict__)
+    c=load(HERE/'contract.py','contract_for_base');m.contract=lambda:c
+    expected=dict(city=dict(suspended=True),rigs={r:dict(suspended=True) for r in ('gascity','gas-city-template','hpfetcher','blog')})
+    value=dict(ok=True,city_path=str(m.CITY),running=True,controller=dict(running=True,pid=2800348),
+        rigs=[dict(name=r,suspended=True) for r in expected['rigs']],suspended=True,
+        agents=[],summary=dict(running_agents=0,active_sessions=0),health=dict(signals=['city_suspended','no_agents_running']))
+    assert m.suspension_status_matches(value,expected,census=dict(ok=True,sessions=[]),action='rig-suspend')
+    with pytest.raises(RuntimeError):
+        m.suspension_status_matches(value,expected,census=dict(ok=False,sessions=[]),action='rig-suspend')
+    value['controller']['pid']=1
+    with pytest.raises(RuntimeError):
+        m.suspension_status_matches(value,expected,census=dict(ok=True,sessions=[]),action='rig-suspend')
+
+
+def test_original_policy_is_byte_identical(built):
+    g,old,new=built
+    assert old['cache-atime-policy-r1.py']==new['cache-atime-policy-r1.py']
+    assert g.read_time_routes(old['route-chain-r1.py'].decode()).encode()==new['route-chain-r1.py']
+
+
+def test_generated_lifecycle_accepts_the_preserved_zero_observation(built):
+    m=types.ModuleType('generated_zero_base');m.__file__='window-base-r11.py'
+    exec(compile(built[2]['window-base-r11.py'],m.__file__,'exec',dont_inherit=True),m.__dict__)
+    c=load(HERE/'contract.py','generated_zero_contract');m.contract=lambda:c
+    value=json.loads((HERE/'fixtures/zero-session-status.json').read_bytes())
+    census=json.loads((HERE/'fixtures/zero-session-census.json').read_bytes())
+    expected=dict(city=dict(suspended=True),rigs={r:dict(suspended=r!='gascity')
+        for r in ('gascity','gas-city-template','hpfetcher','blog')})
+    before=json.dumps([value,census],sort_keys=True)
+    assert m.suspension_status_matches(value,expected,census=census,action='rig-resume')
+    assert json.dumps([value,census],sort_keys=True)==before
+    value['rigs'][0]['suspended']=False
+    assert not m.suspension_status_matches(value,expected,census=census,action='rig-resume')
+
+
+def test_watch_applies_existing_bounded_accounting(built):
+    g,old,new=built
+    text=new['watch-r11.py'].decode()
+    assert "w.read_time_bounds(baseline['cache_access_clock'])" in text and 'w.account_read_times(dict(directories=a)' in text
+    assert "w.save('read-directory-observation.json',raw)" in text
+    assert text.index('parent_reads = w.read_time_policy().metadata') < text.index("for key in ('mtime_ns', 'ctime_ns')")
+    assert 'w.directory_preservation(a, z, read_window=bound)' in text
+    assert text.index('w.account_read_times(dict(directories=a)') < text.index('w.directory_preservation(a, z, read_window=bound)')
+
+
+def test_all_generated_python_compiles(built):
+    for name,raw in built[2].items():
+        if name.endswith('.py'):
+            ast.parse(raw,filename=name)
+            assert b'ASSEMBLY_' not in raw,name
+
+
+def test_common_baseline_and_terminal_inspection_are_wired(built):
+    new=built[2]
+    base=new['window-base-r11.py'].decode()
+    assert "save('common-before.json',common_before)" in base
+    assert base.index("save('common-before.json'") < base.index("save('preflight-pass.json'")
+    inspect=new['candidate-inspect.py'].decode()
+    assert inspect.index('TERMINAL did not pass') < inspect.index("'common Git changed before candidate inspection'")
+    assert inspect.index("'common Git changed before candidate inspection'") < inspect.index('cg.no_drivers')
+    assert 'subprocess.run' not in inspect
+    assert 'w.phase(name, w.HARDENED+list(args)' in inspect
+    assert 'intake=False' in inspect
+
+
+def test_source_generator_never_invokes_lifecycle():
+    g=load(HERE/'build.py','readonly_generator')
+    calls=[n for n in ast.walk(ast.parse((HERE/'build.py').read_bytes())) if isinstance(n,ast.Call)
+           and isinstance(n.func,ast.Attribute) and n.func.attr=='run']
+    assert len(calls)==1
+    assert 'git' in ast.unparse(calls[0])
+
+
+def test_final_candidate_is_explicit_pinned_and_not_executed(built,tmp_path):
+    g,old,draft=built
+    _,final=g.assemble(final=True)
+    assert g.assemble(final=True)==(old,final)
+    assert final.keys()==draft.keys()
+    for name,raw in final.items():
+        assert b'ASSEMBLY_' not in raw
+        if name.endswith('.sh'):
+            path=tmp_path/Path(name).name;path.write_bytes(raw)
+            assert subprocess.run(['/bin/sh','-n',str(path)]).returncode==0
+            assert b'exit 125' not in raw
+            for script,var in re.findall(r'"\$C/([a-z0-9-]+\.py)" "\$([A-Z_]+)"',raw.decode()):
+                [pin]=re.findall(r'^%s=([0-9a-f]{64})$'%var,raw.decode(),re.M)
+                assert pin==hashlib.sha256(final[script]).hexdigest()
+        elif name.endswith('.py'):ast.parse(raw,filename=name)
+    m=types.ModuleType('final_cache');m.__file__='window-base-r11.py'
+    exec(compile(final['window-base-r11.py'],m.__file__,'exec',dont_inherit=True),m.__dict__)
+    prior=dict(cache=dict(inventory={m.CACHE_DIRECTORY:dict(mtime_ns=m.CACHE_PREV_NS,
+        ctime_ns=m.CACHE_PREV_NS,mode=493,sha256='unchanged')}),host={'unchanged':True})
+    image=m.approved_candidate_cache_image(prior)
+    assert image['cache']['inventory'][m.CACHE_DIRECTORY]==dict(mtime_ns=g.FINAL_CACHE_NS,
+        ctime_ns=g.FINAL_CACHE_NS,mode=493,sha256='unchanged')
+    assert prior['cache']['inventory'][m.CACHE_DIRECTORY]['mtime_ns']==m.CACHE_PREV_NS
+    assert image['host']==prior['host']
+    prior['cache']['inventory'][m.CACHE_DIRECTORY]['ctime_ns']+=1
+    with pytest.raises(RuntimeError,match='preimage'):m.approved_candidate_cache_image(prior)

@@ -1,0 +1,83 @@
+{
+  "schema": "ga-5uc9-failed-attempt-status.v1",
+  "before": {
+    "acceptance_criteria": "Exact fresh workspace base scope and independent package review. Native ready membership before lifecycle change and immediate pre-resume singleton audit. Fresh real claim subscription-only Astra sandbox control and acknowledged release proofs. Private create-only evidence and unchanged predecessor workspaces. Consolidated RED GREEN regression evidence and one uncommitted finite candidate for independent review. Supported containment exact baseline restoration and zero residue. No activation signing delivery or provider parity claim follows from candidate-only success.",
+    "comment_count": 0,
+    "created_at": "2026-09-29T22:47:59Z",
+    "created_by": "loucmane",
+    "dependency_count": 1,
+    "dependent_count": 0,
+    "description": "Append-forward candidate-only Gas City Astra successor after preserved ga-e0t1.21 route-audit failure and verified restoration. No worker launched in that attempt. Keep ga-e0t1.21 and every original receipt unchanged. Standalone identity with informational initiative relation only because blocked parent-child inheritance is not an implementation prerequisite. Reuse the exact finite 52-file unaccepted ga-xyqo product inventory and consolidated review repairs. No Core eligibility change or true blocker removal. Require native ready membership before stage. Product changes only through one reviewed Gas City worker.",
+    "id": "ga-5uc9",
+    "issue_type": "task",
+    "labels": [
+      "needs/operator"
+    ],
+    "metadata": {
+      "gc.continuation_group": "",
+      "gc.controller_error": "claimed work has had no observable progress since 2026-09-30T00:07:26Z; inspect session codex-ci-f6fgu and decide whether to resume, repair, or stop",
+      "gc.failure_owner": "gc.session-reconciler",
+      "gc.failure_reason": "progress_stall",
+      "gc.failure_subject": "ci-f6fgu",
+      "gc.progress_attention_signature": "81090919df7ddac3c052dc2015171c1d3643f0038f8d101e946beaca19bed65f",
+      "gc.progress_last_observed_at": "2026-09-30T00:07:26Z",
+      "gc.routed_to": "gascity/codex",
+      "gc.session_affinity": "",
+      "gc.session_id": "ci-f6fgu",
+      "gc.session_name": "codex-ci-f6fgu",
+      "gc.work_branch": "agent/upstream-pending-create-lease",
+      "gc.work_dir": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-5uc9"
+    },
+    "notes": "Operational startup contract for ga-5uc9. Completed WORKTREE and PREP bind the exact clean workspace and signed base. Scope is create only and finite at /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package/FILE-SCOPE.json sha256 020ec6bceaf5b6052ce3d5cb3fef30b07f9d9553c02fe4a2d144d06e963e8851. New product parent directories use mode 0755. Read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package/WORKER-BRIEF.md sha256 9064444eff5d5afd54475018dca81873a0f434f83cffcb1b4b10793ddb25695d and /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package/PRECLAIM.md sha256 2da6da8d3746070ef6232035794e4d46df0fe8cb5223356d1c0d9056f796166e. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package/worker-startup.py sha256 d314bdbea040d4af47b8373eacd5e57ace7d02d6726b8cfb9d05336e1d999c24 only in the actual worker sandbox with its real session ID. Fresh startup proof including two immutable predecessor reads and one acknowledged same session release are mandatory before editing. Preserve subscription only authentication sandbox and native denials candidate only scope and all historical evidence. No staging signing commits pushes task close native delegation installs or live product execution. New evidence belongs only in .gc/worker-evidence/ga-5uc9/r1. Return an uncommitted candidate only.\nSTARTUP READY: ga-5uc9 report_sha256=0e15c52b733f7cc014a5895ce368a441bf7f071b1c21c8036a6f04fb5ccf27a4",
+    "owner": "lookmanbenali@gmail.com",
+    "priority": 2,
+    "started_at": "2026-09-30T00:06:51Z",
+    "status": "open",
+    "title": "C1 candidate with native-ready standalone task binding",
+    "updated_at": "2026-09-30T00:17:20Z"
+  },
+  "after": {
+    "acceptance_criteria": "Exact fresh workspace base scope and independent package review. Native ready membership before lifecycle change and immediate pre-resume singleton audit. Fresh real claim subscription-only Astra sandbox control and acknowledged release proofs. Private create-only evidence and unchanged predecessor workspaces. Consolidated RED GREEN regression evidence and one uncommitted finite candidate for independent review. Supported containment exact baseline restoration and zero residue. No activation signing delivery or provider parity claim follows from candidate-only success.",
+    "comment_count": 0,
+    "created_at": "2026-09-29T22:47:59Z",
+    "created_by": "loucmane",
+    "dependency_count": 1,
+    "dependent_count": 0,
+    "description": "Append-forward candidate-only Gas City Astra successor after preserved ga-e0t1.21 route-audit failure and verified restoration. No worker launched in that attempt. Keep ga-e0t1.21 and every original receipt unchanged. Standalone identity with informational initiative relation only because blocked parent-child inheritance is not an implementation prerequisite. Reuse the exact finite 52-file unaccepted ga-xyqo product inventory and consolidated review repairs. No Core eligibility change or true blocker removal. Require native ready membership before stage. Product changes only through one reviewed Gas City worker.",
+    "id": "ga-5uc9",
+    "issue_type": "task",
+    "labels": [
+      "needs/operator"
+    ],
+    "metadata": {
+      "gc.continuation_group": "",
+      "gc.controller_error": "claimed work has had no observable progress since 2026-09-30T00:07:26Z; inspect session codex-ci-f6fgu and decide whether to resume, repair, or stop",
+      "gc.failure_owner": "gc.session-reconciler",
+      "gc.failure_reason": "progress_stall",
+      "gc.failure_subject": "ci-f6fgu",
+      "gc.progress_attention_signature": "81090919df7ddac3c052dc2015171c1d3643f0038f8d101e946beaca19bed65f",
+      "gc.progress_last_observed_at": "2026-09-30T00:07:26Z",
+      "gc.routed_to": "gascity/codex",
+      "gc.session_affinity": "",
+      "gc.session_id": "ci-f6fgu",
+      "gc.session_name": "codex-ci-f6fgu",
+      "gc.work_branch": "agent/upstream-pending-create-lease",
+      "gc.work_dir": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-5uc9"
+    },
+    "notes": "Operational startup contract for ga-5uc9. Completed WORKTREE and PREP bind the exact clean workspace and signed base. Scope is create only and finite at /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package/FILE-SCOPE.json sha256 020ec6bceaf5b6052ce3d5cb3fef30b07f9d9553c02fe4a2d144d06e963e8851. New product parent directories use mode 0755. Read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package/WORKER-BRIEF.md sha256 9064444eff5d5afd54475018dca81873a0f434f83cffcb1b4b10793ddb25695d and /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package/PRECLAIM.md sha256 2da6da8d3746070ef6232035794e4d46df0fe8cb5223356d1c0d9056f796166e. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-5uc9-c1-package/worker-startup.py sha256 d314bdbea040d4af47b8373eacd5e57ace7d02d6726b8cfb9d05336e1d999c24 only in the actual worker sandbox with its real session ID. Fresh startup proof including two immutable predecessor reads and one acknowledged same session release are mandatory before editing. Preserve subscription only authentication sandbox and native denials candidate only scope and all historical evidence. No staging signing commits pushes task close native delegation installs or live product execution. New evidence belongs only in .gc/worker-evidence/ga-5uc9/r1. Return an uncommitted candidate only.\nSTARTUP READY: ga-5uc9 report_sha256=0e15c52b733f7cc014a5895ce368a441bf7f071b1c21c8036a6f04fb5ccf27a4\nFAILED before release at 0213 CEST on native progress_stall metadata after actual Astra startup Session ci-f6fgu closed through supported controls Exact baseline restore and terminal integrity passed at 0230 CEST Zero worker residue No edit release sent No retry All evidence and native metadata preserved Outcome recorded under ga-5uc9-c1-package LIVE-OUTCOME",
+    "owner": "lookmanbenali@gmail.com",
+    "priority": 2,
+    "started_at": "2026-09-30T00:06:51Z",
+    "status": "blocked",
+    "title": "C1 candidate with native-ready standalone task binding",
+    "updated_at": "2026-09-30T00:34:50Z"
+  },
+  "changed_keys": [
+    "notes",
+    "status",
+    "updated_at"
+  ],
+  "metadata_preserved": true,
+  "no_claim_or_route_change": true
+}
+

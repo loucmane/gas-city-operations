@@ -1,0 +1,14 @@
+{
+  "schema": "ga-goo5.release-expiry-source.v1",
+  "predecessor": "ace2461aa4ccd969c19da98fcb420ff6c6403333",
+  "source_only": true,
+  "files": {
+    "conftest.py": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f",
+    "release-delivery-r13.py": "45431e2971636f814a9876992a0694751531b414d2bb5ed7ccb8a4d5ba184f99",
+    "release-runtime-r13.py": "b9c0cf4ea3ae81a3c0abdab1d3269fb52262cba48914356f240bc755e1a4b1f8",
+    "test_delivery_regression.py": "0ad9b0561038ac32f25d95c8fe1ac19b1f10fe22eb4c2940f5ba6780129eb704",
+    "test_expiry.py": "f155383c3bbac8d0a9a50b5b96dcc73aaf4e03a5d3a93531d1bc207abebe3be5",
+    "test_expiry_runtime.py": "d83e68b6d37715cade764eb12c792a1f291f1723d2c257c022077b6dca3aa417",
+    "test_runtime.py": "54e2d8fac4e7f10c39fc553f8b350899c20d37ca4728e67de1426c0832c3f16f"
+  }
+}

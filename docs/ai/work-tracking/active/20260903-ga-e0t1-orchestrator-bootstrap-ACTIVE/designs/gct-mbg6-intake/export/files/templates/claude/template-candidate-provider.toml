@@ -1,0 +1,46 @@
+# Dedicated Template candidate provider. The wrapper removes the Claude-family
+# generated shared settings file, loads no ambient setting sources, and then
+# applies only the source-bound Template candidate policy selected below. Both
+# initial and resumed sessions cross the same subscription and policy boundary
+# as the Core signing worker, without any Git metadata or signing capability.
+[providers.claude-template-candidate]
+base = "provider:claude"
+command = "/home/loucmane/gas-city-template/bin/gct-claude-template-candidate-worker"
+resume_command = "/home/loucmane/gas-city-template/bin/gct-claude-template-candidate-worker --resume {{.SessionKey}}"
+path_check = "/home/loucmane/gascity/bin/claude"
+options_schema_merge = "by_key"
+
+[[providers.claude-template-candidate.options_schema]]
+key = "managed_worktree_access"
+label = "Managed Template candidate worktree access"
+type = "select"
+default = "none"
+
+[[providers.claude-template-candidate.options_schema.choices]]
+value = "none"
+label = "Current workdir only"
+flag_args = []
+
+# @managed-rig-choices@
+
+[[providers.claude-template-candidate.options_schema]]
+key = "permission_mode"
+label = "Permission Mode"
+type = "select"
+default = "full-auto"
+
+[[providers.claude-template-candidate.options_schema.choices]]
+value = "full-auto"
+label = "Fail instead of asking"
+flag_args = ["--permission-mode", "dontAsk"]
+
+[[providers.claude-template-candidate.options_schema]]
+key = "effort"
+label = "Effort"
+type = "select"
+default = "max"
+
+[[providers.claude-template-candidate.options_schema.choices]]
+value = "max"
+label = "Max"
+flag_args = ["--effort", "max"]

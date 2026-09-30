@@ -3934,5 +3934,1157 @@
     "plan_hash": "07ef8aac31c2cbf61af88ac370e9a45b1cfbd598ab340e5e9d8eae5767f26b51",
     "tracker_hash": "ecd5f75cd02b26b717be263845b2f0fabba33483c0383a49a36b834583d7ccae",
     "synced_at": "2026-09-24T09:40:46.767488+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "47f81e579b8395e4e2400d6a90a6631f50f4651b0841c333d4df5d5ed002fd27",
+    "synced_at": "2026-09-27T19:41:54.137085+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "ff8e10c7cb4271ba5b2086ec414376b1502f3d70adcb3e08f6446ced74823ef0",
+    "synced_at": "2026-09-27T19:45:18.836439+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "ff8e10c7cb4271ba5b2086ec414376b1502f3d70adcb3e08f6446ced74823ef0",
+    "synced_at": "2026-09-27T19:45:26.262506+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "ff8e10c7cb4271ba5b2086ec414376b1502f3d70adcb3e08f6446ced74823ef0",
+    "synced_at": "2026-09-27T19:51:52.081428+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "ff8e10c7cb4271ba5b2086ec414376b1502f3d70adcb3e08f6446ced74823ef0",
+    "synced_at": "2026-09-27T19:55:47.192712+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "a4865c0707934ff503739748b82da3767443e17246b3c225126c9c97d762a15a",
+    "synced_at": "2026-09-27T20:11:54.408495+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "a4865c0707934ff503739748b82da3767443e17246b3c225126c9c97d762a15a",
+    "synced_at": "2026-09-27T20:12:18.907299+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "976168162458284a3dda02a0cc719ed1a04eb4ad1185941bdd7166d89c05176a",
+    "synced_at": "2026-09-27T21:03:55.344274+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "976168162458284a3dda02a0cc719ed1a04eb4ad1185941bdd7166d89c05176a",
+    "synced_at": "2026-09-27T21:14:12.942328+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "3e263bc23a23ba6618d85bf9fea168e0bf89c79d568d2dd9ad81bd1186eb0ba8",
+    "synced_at": "2026-09-27T21:25:55.814535+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "5fff9b5b6eac450a0af6604e78624d50b5a6a8589eb264ab13873b721f988ec3",
+    "synced_at": "2026-09-27T22:11:50.804925+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "5fff9b5b6eac450a0af6604e78624d50b5a6a8589eb264ab13873b721f988ec3",
+    "synced_at": "2026-09-27T22:20:28.275945+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "428d84f4ab2b9748266f623f3c46388f70948be38771c8c6234497801ab62228",
+    "synced_at": "2026-09-27T22:33:03.206608+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "428d84f4ab2b9748266f623f3c46388f70948be38771c8c6234497801ab62228",
+    "synced_at": "2026-09-27T22:36:41.841694+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "a47ae48b0d8ea3b87be110307293e8001895bf74258092ace45312241b9a2b4f",
+    "synced_at": "2026-09-27T22:46:37.752100+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "816647090c15c86cd0c617b72bab310107aea9d068da251e3d0eab993399f604",
+    "synced_at": "2026-09-27T22:54:07.034936+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "ffc333307a53c5d88bdb7887a9da3b85e8afe3f3afcf83e39c2e1ae93df251bd",
+    "synced_at": "2026-09-27T23:04:38.639397+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "ca7c568a7ab030c437f733658656d71ec72c3568b5fe055c3574badb15bc7b42",
+    "synced_at": "2026-09-27T23:47:18.694048+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "d8bbcb1fbe597b3f9950e056ff14d12446546b97e2a59d1ba3285a5b3fc38f3e",
+    "synced_at": "2026-09-27T23:56:27.707911+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "35b5379c4b1edbc11137fedab0d4459067ba23a5c62fd292552a4cfd094cead6",
+    "synced_at": "2026-09-28T00:00:59.922989+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "35b5379c4b1edbc11137fedab0d4459067ba23a5c62fd292552a4cfd094cead6",
+    "synced_at": "2026-09-28T00:01:07.863068+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "80600f9a89ff52b1374e6e07fb48e25cfa16131ea5456da3f726e8df74668d49",
+    "synced_at": "2026-09-28T00:03:28.179777+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "f5587d00b4b8c8698b1e7c97e8285844a13e778a58280d45bb17a105673963cf",
+    "synced_at": "2026-09-28T00:12:56.856093+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "b5f84bd0a9ca2794cea854e8dd0dcf7198942e49d7f4d95f77645d186debdfc4",
+    "synced_at": "2026-09-28T00:43:55.508063+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "b5f84bd0a9ca2794cea854e8dd0dcf7198942e49d7f4d95f77645d186debdfc4",
+    "synced_at": "2026-09-28T00:54:46.562140+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "b5f84bd0a9ca2794cea854e8dd0dcf7198942e49d7f4d95f77645d186debdfc4",
+    "synced_at": "2026-09-28T01:15:47.726120+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "06bea7a1d922fc1b0cf5598e978baf8f653109505017c03a137c05f5a28d934f",
+    "synced_at": "2026-09-28T01:34:19.694344+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "945374b674f26b54561936ffac932a9234d98a35f6218c31c3b2cd95b39f7f58",
+    "synced_at": "2026-09-28T01:50:52.477331+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "bac301c90827040437b1f835928ec831ff6e5c1341248492dee9fa9d8b74a255",
+    "synced_at": "2026-09-28T02:10:44.893966+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "eb75465c3dfd872a940a71871613013f376d4d1764d07e080f1d31867553d75c",
+    "synced_at": "2026-09-28T02:31:50.931674+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "eb75465c3dfd872a940a71871613013f376d4d1764d07e080f1d31867553d75c",
+    "synced_at": "2026-09-28T02:39:10.965752+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "23faa6f623ca2943adee7482f41be8ad619e1c2ac0860d2e368be9dd4b15f940",
+    "synced_at": "2026-09-28T02:47:21.902057+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "23faa6f623ca2943adee7482f41be8ad619e1c2ac0860d2e368be9dd4b15f940",
+    "synced_at": "2026-09-28T05:55:22.762129+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "97d6d3f6295e49aa9c5120bb9f3dfa81a077adf045af63225c364773945928de",
+    "synced_at": "2026-09-28T05:59:04.456996+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "76db2e04f430e47e7f81bb5747a967af0cda98278126fba0528bdc9454a05bf4",
+    "synced_at": "2026-09-28T06:20:07.738177+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "76db2e04f430e47e7f81bb5747a967af0cda98278126fba0528bdc9454a05bf4",
+    "synced_at": "2026-09-28T06:26:57.725439+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "0ba828766e90230bc51f984a6a725ba0dc29b0e6ad5816d03cff9e932feb0e79",
+    "synced_at": "2026-09-28T06:47:40.438730+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "0ba828766e90230bc51f984a6a725ba0dc29b0e6ad5816d03cff9e932feb0e79",
+    "synced_at": "2026-09-28T07:53:06.815016+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "d10c63efb44009c926948f91db320d3f80a8aed4fd1bfcb6346a4f33b2f35eb6",
+    "synced_at": "2026-09-28T08:12:55.455337+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "d10c63efb44009c926948f91db320d3f80a8aed4fd1bfcb6346a4f33b2f35eb6",
+    "synced_at": "2026-09-28T09:05:32.089111+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "85e02c8e4539dab9527743568220982509dd91f39703f0340a7453c324779e55",
+    "synced_at": "2026-09-28T09:09:37.231701+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "873e821946a591ded15247edda15fb2564801e11c5aea57fbb329099cf4153d5",
+    "synced_at": "2026-09-28T09:21:03.524826+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "c220c1e924fe7b49729db9df64ba5a6e6daece02ebb32708e84e9685ae5dab04",
+    "synced_at": "2026-09-28T09:40:07.092851+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "18c88b45f6ed6faf568410cd5eef2f0d3f531ee398d732975f2bbafe875760b1",
+    "synced_at": "2026-09-28T09:53:24.197082+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "18c88b45f6ed6faf568410cd5eef2f0d3f531ee398d732975f2bbafe875760b1",
+    "synced_at": "2026-09-28T09:59:04.507178+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "7ef1c11e776b6c348a8764aebca601494553cf641c9861b7ca59c26d91191a9f",
+    "tracker_hash": "66c739e7c3a9b4e02a089c38242695b8700138a4a242cdf0c40772681e7bb820",
+    "synced_at": "2026-09-28T10:08:36.647965+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "e2ec0cfcc79bb973b9113c7499290cbc1cbe32393cb0af2e2c37b040ef2aa813",
+    "tracker_hash": "b402266f5281c312dd96aaa8edbc9d9e3e3005a33ed59191d9f79e39d3e76af2",
+    "synced_at": "2026-09-28T11:13:39.202324+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "57cea60bee1b7d22de13fdada2a511fc49326ec4733d243cb8894cb530128976",
+    "tracker_hash": "56161f52c04896702e5ffcd4e06cce28980fd9804fe7de2c65bdc61b1e791499",
+    "synced_at": "2026-09-28T11:31:05.237478+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "56161f52c04896702e5ffcd4e06cce28980fd9804fe7de2c65bdc61b1e791499",
+    "synced_at": "2026-09-28T12:10:42.008006+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "9eacf04d17e9ff0fa9cd83dd29d7f6f7346afc1da66df2ce6bd64a349ba5037f",
+    "synced_at": "2026-09-28T12:13:35.293509+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "9eacf04d17e9ff0fa9cd83dd29d7f6f7346afc1da66df2ce6bd64a349ba5037f",
+    "synced_at": "2026-09-28T12:18:08.194310+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "0211d0b7861a7d2609bd1e0aaf551b19226ebdc15a3da4001dfd153203c8a763",
+    "synced_at": "2026-09-28T12:31:50.764051+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "0211d0b7861a7d2609bd1e0aaf551b19226ebdc15a3da4001dfd153203c8a763",
+    "synced_at": "2026-09-28T13:32:58.033102+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "f3e891f944b3efe9a5197b7ea17785d16dc2459834b63f9d696afde8826e5825",
+    "synced_at": "2026-09-28T13:36:15.464705+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "f3e891f944b3efe9a5197b7ea17785d16dc2459834b63f9d696afde8826e5825",
+    "synced_at": "2026-09-28T13:42:24.818603+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "f3e891f944b3efe9a5197b7ea17785d16dc2459834b63f9d696afde8826e5825",
+    "synced_at": "2026-09-28T13:48:22.605263+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "90389f6dc599967a12e8be6e6ef5f63ca67162e6d312bfa1403279a696339ece",
+    "synced_at": "2026-09-28T14:14:20.028643+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "65853b36386183994b17f15163c22bf55b021160f3be2da3dca9cbdeff2dc089",
+    "synced_at": "2026-09-28T14:40:18.610756+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "a1f303e006400d7346b63b929fa8e11500c659e19fc9d23fdddcb5824e7e4641",
+    "synced_at": "2026-09-28T15:32:24.979627+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "a1f303e006400d7346b63b929fa8e11500c659e19fc9d23fdddcb5824e7e4641",
+    "synced_at": "2026-09-28T15:57:51.248296+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "170b192a0f742960e18e56ca8e74e28d26d07e3510f903f081d90e4014cbec6b",
+    "synced_at": "2026-09-28T16:00:00.448961+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "170b192a0f742960e18e56ca8e74e28d26d07e3510f903f081d90e4014cbec6b",
+    "synced_at": "2026-09-28T16:12:46.877259+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "7a746b7989b3316cfa9db60433a37104819dd7bae71868bc9787a9b6ec3ec3cd",
+    "synced_at": "2026-09-28T16:17:49.805586+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "9f36c506c6ce4cf2a99f0fc50a78e4b11b89e42ec79868d62599ec16dcfcbf06",
+    "synced_at": "2026-09-28T16:19:41.220181+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "9f36c506c6ce4cf2a99f0fc50a78e4b11b89e42ec79868d62599ec16dcfcbf06",
+    "synced_at": "2026-09-28T16:56:43.462123+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "e996e55347d1a3f6fcdc1c092ff02710e542e30d8f12d40be791a9b46aa1cc90",
+    "synced_at": "2026-09-28T17:00:49.729925+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "e996e55347d1a3f6fcdc1c092ff02710e542e30d8f12d40be791a9b46aa1cc90",
+    "synced_at": "2026-09-28T17:05:26.191580+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "e996e55347d1a3f6fcdc1c092ff02710e542e30d8f12d40be791a9b46aa1cc90",
+    "synced_at": "2026-09-28T17:11:18.377942+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "e996e55347d1a3f6fcdc1c092ff02710e542e30d8f12d40be791a9b46aa1cc90",
+    "synced_at": "2026-09-28T17:12:42.458366+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "099ac4d121ff322baaebf0eb990337c394e94dac65a7cf6752b15ca4148cf956",
+    "synced_at": "2026-09-28T17:25:01.006613+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "099ac4d121ff322baaebf0eb990337c394e94dac65a7cf6752b15ca4148cf956",
+    "synced_at": "2026-09-28T17:25:58.983970+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "099ac4d121ff322baaebf0eb990337c394e94dac65a7cf6752b15ca4148cf956",
+    "synced_at": "2026-09-28T17:27:38.877677+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "099ac4d121ff322baaebf0eb990337c394e94dac65a7cf6752b15ca4148cf956",
+    "synced_at": "2026-09-28T17:41:35.239597+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "fe64e5d6151ca7d4ffcba8d91351ffc0893978d64ad2b1bc54da242102c98977",
+    "synced_at": "2026-09-28T17:48:39.035382+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "dc309457e3e1241374f0b348ed7c1a1b10cd12a798a0bebb74d6f128570366ef",
+    "synced_at": "2026-09-28T18:19:17.961360+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "e3c5cae249f060a4944dd224253df7b8cdf60b08fc3c606347e2ec17aa4951a2",
+    "synced_at": "2026-09-28T18:29:58.515776+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "e3c5cae249f060a4944dd224253df7b8cdf60b08fc3c606347e2ec17aa4951a2",
+    "synced_at": "2026-09-28T18:32:16.464792+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "e3c5cae249f060a4944dd224253df7b8cdf60b08fc3c606347e2ec17aa4951a2",
+    "synced_at": "2026-09-28T18:35:57.240260+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "a0017d2357c94d6318f6f9b84b02931838d420271cc6533b3066056900d4fa8e",
+    "synced_at": "2026-09-28T18:50:06.827657+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "e48640389440a4ef46b601a485f18dafc1e157bf27dedbdb637af635b117ca97",
+    "synced_at": "2026-09-28T19:02:36.849378+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "d6c73fa36941349ec3a121383f12c566c81b29ce52731790936c4cc5858b90e3",
+    "synced_at": "2026-09-28T19:22:13.906950+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "f8092d42b93918e421c923c0e4defbeb63510ddf3b13db608587e129c950590e",
+    "synced_at": "2026-09-28T20:02:34.589109+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "f8092d42b93918e421c923c0e4defbeb63510ddf3b13db608587e129c950590e",
+    "synced_at": "2026-09-28T20:15:00.617616+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "f8092d42b93918e421c923c0e4defbeb63510ddf3b13db608587e129c950590e",
+    "synced_at": "2026-09-28T20:17:19.874228+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "a71986cd6dca1fd9d7f25afb893856c240833f0765fcd284de5c2ee57f63398a",
+    "synced_at": "2026-09-28T20:42:53.515809+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "a71986cd6dca1fd9d7f25afb893856c240833f0765fcd284de5c2ee57f63398a",
+    "synced_at": "2026-09-28T20:43:48.337453+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "a71986cd6dca1fd9d7f25afb893856c240833f0765fcd284de5c2ee57f63398a",
+    "synced_at": "2026-09-28T21:09:11.423867+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "2637437e2cb5add9a8e1f7ccc8e9b06f1fa0313569821d58a2f47c26919a9ac5",
+    "synced_at": "2026-09-28T21:10:38.407351+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "f80c10f177088fe8e9c426e14e6e61d63b688a83177e8d268f92e71b22511181",
+    "synced_at": "2026-09-28T21:49:31.718698+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "2065ccd726851cf0d5b1ba22713a55e7c7a94893cb0af01fe5058e08d0fe11ce",
+    "synced_at": "2026-09-28T22:03:13.809234+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "ebc037efa5cf0e18fa7ef8351055c945b9d1ee3913ab8ca94decf3dfdda53bec",
+    "synced_at": "2026-09-28T22:20:20.703619+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "ebc037efa5cf0e18fa7ef8351055c945b9d1ee3913ab8ca94decf3dfdda53bec",
+    "synced_at": "2026-09-28T22:22:21.772893+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "ebc037efa5cf0e18fa7ef8351055c945b9d1ee3913ab8ca94decf3dfdda53bec",
+    "synced_at": "2026-09-28T22:23:03.014541+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "8386ef013771e44b31b54c875ca92f628f03134087c2aeee1899eca7c7fabfa9",
+    "synced_at": "2026-09-28T22:32:41.714237+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "f516e57c9f82290af12c0e8d5b3106677ba123c66fbb422c76eeddaaa5b91b29",
+    "synced_at": "2026-09-28T22:53:25.430353+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "aab89bce14ac86a38414750e62a6ca1f8d6060318dcfdf44bc1766822e16056f",
+    "synced_at": "2026-09-29T00:00:17.829873+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "9961e5dcc4c37b1d770583f03311c7669a0fc37aa5f30a9ce959e8bbe0bc1867",
+    "synced_at": "2026-09-29T00:12:42.449001+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "2023621e043b128da90c5e14f0d85e10d91489b1a96c0bcec13b6074634c0177",
+    "synced_at": "2026-09-29T00:19:06.542196+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "cf15e9fa3da40b9d333a030e17572978471aa8959432f0d944a6ff0ce8b7d0db",
+    "synced_at": "2026-09-29T00:30:27.363787+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "c7e8189eab0d07f2ea28ce735da90d693aa7cdc0773bf18bd2adb01fdff81dcf",
+    "synced_at": "2026-09-29T00:52:33.350647+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "d530f607f31906a8e43a433338d0ea43274a81a456937effda8aa1041e57a3d4",
+    "synced_at": "2026-09-29T01:02:28.636835+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "fce6297d15a837f20c6df9d9d6a5c9d53b704d799c60c8f4602033e8b636c84b",
+    "synced_at": "2026-09-29T01:10:01.280182+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "856269d97e45584c98d3d2d0983f81e5e74fe3cb3e662b8ca0a40d2df1aa615c",
+    "synced_at": "2026-09-29T01:58:39.785551+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "a3506521df5863475a8be3d63a62c33ee7d4bb70b39f495e3d98add561a2c129",
+    "synced_at": "2026-09-29T02:16:19.457858+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "572f8d55a8876ebe65450d1eb6816281dda5d4f34ab1d6e7d19e6c311ec0721d",
+    "synced_at": "2026-09-29T03:37:26.801132+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "572f8d55a8876ebe65450d1eb6816281dda5d4f34ab1d6e7d19e6c311ec0721d",
+    "synced_at": "2026-09-29T03:44:49.293818+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "10426b1057e85593ff31a1c2dc840d4746009bd004c5cec87bfdaa58987ce426",
+    "synced_at": "2026-09-29T04:09:06.259058+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "dcc705882ee7ceea8d33c9a8c1e3553226e2f672856099fef39848338bbee6af",
+    "synced_at": "2026-09-29T04:33:38.195861+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "3eed1ee701c9008dd31b400f45ee99b81ad94b185d498599a4c0a6c2b121198c",
+    "tracker_hash": "fb75918d3c79c50cc200a6004d799d0e1743ddc08d65ba5447f0b27f05aa7b63",
+    "synced_at": "2026-09-29T05:44:27.897727+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "43aac337c5cbe1ce412961aa7f10f9661acb654a72c3eadbbf8cb4648402a133",
+    "tracker_hash": "3d639878875ecfc474c1a514bfd33e604882214fbf2bfe20a8fe5fe2ddb689c8",
+    "synced_at": "2026-09-29T05:59:15.357337+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "43aac337c5cbe1ce412961aa7f10f9661acb654a72c3eadbbf8cb4648402a133",
+    "tracker_hash": "7c2fb3fdf5302127633904b60aaa80ae07126957efa4fd20d8413c839c656745",
+    "synced_at": "2026-09-29T06:06:33.571704+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "43aac337c5cbe1ce412961aa7f10f9661acb654a72c3eadbbf8cb4648402a133",
+    "tracker_hash": "e3fe48b34c21cb746e7280d8c5b4370914e50901b37ed9b5cbee3f4c64ccbe67",
+    "synced_at": "2026-09-29T08:33:27.752823+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "dcaab0e15f82f51c62e3d94783d43b3a1f87e9e4bd0c8f6322a614123bd828a3",
+    "tracker_hash": "2822bbf81fd47b968154923dc0322e85f8627c36e958d501b87d7dc16c87f420",
+    "synced_at": "2026-09-29T08:45:49.014830+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "dcaab0e15f82f51c62e3d94783d43b3a1f87e9e4bd0c8f6322a614123bd828a3",
+    "tracker_hash": "5060f41d750e0903386e447ebda6e77a445d9de559763585b154bc797e9abb02",
+    "synced_at": "2026-09-29T09:00:42.318723+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "dcaab0e15f82f51c62e3d94783d43b3a1f87e9e4bd0c8f6322a614123bd828a3",
+    "tracker_hash": "e7ac73ce59cde1df511abaa13006d56d55dba44321e1b6b00dc136ad6dba4933",
+    "synced_at": "2026-09-29T09:10:31.558155+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "dcaab0e15f82f51c62e3d94783d43b3a1f87e9e4bd0c8f6322a614123bd828a3",
+    "tracker_hash": "15ca690a26b93eed3182b086e00bd25383cba81cd10e298758a7a90f8d33fb55",
+    "synced_at": "2026-09-29T09:33:51.922431+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "dcaab0e15f82f51c62e3d94783d43b3a1f87e9e4bd0c8f6322a614123bd828a3",
+    "tracker_hash": "d7f7dbd057806490239fc83d16a6835879d3308f8cc8154742cd0af81b28ff2b",
+    "synced_at": "2026-09-29T09:43:26.775002+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "dcaab0e15f82f51c62e3d94783d43b3a1f87e9e4bd0c8f6322a614123bd828a3",
+    "tracker_hash": "170f13296f534cf6f50a9e74ec347ecf1c6afa0adb67cfe6edeb6e5081a3b697",
+    "synced_at": "2026-09-29T10:33:44.182627+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "dcaab0e15f82f51c62e3d94783d43b3a1f87e9e4bd0c8f6322a614123bd828a3",
+    "tracker_hash": "0bc33b97cab4e9a29dabe887c62acf81b43a23ca94ba43fe653856f13e5f8675",
+    "synced_at": "2026-09-29T10:51:13.973606+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "2361ad257e7dc88336a9fdbf27247d581f029279b65bbf41fc8f2a10eb7d0224",
+    "tracker_hash": "23b596f002bebf2063cd383a5a8a539e47f96adce65feea0e26809ff6f8ff0a4",
+    "synced_at": "2026-09-29T11:58:18.360102+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "2361ad257e7dc88336a9fdbf27247d581f029279b65bbf41fc8f2a10eb7d0224",
+    "tracker_hash": "9dedd7abc2a8a7faf20148e308c9bd595fa692202f78b24d17c0a60a190fb353",
+    "synced_at": "2026-09-29T12:06:14.542394+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "14c994126776c9e2dcff9f851ec2d5b1a843376c4dcc907df3ff3e5b4cfd8278",
+    "synced_at": "2026-09-29T12:14:48.581329+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "0160e15dba2738d06b1d5e83618c40fa8625ded6bb043363d2f5527c1d378a94",
+    "synced_at": "2026-09-29T12:23:31.658829+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "fe8c43256cc7bfa326b757a58bb4a54b55fb2f96b10d00d2954e235cf85b7d17",
+    "synced_at": "2026-09-29T12:34:32.712032+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "e3c3694cbfe16733a59b3a4e5f39b6214666b89d5892cf3451dfccb2652f4d43",
+    "synced_at": "2026-09-29T12:46:13.886918+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "7f15c3928987426d347571f07b94666777bfae1f1dec60c7e4584ec7181d9e36",
+    "synced_at": "2026-09-29T13:10:13.013085+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "131b79bdd1e96eb714142a1fb3ee43072a2d13d431599ea9e0f7f636307c4ea5",
+    "synced_at": "2026-09-29T13:37:04.273485+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "131b79bdd1e96eb714142a1fb3ee43072a2d13d431599ea9e0f7f636307c4ea5",
+    "synced_at": "2026-09-29T13:39:16.820982+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "131b79bdd1e96eb714142a1fb3ee43072a2d13d431599ea9e0f7f636307c4ea5",
+    "synced_at": "2026-09-29T14:30:16.152806+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "2fb3cc0d511545d80c2d6b780704cfe8f59389e2b6679ececae1177a3d697380",
+    "synced_at": "2026-09-29T14:39:13.630297+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "d8256b92d41ecff6ae78178e0027a67db3e66a0947ca1fd41e368927c988ec4e",
+    "synced_at": "2026-09-29T14:54:57.411686+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "d8256b92d41ecff6ae78178e0027a67db3e66a0947ca1fd41e368927c988ec4e",
+    "synced_at": "2026-09-29T15:02:22.256414+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "ad9465d327c8a375c772db42a106d7393fd9b47953aff27c688fdfe6aa539954",
+    "synced_at": "2026-09-29T15:21:20.408455+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "486ceae5c2c17f88e99c83728b8eadd74db93990940724a18ccd04c2ffa35d7a",
+    "synced_at": "2026-09-29T15:36:59.887665+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "6528c58c6f5f60d88f47a053be91d8abd0c399b76733dbf1795759ad9dc17b2b",
+    "synced_at": "2026-09-29T17:42:01.599368+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "8f59e0f89f6bbfb5409e64efbe34d01555956799546a92a7ab33942b1ecc0bee",
+    "synced_at": "2026-09-29T18:01:32.759786+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "183cba11b2044754e8c4c54a78ac07c706fc21e59df2d8235fc5a88198a5380f",
+    "synced_at": "2026-09-29T18:18:48.882235+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "c8e65adc79410c48623451e0167f04a440064167d237fcfcb8fdfb8366b9d798",
+    "tracker_hash": "9fe10204b2b377d2480a1f50c7075b380031489ba2865e57be93f93bd8170230",
+    "synced_at": "2026-09-29T18:53:37.829062+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "9349b60fb983f5d10fea23fd706b878c985bddcbaddcc1368e2cd64a608eec1a",
+    "tracker_hash": "eed7834722529338f5796e47b5eb1eb5d5567ea2778ae9245f2b02d2246727de",
+    "synced_at": "2026-09-29T20:03:00.333078+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "9349b60fb983f5d10fea23fd706b878c985bddcbaddcc1368e2cd64a608eec1a",
+    "tracker_hash": "9c70eb6535bc20a91106321696b50ddbfd95cb29f88d2af5e510d419cc44bc2f",
+    "synced_at": "2026-09-29T20:25:18.693103+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "9349b60fb983f5d10fea23fd706b878c985bddcbaddcc1368e2cd64a608eec1a",
+    "tracker_hash": "38996f3558c5dc0827c88a718c52730d644419bd893be0fb7a96e9283ee79393",
+    "synced_at": "2026-09-29T20:40:46.138581+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "9349b60fb983f5d10fea23fd706b878c985bddcbaddcc1368e2cd64a608eec1a",
+    "tracker_hash": "1afdf526354124a38906cc7a530d0b61897ffcde7c3eb5a0b26edb31a97f50b1",
+    "synced_at": "2026-09-29T21:00:59.335891+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "9349b60fb983f5d10fea23fd706b878c985bddcbaddcc1368e2cd64a608eec1a",
+    "tracker_hash": "9d590a02aef2143bc2dbd509d4f302854b4741b50a060c2953b904a39587d1c7",
+    "synced_at": "2026-09-29T21:03:00.057921+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "9349b60fb983f5d10fea23fd706b878c985bddcbaddcc1368e2cd64a608eec1a",
+    "tracker_hash": "1a45c0fe1accb607e3d4942393bd8f502dbfae61fe58c369229857b22bf44e2d",
+    "synced_at": "2026-09-29T21:19:48.456458+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "1574956cc23899b38dfbc74feafa305958cb9636712c1eb987a535125f59c2ab",
+    "tracker_hash": "42863c842b6422fc2b66ec90990bd712ca86522c7d0886bf1082774a4accb658",
+    "synced_at": "2026-09-29T21:35:32.453033+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "1574956cc23899b38dfbc74feafa305958cb9636712c1eb987a535125f59c2ab",
+    "tracker_hash": "230197e8949269c136bb4b69b5dbbe39fb7f388834cb197a00149fcf5edef8fa",
+    "synced_at": "2026-09-29T22:52:51.217076+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "230197e8949269c136bb4b69b5dbbe39fb7f388834cb197a00149fcf5edef8fa",
+    "synced_at": "2026-09-29T22:54:27.088979+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "2eef4d436d3616dc34e5b865f5f4c06e236695866cbfabd78d9c12472bae12d4",
+    "synced_at": "2026-09-29T22:57:02.756074+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "fb452387048d9a753acdd39cb2ce313887e27de62884ca12909ef4f99e107fb6",
+    "synced_at": "2026-09-29T23:15:48.673046+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "27ce1b5dba562ca9455a2827fd109da49bbfd54f21fe09b45ed81355dad52377",
+    "synced_at": "2026-09-29T23:18:03.904800+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "d75c11d7fac3f33a635977aac804c8f8deb527b6b44949f85b51d44bb7ac5785",
+    "synced_at": "2026-09-29T23:41:52.616441+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "c1a625721145d96b6a30ae9d64a63bf8a42b272e0261c96e5b1a0b6b839b4b35",
+    "synced_at": "2026-09-30T00:00:11.011873+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "39f27438e7645610ff936115e12ff874337b1e3b09d4af13aa56413a7a8f2115",
+    "synced_at": "2026-09-30T00:03:17.965258+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "39dadeded8d08cebf6d998a591b98ddbf973303753c58b2170396eff3dbfa1d9",
+    "synced_at": "2026-09-30T00:05:07.106163+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "d830c094d42efa46009f37a1a4004f76286d0f18dcf63eec5102e9d0ca5c8f9f",
+    "synced_at": "2026-09-30T00:44:44.099472+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "602f6be81ffb332e03e5765b0fc24e7e4920294b4563b9a995b27264bf0cc0e7",
+    "synced_at": "2026-09-30T00:55:07.439837+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "602f6be81ffb332e03e5765b0fc24e7e4920294b4563b9a995b27264bf0cc0e7",
+    "synced_at": "2026-09-30T00:56:27.780446+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "f7192959e4ec902cad6204d9de9fab3bfe5df678a99dc7b0ba6d2764eeab6f53",
+    "synced_at": "2026-09-30T01:05:32.960846+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "80f391356e4b23da05657164e6a8890beaa8eb111cadc6359bd46b0f1590b8d8",
+    "synced_at": "2026-09-30T01:15:31.406154+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "45da3b407a8ccbf79b1a3e400a6388dbdb80e64ed81e984d10966c69dc8cc969",
+    "synced_at": "2026-09-30T01:40:26.078267+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "31846ab784a76a863c3d71b8377ce5df9290b5eaf218df90dc3885e288f04de9",
+    "tracker_hash": "5c9442cf46ff4511acff3ab2746484057c5693a65b2f5d6ef8ffbfd2bb7ca767",
+    "synced_at": "2026-09-30T01:50:55.749634+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "62bdae776dce93dbc7abf235ae77737aa309551e35726730b509fa0bd499c221",
+    "synced_at": "2026-09-30T02:35:21.623115+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "9431f994570b90dc83b33cb5249ba76bec4207361db20398ebccff614db449d7",
+    "synced_at": "2026-09-30T02:36:50.248307+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "9431f994570b90dc83b33cb5249ba76bec4207361db20398ebccff614db449d7",
+    "synced_at": "2026-09-30T02:45:08.493926+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "510593de7e8f18e53519485b03a70abe13d149ed6de0a315d7394ca6ea562242",
+    "synced_at": "2026-09-30T02:51:23.870542+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "3946387cc5369b1cb1ae77526ab2c2d677ec0b0ccb166bcd548fc525d3e9e355",
+    "synced_at": "2026-09-30T03:10:55.172275+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "f94be769be5be48878041569ae705a113bf66c0250f589f14dc3793390dd9d1f",
+    "synced_at": "2026-09-30T03:29:52.924064+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "8d54d90349df2d4850b00982c6910b817a04262403de691a3974341738f70843",
+    "synced_at": "2026-09-30T03:47:30.171926+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "407ce492695832b45283356ec346a49568f1a4b32150945694503506621a01a2",
+    "synced_at": "2026-09-30T03:50:13.328188+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "959b6a23097e36c89a4ccb9e3b65b95aac2c001bc79d1b2ec9c52de7738ac223",
+    "synced_at": "2026-09-30T04:29:41.918755+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "41adfb263c5e7a215936a0c563f916a9b7a355d8d1e38d56d925b66c49daf3be",
+    "synced_at": "2026-09-30T04:42:54.685537+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "63293b79601de88a283d0cea6fbca65c267ea66d197806c23cc02d4ab5e4f5fe",
+    "synced_at": "2026-09-30T04:58:44.711156+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "3034ce4735313f75734b26e2bc0af879352326d4e47c3a1f3d96b36842656097",
+    "synced_at": "2026-09-30T05:15:58.949125+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "3e830d024c957affa4eabe98109ef5e115085def22c1597873cccd05506dd333",
+    "synced_at": "2026-09-30T05:33:52.493944+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "b980921d91f08617e525c9730f6079902aa3c69c6f00b1f8bdae452edb014401",
+    "synced_at": "2026-09-30T05:47:07.180452+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "a842eafda1f88663181f927fa82fef4c90e4e1d7ddbdf710b192973ab8de4840",
+    "synced_at": "2026-09-30T06:25:40.727058+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "a842eafda1f88663181f927fa82fef4c90e4e1d7ddbdf710b192973ab8de4840",
+    "synced_at": "2026-09-30T10:54:17.812826+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "d6861046498a5d64cd7f66f26f13d74b95df923d882b1f0cda6dfcf7f05b3969",
+    "synced_at": "2026-09-30T10:56:31.658130+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "d6861046498a5d64cd7f66f26f13d74b95df923d882b1f0cda6dfcf7f05b3969",
+    "synced_at": "2026-09-30T11:01:55.512693+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "7f69b2acc4f7eea18c4750b2c27019b49bcf3e292e41c43b88df6377762bdf79",
+    "synced_at": "2026-09-30T11:09:58.617839+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "893283a8b4050e38094607aa414ba6a7a4c1bd6c1ede0b1d09d0a64bc2af4375",
+    "synced_at": "2026-09-30T11:33:38.413953+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "49e3969ec8b2bd405e791866c266a616c45aa66ad7b44cfb182147b8920aa111",
+    "synced_at": "2026-09-30T12:18:44.882397+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "03c649ca2473837a5f8565a0783d12140c4910ea0ba0f1dc2375851eec827ef4",
+    "synced_at": "2026-09-30T12:44:21.059987+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "1b56a226c52e2619ebd63a04a40ce4be36388d45a04ba8be0e9b502cd49f7b6b",
+    "synced_at": "2026-09-30T12:55:21.282764+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "5a146d44976b063e8112dda73b6ad234734967dd7e2ad12ee158c6860f0b7e7a",
+    "synced_at": "2026-09-30T13:17:33.078999+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "a119b821ca6bb77b5e39a1de669192decddaf42e298047ad8e5ef19ff685f07d",
+    "synced_at": "2026-09-30T13:38:34.116027+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "a119b821ca6bb77b5e39a1de669192decddaf42e298047ad8e5ef19ff685f07d",
+    "synced_at": "2026-09-30T14:08:58.327277+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "c52ccba5f356aacc0b8d90dde62a6df82ea76f9008439582b07f957a5a80d21a",
+    "synced_at": "2026-09-30T14:22:25.512359+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "5ddf1284200f880f9f9803f2e3bd1078f2eaa5b4b7e4530a7b7bd5c340f8808c",
+    "synced_at": "2026-09-30T14:37:54.924155+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "56b1da5c607a79d6346e1a917538a7d1a1ca5f2f6f5f4e969f5551fa40aa828a",
+    "synced_at": "2026-09-30T15:30:26.715956+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "0c6534703a28cc744703f9d5e49d2e1ef4b36f1623bbf619c3dbea3e711782a5",
+    "synced_at": "2026-09-30T16:00:48.995024+02:00"
+  },
+  {
+    "plan": "plans/2026-09-03-ga-e0t1-orchestrator-bootstrap.md",
+    "plan_hash": "688b2afa1a60a415902fb6d4011a14e509d804782b70827767c391c1d24c8a92",
+    "tracker_hash": "4c3c6eda550190ccea97a1acbdd577ebe983a4d1884d110f891e47dba78e3925",
+    "synced_at": "2026-09-30T16:56:43.775998+02:00"
   }
 ]

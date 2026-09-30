@@ -1,0 +1,26 @@
+From 68ffb6897dcc49aae675be990c982dc389d2b35c Mon Sep 17 00:00:00 2001
+From: loucmane <lookmanbenali@gmail.com>
+Date: Sun, 27 Sep 2026 10:30:52 +0200
+Subject: [PATCH] ci(gct-mbg6): raise the Template suite timeout to 20 minutes
+
+The suite now takes about 9.5 minutes with the pinned-Core interop tests, so the 10-minute job timeout cancelled a run whose tests all passed. Coordinator fix approved by the operator on 2026-09-27.
+---
+ .github/workflows/template-ci.yml | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.github/workflows/template-ci.yml b/.github/workflows/template-ci.yml
+index 28b43fc..78e20f3 100644
+--- a/.github/workflows/template-ci.yml
++++ b/.github/workflows/template-ci.yml
+@@ -17,7 +17,7 @@ jobs:
+   test:
+     name: Full template suite
+     runs-on: ubuntu-latest
+-    timeout-minutes: 10
++    timeout-minutes: 20
+     steps:
+       - name: Check out exact head
+         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+-- 
+2.43.0
+

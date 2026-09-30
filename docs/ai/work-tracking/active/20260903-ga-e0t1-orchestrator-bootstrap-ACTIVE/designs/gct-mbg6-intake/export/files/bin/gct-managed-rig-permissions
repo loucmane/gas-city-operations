@@ -1,0 +1,1603 @@
+#!/usr/bin/env python3
+"""Render and verify least-privilege managed-worker grants from per-rig records."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import os
+from pathlib import Path, PurePosixPath
+import re
+import shutil
+import subprocess
+import sys
+import tempfile
+import tomllib
+from typing import Any
+
+
+VERSION = 4
+REGISTRY_SCHEMA_V1 = "gc.managed-rig-permissions.v1"
+REGISTRY_SCHEMA_V2 = "gc.managed-rig-permissions.v2"
+REPORT_SCHEMA = "gc.managed-rig-permissions-check.v1"
+SIGNING_CONTROL_POLICY_SCHEMA = "gc.worker-control-policy.v1"
+CANDIDATE_CONTROL_POLICY_SCHEMA = "gc.candidate-control-policy.v1"
+SIGNING_PROFILE_KIND = "signing"
+CANDIDATE_PROFILE_KIND = "candidate"
+# A Claude record with a typed control policy launches through one closed
+# wrapper provider, never through the generic claude-managed provider: the
+# generic launch also loads the city's shared settings, whose broader grant
+# would union with the typed policy instead of being replaced by it. Signing
+# remains kind-selected. Candidate policies are source-selected from this exact
+# literal vocabulary so a second candidate wrapper can never fall through to
+# the Operations wrapper merely because its marker has the same kind.
+CLOSED_CLAUDE_PROVIDERS = {
+    SIGNING_PROFILE_KIND: "claude-signing",
+    "templates/claude/candidate-control-policy.json": "claude-candidate",
+    "templates/claude/template-candidate-control-policy.json": (
+        "claude-template-candidate"
+    ),
+}
+# What this renderer emits for an agent is a *requested patch selector*, never a
+# resolved identity. It writes `[[patches.agent]] dir=<rig> name=<agent>` and the
+# controller rebuilds the target as `dir + "/" + name`, verbatim
+# (internal/config/patch.go qualifiedNameFromPatch).
+#
+# The identity an agent actually carries is a different string:
+# `Dir + "/" + BindingName + "." + Name`, or `Dir + "/" + Name` when the agent is
+# unbound (internal/config/config.go QualifiedName / BindingQualifiedName). The
+# deciding field, `BindingName`, is declared `toml:"-" json:"-"`: it is set by
+# the import that binds the agent and is never serialized back out, so it cannot
+# be recovered from a raw agent record. It is not unknowable in general — the
+# composer computes it, and `gc agent list --json` emits the resulting
+# QualifiedName — but it is unknowable *here*, from a registry that holds a rig
+# name and an agent spelling and nothing else.
+#
+# Measured against the real composer, one spelling resolves three ways
+# depending on the import alias:
+#   unbound       -> gascity/operations-candidate-worker
+#   imported "gc" -> gascity/gc.operations-candidate-worker
+#   imported "ops"-> gascity/ops.operations-candidate-worker
+# The selector below equals the identity in the first case only.
+#
+# So this stage cannot resolve an identity, and an earlier revision that
+# asserted a `<rig>/gc.<agent>` namespace was inventing one. The objection is
+# not that some particular binding is absent from some particular city — this
+# code cannot observe that, and must not claim it — but that the binding is
+# unobservable from here at all, so any namespace asserted here is a guess.
+# An earlier revision of this comment overstated the second half. A prefixed
+# selector is not inert: `AgentMatchesIdentity` compares `QualifiedName()`
+# first and falls back to bare `Dir`+`Name` only when `BindingName` is empty,
+# and city-level `[[patches.agent]]` addresses pack-derived agents by
+# `binding.name`. So `gc.implementation-worker` matches exactly when the agent
+# is imported under the `gc` binding, and fails when it is unbound or bound
+# under some other alias. The defect is not that a prefix can never match; it
+# is that this stage cannot observe which binding applies, so emitting a
+# guessed namespace turns a correct selector into a silently wrong one.
+AGENT_IDENTITY_RESOLUTION = {
+    "resolved": False,
+    "reason": (
+        "agent identity depends on config.Agent.BindingName, which is set by "
+        'the binding import and is declared toml:"-" json:"-", so it cannot be '
+        "recovered from a raw agent record; this registry carries only a rig "
+        "name and an agent spelling, so no identity can be resolved at this "
+        "stage. The same spelling resolves differently under each import alias."
+    ),
+    "emitted": "requested patch selector, dir + '/' + name, verbatim",
+    "controller_rules": {
+        "patch_target": "internal/config/patch.go qualifiedNameFromPatch",
+        "identity": (
+            "internal/config/config.go Agent.QualifiedName / "
+            "Agent.BindingQualifiedName"
+        ),
+        "match": "internal/config/config.go AgentMatchesIdentity",
+    },
+    "resolve_with": (
+        "gc agent list --json against the target city reports the composed "
+        "QualifiedName; do not re-derive it from this report"
+    ),
+}
+NAME = re.compile(r"[A-Za-z0-9._-]+")
+ENVIRONMENT_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+SHA256 = re.compile(r"[0-9a-f]{64}")
+DEFAULT_CITY = Path("/home/loucmane/gascity/city")
+DEFAULT_GC = Path("/home/loucmane/gascity/bin/gc")
+ROOT = Path(__file__).resolve().parents[1]
+CODEX_PROVIDER_TEMPLATE = ROOT / "templates" / "codex" / "managed-provider.toml"
+CODEX_MANAGED_PROVIDER_TEMPLATE = (
+    ROOT / "templates" / "codex" / "managed-overlay.toml"
+)
+CODEX_MANAGED_WORKLOG_PROVIDER_TEMPLATE = (
+    ROOT / "templates" / "codex" / "managed-worklog-overlay.toml"
+)
+MODEL_SELECTION_CATALOG = ROOT / "managed" / "model-selections.json"
+MODEL_SELECTION_OVERLAY_TEMPLATE = (
+    ROOT / "templates" / "codex" / "model-selection-overlay.toml"
+)
+CLAUDE_PROVIDER_TEMPLATE = ROOT / "templates" / "claude" / "managed-provider.toml"
+CLAUDE_SIGNING_PROVIDER_TEMPLATE = (
+    ROOT / "templates" / "claude" / "signing-provider.toml"
+)
+CLAUDE_CANDIDATE_PROVIDER_TEMPLATE = (
+    ROOT / "templates" / "claude" / "candidate-provider.toml"
+)
+CLAUDE_TEMPLATE_CANDIDATE_PROVIDER_TEMPLATE = (
+    ROOT / "templates" / "claude" / "template-candidate-provider.toml"
+)
+PROVIDER_MARKER = "# @managed-rig-choices@"
+MODEL_CHOICES_MARKER = "# @managed-model-choices@"
+EFFORT_CHOICES_MARKER = "# @managed-effort-choices@"
+SUPPORTED_PROVIDERS = (
+    "claude",
+    "codex",
+    "codex-managed",
+    "codex-managed-worklog",
+)
+# The provider each record actually launches through. Managed grants cannot
+# reuse a provider already owned by the root city: gc include composition keeps
+# the root's options_schema and drops the fragment's. Legacy Codex records keep
+# their historical provider; new production overlays select codex-managed.
+LAUNCH_PROVIDERS = {
+    "claude": "claude-managed",
+    "codex": "codex",
+    "codex-managed": "codex-managed",
+    "codex-managed-worklog": "codex-managed-worklog",
+}
+ACCESS_OPTIONS = {
+    "claude": "managed_worktree_access",
+    "codex": "worklog_access",
+    "codex-managed": "worklog_access",
+    "codex-managed-worklog": "worklog_access",
+}
+# The model and effort each provider uses when a record declares no explicit
+# selection. These are the historical hardcoded values and stay the compatibility
+# authority: a record that omits model_selection must render byte-identically to
+# the fragment produced before selection existed. The one deliberate exception is
+# the Claude default, which the operator moved from opus-5 to opus-5-5 on
+# 2026-09-22 (gct-er3h) with no Opus 5 fallback.
+DEFAULT_MODEL_SELECTIONS = {
+    "claude": {"model": "opus-5-5"},
+    "codex-managed": {"model": "gpt-5.6-sol", "effort": "xhigh"},
+    "codex-managed-worklog": {"model": "gpt-5.6-sol", "effort": "xhigh"},
+}
+MODEL_SELECTION_SCHEMA = "gct.model-selection.v1"
+MODEL_SELECTION_CATALOG_SCHEMA = "gct.model-selections.v1"
+
+
+class ProvisionError(Exception):
+    pass
+
+
+def _load_model_selection_catalog() -> tuple[dict[str, Any], bytes]:
+    """Load and validate the source-owned closed model/effort catalog."""
+    try:
+        raw = MODEL_SELECTION_CATALOG.read_bytes()
+        document = json.loads(raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProvisionError(
+            f"model selection catalog is unreadable: {MODEL_SELECTION_CATALOG}: {exc}"
+        ) from exc
+    required = {
+        "schema",
+        "description",
+        "evidence",
+        "defaults",
+        "providers",
+        "effort_flag_args",
+    }
+    if not isinstance(document, dict) or set(document) != required:
+        raise ProvisionError("model selection catalog has unknown or missing fields")
+    if document["schema"] != MODEL_SELECTION_CATALOG_SCHEMA:
+        raise ProvisionError(
+            f"model selection catalog schema must be {MODEL_SELECTION_CATALOG_SCHEMA}"
+        )
+    if document["defaults"] != DEFAULT_MODEL_SELECTIONS:
+        raise ProvisionError(
+            "model selection catalog defaults must match the historical renderer defaults"
+        )
+    descriptions = document["description"]
+    if not isinstance(descriptions, list) or not descriptions or not all(
+        isinstance(value, str) and value for value in descriptions
+    ):
+        raise ProvisionError("model selection catalog description must be a string list")
+    evidence = document["evidence"]
+    codex_evidence = evidence.get("codex_cli") if isinstance(evidence, dict) else None
+    if not isinstance(codex_evidence, dict) or set(codex_evidence) != {
+        "managed_executable_sha256",
+        "source",
+        "version",
+    }:
+        raise ProvisionError("model selection catalog must bind exact Codex CLI evidence")
+    if not SHA256.fullmatch(str(codex_evidence["managed_executable_sha256"])):
+        raise ProvisionError(
+            "model selection catalog Codex executable digest must be a lowercase SHA-256"
+        )
+    if not all(
+        isinstance(codex_evidence[key], str) and codex_evidence[key]
+        for key in ("source", "version")
+    ):
+        raise ProvisionError("model selection catalog Codex evidence is incomplete")
+
+    effort_flags = document["effort_flag_args"]
+    if not isinstance(effort_flags, dict) or not effort_flags:
+        raise ProvisionError("model selection catalog effort_flag_args must be an object")
+    for effort, flag_args in effort_flags.items():
+        if (
+            not isinstance(effort, str)
+            or not NAME.fullmatch(effort)
+            or flag_args != ["-c", f"model_reasoning_effort={effort}"]
+        ):
+            raise ProvisionError(
+                f"model selection catalog has unsafe effort flags for {effort!r}"
+            )
+
+    providers = document["providers"]
+    expected_providers = {"codex-managed", "codex-managed-worklog"}
+    if not isinstance(providers, dict) or set(providers) != expected_providers:
+        raise ProvisionError(
+            "model selection catalog providers must be codex-managed and "
+            "codex-managed-worklog"
+        )
+    for provider, provider_catalog in providers.items():
+        if not isinstance(provider_catalog, dict) or set(provider_catalog) != {
+            "carries_effort",
+            "models",
+        }:
+            raise ProvisionError(
+                f"model selection catalog provider {provider} has unknown or missing fields"
+            )
+        if provider_catalog["carries_effort"] is not True:
+            raise ProvisionError(
+                f"model selection catalog provider {provider} must carry effort"
+            )
+        models = provider_catalog["models"]
+        if not isinstance(models, dict) or not models:
+            raise ProvisionError(
+                f"model selection catalog provider {provider} must declare models"
+            )
+        for model, model_catalog in models.items():
+            allowed_fields = {"efforts", "flag_args", "label", "note"}
+            required_fields = {"efforts", "flag_args", "label"}
+            if (
+                not isinstance(model, str)
+                or not NAME.fullmatch(model)
+                or not isinstance(model_catalog, dict)
+                or not required_fields.issubset(model_catalog)
+                or not set(model_catalog).issubset(allowed_fields)
+            ):
+                raise ProvisionError(
+                    f"model selection catalog model {provider}/{model!r} is invalid"
+                )
+            if model_catalog["flag_args"] != ["--model", model]:
+                raise ProvisionError(
+                    f"model selection catalog has unsafe model flags for {provider}/{model}"
+                )
+            if not isinstance(model_catalog["label"], str) or not model_catalog["label"]:
+                raise ProvisionError(
+                    f"model selection catalog model {provider}/{model} has no label"
+                )
+            efforts = model_catalog["efforts"]
+            if (
+                not isinstance(efforts, list)
+                or not efforts
+                or len(efforts) != len(set(efforts))
+                or not all(
+                    isinstance(effort, str) and effort in effort_flags
+                    for effort in efforts
+                )
+            ):
+                raise ProvisionError(
+                    f"model selection catalog model {provider}/{model} has invalid efforts"
+                )
+            if "note" in model_catalog and (
+                not isinstance(model_catalog["note"], str) or not model_catalog["note"]
+            ):
+                raise ProvisionError(
+                    f"model selection catalog model {provider}/{model} has an invalid note"
+                )
+    return document, raw
+
+
+def _validate_model_selection(
+    declared: Any, provider: str, prefix: str
+) -> dict[str, str]:
+    """Validate one record's explicit model/effort selection.
+
+    Selection is a closed vocabulary lookup, never a passthrough. It carries no
+    authority: it cannot name a path, flag, environment variable, permission
+    mode or billing behaviour, because the only keys accepted are `schema`,
+    `model` and `effort` and each value must match a pinned catalog entry.
+    """
+    if not isinstance(declared, dict):
+        raise ProvisionError(
+            f"{prefix}.model_selection must be an object"
+        )
+    catalog, _raw = _load_model_selection_catalog()
+    providers = catalog["providers"]
+    if provider not in providers:
+        raise ProvisionError(
+            f"{prefix}.model_selection is not supported for provider {provider}"
+        )
+    required = {"schema", "model"}
+    optional = {"effort"}
+    if not required.issubset(declared) or not set(declared).issubset(
+        required | optional
+    ):
+        raise ProvisionError(
+            f"{prefix}.model_selection has unknown or missing fields"
+        )
+    if declared["schema"] != MODEL_SELECTION_SCHEMA:
+        raise ProvisionError(
+            f"{prefix}.model_selection.schema must be {MODEL_SELECTION_SCHEMA}"
+        )
+    model = declared["model"]
+    models = providers[provider]["models"]
+    if not isinstance(model, str) or model not in models:
+        raise ProvisionError(
+            f"{prefix}.model_selection.model must be one of: "
+            + ", ".join(models)
+        )
+    selection = {"model": model}
+    # An effort-carrying provider must state a pair admitted for this exact
+    # model. Falling back to a provider-wide list would incorrectly admit Sol
+    # at efforts for which only Astra was observed.
+    if "effort" not in declared:
+        raise ProvisionError(
+            f"{prefix}.model_selection.effort is required for provider {provider}"
+        )
+    effort = declared["effort"]
+    efforts = models[model]["efforts"]
+    if not isinstance(effort, str) or effort not in efforts:
+        raise ProvisionError(
+            f"{prefix}.model_selection must be a supported pair; {model} efforts: "
+            + ", ".join(efforts)
+        )
+    selection["effort"] = effort
+    return selection
+
+
+def requested_agent_selector(rig: str, agent: str) -> str:
+    """The patch selector this renderer emits for one registry agent.
+
+    This is `dir + "/" + name` exactly as the controller rebuilds it from the
+    emitted `[[patches.agent]]` stanza, so a consumer can compare it against a
+    rendered fragment. It is deliberately not called a resolved identity, and
+    nothing is prefixed onto it: see AGENT_IDENTITY_RESOLUTION for why this
+    stage cannot know an agent's binding.
+    """
+    return f"{rig}/{agent}"
+
+
+def _sha256(data: bytes) -> str:
+    return hashlib.sha256(data).hexdigest()
+
+
+def _canonical_json(value: object) -> bytes:
+    return json.dumps(
+        value, ensure_ascii=False, sort_keys=True, separators=(",", ":")
+    ).encode("utf-8")
+
+
+def _toml_string(value: str) -> str:
+    return json.dumps(value, ensure_ascii=False)
+
+
+def _toml_string_list(values: list[str]) -> str:
+    return "[" + ", ".join(_toml_string(value) for value in values) + "]"
+
+
+def _inside(child: Path, parent: Path) -> bool:
+    try:
+        child.relative_to(parent)
+    except ValueError:
+        return False
+    return True
+
+
+def _overlaps(left: Path, right: Path) -> bool:
+    return left == right or _inside(left, right) or _inside(right, left)
+
+
+def _absolute_normalized(value: object, field: str) -> Path:
+    if not isinstance(value, str) or not value:
+        raise ProvisionError(f"{field} must be a non-empty absolute path")
+    raw = Path(value)
+    if not raw.is_absolute():
+        raise ProvisionError(f"{field} must be absolute: {value}")
+    normalized = Path(os.path.abspath(value))
+    if str(normalized) != value:
+        raise ProvisionError(f"{field} is not normalized: {value}")
+    return normalized
+
+
+def _reject_temporary_standard(path: Path, field: str) -> None:
+    temporary = Path("/tmp")
+    if not _inside(path, temporary):
+        return
+    test_root_text = os.environ.get("GCT_TEST_ROOT", "")
+    if test_root_text:
+        test_root = Path(os.path.abspath(test_root_text))
+        if _inside(path, test_root):
+            return
+    raise ProvisionError(f"{field} may not use /tmp as a managed standard: {path}")
+
+
+def _reject_symlink_components(path: Path, field: str) -> None:
+    current = Path(path.anchor)
+    for part in path.parts[1:]:
+        current /= part
+        if current.is_symlink():
+            raise ProvisionError(f"{field} contains a symlink component: {current}")
+        if not current.exists():
+            break
+
+
+def _load_control_policy(
+    source: object, digest: object, field: str
+) -> tuple[Path, str, str]:
+    """Resolve a source-owned typed control policy and bind its exact bytes.
+
+    The policy ships with this template, so it is named relative to the template
+    root rather than by absolute path: the same registry then renders correctly
+    from the canonical checkout and from a linked worktree. The declared digest
+    is verified against the file that is actually read, and the file must
+    declare one exact candidate/signing schema and matching profile kind, so a
+    broad worker settings file cannot be substituted for a typed policy.
+    """
+    if not isinstance(source, str) or not source:
+        raise ProvisionError(f"{field}.source must be a non-empty relative path")
+    if not isinstance(digest, str) or not SHA256.fullmatch(digest):
+        raise ProvisionError(f"{field}.sha256 must be a lowercase SHA-256")
+    relative = PurePosixPath(source)
+    if relative.is_absolute() or not relative.parts or ".." in relative.parts:
+        raise ProvisionError(
+            f"{field}.source must be a relative path inside the template: {source}"
+        )
+    resolved = Path(os.path.abspath(ROOT.joinpath(*relative.parts)))
+    if not _inside(resolved, ROOT):
+        raise ProvisionError(f"{field}.source escapes the template root: {source}")
+    _reject_symlink_components(resolved, f"{field}.source")
+    if not resolved.is_file():
+        raise ProvisionError(f"{field}.source is not a regular file: {resolved}")
+    raw = resolved.read_bytes()
+    observed = _sha256(raw)
+    if observed != digest:
+        raise ProvisionError(
+            f"{field}.sha256 does not match {resolved}: "
+            f"declared {digest}, observed {observed}"
+        )
+    try:
+        document = json.loads(raw)
+    except json.JSONDecodeError as exc:
+        raise ProvisionError(f"{field}.source is not valid JSON: {exc}") from exc
+    marker = document.get("_gc") if isinstance(document, dict) else None
+    expected = {
+        CANDIDATE_CONTROL_POLICY_SCHEMA: CANDIDATE_PROFILE_KIND,
+        SIGNING_CONTROL_POLICY_SCHEMA: SIGNING_PROFILE_KIND,
+    }
+    if not isinstance(marker, dict) or set(marker) != {"schema", "profile_kind"}:
+        raise ProvisionError(
+            f"{field}.source has an invalid typed policy marker; expected "
+            f"{CANDIDATE_CONTROL_POLICY_SCHEMA} or {SIGNING_CONTROL_POLICY_SCHEMA}"
+        )
+    schema = marker.get("schema")
+    if schema not in expected:
+        raise ProvisionError(
+            f"{field}.source must declare {CANDIDATE_CONTROL_POLICY_SCHEMA} or "
+            f"{SIGNING_CONTROL_POLICY_SCHEMA}"
+        )
+    kind = marker.get("profile_kind")
+    if kind != expected[schema]:
+        raise ProvisionError(
+            f"{field}.source schema {schema!r} requires profile_kind "
+            f"{expected[schema]!r}, not {kind!r}"
+        )
+    return resolved, observed, kind
+
+
+def _closed_claude_provider(kind: str, source: str, field: str) -> str:
+    """Choose the one closed provider authorized for a typed policy.
+
+    Signing has one wrapper and remains keyed by profile kind. Candidate
+    wrappers are keyed by the literal declared source string: normalization is
+    deliberately not applied before this lookup, and an otherwise valid policy
+    copied to another path is not a runnable candidate policy.
+    """
+
+    key = SIGNING_PROFILE_KIND if kind == SIGNING_PROFILE_KIND else source
+    try:
+        return CLOSED_CLAUDE_PROVIDERS[key]
+    except KeyError as exc:
+        raise ProvisionError(
+            f"{field}.source is not an authorized {kind} control policy: {source}"
+        ) from exc
+
+
+def _load_registry(path: Path) -> tuple[dict[str, Any], bytes]:
+    try:
+        raw = path.read_bytes()
+        document = json.loads(raw)
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ProvisionError(f"registry is unreadable: {path}: {exc}") from exc
+    if not isinstance(document, dict) or document.get("schema") not in {
+        REGISTRY_SCHEMA_V1,
+        REGISTRY_SCHEMA_V2,
+    }:
+        raise ProvisionError(
+            f"registry schema must be {REGISTRY_SCHEMA_V1} or {REGISTRY_SCHEMA_V2}"
+        )
+    if set(document) != {"schema", "classified_vault", "rigs"}:
+        raise ProvisionError("registry has unknown or missing top-level fields")
+    vault = _absolute_normalized(document["classified_vault"], "classified_vault")
+    _reject_temporary_standard(vault, "classified_vault")
+    _reject_symlink_components(vault, "classified_vault")
+    if not vault.is_dir():
+        raise ProvisionError(f"classified_vault must be a real directory: {vault}")
+    schema = document["schema"]
+    rigs = document["rigs"]
+    if not isinstance(rigs, list):
+        raise ProvisionError("rigs must be a list")
+
+    normalized: list[dict[str, Any]] = []
+    seen_names: set[str] = set()
+    seen_agents: set[tuple[str, str]] = set()
+    seen_roots: set[Path] = set()
+    for index, item in enumerate(rigs):
+        prefix = f"rigs[{index}]"
+        required_fields = {
+            "name",
+            "repository_path",
+            "worktree_root",
+            "agents",
+            "git_metadata",
+        }
+        optional_fields = {"provider"}
+        if schema == REGISTRY_SCHEMA_V2:
+            optional_fields |= {
+                "environment",
+                "toolchains",
+                "control_policy",
+                "model_selection",
+            }
+        if (
+            not isinstance(item, dict)
+            or not required_fields.issubset(item)
+            or not set(item).issubset(required_fields | optional_fields)
+        ):
+            raise ProvisionError(f"{prefix} has unknown or missing fields")
+        provider = item.get("provider", "codex")
+        if provider not in SUPPORTED_PROVIDERS:
+            raise ProvisionError(
+                f"{prefix}.provider must be one of: "
+                + ", ".join(SUPPORTED_PROVIDERS)
+            )
+        name = item["name"]
+        if not isinstance(name, str) or not NAME.fullmatch(name):
+            raise ProvisionError(f"{prefix}.name is invalid")
+        # Several disjoint records per rig are a v2 extension. Under v1 one
+        # rig still means one record: that refusal is the legacy contract and
+        # is preserved exactly, not relaxed by the newer schema's allowance.
+        if schema == REGISTRY_SCHEMA_V1:
+            if name in seen_names:
+                raise ProvisionError(f"duplicate rig name: {name}")
+            seen_names.add(name)
+        repository = _absolute_normalized(
+            item["repository_path"], f"{prefix}.repository_path"
+        )
+        worktree_root = _absolute_normalized(
+            item["worktree_root"], f"{prefix}.worktree_root"
+        )
+        _reject_temporary_standard(repository, f"{prefix}.repository_path")
+        _reject_temporary_standard(worktree_root, f"{prefix}.worktree_root")
+        _reject_symlink_components(repository, f"{prefix}.repository_path")
+        _reject_symlink_components(worktree_root, f"{prefix}.worktree_root")
+        if not repository.is_dir():
+            raise ProvisionError(f"{prefix}.repository_path is not a Git checkout")
+        git_metadata = repository / ".git"
+        if git_metadata.is_symlink() or not git_metadata.is_dir():
+            raise ProvisionError(
+                f"{prefix}.git metadata must be a real directory: {git_metadata}"
+            )
+        if not worktree_root.is_dir():
+            raise ProvisionError(f"{prefix}.worktree_root does not exist")
+        if (
+            repository == worktree_root
+            or _inside(worktree_root, repository)
+            or _inside(repository, worktree_root)
+        ):
+            raise ProvisionError(
+                f"{prefix}.worktree_root must be disjoint from the protected checkout"
+            )
+        if worktree_root in seen_roots:
+            raise ProvisionError(f"duplicate worktree root: {worktree_root}")
+        seen_roots.add(worktree_root)
+        agents = item["agents"]
+        if (
+            not isinstance(agents, list)
+            or not agents
+            or not all(isinstance(agent, str) and NAME.fullmatch(agent) for agent in agents)
+            or len(set(agents)) != len(agents)
+        ):
+            raise ProvisionError(f"{prefix}.agents must be unique agent identities")
+        # A rig may carry several disjoint records, but each qualified agent is
+        # patched exactly once: two records naming one agent would emit two
+        # patches for the same identity and silently resolve to whichever the
+        # composed city read last.
+        for agent in agents:
+            if (name, agent) in seen_agents:
+                raise ProvisionError(f"duplicate qualified agent: {name}/{agent}")
+            seen_agents.add((name, agent))
+        git_metadata_grant = item["git_metadata"]
+        if git_metadata_grant is not True and not (
+            schema == REGISTRY_SCHEMA_V2 and git_metadata_grant is False
+        ):
+            raise ProvisionError(
+                f"{prefix}.git_metadata must be true for linked-worktree commits, "
+                f"or explicitly false under {REGISTRY_SCHEMA_V2}"
+            )
+        # Candidate and signing controls are mutually exclusive. Candidate
+        # profiles have no common Git metadata; signing profiles require it.
+        # Both are Claude-only, so neither type can cross-select a different
+        # provider or silently inherit the other profile's authority.
+        control_policy_record: dict[str, str] | None = None
+        candidate_record = False
+        if "control_policy" in item:
+            declared = item["control_policy"]
+            if not isinstance(declared, dict) or set(declared) != {"sha256", "source"}:
+                raise ProvisionError(
+                    f"{prefix}.control_policy has unknown or missing fields"
+                )
+            if provider != "claude":
+                raise ProvisionError(
+                    f"{prefix}.control_policy is only supported for the claude provider"
+                )
+            _policy_path, _policy_digest, policy_kind = _load_control_policy(
+                declared["source"], declared["sha256"], f"{prefix}.control_policy"
+            )
+            _closed_claude_provider(
+                policy_kind, declared["source"], f"{prefix}.control_policy"
+            )
+            if (
+                policy_kind == CANDIDATE_PROFILE_KIND
+                and git_metadata_grant is not False
+            ):
+                raise ProvisionError(
+                    f"{prefix}.control_policy is candidate-only: a record granting "
+                    "common Git metadata may not select it"
+                )
+            if policy_kind == SIGNING_PROFILE_KIND and git_metadata_grant is not True:
+                raise ProvisionError(
+                    f"{prefix}.control_policy signing profile requires common Git metadata"
+                )
+            control_policy_record = {
+                "sha256": declared["sha256"],
+                "source": declared["source"],
+            }
+            candidate_record = policy_kind == CANDIDATE_PROFILE_KIND
+        normalized_record = {
+            "agents": sorted(agents),
+            "git_metadata": git_metadata_grant,
+            "name": name,
+            "repository_path": str(repository),
+            "worktree_root": str(worktree_root),
+        }
+        if control_policy_record is not None:
+            normalized_record["control_policy"] = control_policy_record
+        # Omitting the selector is the v1 Codex contract. Do not normalize an
+        # implicit default into the record: its canonical digest and rendered
+        # fragment are compatibility authorities.
+        if "provider" in item:
+            normalized_record["provider"] = provider
+        # Same rule as the provider selector above: an omitted selection is not
+        # normalized into an explicit default. Materializing the historical
+        # model here would change every existing record's canonical digest and
+        # turn the hardcoded defaults into a silent global migration.
+        if "model_selection" in item:
+            if schema != REGISTRY_SCHEMA_V2:
+                raise ProvisionError(
+                    f"{prefix}.model_selection requires {REGISTRY_SCHEMA_V2}"
+                )
+            normalized_record["model_selection"] = _validate_model_selection(
+                item["model_selection"], provider, prefix
+            )
+        if schema == REGISTRY_SCHEMA_V2:
+            environment = item.get("environment")
+            if not isinstance(environment, dict) or not environment:
+                raise ProvisionError(f"{prefix}.environment must be a non-empty object")
+            normalized_environment: dict[str, str] = {}
+            for key, value in environment.items():
+                if not isinstance(key, str) or not ENVIRONMENT_NAME.fullmatch(key):
+                    raise ProvisionError(f"{prefix}.environment key {key!r} is invalid")
+                if not isinstance(value, str) or not value or "\x00" in value:
+                    raise ProvisionError(
+                        f"{prefix}.environment[{key!r}] must be a non-empty string without NUL"
+                    )
+                # The closed candidate wrapper passes the environment through to
+                # the CLI, its hooks and the unsandboxed control commands, so a
+                # candidate record's environment is an allowlist: PATH only,
+                # with absolute entries none of which lies under its own root.
+                if candidate_record:
+                    if key != "PATH":
+                        raise ProvisionError(
+                            f"{prefix}.environment key {key!r} is refused for a candidate record"
+                        )
+                    real_root = Path(os.path.realpath(worktree_root))
+                    for entry in value.split(":"):
+                        refused = not entry or not entry.startswith("/")
+                        if not refused:
+                            real_entry = Path(os.path.realpath(entry))
+                            refused = _inside(Path(os.path.abspath(entry)), real_root) or _inside(
+                                real_entry, real_root
+                            )
+                            # Existence, ownership and group/world-writable entries or
+                            # ancestors depend on the host, so they are checked live at
+                            # activation, never here: a render must not depend on the
+                            # machine it runs on.
+                        if refused:
+                            raise ProvisionError(
+                                f"{prefix}.environment PATH entry {entry!r} is refused for a candidate record"
+                            )
+                normalized_environment[key] = value
+            toolchains = item.get("toolchains")
+            if not isinstance(toolchains, list) or not toolchains:
+                raise ProvisionError(f"{prefix}.toolchains must be a non-empty list")
+            normalized_toolchains = []
+            seen_toolchains: set[str] = set()
+            for toolchain_index, toolchain in enumerate(toolchains):
+                toolchain_prefix = f"{prefix}.toolchains[{toolchain_index}]"
+                if not isinstance(toolchain, dict) or set(toolchain) != {
+                    "executable",
+                    "name",
+                }:
+                    raise ProvisionError(f"{toolchain_prefix} has unknown or missing fields")
+                name_value = toolchain["name"]
+                if not isinstance(name_value, str) or not NAME.fullmatch(name_value):
+                    raise ProvisionError(f"{toolchain_prefix}.name is invalid")
+                if name_value in seen_toolchains:
+                    raise ProvisionError(f"duplicate toolchain name: {name_value}")
+                seen_toolchains.add(name_value)
+                executable = toolchain["executable"]
+                if not isinstance(executable, dict) or set(executable) != {
+                    "path",
+                    "resolved_path",
+                    "sha256",
+                    "version_args",
+                    "version",
+                }:
+                    raise ProvisionError(
+                        f"{toolchain_prefix}.executable has unknown or missing fields"
+                    )
+                path_value = _absolute_normalized(
+                    executable["path"], f"{toolchain_prefix}.executable.path"
+                )
+                resolved_value = _absolute_normalized(
+                    executable["resolved_path"],
+                    f"{toolchain_prefix}.executable.resolved_path",
+                )
+                digest = executable["sha256"]
+                version_args = executable["version_args"]
+                version = executable["version"]
+                if not isinstance(digest, str) or not SHA256.fullmatch(digest):
+                    raise ProvisionError(
+                        f"{toolchain_prefix}.executable.sha256 must be a lowercase SHA-256"
+                    )
+                if not isinstance(version_args, list) or not all(
+                    isinstance(argument, str) and argument for argument in version_args
+                ):
+                    raise ProvisionError(
+                        f"{toolchain_prefix}.executable.version_args must be a string list"
+                    )
+                if not isinstance(version, str) or not version:
+                    raise ProvisionError(
+                        f"{toolchain_prefix}.executable.version must be non-empty"
+                    )
+                normalized_toolchains.append(
+                    {
+                        "executable": {
+                            "path": str(path_value),
+                            "resolved_path": str(resolved_value),
+                            "sha256": digest,
+                            "version_args": list(version_args),
+                            "version": version,
+                        },
+                        "name": name_value,
+                    }
+                )
+            normalized_record["environment"] = dict(sorted(normalized_environment.items()))
+            normalized_record["toolchains"] = sorted(
+                normalized_toolchains, key=lambda value: value["name"]
+            )
+        normalized.append(normalized_record)
+    managed_roots: list[tuple[str, Path]] = [("classified_vault", vault)]
+    for record in normalized:
+        managed_roots.extend(
+            [
+                (
+                    f"rig {record['name']} repository_path",
+                    Path(record["repository_path"]),
+                ),
+                (
+                    f"rig {record['name']} worktree_root",
+                    Path(record["worktree_root"]),
+                ),
+            ]
+        )
+    for index, (left_field, left_path) in enumerate(managed_roots):
+        for right_field, right_path in managed_roots[index + 1 :]:
+            if _overlaps(left_path, right_path):
+                raise ProvisionError(
+                    "managed roots must be pairwise disjoint: "
+                    f"{left_field} {left_path} overlaps {right_field} {right_path}"
+                )
+    # One rig may contribute several records, so the name alone is no longer a
+    # total order. Sort on the full target identity to keep rendering
+    # deterministic regardless of how the registry listed them.
+    normalized.sort(
+        key=lambda item: (
+            item["name"],
+            item["repository_path"],
+            item["worktree_root"],
+        )
+    )
+    return {
+        "schema": schema,
+        "classified_vault": str(vault),
+        "rigs": normalized,
+    }, raw
+
+
+def _render_model_selection_overlay(
+    provider: str,
+    records: list[dict[str, Any]],
+    catalog: dict[str, Any],
+    template_text: str,
+) -> str:
+    """Render the closed choices needed by explicitly selecting records.
+
+    The overlay is attached only to a derived provider and only when at least
+    one record opts in. Models are the selected set; efforts are the union of
+    the reviewed efforts supported by those models. The root provider's other
+    choices survive through Core's by-key/by-value composition.
+    """
+    if provider not in catalog["providers"] or not records:
+        raise ProvisionError(f"model selection overlay is unsupported for {provider}")
+    if template_text.count(MODEL_CHOICES_MARKER) != 1:
+        raise ProvisionError(
+            "model selection overlay template must contain exactly one model marker"
+        )
+    if template_text.count(EFFORT_CHOICES_MARKER) != 1:
+        raise ProvisionError(
+            "model selection overlay template must contain exactly one effort marker"
+        )
+    if "@provider@" not in template_text:
+        raise ProvisionError("model selection overlay template has no provider marker")
+
+    provider_catalog = catalog["providers"][provider]
+    selected_models = {record["model_selection"]["model"] for record in records}
+    model_lines: list[str] = []
+    selected_efforts: set[str] = set()
+    for model, model_catalog in provider_catalog["models"].items():
+        if model not in selected_models:
+            continue
+        model_lines.extend(
+            [
+                f"[[providers.{provider}.options_schema.choices]]",
+                f"value = {_toml_string(model)}",
+                f"label = {_toml_string(model_catalog['label'])}",
+                "flag_args = " + _toml_string_list(model_catalog["flag_args"]),
+                "",
+            ]
+        )
+        selected_efforts.update(model_catalog["efforts"])
+
+    effort_lines: list[str] = []
+    for effort, flag_args in catalog["effort_flag_args"].items():
+        if effort not in selected_efforts:
+            continue
+        effort_lines.extend(
+            [
+                f"[[providers.{provider}.options_schema.choices]]",
+                f"value = {_toml_string(effort)}",
+                "flag_args = " + _toml_string_list(flag_args),
+                "",
+            ]
+        )
+    return (
+        template_text.replace("@provider@", provider)
+        .replace(MODEL_CHOICES_MARKER, "\n".join(model_lines).rstrip())
+        .replace(EFFORT_CHOICES_MARKER, "\n".join(effort_lines).rstrip())
+        .rstrip()
+    )
+
+
+def _render(registry: dict[str, Any]) -> tuple[bytes, dict[str, Any]]:
+    digest = _sha256(_canonical_json(registry))
+    provider_templates = {
+        "codex": CODEX_PROVIDER_TEMPLATE,
+        "codex-managed": CODEX_MANAGED_PROVIDER_TEMPLATE,
+        "codex-managed-worklog": CODEX_MANAGED_WORKLOG_PROVIDER_TEMPLATE,
+        "claude": CLAUDE_PROVIDER_TEMPLATE,
+        "claude-signing": CLAUDE_SIGNING_PROVIDER_TEMPLATE,
+        "claude-candidate": CLAUDE_CANDIDATE_PROVIDER_TEMPLATE,
+        "claude-template-candidate": CLAUDE_TEMPLATE_CANDIDATE_PROVIDER_TEMPLATE,
+    }
+    provider_records: dict[str, list[dict[str, Any]]] = {
+        "codex": [],
+        "codex-managed": [],
+        "codex-managed-worklog": [],
+        "claude": [],
+        "claude-signing": [],
+        "claude-candidate": [],
+        "claude-template-candidate": [],
+    }
+    for record in registry["rigs"]:
+        render_provider = record.get("provider", "codex")
+        control_policy = record.get("control_policy")
+        if render_provider == "claude" and control_policy is not None:
+            _path, _digest, policy_kind = _load_control_policy(
+                control_policy["source"],
+                control_policy["sha256"],
+                f"rig {record['name']} control_policy",
+            )
+            render_provider = _closed_claude_provider(
+                policy_kind,
+                control_policy["source"],
+                f"rig {record['name']} control_policy",
+            )
+        provider_records[render_provider].append(record)
+
+    # An empty registry retains the historical vault-only Codex fragment.
+    included_providers = [
+        provider
+        for provider in (
+            "codex",
+            "codex-managed",
+            "codex-managed-worklog",
+            "claude",
+            "claude-signing",
+            "claude-candidate",
+            "claude-template-candidate",
+        )
+        if provider_records[provider] or (provider == "codex" and not registry["rigs"])
+    ]
+    template_texts: dict[str, str] = {}
+    template_digests: dict[str, str] = {}
+    selected_records = {
+        provider: [
+            record for record in records if "model_selection" in record
+        ]
+        for provider, records in provider_records.items()
+    }
+    selection_catalog: dict[str, Any] | None = None
+    selection_inputs: dict[str, dict[str, str]] | None = None
+    selection_overlay_text = ""
+    if any(selected_records.values()):
+        selection_catalog, raw_catalog = _load_model_selection_catalog()
+        try:
+            selection_overlay_text = MODEL_SELECTION_OVERLAY_TEMPLATE.read_text(
+                encoding="utf-8"
+            )
+        except OSError as exc:
+            raise ProvisionError(
+                "model selection overlay template is unreadable: "
+                f"{MODEL_SELECTION_OVERLAY_TEMPLATE}: {exc}"
+            ) from exc
+        selection_inputs = {
+            "catalog": {
+                "path": str(MODEL_SELECTION_CATALOG),
+                "sha256": _sha256(raw_catalog),
+            },
+            "overlay_template": {
+                "path": str(MODEL_SELECTION_OVERLAY_TEMPLATE),
+                "sha256": _sha256(selection_overlay_text.encode("utf-8")),
+            },
+        }
+    for provider in included_providers:
+        try:
+            template_text = provider_templates[provider].read_text(encoding="utf-8")
+        except OSError as exc:
+            raise ProvisionError(
+                f"{provider} provider template is unreadable: {exc}"
+            ) from exc
+        if template_text.count(PROVIDER_MARKER) != 1:
+            raise ProvisionError(
+                f"{provider} provider template must contain exactly one managed marker"
+            )
+        template_texts[provider] = template_text
+        template_digests[provider] = _sha256(template_text.encode("utf-8"))
+        if selected_records[provider]:
+            assert selection_catalog is not None
+            overlay = _render_model_selection_overlay(
+                provider,
+                selected_records[provider],
+                selection_catalog,
+                selection_overlay_text,
+            )
+            template_texts[provider] = template_text.rstrip() + "\n\n" + overlay + "\n"
+
+    choice_lines: dict[str, list[str]] = {
+        "codex": [],
+        "codex-managed": [],
+        "codex-managed-worklog": [],
+        "claude": [],
+        "claude-signing": [],
+        "claude-candidate": [],
+        "claude-template-candidate": [],
+    }
+    patch_lines: list[str] = []
+    header = [
+        "# Generated by gct-managed-rig-permissions; do not edit.",
+        f"# registry_sha256={digest}",
+        "",
+    ]
+    rigs: list[dict[str, Any]] = []
+    for record in registry["rigs"]:
+        provider = record.get("provider", "codex")
+        # An explicit git_metadata=false record grants no common Git directory
+        # at all: the path is still reported, but it never reaches a writable
+        # root, a flag, or a label that would imply the grant.
+        grants_git_metadata = record["git_metadata"] is True
+        # Re-resolve and re-verify at render time, so the flag the worker is
+        # actually launched with is bound to the exact policy bytes rather than
+        # to a path that merely validated once during registry load.
+        control_policy = record.get("control_policy")
+        control_policy_path: Path | None = None
+        control_policy_digest = ""
+        control_policy_kind: str | None = None
+        if control_policy is not None:
+            (
+                control_policy_path,
+                control_policy_digest,
+                control_policy_kind,
+            ) = _load_control_policy(
+                control_policy["source"],
+                control_policy["sha256"],
+                f"rig {record['name']} control_policy",
+            )
+        render_provider = provider
+        if (
+            provider == "claude"
+            and control_policy_kind is not None
+            and control_policy is not None
+        ):
+            render_provider = _closed_claude_provider(
+                control_policy_kind,
+                control_policy["source"],
+                f"rig {record['name']} control_policy",
+            )
+        git_metadata = str(Path(record["repository_path"]) / ".git")
+        if provider in {"codex", "codex-managed-worklog"}:
+            roots = [registry["classified_vault"], record["worktree_root"]]
+        else:
+            roots = [record["worktree_root"]]
+        if grants_git_metadata:
+            roots.append(git_metadata)
+        record_digest = _sha256(_canonical_json(record))
+        choice = f"managed-{record_digest[:16]}"
+        if provider in {"codex", "codex-managed", "codex-managed-worklog"}:
+            if provider == "codex-managed":
+                label = record["name"] + " worktrees and Git metadata (no vault)"
+                if not grants_git_metadata:
+                    label = record["name"] + " worktrees (no vault, no Git metadata)"
+            else:
+                label = (
+                    "Classified vault, " + record["name"] + " worktrees, and Git metadata"
+                )
+                if not grants_git_metadata:
+                    label = "Classified vault and " + record["name"] + " worktrees"
+            flag_args = [
+                "--sandbox",
+                "workspace-write",
+                "-c",
+                "sandbox_workspace_write.writable_roots="
+                + json.dumps(roots, separators=(",", ":")),
+            ]
+        else:
+            label = record["name"] + " worktrees and Git metadata"
+            if not grants_git_metadata:
+                label = record["name"] + " worktrees"
+            flag_args = []
+            if control_policy_path is not None:
+                label += f" under the {control_policy_kind} control policy"
+                flag_args.extend(["--settings", str(control_policy_path)])
+            for root in roots:
+                flag_args.extend(["--add-dir", root])
+        option_name = ACCESS_OPTIONS[provider]
+        launch_provider = (
+            render_provider
+            if render_provider in CLOSED_CLAUDE_PROVIDERS.values()
+            else LAUNCH_PROVIDERS[provider]
+        )
+        choice_lines[render_provider].extend(
+            [
+                f"[[providers.{launch_provider}.options_schema.choices]]",
+                f"value = {_toml_string(choice)}",
+                f"label = {_toml_string(label)}",
+                "flag_args = " + _toml_string_list(flag_args),
+                "",
+            ]
+        )
+        # An explicit selection replaces the historical default for this record
+        # only. Providers with no default entry (legacy codex) emit no model or
+        # effort line at all, exactly as before.
+        selection = record.get("model_selection") or DEFAULT_MODEL_SELECTIONS.get(
+            provider
+        )
+        for agent in record["agents"]:
+            patch_lines.extend(
+                [
+                    "[[patches.agent]]",
+                    f"dir = {_toml_string(record['name'])}",
+                    f"name = {_toml_string(agent)}",
+                ]
+            )
+            if "provider" in record:
+                patch_lines.append(f"provider = {_toml_string(launch_provider)}")
+            patch_lines.append("[patches.agent.option_defaults]")
+            if provider == "claude":
+                patch_lines.extend(
+                    [
+                        f"model = {_toml_string(selection['model'])}",
+                        (
+                            'permission_mode = "full-auto"'
+                            if launch_provider in CLOSED_CLAUDE_PROVIDERS.values()
+                            else 'permission_mode = "auto-edit"'
+                        ),
+                    ]
+                )
+            elif provider in {"codex-managed", "codex-managed-worklog"}:
+                patch_lines.extend(
+                    [
+                        f"model = {_toml_string(selection['model'])}",
+                        f"effort = {_toml_string(selection['effort'])}",
+                        'permission_mode = "fail-fast"',
+                    ]
+                )
+            patch_lines.extend(
+                [
+                    f"{option_name} = {_toml_string(choice)}",
+                    "",
+                ]
+            )
+            if "environment" in record:
+                patch_lines.append("[patches.agent.env]")
+                for key, value in record["environment"].items():
+                    patch_lines.append(f"{key} = {_toml_string(value)}")
+                patch_lines.append("")
+        rig_details = {
+            "agents": record["agents"],
+            "choice": choice,
+            "git_metadata": git_metadata if grants_git_metadata else False,
+            "name": record["name"],
+            "repository_path": record["repository_path"],
+            # The patch selectors this record emits, verbatim. A consumer that
+            # must match a produced profile reads these instead of rebuilding
+            # the string by hand — but a selector is a request, not proof of
+            # the identity the controller ends up resolving.
+            "requested_agent_selectors": [
+                requested_agent_selector(record["name"], agent)
+                for agent in record["agents"]
+            ],
+            "worktree_root": record["worktree_root"],
+            "writable_roots": roots,
+        }
+        if control_policy_path is not None:
+            rig_details["control_policy"] = {
+                "path": str(control_policy_path),
+                "sha256": control_policy_digest,
+                "source": control_policy["source"],
+            }
+        if "provider" in record:
+            rig_details["provider"] = provider
+            if provider == "claude":
+                rig_details["profile"] = {
+                    "access_option": option_name,
+                    "model": selection["model"],
+                    "permission_mode": (
+                        "full-auto"
+                        if launch_provider in CLOSED_CLAUDE_PROVIDERS.values()
+                        else "auto-edit"
+                    ),
+                    "provider": launch_provider,
+                }
+            elif provider in {"codex-managed", "codex-managed-worklog"}:
+                rig_details["profile"] = {
+                    "access_option": option_name,
+                    "effort": selection["effort"],
+                    "model": selection["model"],
+                    "permission_mode": "fail-fast",
+                    "provider": launch_provider,
+                }
+            else:
+                rig_details["profile"] = {"access_option": option_name}
+        if "environment" in record:
+            rig_details["environment"] = record["environment"]
+            rig_details["toolchains"] = record["toolchains"]
+        rigs.append(rig_details)
+
+    rendered_sections = []
+    for provider in included_providers:
+        rendered_sections.append(
+            template_texts[provider]
+            .replace(PROVIDER_MARKER, "\n".join(choice_lines[provider]).rstrip())
+            .rstrip()
+        )
+    rendered = "\n".join(header) + "\n\n".join(rendered_sections) + "\n"
+    if patch_lines:
+        rendered += "\n" + "\n".join(patch_lines)
+    rendered = rendered.rstrip() + "\n"
+    logical_providers = [
+        provider
+        for provider in ("codex", "codex-managed", "codex-managed-worklog", "claude")
+        if any(record.get("provider", "codex") == provider for record in registry["rigs"])
+        or (provider == "codex" and not registry["rigs"])
+    ]
+    provider_name = logical_providers[0] if len(logical_providers) == 1 else "mixed"
+    details = {
+        # Stated once, at the top, so a consumer cannot read the per-rig
+        # selectors as resolved identities by omission.
+        "agent_identity_resolution": AGENT_IDENTITY_RESOLUTION,
+        "provider": provider_name,
+        "provider_template_sha256": (
+            template_digests[included_providers[0]]
+            if len(included_providers) == 1
+            else _sha256(_canonical_json(template_digests))
+        ),
+        "registry_sha256": digest,
+        "rigs": rigs,
+    }
+    if any("provider" in record for record in registry["rigs"]):
+        details["provider_template_sha256s"] = template_digests
+    if selection_inputs is not None:
+        details["model_selection_inputs"] = selection_inputs
+    return rendered.encode("utf-8"), details
+
+
+def _root_document(city: Path) -> dict[str, Any]:
+    root_path = city / "city.toml"
+    try:
+        return tomllib.loads(root_path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        return {}
+    except (OSError, tomllib.TOMLDecodeError) as exc:
+        raise ProvisionError(
+            f"root city config is unreadable: {root_path}: {exc}"
+        ) from exc
+
+
+def _include_entries(city: Path, root: dict[str, Any]) -> list[tuple[str, Path]]:
+    """List the root's include entries, resolved against the city directory."""
+    includes = root.get("include")
+    return [
+        (entry, Path(os.path.abspath(city / entry)))
+        for entry in (includes if isinstance(includes, list) else [])
+        if isinstance(entry, str)
+    ]
+
+
+def _providers_shadowing(city: Path, output: Path) -> dict[str, str]:
+    """Map provider names the composed city declares before this fragment.
+
+    gc merges an included fragment onto the root city config field by field and
+    never carries `options_schema` across, so whichever layer names a provider
+    first keeps its schema. Only layers that compose ahead of this fragment can
+    shadow it; a city that does not include the fragment at all cannot.
+    """
+    root_path = city / "city.toml"
+    root = _root_document(city)
+
+    output = Path(os.path.abspath(output))
+    entries = _include_entries(city, root)
+    position = next(
+        (index for index, (_, path) in enumerate(entries) if path == output),
+        None,
+    )
+    if position is None:
+        return {}
+
+    shadowing = {name: str(root_path) for name in root.get("providers", {})}
+    for _, path in entries[:position]:
+        try:
+            earlier = tomllib.loads(path.read_text(encoding="utf-8"))
+        except (OSError, tomllib.TOMLDecodeError):
+            continue
+        for name in earlier.get("providers", {}):
+            shadowing.setdefault(name, str(path))
+    return shadowing
+
+
+def _verify_composition(
+    city: Path, output: Path, rendered: bytes, details: dict[str, Any]
+) -> None:
+    """Refuse a fragment the composed city would only half-apply.
+
+    Rendering a conformant fragment is not a grant: the agent patch and the
+    provider option schema travel through different composition paths, and a
+    fragment whose schema is dropped still patches the agent onto a choice that
+    resolves to no flags at all. Both sides must resolve, or nothing is written.
+    """
+    try:
+        fragment = tomllib.loads(rendered.decode("utf-8"))
+    except tomllib.TOMLDecodeError as exc:
+        raise ProvisionError(f"rendered fragment is not valid TOML: {exc}") from exc
+
+    shadowing = _providers_shadowing(city, output)
+    for name in fragment.get("providers", {}):
+        if name in shadowing:
+            raise ProvisionError(
+                f"composed city already declares [providers.{name}] in "
+                f"{shadowing[name]}: the generated options_schema would be "
+                "dropped, leaving the agent patch selecting an option that "
+                "resolves to no flags"
+            )
+
+    # Resolve each grant the way the composed city will: through the provider
+    # the rendered patch actually selects, not through the one this run meant to
+    # emit. A patch pointing at a provider that does not carry the option is the
+    # same silent half-application as a dropped schema.
+    providers = fragment.get("providers", {})
+    patches = fragment.get("patches", {}).get("agent", [])
+    for rig in details["rigs"]:
+        selector = rig.get("provider", "codex")
+        option_name = ACCESS_OPTIONS[selector]
+        for agent in rig["agents"]:
+            patch = next(
+                (
+                    item
+                    for item in patches
+                    if item.get("dir") == rig["name"] and item.get("name") == agent
+                ),
+                None,
+            )
+            selected = (patch or {}).get("option_defaults", {}).get(option_name)
+            if patch is None or selected != rig["choice"]:
+                raise ProvisionError(
+                    f"composed city cannot resolve rig {rig['name']} agent "
+                    f"{agent}: the patch does not select {option_name}="
+                    f"{rig['choice']}"
+                )
+            provider = patch.get("provider", LAUNCH_PROVIDERS[selector])
+            option = next(
+                (
+                    item
+                    for item in providers.get(provider, {}).get("options_schema", [])
+                    if item.get("key") == option_name
+                ),
+                None,
+            )
+            granted = next(
+                (
+                    choice
+                    for choice in (option or {}).get("choices", [])
+                    if choice.get("value") == rig["choice"]
+                ),
+                None,
+            )
+            if not granted or not granted.get("flag_args"):
+                raise ProvisionError(
+                    f"composed city cannot resolve rig {rig['name']} agent "
+                    f"{agent}: [providers.{provider}] option {option_name} "
+                    f"does not grant {rig['choice']}"
+                )
+
+
+def _guard_output(city: Path, output: Path) -> None:
+    city = Path(os.path.abspath(city))
+    output = Path(os.path.abspath(output))
+    if not city.is_dir():
+        raise ProvisionError(f"city directory does not exist: {city}")
+    if not _inside(output, city):
+        raise ProvisionError(f"output must stay inside the city directory: {output}")
+    _reject_symlink_components(output, "output")
+
+
+def _shadow_city(city: Path, shadow: Path, carve: tuple[str, ...]) -> None:
+    """Mirror `city` into `shadow`, leaving `carve` free for the candidate.
+
+    Every existing entry is symlinked, so gc reads the real root, packs and
+    site bindings; only the directories leading to the output are made real, so
+    the candidate can be materialized at the exact relative path the root's
+    include names — including when neither that file nor its parent exists yet.
+    """
+    shadow.mkdir(parents=True, exist_ok=True)
+    head = carve[0]
+    try:
+        entries = sorted(os.listdir(city))
+    except FileNotFoundError:
+        entries = []
+    for name in entries:
+        if name != head:
+            os.symlink(city / name, shadow / name)
+    if len(carve) > 1:
+        _shadow_city(city / head, shadow / head, carve[1:])
+
+
+def _validate_staged(city: Path, output: Path, rendered: bytes) -> None:
+    """Validate the composed city the way gc will load it after the write.
+
+    The root usually already includes the fragment this run is about to create,
+    and gc resolves the root's own includes before any `-f` layer, so a
+    candidate handed over with `-f` alone can never satisfy the include that
+    names it: a first run on a city with no fragment yet dies on the missing
+    include instead of validating. Compose the candidate where the city expects
+    to find it instead, inside a throwaway shadow that symlinks every other
+    entry, so the very first apply validates the same composition a later load
+    will see — without the destination existing yet.
+
+    The shadow is a sibling of the real city so that relative include paths,
+    including ones that reach outside the city, resolve exactly as they will
+    once the fragment is in place.
+    """
+    if os.environ.get("GCT_SKIP_CONFIG_VALIDATION") == "1":
+        return
+    gc = Path(os.environ.get("GC_BIN", str(DEFAULT_GC)))
+    if not gc.is_file() or not os.access(gc, os.X_OK):
+        raise ProvisionError(f"gc validator is not executable: {gc}")
+
+    city = Path(os.path.abspath(city))
+    output = Path(os.path.abspath(output))
+    entries = _include_entries(city, _root_document(city))
+    included = any(path == output for _, path in entries)
+    try:
+        # The shadow replaces the city at its own depth, never inside a wrapper:
+        # gc resolves includes against the directory it is handed, so anything
+        # deeper would re-point `../` includes at the wrapper instead.
+        shadow = Path(
+            tempfile.mkdtemp(prefix=f".{city.name}.gct-validate.", dir=city.parent)
+        )
+    except OSError as exc:
+        raise ProvisionError(
+            f"cannot stage a validation shadow beside {city}: {exc}"
+        ) from exc
+    try:
+        _shadow_city(city, shadow, output.relative_to(city).parts)
+        candidate = shadow / output.relative_to(city)
+        candidate.write_bytes(rendered)
+        command = [str(gc), "--city", str(shadow), "config", "show", "--validate"]
+        if not included:
+            # A root that never includes the fragment would otherwise validate
+            # without ever reading the candidate.
+            command.extend(["-f", str(candidate)])
+        result = subprocess.run(
+            command,
+            text=True,
+            capture_output=True,
+            check=False,
+            env=os.environ.copy(),
+        )
+    finally:
+        shutil.rmtree(shadow, ignore_errors=True)
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip()
+        raise ProvisionError(f"staged config failed gc validation: {detail}")
+
+
+def _write_atomic(city: Path, output: Path, rendered: bytes) -> bool:
+    if output.is_file() and output.read_bytes() == rendered:
+        return False
+    output.parent.mkdir(parents=True, exist_ok=True)
+    _guard_output(city, output)
+    descriptor, temporary_name = tempfile.mkstemp(
+        prefix=f".{output.name}.tmp.", dir=output.parent
+    )
+    temporary = Path(temporary_name)
+    try:
+        with os.fdopen(descriptor, "wb") as stream:
+            stream.write(rendered)
+            stream.flush()
+            os.fsync(stream.fileno())
+        os.chmod(temporary, 0o644)
+        os.replace(temporary, output)
+        directory = os.open(output.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+    finally:
+        if temporary.exists():
+            temporary.unlink()
+    if output.read_bytes() != rendered:
+        raise ProvisionError("post-write verification failed")
+    return True
+
+
+def _arguments() -> argparse.Namespace:
+    parser = argparse.ArgumentParser()
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--check", action="store_true")
+    mode.add_argument("--apply", action="store_true")
+    parser.add_argument(
+        "--city",
+        type=Path,
+        default=Path(os.environ.get("GC_CITY_PATH", DEFAULT_CITY)),
+    )
+    parser.add_argument("--registry", type=Path)
+    parser.add_argument("--output", type=Path)
+    parser.add_argument("--json", action="store_true")
+    parser.add_argument("--version", action="store_true")
+    # A caller that needs real identities rather than requested selectors must
+    # be told no, loudly, instead of being handed a plausible guess.
+    parser.add_argument(
+        "--require-resolved-agent-identities",
+        action="store_true",
+        help=argparse.SUPPRESS,
+    )
+    return parser.parse_args()
+
+
+def main() -> int:
+    arguments = _arguments()
+    if arguments.version:
+        print(f"gct-managed-rig-permissions {VERSION}")
+        return 0
+    city = Path(os.path.abspath(arguments.city))
+    registry_path = arguments.registry or city / "managed" / "rig-permissions.json"
+    output = arguments.output or city / "managed" / "rig-permissions.toml"
+    try:
+        if arguments.require_resolved_agent_identities:
+            raise ProvisionError(
+                "resolved agent identities are unavailable at this stage: "
+                + str(AGENT_IDENTITY_RESOLUTION["reason"])
+            )
+        _guard_output(city, output)
+        registry, raw_registry = _load_registry(registry_path)
+        rendered, details = _render(registry)
+        _verify_composition(city, output, rendered, details)
+        expected_sha = _sha256(rendered)
+        if not output.exists():
+            state = "missing"
+            actual_sha = None
+        elif not output.is_file():
+            raise ProvisionError(f"output is not a regular file: {output}")
+        else:
+            actual_sha = _sha256(output.read_bytes())
+            state = "conformant" if actual_sha == expected_sha else "drift"
+        changed = False
+        if arguments.apply and state != "conformant":
+            # Prove the composition before anything is staged in the city, so a
+            # rejected config cannot leave a partial destination behind.
+            _validate_staged(city, output, rendered)
+            changed = _write_atomic(city, output, rendered)
+            actual_sha = _sha256(output.read_bytes())
+            state = "conformant" if actual_sha == expected_sha else "drift"
+        ok = state == "conformant"
+        report = {
+            "schema": REPORT_SCHEMA,
+            "provisioner_version": VERSION,
+            "ok": ok,
+            "mode": "apply" if arguments.apply else "check",
+            "state": state,
+            "changed": changed,
+            "registry": str(registry_path),
+            "registry_file_sha256": _sha256(raw_registry),
+            "registry_sha256": details["registry_sha256"],
+            "output": str(output),
+            "expected_sha256": expected_sha,
+            "actual_sha256": actual_sha,
+            "provider": details["provider"],
+            "provider_template_sha256": details["provider_template_sha256"],
+            "rigs": details["rigs"],
+        }
+        if "provider_template_sha256s" in details:
+            report["provider_template_sha256s"] = details[
+                "provider_template_sha256s"
+            ]
+        if "model_selection_inputs" in details:
+            report["model_selection_inputs"] = details["model_selection_inputs"]
+        if arguments.json:
+            print(json.dumps(report, sort_keys=True, separators=(",", ":")))
+        else:
+            print(
+                "gct-managed-rig-permissions: "
+                f"state={state} changed={str(changed).lower()} "
+                f"rigs={len(details['rigs'])} expected={expected_sha} actual={actual_sha or 'absent'}"
+            )
+        return 0 if ok else 4
+    except ProvisionError as exc:
+        print(f"gct-managed-rig-permissions: {exc}", file=sys.stderr)
+        return 3
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

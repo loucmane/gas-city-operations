@@ -1,0 +1,67 @@
+{
+  "added_tests": {
+    "test_owned_reminders.py": "31d6bb36de407e384c7eff6b3b6fa983dbeb05be12b01985f652b5d1d6768b19",
+    "test_queue_guard.py": "27b41c4576418d4db6792067014452b6d9d914e8b4359d9ba3f96d49770605ee",
+    "test_queue_preservation.py": "194f6a35a1f933b0b125b925a03d890643dd48099f6ed87dcae3c866e0798015",
+    "test_queue_reader.py": "8f97f63d5143ac0d4a094f949ff3eedd783467be8c66359b2d5d3ad9853982ca",
+    "test_queue_scope_prep.py": "9a00f1ec0e89b97b28c0aeb79ed4a48a9908fe784c7761acdde0a7bdf07933b5",
+    "test_queue_wiring.py": "a164c2c90aeb1d768ad6778806a4de9c71c9df44d6dde7ab44252f6fc925fe06"
+  },
+  "excluded": [
+    "test_expiry.py",
+    "test_expiry_runtime.py"
+  ],
+  "files": {
+    "conftest.py": {
+      "after_sha256": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f",
+      "before_sha256": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f"
+    },
+    "preserve-halt.py": {
+      "after_sha256": "9141c210a781b31dbb118fcd8d85f75262a9002270d4d776a32c85f19f87fb49",
+      "before_sha256": "5ad5aff5ccc2bee2fb2b8bfa9d5e65d9619fe9d4eafd48af9a76d2a125b50a8b"
+    },
+    "test_create_only_candidate.py": {
+      "after_sha256": "85086c871e2ec2a926f2c827c384938103becf1459dad90bad087ab5d5874d72",
+      "before_sha256": "d28a7e25b0e0c24e5884964b8d3b55d3afc7927ddfe57b93a40ee5613f10c832"
+    },
+    "test_delivery_regression.py": {
+      "after_sha256": "5e472ac3ee2a1e82a4842a79f6108ca287288aa5c1fe06ba037611c81a393162",
+      "before_sha256": "0ad9b0561038ac32f25d95c8fe1ac19b1f10fe22eb4c2940f5ba6780129eb704"
+    },
+    "test_fresh_admission.py": {
+      "after_sha256": "c2e64a1021f9c4b32ded2d90fec1f8efa19399464bd73db37fec13b8057447a9",
+      "before_sha256": "c98fc21a944de1569a193a4b0e2652983ecf55d0a1870c7c393e63ed4197f70e"
+    },
+    "test_fresh_contract.py": {
+      "after_sha256": "2200bfa266b516e87258677b190756feb5ca4689411250d940208b1534cf7eae",
+      "before_sha256": "1cc5adb41611d98ff508b76d67c3f68da565300240e0fd9fd2e41e24b5c9780f"
+    },
+    "test_fresh_startup.py": {
+      "after_sha256": "351538752cae3fa38f4cbc222d42b6e6b6f5e098c862eb1c67614c9a633c5f53",
+      "before_sha256": "abecad44151a72bded82452a41f00ff21fd3662ad1cc2223c58918bede951dfa"
+    },
+    "test_marker.py": {
+      "after_sha256": "474ae14f98e9fda1bf7cfd5d699465c7397e43e8883c98171d49e92c531ef0e1",
+      "before_sha256": "474ae14f98e9fda1bf7cfd5d699465c7397e43e8883c98171d49e92c531ef0e1"
+    },
+    "test_runtime.py": {
+      "after_sha256": "8a7055a4821208c8cd7fc25c4e387d4144bbee649d20952ef00ea9709be76b90",
+      "before_sha256": "4651140e368175b9148496bc2350230d674ee4e256dd8e1f806cc41ef99cdd9f"
+    },
+    "test_task_assembly.py": {
+      "after_sha256": "f35c3936198f979110a17fdf6a534c6711df98bf8ac19b97d917d636402da574",
+      "before_sha256": "f63e83508e600e93b4925e965504b3610ab94834ec205ae8d01a10d515da3292"
+    },
+    "test_task_binding.py": {
+      "after_sha256": "74e772480654f4fa28f84697d5d3b454a0e34f534d614e38bd938104a4f9b2b3",
+      "before_sha256": "caf93eb741b81fe22a7fa25ff2fadf40d0083399c000cbd4ce9159b61e10f8d7"
+    },
+    "test_window_assembly.py": {
+      "after_sha256": "8d0e104af3d09c65572766230ad18f5901ca72697a50215119d5d022b3b36c50",
+      "before_sha256": "b41feb179be25b5ab942d49e6370d7a41b10d825226a2b8a8286d2792a62b50a"
+    }
+  },
+  "fixture_corrections": "Native LEDGER-BINDING fixture and synthetic times after creation. Exact accepted Core PID/start literal rebinding. No production guard weakened.",
+  "r2": "Native 0644 descriptor reader; receipt-bound owned routing reminders and exact release ingress; real complete lifecycle body with failing preservation guard.",
+  "reason": "Previous expiry exception superseded by exact pre-poller preservation. Historical tests retained unchanged in predecessor. New queue suites cover strict rejection and owned transitions."
+}

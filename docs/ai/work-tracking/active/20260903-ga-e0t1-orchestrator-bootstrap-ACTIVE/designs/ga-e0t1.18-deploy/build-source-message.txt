@@ -1,0 +1,7 @@
+build-source(ga-e0t1.18): signed attestation of main f3856bd1
+
+Tree af5c3f045c1f50cd62c859f6dc58fa613e5f2f99 is byte-identical to the
+GitHub merge commit f3856bd1 (PR 48 on b6843d3f). The custody build needs
+a source commit it can verify locally, and the GitHub web-flow signature
+on f3856bd1 cannot be checked with the local keyring. This commit adds no
+new source and is not for push.

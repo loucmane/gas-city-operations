@@ -1,0 +1,185 @@
+{
+ "base": "cfd353f30f465cdf67bbd41fab48812fe5b9617e",
+ "deleted": [],
+ "entries": [
+  {
+   "blob": "16751ea4a1e4065f4a1bb0dc742dd56dfecd02ab",
+   "mode": "100755",
+   "path": "bin/gct-claude-template-candidate-worker",
+   "sha256": "229d33557326abc8bafceadb06ae12ba2a2d9189e137ff0e1378d35dcf69491c",
+   "size": 568,
+   "status": "A"
+  },
+  {
+   "blob": "5b99dec605c4db288a4796c4f197886b3a1e6273",
+   "mode": "100755",
+   "path": "bin/gct-managed-rig-permissions",
+   "sha256": "f98c9d99c70443232a5ac4a92a03d3b9794aa3fad32857d5ff49632446a412e0",
+   "size": 69630,
+   "status": "M"
+  },
+  {
+   "blob": "e13ee870ffbb98001a709bb4f5a3fdb999662956",
+   "mode": "100644",
+   "path": "docs/managed-worker-provisioning.md",
+   "sha256": "807d13af2cd3ed54ee493fbd2f8c816f60d61ea732b67ae616343ba61dd85cc1",
+   "size": 18840,
+   "status": "M"
+  },
+  {
+   "blob": "d3d77e9d3dc0dcb9b36139dd8883034cf02ba8cf",
+   "mode": "100644",
+   "path": "docs/native-city.md",
+   "sha256": "38a0f0481da30b7816ca92e176ccb385f8cef506d3b1a35c3f1c6db34ffc328e",
+   "size": 63275,
+   "status": "M"
+  },
+  {
+   "blob": "94660295347a34ff29ba776d92cd04ff089d2352",
+   "mode": "100644",
+   "path": "lib/gct_claude_template_candidate_worker.py",
+   "sha256": "17f54bcac39fb64bf9dfde066470709742ff117a94e37814ea637be961ed23ca",
+   "size": 8335,
+   "status": "A"
+  },
+  {
+   "blob": "6598a51b3fb89a73f82679d885280986811dea01",
+   "mode": "100644",
+   "path": "managed/profiles/gas-city-template-candidate-claude.json",
+   "sha256": "78ab25e02def651573ea8f9fb48fab973e5cfad791f04b469b757bd923d57493",
+   "size": 1142,
+   "status": "A"
+  },
+  {
+   "blob": "8659b096aa0ed68449b8207b647e982f406eb0c0",
+   "mode": "100644",
+   "path": "templates/claude/template-candidate-control-policy.json",
+   "sha256": "6b2f160d4999781db17ddf117b482a9c20432032c1162fed453a06ba7376fec1",
+   "size": 3883,
+   "status": "A"
+  },
+  {
+   "blob": "7830788448080c95a656c13a538267655dfeff3e",
+   "mode": "100644",
+   "path": "templates/claude/template-candidate-provider.toml",
+   "sha256": "5124be692b93f6ce950e75604248f716623b90f00bd0eb24d2b4912f5c520582",
+   "size": 1614,
+   "status": "A"
+  },
+  {
+   "blob": "4b5c7c146580f440796921b388a4a5035a1eb5ce",
+   "mode": "100644",
+   "path": "tests/fixtures/template-candidate-render-golden/core-signing.toml",
+   "sha256": "9d8322b7232daee90e5397709e4dc0de0f32e96e0e0aa14f06cbc946752761f0",
+   "size": 2241,
+   "status": "A"
+  },
+  {
+   "blob": "932895a94521f5d4742abad7de613f82a35bcfc4",
+   "mode": "100644",
+   "path": "tests/fixtures/template-candidate-render-golden/operations-candidate.toml",
+   "sha256": "c620c0b35acf7d6b52f7fc030373baa20e13a5bdf466536af34b4dc02bc56558",
+   "size": 3517,
+   "status": "A"
+  },
+  {
+   "blob": "600c5bfa88cfc87201c6e24fb2f683e944046032",
+   "mode": "100644",
+   "path": "tests/fixtures/unknown-candidate-control-policy.json",
+   "sha256": "bbb7c3722e4a57234df9ee0053e9d787e53e5c92989d5ab83ad93c4d68de2114",
+   "size": 99,
+   "status": "A"
+  },
+  {
+   "blob": "ce474eae81221c8ff30f07d3623f6a4e12e883aa",
+   "mode": "100644",
+   "path": "tests/interop/core_template_candidate_preflight_test.go",
+   "sha256": "40b07eb76bef9ea02957ff06eddd71b0be30ead327bfca40304efb66b63d5df3",
+   "size": 3016,
+   "status": "A"
+  },
+  {
+   "blob": "0be323b59c024eac7fa578707b494fd8641a8a54",
+   "mode": "100644",
+   "path": "tests/test_managed_claude_include_composition.py",
+   "sha256": "ac0873bbaea25e499777ce978f3254e1401a9d665f240f1635277fc9102d06c5",
+   "size": 36608,
+   "status": "M"
+  },
+  {
+   "blob": "e9516690d356c67c9fc157662159b56b0cc1cc10",
+   "mode": "100644",
+   "path": "tests/test_template_candidate_core_interop.py",
+   "sha256": "c65dae7e63c3b403393525b9f5141ef09c54c288ecb409e72d24acb83703b066",
+   "size": 2798,
+   "status": "A"
+  },
+  {
+   "blob": "38eaf9a6dbbbc4d4e3ce18044f859158ab9a9200",
+   "mode": "100644",
+   "path": "tests/test_template_candidate_worker.py",
+   "sha256": "629a9deb1777b6a7a2f45ba9f7c067bd514d98c5f459a8950257d65e57b87e3d",
+   "size": 24165,
+   "status": "A"
+  }
+ ],
+ "excluded": [
+  {
+   "detail": "f51ef6490bbc3ae9c595b2fe0aaf5a4d825c0db4e5edbc56c59d315e6dc3cf10",
+   "kind": "file",
+   "path": ".agents/skills/.gc-skill-ownership.json"
+  },
+  {
+   "detail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-agents",
+   "kind": "link",
+   "path": ".agents/skills/core.gc-agents"
+  },
+  {
+   "detail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-city",
+   "kind": "link",
+   "path": ".agents/skills/core.gc-city"
+  },
+  {
+   "detail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dashboard",
+   "kind": "link",
+   "path": ".agents/skills/core.gc-dashboard"
+  },
+  {
+   "detail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-dispatch",
+   "kind": "link",
+   "path": ".agents/skills/core.gc-dispatch"
+  },
+  {
+   "detail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-mail",
+   "kind": "link",
+   "path": ".agents/skills/core.gc-mail"
+  },
+  {
+   "detail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-rigs",
+   "kind": "link",
+   "path": ".agents/skills/core.gc-rigs"
+  },
+  {
+   "detail": "/home/loucmane/gascity/home/cache/repos/69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f/internal/bootstrap/packs/core/skills/gc-work",
+   "kind": "link",
+   "path": ".agents/skills/core.gc-work"
+  },
+  {
+   "detail": "/home/loucmane/gascity/home/cache/repos/954ed14987da288bfb98feee4cdab5043a44de1a8a9cf47afaaa0ce6e438fd5f/gascity/skills/mayor",
+   "kind": "link",
+   "path": ".agents/skills/gascity.mayor"
+  },
+  {
+   "detail": "55e21a9d981805afb62da110b022bc847f7ad2b9a62bada45de95dbdfa472410",
+   "kind": "file",
+   "path": ".codex/hooks.json"
+  }
+ ],
+ "ignored_count": 57,
+ "ignored_sha256": "a16463d9d968b44c2d20dfe4e0120ae12dc97c6cea3d5bd100c1ac99cab3f2b8",
+ "nested_ignore": {
+  ".pytest_cache/.gitignore": "3ed731b65d06150c138e2dadb0be0697550888a6b47eb8c45ecc9adba8b8e9bd"
+ },
+ "schema": "gct-mbg6.template-intake.v1",
+ "worktree": "/home/loucmane/gas-city-template-worktrees/gct-mbg6"
+}

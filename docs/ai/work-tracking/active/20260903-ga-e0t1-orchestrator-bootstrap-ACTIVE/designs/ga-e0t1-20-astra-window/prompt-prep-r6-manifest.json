@@ -1,0 +1,20 @@
+{
+  "authoring_files": {
+    "auth_probe_r6.py": "fc6cf97c50b6af09e1fc73be9db3897a49461c1874a54a0102ad59ee20fd60e6",
+    "auth_status_r6.py": "3ded77bd6ba7c919a362a808bc254babb87fdec9345aa08c87a5d8407c505254",
+    "startup_r6.py": "98960b581124efa4c188b0df2e1dc771c2edd587f6b4a99df10e291da6c66059"
+  },
+  "execution_admitted": false,
+  "files": {
+    "PRECLAIM-R6.md": "fafd2012a531c99534ce69112adc0976fb437da9a8193d20d738b5535f94194d",
+    "operator/PROMPT-PREP-R6.sh": "109f255f36d53612854105cd34cf31437d5d124a30a2ed4126b8c35b8fdcbfe1",
+    "prompt-prep-r6.py": "11cb13bf1b3765bc9ef5e13a3921013321cb2d88b6802d84016da7e195674c0a",
+    "worker-startup-r6.py": "fa03f747ed131ab38beadb5296d53f76cf6439ff27712de9261dd51ed263ea3e"
+  },
+  "predecessor": "ff1212c23576ff3f2da13ba4ddf703c18ce9bc68",
+  "preparation_only": true,
+  "prior_close_sha256": "53b7501005e7f48722f022e023995ba6c9c8b83f3e7adcfa4c6d9e6089da46ea",
+  "recovery_result_sha256": "dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8",
+  "schema": "ga-e0t1.20.auth-status-r6-preparation.v1",
+  "worker_launch_included": false
+}

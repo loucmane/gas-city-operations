@@ -1,0 +1,54 @@
+[
+  [
+    "ga-xyqo",
+    "ga-e0t1.21"
+  ],
+  [
+    "262f11178a05b5c927dd8d0d03d1627ad8c9e88e73fd36e2d037c43225023eac",
+    "999091de7006a6b0ad71e53974bb3ffe71ff10c28ef42e494f92e69deebf3f29"
+  ],
+  [
+    "ce3392169c5c9179a39c8a186d235e42e92ff951abdfba0147c357d8cbe7ce10",
+    "8255f96b5211ef36cdea349bf2172f44e3ed516c4d0cb27eaa1e496d8202a294"
+  ],
+  [
+    "833b4289c03b788f8e836c09ae73b2674e816d873fe4ba0587a2584b9af0d6b1",
+    "d011b4f3b0eb72e257356cb8436d75766b02a3f9245f54b4576acd3d46d06fc6"
+  ],
+  [
+    "76e3ea1543e0bfb53c658b5d1d6dd9d205f6c73347f743bc9f0c890d5428560f",
+    "3c035276ee8315744f041d36068e5877ff58df64e3ba38a9b49688e89ae1909a"
+  ],
+  [
+    "2074e4bf524d6c0e0e182970ac8c197f9734fc726e17029010121672610c0ccd",
+    "a1e721390e3c2bcd31790f4bfe40e7b85af0b5df577334bf1ac644e97c395f04"
+  ],
+  [
+    "7258fd9a9c4b781fd26e770d0294d8bc89279d28a7f7d5ce21c013028d17c58c",
+    "704e6cf021d19a081182b9768f7e07f31635a73c9639ce7c40bfff8ba0452b16"
+  ],
+  [
+    "/var/tmp/ga-rq5n-terminal-20260929-r2/result.json",
+    "/var/tmp/ga-xyqo-terminal-20260929-r1/result.json"
+  ],
+  [
+    "/var/tmp/ga-rq5n-r2-close-20260929T173617Z/result.json",
+    "/var/tmp/ga-xyqo-r1-close-20260929T203258Z/result.json"
+  ],
+  [
+    "d0cdd9206d87d6b646f945a9b4a0dea9fc6a81a23db60770698f1d4748e6e7c3",
+    "7e72b99efc965b6c648bc029b595d468d7323f5dd699856310dafd4abe009f88"
+  ],
+  [
+    "ci-b93t8",
+    "ci-0rflg"
+  ],
+  [
+    "c60138f899b2cfed940a59c6074a3ed7e200fa195a4a48a37bc700e14e482617",
+    "0e9afadc4366ae7c733372816809badb6f1531162985c0bd3da4062589cddc9d"
+  ],
+  [
+    "    old.read(HERE/'FILE-SCOPE.json', SCOPE_SHA)",
+    "    old.read(HERE/'FILE-SCOPE.json', SCOPE_SHA)\n    old.read(HERE/'PRESERVED-PARTIAL-INPUT.json',\n        '7b5228fa4a143e7c984dee20d014348f361eb9252b663ab586accdb16b2f047d')"
+  ]
+]

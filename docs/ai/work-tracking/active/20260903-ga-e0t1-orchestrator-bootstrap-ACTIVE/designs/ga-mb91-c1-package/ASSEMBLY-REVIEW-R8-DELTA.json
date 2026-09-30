@@ -1,0 +1,213 @@
+{
+  "changes": {
+    "budget-r11.py": {
+      "after": "603aa9df15294e2144a9797570edb32e069daccf09df49a4ed08db19fd5c7823",
+      "before": "0ddcaad308029242bbd1c6f3685f3109023a6543236b46c0ed08cfd81e1550d1"
+    },
+    "candidate-inspect.py": {
+      "after": "20ed7c17dc5d8f3b849abef61dc20c7b226dbadc2e94df7af1eff0a80c9e0098",
+      "before": "f74a5c3dd313c9a9a9d5b6a8cbcfd0b6df1ad7984e007c22a46fb3e7b5ab0d2b"
+    },
+    "close-r11.py": {
+      "after": "1bbf9b032b08f4d79b300da98eeb8f3ba12ebaabbf927f420415425f60fa7d5a",
+      "before": "55f8d8ef527820e90320d7a51bc9637c5a3cc7b1d9be3bf474045d29d995c41a"
+    },
+    "hold-r11.py": {
+      "after": "3af2d1228c9a17180d261979959fc0bc9e3b5421a87f0c97fec19c0834e60964",
+      "before": "9ffeaaf592671ee46ebe88f6fe5f3973220fb2f731fe1792dca349b562d1ef32"
+    },
+    "observe-integrity-r11.py": {
+      "after": "1a40da7de4d2bd4cb3779d82ad2d50387a9588c4f6deaeda0c4dd114922719ff",
+      "before": "e074a8e1d8c9221dd46edf338925442f42f03c4478b8713518fdde78de0fbdf0"
+    },
+    "observe-terminal-r11.py": {
+      "after": "a2456a0dd26140951a839c61d1eeeb25aba4d76672a4de89261fd25313e20bde",
+      "before": "e5faf77db36ef5d191315b82e12cf547de844a0ab1e5d3af0e89093912f89b3a"
+    },
+    "operator/ADMIT.sh": {
+      "after": "a4ed3b360b97b2e51e4461b6703cf7e5abd306bc44fffcdaefe2ae002275a46b",
+      "before": "28cf2a6f904076fd5c24f407e470fe64557984dbccfd60fd5a15c31df8e02adf"
+    },
+    "operator/CLOSE-1.sh": {
+      "after": "10532523d22461a5057eafde98a86b14344a34027a03c77a3cc55f5ea501025f",
+      "before": "be11e98e5d0ebca32cc44f8cd08b12acdecdf0c475a2524633a9f2dec0786b0e"
+    },
+    "operator/CLOSE-2.sh": {
+      "after": "7285695672479accf92fd299093bec9c70ef305f958ccc0bb6e03bde3b1637ba",
+      "before": "4eda864e386294789c5ebd1389fafe1dc3830b8b917ea551f538c22f20983f33"
+    },
+    "operator/CONTAIN-1.sh": {
+      "after": "6bc16eb5031270ba90e0c39152c66f225969ae85bbb422d29592526920f256f3",
+      "before": "48bc2dc0665f3f92ea919f78d242e7cafb22c442f598ce4ef28ce4da4c5ef93e"
+    },
+    "operator/CONTAIN-2.sh": {
+      "after": "3f19479e62d7f7370571da050055d940b869e21eda918f55330042e21286313e",
+      "before": "cab5d4a615a508017f047daed98c79e9613b275af856858dd5eddc4588b8eb1d"
+    },
+    "operator/HOLD-1.sh": {
+      "after": "eb54e82c4b03fc64b82f1a956969a4c2a32ba06cc58d03d78c273755ea2666f8",
+      "before": "da7fa2f39008b143a6989c5ba77c0153c124ac3f3ed07509da81329d7f305bb0"
+    },
+    "operator/HOLD-2.sh": {
+      "after": "2b3bc7338973324e18317841c54aba6ff87fa56852c91bd4ec5867093995880b",
+      "before": "26af6e343232fc059933f45986e5bf53a5882dbd357c86b41453084dee616abc"
+    },
+    "operator/INSPECT.sh": {
+      "after": "83208646a01ea2ed3889ad6b24f4529ade11650e9eecc6d41fb0bd308528e8fb",
+      "before": "05ebf7f7c63240870ac37495b336b52b3d5de2230ec2aec2bb841c95a34416a8"
+    },
+    "operator/OBSERVE.sh": {
+      "after": "256daf1dd948b712bf34d1786b465762ad7263e36d8b368c6ead56b55efd0ab1",
+      "before": "681411e5455911c13eeb4c3495f0449d1b7a7fc19f7ce0807bbd2cff629f66ef"
+    },
+    "operator/PREFLIGHT.sh": {
+      "after": "db65325f981ebca478e8c6432612abc44b60e91431f83e8aa5074e5a01951f3d",
+      "before": "94328cb9cf98a37956267ceeca204bfe0d0ad06ac47f30d3b831ded324ced168"
+    },
+    "operator/RELEASE.sh": {
+      "after": "20d064c08310500ef213488bcbf46be44f733521b85b337ca0b8ffee51a8c7f2",
+      "before": "32103919975f3d86e09f10dcfcd5038390bf9c7738a0d3bd8a573c3df8e27e08"
+    },
+    "operator/RESTORE.sh": {
+      "after": "ea202a78801c104584be34260109daa02f4ffa583d899071090ad2f7a8b4cd54",
+      "before": "e909703ea4914449e03ae9142e25346a6f86a882358ef78dbe4ccc8b6427d4fd"
+    },
+    "operator/RESUME.sh": {
+      "after": "29bc01e4e79ae0ee4d229f7dad3e15a17b880f4db36802ec3a38a53db2464505",
+      "before": "83623deb6f079ce2ccdc36e0ac510f5f10a7c4a1c25c6aa162ab4bced7296f18"
+    },
+    "operator/ROUTE.sh": {
+      "after": "5ef01cc118f7d7c2af4145e7323ac6dfe9ee33ae27a1f16abbac4fc8130cea2b",
+      "before": "a3d03955886a5025e8a95f22d9ff5a7230f8d912ae5d488eaddda6a29dd5e3b0"
+    },
+    "operator/STAGE.sh": {
+      "after": "49fb3488b6b9e43d898665ff2e79fa5693a772a9b8c8987408a3e10f0a6eb2ed",
+      "before": "20384fc1fe37a44001df349bbb872888f01b75da6ed71d34b4d5536b09ede493"
+    },
+    "operator/TERMINAL.sh": {
+      "after": "51cb4417e9fd6ebbe3bfe1af9a521dcac26a84749476afa44a673deac3ed5f41",
+      "before": "7a2358b76eb03bb877e7fff74bd92d422cf8a29e58f3f08a6db1694b26b07967"
+    },
+    "operator/WATCH-1.sh": {
+      "after": "ddf33a2caca20f667c04d8a59cd510fdcc74913ee2908ba0093975a1cc16b867",
+      "before": "e2781d852bff55520e25280a34614b3759aafc6b8d85e543aeea4b8406591780"
+    },
+    "operator/WATCH-10.sh": {
+      "after": "3ef6c61372ead2fd04d0d9a913b9005d4878c5ed75e5b24238a93d64527ff5e7",
+      "before": "cc08094a82c782c3cc41130ca359532ca35236fb2811509d40f24f16c32e4fdd"
+    },
+    "operator/WATCH-11.sh": {
+      "after": "0ede2f5981fa294576734e2d4c0ad540b20f60b0eaa7fe81c74b54615b18dbd7",
+      "before": "3751d3c3c00ed1cd346b9d6d5aa628c6ff307feaef4c580b624d6d8c141ec7b4"
+    },
+    "operator/WATCH-12.sh": {
+      "after": "48a380a651345c8d8e84c26c00d6a4bc88d953774471cbdb58dc3ddaebcdd0f2",
+      "before": "14f53e8ec4aae55edbe3389822016f576b56d105b3e9e7a6f5f94726dbf67179"
+    },
+    "operator/WATCH-2.sh": {
+      "after": "b8863b4bc1f0b182257c1a2f4bebcae589cd54a53574f3df5896422f1dc8ef20",
+      "before": "64d3c916dc773a2d88d1d254aa9f19a887662fc8b21231d25dc44b844d16e426"
+    },
+    "operator/WATCH-3.sh": {
+      "after": "27f2d40cc283ec3eae9ee9606ce4745335c0fa0c06b9574d441f263cbad99f4c",
+      "before": "b291375cda73e30d63949b588d7af57de92bca68db2e96429e762c42762f8c46"
+    },
+    "operator/WATCH-4.sh": {
+      "after": "e6dd35568f7744c0ea0664a2db70de7388d91c3dd18031b875d27f819fea0259",
+      "before": "0d173ef20e7c8339f08ffb3316ef127e6c69083082aad1c4d7b146195147f52c"
+    },
+    "operator/WATCH-5.sh": {
+      "after": "41f5c3541b1c6fac5a9744eb48400fed0a986f4ad5ffa04e4ad39e02413da3bf",
+      "before": "93cf22210ef1c9b1915ef283431a8829b5e2259d2bbd102a2685b301980f7f91"
+    },
+    "operator/WATCH-6.sh": {
+      "after": "3bebd25fd3c98eea16664401f19b429877d64c76d6bc354f386458b9638f6750",
+      "before": "1c8fdbb6cbbdaa000d541a6b2600e429c092b1a26aa8524a279c68a0cfce2c65"
+    },
+    "operator/WATCH-7.sh": {
+      "after": "b0e5a5e92e884ef36c5e6bc7983100d3b1db28b1343f54c35ebfffaebfcd84a4",
+      "before": "d07153576913789ad0373dd7a86dc3d38db45211ad3b93d80e08950b486dee45"
+    },
+    "operator/WATCH-8.sh": {
+      "after": "4ddb729e2a89458cac8a438adc10bd81fb0523bb1d3b046769872dae62819885",
+      "before": "06fd01bd570496cffcca7a990ecdfa49f8b4108bf3eba8bb94c7c860ea732c75"
+    },
+    "operator/WATCH-9.sh": {
+      "after": "bbe73115b87952d2b6e04a829cf70b009443f99a1fe3a1978743f31d37b0abee",
+      "before": "e98d3580e008fb8a40c4e80ef2f17f09dcab55ad966b857f0c888b389059cb35"
+    },
+    "queue-guard.py": {
+      "after": "b5b5688c8e8277188fd2437e65751ce952012f57efeee03a516d05aabd641582",
+      "before": "46324b39cbcb49c315bad41ec6594ec31ace869dfdb65465507b50a845c87e07"
+    },
+    "release-runtime-r13.py": {
+      "after": "cc79be5ae8fd98a7fa878ef044737df94a5c01bba2146c27212100152d1bf243",
+      "before": "164252dfaf9ce2d385ac57a173f3cb93b0dc8eb0f70b28e5977fec9a0d89d0a8"
+    },
+    "restore-admission-r3.py": {
+      "after": "48fbc54b89b87175470157788de2131b91406e0c5af0e3d2fee3fd4fd742cf5c",
+      "before": "cec54499d11f57e2bae14b4a6bc4c708b3648e406a9003e1ffb07b6e768aa914"
+    },
+    "route-task.py": {
+      "after": "1a255259a601cde089b18242d35c546fe946abb9767efed70140a011db4dc3a5",
+      "before": "d635ad172ab591511a9361d61cb880cd5227b5fd72d01fc7f4fb985a07d2e5b7"
+    },
+    "startup-release.py": {
+      "after": "b450e1f5cffd97b9cdc103bf3602d4f7e57da0a0c9c5fd942f8451ad00fb9ac6",
+      "before": "0b45932746b402628fb16b16386274bd3c3fb04f81722ff2ec312eb2abeadb51"
+    },
+    "stranded-recovery.py": {
+      "after": "1fef0e8ee9bf994e3d7f5a5232ba70e7bf7eef6e74e5343ca4288669954db871",
+      "before": "4bc2b50198a1152c40a68c600450585b53d6709a8352513cd925c211185fad65"
+    },
+    "watch-r11.py": {
+      "after": "ade0b51706b8faabacbdb42cf9b1280f8a5ffea45b529c7f397722b4ecb503da",
+      "before": "c9f13270de28ac184002d2a0e5123a81b69b636f6ac124d0d98c3b6f97fab867"
+    },
+    "window-base.py": {
+      "after": "f7c7e0abb0e8202ca328b9ec6e488ff7b7633dbb2ea00dfd83bb46582d95175a",
+      "before": "2d6fce271cb590c8eb53292d00e529567025deb8e100b313f6329b7cac39f51d"
+    },
+    "window-obs-r11.py": {
+      "after": "922b2e314432fc4f4ee39e0a42aea94c36606cc423f281dff10398f134ad1066",
+      "before": "687339c3524fc010a62c17de48fb5aef8e4e9218ec75686e37cc96e9d925a2f0"
+    },
+    "window.py": {
+      "after": "666f0af06ad3fe6339578ee031e10512f1facf4ab5139ffdf29f9d81466e080a",
+      "before": "d56e3e6ae3f06f04d53b09c2c8ed4e587ce986f622c26c23633320cf86099285"
+    }
+  },
+  "intermediate_test_failure": "/tmp/ga-mb91-r8-full.xml",
+  "live_changes": false,
+  "parent": "309c0ecdd252c1a837ad26736a79526292c2937c",
+  "preserved_route_files": {
+    "preroute-bead-phase.json": {
+      "mode": 420,
+      "sha256": "6d22fcb522ccf7e003a21751daff98c6259987816c1f053a1239315577520e9e"
+    },
+    "preroute-bead-started.json": {
+      "mode": 384,
+      "sha256": "40c46ea3f77afdc1e7c245c35bb2010b081411a5f765a6ffd3415a22540c4ee2"
+    },
+    "preroute-bead.json": {
+      "mode": 384,
+      "sha256": "2e737c19dd9acac9580960de3c964fd35abe4d9fd1aa2ee02909c851a18c8b43"
+    },
+    "task-before-read-phase.json": {
+      "mode": 420,
+      "sha256": "0999df929c0a77655d369972726ad628d115bcc723b575fc3e8a873b025298df"
+    },
+    "task-before-read-started.json": {
+      "mode": 384,
+      "sha256": "086ffba9baafb0a2bdbff61221fdc660e24f3f34e8d70c2b050dca633e64c521"
+    },
+    "task-before.json": {
+      "mode": 384,
+      "sha256": "25c3c0c13ea613070a46646793165e07103a35d0084078624f90d713153eafe6"
+    }
+  },
+  "preserved_route_root": "/var/tmp/ga-mb91-route-20260930-r1",
+  "process_record_sha256": "10b956a5458bb88443789cf3fbde1c1abdf99dbcaabc542fa92369db0679e086",
+  "terminal_observation_sha256": "5481ac1d2b37c678c9d261a05cc2207aecca882c5637db13473392ecb8e0c813",
+  "worker_launched": false
+}

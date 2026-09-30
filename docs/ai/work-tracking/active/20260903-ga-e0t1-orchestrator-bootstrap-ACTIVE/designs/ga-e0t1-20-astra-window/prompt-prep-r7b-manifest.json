@@ -1,0 +1,15 @@
+{
+  "assets_unchanged": true,
+  "authoring_sha256": "2b1aa372597e4d404a209ed434464c8411bcc022acea53fd48c320bbbaf97eda",
+  "consumed_root": "/var/tmp/ga-e0t1.20-prompt-prep-20260928-r7",
+  "execution_admitted": false,
+  "files": {
+    "operator/PROMPT-PREP-R7B.sh": "71a311a1339ff033ab4b0befeae9676be8494079a90201f8490035cf44ae3a8c",
+    "prompt-prep-r7b.py": "102a87679ac8a24bd487a6a1b5bf2cc8574f870a88f0c555a5d60fc42950423d"
+  },
+  "fresh_root": "/var/tmp/ga-e0t1.20-prompt-prep-20260928-r7b",
+  "predecessor": "a27953982ab8a4321ba8e1ae3fafe61cd8e576c7",
+  "preparation_only": true,
+  "schema": "ga-e0t1.20.prompt-prep-r7b.v1",
+  "worker_launch_included": false
+}

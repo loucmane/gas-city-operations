@@ -1,0 +1,27 @@
+{
+  "acceptance_criteria": "RED proves the normal coordinator selection of CLOSE followed by failed own admission. GREEN proves exactly one valid own admission while preserving once only use and watcher hold containment rules. Focused full slot suite and negative malformed wrapper identity cases pass. Worker returns only scoped candidate and test evidence without signing or live edits. Two independent Astra reviews bind the candidate before authorized intake and delivery. Exact expected claim and session identity and zero residue are proven by the containing worker window. No C1 launch or Claude parity claim follows from source PASS.",
+  "comment_count": 0,
+  "created_at": "2026-09-27T19:21:22Z",
+  "created_by": "loucmane",
+  "dependency_count": 1,
+  "dependent_count": 1,
+  "description": "Narrow source task under the unchanged provider independent execution goal. Frozen C1 d10 at 4c1655906c386909cefdf5f7fc1f95b56860ee83 is held by two independent Astra reviews because read_used rejects CLOSE as own_job although the design requires every selected job to pass its own read_state admission. Reconcile only the CLOSE admission and selector contract and regression tests in the C1 window design and slots module. Preserve prior verdicts and source. Implementation must be a reviewed Gas City Astra worker in an isolated Operations candidate worktree with no common Git metadata or signing grant. The existing raw Codex bootstrap window is reusable only after Operations scope and fresh startup proof are independently reviewed. Do not relabel that bootstrap as a typed candidate receipt or weaken any existing receipt. Do not edit the live Claude profiles or use Claude. Keep this child unassigned and unrouted until its reviewed package is ready.",
+  "id": "ga-e0t1.20",
+  "issue_type": "task",
+  "metadata": {
+    "gc.continuation_group": "",
+    "gc.routed_to": "gascity/codex",
+    "gc.session_affinity": "",
+    "gc.session_id": "ci-rks41",
+    "gc.session_name": "codex-ci-rks41",
+    "gc.work_branch": "agent/upstream-pending-create-lease",
+    "gc.work_dir": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20"
+  },
+  "notes": "Operational startup contract for ga-e0t1.20: read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/WORKER-BRIEF.md sha256 f681228421af8773a5c401e1354b163baef61995ce564427962ccdfb746c5426. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/worker-startup.py sha256 7c97d1fcfae3b87ddf76a54a449c34232befb0096b77efde07eb8758b6382de3 inside the actual worker sandbox with its real session ID. No product edit until the coordinator verifies startup and releases that exact session. No staging signing task close restart or delegation. Return an uncommitted candidate only.\nR5 append-forward startup amendment for ga-e0t1.20. The initial prompt is /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1-20-astra-window/PRECLAIM-R5.md sha256 76d3f3d0a33d4a3572227dfa37b5d38ffe12bc0c60f9541a50364150d3c730e9. The worker-startup.py digest is 1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67. These supersede only the r4 startup prompt and probe references. Preserve the existing route workspace base scope permissions and candidate-only restrictions. Exact Core-generated hooks sha256 55e21a9d981805afb62da110b022bc847f7ad2b9a62bada45de95dbdfa472410 are preserved. Source release remains mandatory.\nSTOPPED: ga-e0t1.20 session=ci-rks41 probe_sha256=1766846356f763e1b98ed6276b916e53daf7493786e4f73fb7f6648146ab1f67 startup probe exited 1: RuntimeError: subscription identity unproven. No source edits; waiting for containment.",
+  "owner": "lookmanbenali@gmail.com",
+  "priority": 2,
+  "started_at": "2026-09-28T13:01:54Z",
+  "status": "open",
+  "title": "Repair C1 CLOSE self-admission through a scoped Astra worker",
+  "updated_at": "2026-09-28T13:05:59Z"
+}

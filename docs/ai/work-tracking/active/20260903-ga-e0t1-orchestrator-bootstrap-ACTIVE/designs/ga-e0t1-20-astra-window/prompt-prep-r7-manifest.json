@@ -1,0 +1,23 @@
+{
+  "authoring_files": {
+    "protocol_r7.py": "0a39f43211fc587e91612a64715b1fec2ce77401a09f77ba5650e9d96ccec9f3",
+    "runtime_process_r7.py": "ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65",
+    "startup_r7.py": "1db8d5aed6a7df7ec1292e16aa0cb94cc169cfc1d20c1392e1ed456800c09a1d"
+  },
+  "execution_admitted": false,
+  "files": {
+    "PRECLAIM-R7.md": "f6faecf0750a5b7c641d8734290d8d4516ecb9480db4cbca2738c9867df902cf",
+    "operator/PROMPT-PREP-R7.sh": "2e32a660bb52bad6d0f54631c40064f9a1d2a94666754da107ecf6973a166291",
+    "prompt-prep-r7.py": "e1b1b42926d76fe39c5f2bfd3efc9018d4368208563713286ee3b537758c824b",
+    "runtime-process-r7.py": "ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65",
+    "startup-release-r7-draft.py": "54da1977f2692ccd891eddd2de7b1ca070829da9b4808db3bbee6b3815a3951c",
+    "startup-validation-r7.py": "ffeee00aed30e6e342e19d15f633902762734cad98a58888c711c1bd193a81d2",
+    "worker-startup-r7.py": "1cee785ea7a7fcdad4ef3f2b93fbbed13dc6fa0d55278d33857a65203db6aa47"
+  },
+  "predecessor": "cb4183cccaa35196ec733b427be4cfd9944cab11",
+  "preparation_only": true,
+  "prior_close_sha256": "220f7b66a298fd8a48adf355db429f6d0eec259ba0cbb5257e9c474e615f42cf",
+  "recovery_result_sha256": "dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8",
+  "schema": "ga-e0t1.20.runtime-compatibility-r7-preparation.v1",
+  "worker_launch_included": false
+}

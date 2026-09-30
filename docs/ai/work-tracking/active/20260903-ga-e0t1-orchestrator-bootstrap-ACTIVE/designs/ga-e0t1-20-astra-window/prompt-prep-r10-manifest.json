@@ -1,0 +1,19 @@
+{
+  "authoring_files": {
+    "permissions_baseline_r10.py": "6dc31c06b4f6c709d831bd9b459a3238c11c23b54c1f4726fe325d35aa15ab82",
+    "startup_r10.py": "f8301ffbd197ac92d7cd672ef9622520e8e8bad5a7f8ea6840cd36c877d69035"
+  },
+  "execution_admitted": false,
+  "files": {
+    "PRECLAIM-R10.md": "10c5244db6814456e1fa2bd1895759d1adf48c6c90bdf631a850b8b08ff85395",
+    "operator/PROMPT-PREP-R10.sh": "1cc581f6599babbdafd1af1a1c0c89a30461d78b4561ba25a25c886b8328f279",
+    "permissions-baseline-r10.py": "6dc31c06b4f6c709d831bd9b459a3238c11c23b54c1f4726fe325d35aa15ab82",
+    "prompt-prep-r10.py": "3ef67a767ef4d2381eef6419d8cc21ebc53b1195e74615094a72b0ef76278bce",
+    "worker-startup-r10.py": "3b48e7c6524005244b4d8c09ba43b9eadb24c0cd98b7001095db6144647e1b97"
+  },
+  "predecessor": "c9da0cb9cef8223fe7af45acf5d6ebc33edde158",
+  "preparation_only": true,
+  "prior_close_sha256": "9ea049d563c686da1a37ff7ce7aa754415bcb493a3e3340addf4b86fde2ccdc2",
+  "schema": "ga-e0t1.20.native-default-r10-preparation.v1",
+  "worker_launch_included": false
+}

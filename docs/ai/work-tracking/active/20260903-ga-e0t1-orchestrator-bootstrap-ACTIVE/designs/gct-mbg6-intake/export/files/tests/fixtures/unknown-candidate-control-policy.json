@@ -1,0 +1,6 @@
+{
+  "_gc": {
+    "schema": "gc.candidate-control-policy.v1",
+    "profile_kind": "candidate"
+  }
+}

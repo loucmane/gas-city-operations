@@ -1,0 +1,654 @@
+
+# ===================== ga-e0t1.15 sequence 14 overrides (make_s2.py) =====================
+# Everything below replaces or wraps reviewed sequence 13 behaviour for the post-M5 host. Each block
+# names what it changes and why. Nothing above this line was edited, apart from make_s2 SUBSTITUTIONS.
+import re as _re
+import stat as _stat
+
+S14_HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-e0t1.15-deploy')
+S14_CACHE=Path('/home/loucmane/gascity/home/cache/repos')
+S14_CITY=Path('/home/loucmane/gascity/city')
+S14_GC_BIN='/home/loucmane/gascity/bin/gc'
+S14_DOLT_BIN='/home/loucmane/gascity/bin/dolt'
+S14_DOLT_CFG='/home/loucmane/gascity/city/.gc/runtime/packs/dolt/dolt-config.yaml'
+S14_DOLT_LOG='/home/loucmane/gascity/city/.gc/runtime/packs/dolt/dolt.log'
+S14_LIVE_KEY='a21cc0a2fbf22c14fbe59cf508d05bcc230774f5c0d9cd386215369d43a2410a'
+S14_NEW_KEY='69fe9a2e6239743677a6e13188096df34d6eb6d41fad171af58671ef288fdd3f'
+S14_OPTIONAL_KEY='9c8c14fc1968fe278e18cf0a3721760b544fec231bb65779ce83cf59cabb7e47'
+S14_COMMIT_BY_KEY={S14_NEW_KEY:'f895c0ff47d6ee9334ed282a416387eb5b084d24',
+                   S14_OPTIONAL_KEY:'3b3b89f2011e06d84459aa7bea1552382f13930a'}
+S14_NEW_HASH='sha256:81f8a5b283c895cfbd1322606cce8a1df81df9409af0869cb6418fcd6356d979'
+S14_EXPECTATION=Path('/var/tmp/ga-e0t1.15-cache-expect-20260925/expectation.json')
+S14_EXPECTATION_SHA='62c5bb84de0f80d12da58f1c1a5a3656721aafe1a370232c5c0a353615e453e3'
+S14_SHIM=S14_CITY/'.gc/scripts/gc-beads-bd.sh'
+S14_SHIM_BEFORE='2e0a1f7462a913c2c5fab1078d2837a272b225b09f3b500f2df971427c2eaa6e'
+S14_SHIM_AFTER='a7bcaa7cce9261b987bb766fba19db46cc7f4ae8d8b22b6d8059bb884d8788d2'
+S14_MANIFEST_BEFORE='7739092947074ba1cdcb389657baf41623efb12ab50944a97bc9b2d53de92b34'
+S14_MANIFEST_AFTER='f51ef6490bbc3ae9c595b2fe0aaf5a4d825c0db4e5edbc56c59d315e6dc3cf10'
+S14_ROOTS=['/home/loucmane/gascity/city','/home/loucmane/gas-city-native',
+           '/home/loucmane/gascity/city/rigs/gascity','/home/loucmane/dev/blog',
+           '/home/loucmane/dev/hpfetcher-gc-main']
+S14_RIGS={'gas-city-template':'/home/loucmane/gas-city-native','gascity':'/home/loucmane/gascity/city/rigs/gascity',
+          'blog':'/home/loucmane/dev/blog','hpfetcher':'/home/loucmane/dev/hpfetcher-gc-main'}
+S14_M5_MANIFEST=dict(sha256='2d7eadce62c4e567697813cc9122414f1e94c3bd9d389aef92015adef7f36319',mode=0o644,uid=1000,gid=1000,size=127269)
+S14_M5_RECEIPT=dict(sha256='9342b33eb7b0fd4e68a34c8cee3b8a89b9011a091d7121d249b88c84378fed94',mode=0o644,uid=1000,gid=1000,size=2546)
+S14_VENDOR=('.claude','.agents','.gemini','.opencode','.mimocode','.beads')
+S14_INIT_WAIT_NS=180*d.SECOND
+
+def s14_sha(data):
+    return hashlib.sha256(data).hexdigest()
+
+def s14_tsv(name):
+    rows=[line.split('\t') for line in (S14_HERE/name).read_text().splitlines() if line]
+    return rows
+
+# --- 0. Access-time neutral inventories. The operator decided this on 2026-09-25, choosing
+# "Relax it", after the auto-mode classifier flagged the change for an explicit decision.
+# Sequence 13 compared exact atimes of the pack cache and the protected trees, and its deadlines
+# window required every cache atime to be under 24 h old. So a run could only start in a FRESHEN
+# slot chosen from an lstat forecast, and a refusal before submit cost about 24 h. Here every tree
+# inventory is recorded WITHOUT atime_ns. The path set, type, mode, uid, gid, size, inode, device,
+# nlink, mtime, ctime and content digests all stay exact.
+# This hides no write: an unprivileged process can only backdate an atime with utimensat, which
+# also changes ctime, and ctime is still compared exactly. Reads only move atime forward, and a
+# read is not a mutation. The same standard as the reviewed window policy cache-atime-policy-r1.
+# The base metadata(s, include_atime=True) feeds every identity comparison: the before, fstat and
+# after checks in tree_snapshot, read_file (pin) and parent. With old atimes allowed, a concurrent
+# ordinary read could otherwise move an atime mid-observation and refuse (review A r4 should_fix 1).
+# Every comparison now uses the base's own atime-free form.
+_s14_metadata=c.o.metadata
+def s14_metadata(s,include_atime=True):
+    return _s14_metadata(s,False)
+c.o.metadata=s14_metadata
+_s14_tree_snapshot=c.o.tree_snapshot
+def s14_tree_snapshot(root,cache=False,protected=False):
+    value=_s14_tree_snapshot(root,cache=cache,protected=protected)
+    value['inventory']={k:{f:v for f,v in m.items() if f!='atime_ns'} for k,m in value['inventory'].items()}
+    return value
+c.o.tree_snapshot=s14_tree_snapshot
+
+# r4.history_check popped atime_ns from every entry. It now compares the same entry set and all
+# other metadata exactly, and reports no atime delta.
+def s14_history_check(wanted,actual):
+    c.o.require(wanted['inventory'].keys()==actual['inventory'].keys(),'historical cache entry set')
+    strip=lambda inv:{k:{f:v for f,v in m.items() if f!='atime_ns'} for k,m in inv.items()}
+    a=dict(copy.deepcopy(wanted),inventory=strip(wanted['inventory']))
+    b=dict(copy.deepcopy(actual),inventory=strip(actual['inventory']))
+    c.o.require(a==b,'historical cache content/authority mismatch')
+    return {}
+r4.history_check=s14_history_check
+
+# The deadlines window keeps its boot, monotonic, 900 s and envelope bounds. It no longer derives a
+# 24 h renewal horizon from cache atimes, which it can no longer see. The renewal becomes start plus
+# one day, which never binds within a 900 s window. max_atime is 1 (see below): no
+# cache atime is bound, and a backward wall-clock step must not refuse.
+def s14_build_window(start,cache,attempt):
+    d.sample(start)
+    d.require(isinstance(attempt,str) and _re.fullmatch(r'ga-mutg-adoption-[0-9-]+r[0-9]+',attempt),'attempt identity')
+    d.require(bool(cache['inventory']),'empty cache')
+    # max_atime=1: no cache atime is bound any more, so the future-dated check has nothing to guard. Tying
+    # it to start['wall'] would refuse on any backward wall-clock resync after prepare (review B r4).
+    return dict(attempt=attempt,start=start,renewal=d.integer(start['wall']+d.DAY),max_atime=1,
+                mono_deadline=d.integer(start['mono']+d.WINDOW),
+                boot_deadline=d.integer(start['boot_time']-start['span']+d.WINDOW))
+d.build_window=s14_build_window
+
+# --- 1. Metadata preimages. Sequence 13 pinned the platform install manifest and receipt as present
+# preimages from the r5 manifest (bf2db830 and ab463a07), required the two r5/b .before.json files to
+# be absent, and gated three parent directories. M5 (2026-09-23) replaced the manifest and receipt.
+# Sequence 14 requires the exact M5-accepted pair and the same absent files. The three parents
+# (S14_PARENTS) become a 'parents' field of the closure: recorded by the accept phase and compared
+# exactly at every capture (review A r1 must_fix 2).
+S14_PARENTS=['/home/loucmane/gascity/city/.gc/platform',
+             '/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/r5/b',
+             '/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/r5/t']
+
+def s14_parents():
+    return {path:c.s.parent(path) for path in S14_PARENTS}
+
+def s14_preimages(_manifest=None):
+    c.o.require(c.s.pin(S14_CITY/'.gc/platform/install-manifest.json',{})==S14_M5_MANIFEST,'M5 install manifest drift')
+    c.o.require(c.s.pin(S14_CITY/'.gc/platform/install-receipt.json',{})==S14_M5_RECEIPT,'M5 install receipt drift')
+    for name in ('install-manifest.before.json','install-receipt.before.json'):
+        c.o.require(not os.path.lexists('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/reports/r5/b/'+name),
+                    'r5 before file materialized')
+c.s.preimages=s14_preimages
+
+# --- 2. Quiet scope. Since the 2026-09-24 boot, the managed dolt watchdog and server run inside the
+# supervisor unit's cgroup (the watchdog is parented by the user manager, the server by the watchdog).
+# Sequence 13 required the supervisor to be alone there. Exactly these two members are admitted,
+# identified by exact argv and executable, and nothing else.
+def s14_proc(pid):
+    argv=Path('/proc',str(pid),'cmdline').read_bytes().split(b'\0')[:-1]
+    exe=os.readlink('/proc/'+str(pid)+'/exe')
+    return [a.decode() for a in argv],exe
+
+def s14_quiet_scope(host):
+    o,s=c.o,c.s
+    pid=host['host']['pid']
+    first={n:s.members(n) for n in (o.SERVICE,o.RECONCILER)}
+    table=s.process_table()
+    o.require(first[o.RECONCILER]==set(),'reconciler scope residue')
+    others=sorted(first[o.SERVICE]-{pid})
+    o.require(pid in first[o.SERVICE] and len(others)==2,'supervisor scope membership')
+    ident={p:s14_proc(p) for p in others}
+    watchdog=[p for p,(argv,_) in ident.items() if argv[:2]==[S14_GC_BIN,'__gc-managed-dolt-scope-watchdog']]
+    server=[p for p,(argv,_) in ident.items() if argv[:2]==['dolt','sql-server']]
+    o.require(len(watchdog)==1 and len(server)==1,'dolt scope members')
+    w,sv=watchdog[0],server[0]
+    w_argv,w_exe=ident[w]
+    o.require(w_argv==[S14_GC_BIN,'__gc-managed-dolt-scope-watchdog',S14_DOLT_CFG,S14_DOLT_LOG,str(S14_CITY)],
+              'dolt watchdog argv')
+    # The unit uses KillMode=process with preserved sessions, so the watchdog and server may survive
+    # a Core restart (review B r1 must_fix 1). A surviving watchdog maps the replaced binary, which
+    # reads as "<path> (deleted)". That is admitted only when the mapped image is exactly c.OLD.
+    if w_exe==S14_GC_BIN:
+        image='live'
+    else:
+        o.require(w_exe==S14_GC_BIN+' (deleted)','dolt watchdog executable')
+        o.require(s14_sha(Path('/proc/'+str(w)+'/exe').read_bytes())==c.OLD,'surviving watchdog image is not OLD')
+        image='deleted-old'
+    o.require(ident[sv]==(['dolt','sql-server','--config',S14_DOLT_CFG],S14_DOLT_BIN),'dolt server identity')
+    o.require(table[sv][0]==w,'dolt server parent')
+    o.require(s.descendants(table,{pid})=={pid},'supervisor descendant residue')
+    o.require(s.descendants(table,{w})=={w,sv},'dolt descendant residue')
+    second=s.process_table()
+    o.require(all(table.get(p)==second.get(p) for p in (pid,w,sv)) and first=={n:s.members(n) for n in first},
+              'scope changed during observation')
+    tmux=subprocess.run(['/usr/bin/tmux','-L','city','list-sessions'],env=o.ENV,cwd='/',stdin=subprocess.DEVNULL,
+                        capture_output=True,timeout=10,check=False)
+    o.require(tmux.returncode==1 and not tmux.stdout and
+              (b'no server running' in tmux.stderr or
+               (b'error connecting to' in tmux.stderr and b'No such file or directory' in tmux.stderr)),
+              'city tmux residue or unexplained refusal')
+    return dict(core_members=[pid],
+                dolt_members=dict(watchdog=w,server=sv,watchdog_image=image,
+                                  watchdog_proc=list(table[w]),server_proc=list(table[sv])),
+                reconciler_members=[],descendants=[],city_tmux_absent=True)
+c.s.quiet_scope=s14_quiet_scope
+
+# --- 3. Cache admission. After the new Core starts, exactly one new synthetic directory (S14_NEW_KEY)
+# must appear, and S14_OPTIONAL_KEY may appear. Their full contents must equal the S1b expectation,
+# with the marker derived per key. Every pre-existing entry stays exact (no atime is recorded; block 0).
+# Only the cache root entry's mtime, ctime and nlink may change.
+def s14_expected_files():
+    data=Path(S14_EXPECTATION).read_bytes()
+    c.o.require(s14_sha(data)==S14_EXPECTATION_SHA,'cache expectation drift')
+    return {f['Path']:f for f in json.loads(data)['new']['materialized_files']}
+
+def s14_marker(commit):
+    return ('schema = 1\nrepository = "https://github.com/gastownhall/gascity.git"\n'
+            'commit = "'+commit+'"\ncontent_hash = "'+S14_NEW_HASH+'"\n').encode()
+
+def s14_listdir(path):
+    # Listing a directory without O_NOATIME can move its atime under relatime (review A r1 must_fix 1).
+    fd=os.open(path,os.O_RDONLY|os.O_DIRECTORY|os.O_NOATIME|os.O_NOFOLLOW|os.O_CLOEXEC)
+    try:return sorted(os.listdir(fd))
+    finally:os.close(fd)
+
+def s14_read_noatime(path):
+    fd=os.open(path,os.O_RDONLY|os.O_NOATIME|os.O_NOFOLLOW|os.O_CLOEXEC)
+    try:
+        data=b''
+        while True:
+            part=os.read(fd,1048576)
+            if not part:break
+            data+=part
+        return data
+    finally:os.close(fd)
+
+def s14_check_new_dir(key):
+    expected=s14_expected_files()
+    root=S14_CACHE/key
+    seen=set()
+    def check_mode(rel,st):
+        want=expected.get(rel);c.o.require(want is not None,'unexpected cache entry '+key+'/'+rel)
+        c.o.require(st.st_uid==1000 and st.st_gid==1000,'cache entry owner '+key+'/'+rel)
+        mode=int(want['Mode'],8)
+        if _stat.S_ISDIR(st.st_mode):
+            c.o.require(bool(mode&(1<<31)) and _stat.S_IMODE(st.st_mode)==mode&0o777,'cache dir mode '+rel)
+        else:
+            c.o.require(_stat.S_ISREG(st.st_mode) and not mode&(1<<31) and _stat.S_IMODE(st.st_mode)==mode&0o777,
+                        'cache file mode '+rel)
+        return want
+    def visit(path,rel):
+        st=os.lstat(path);seen.add(rel);want=check_mode(rel,st)
+        if _stat.S_ISDIR(st.st_mode):
+            for name in s14_listdir(path):
+                visit(path/name,name if rel=='.' else rel+'/'+name)
+            return
+        c.o.require(_stat.S_ISREG(st.st_mode) and st.st_size==want['Size'],'cache file size '+key+'/'+rel)
+        data=s14_read_noatime(path)
+        if rel=='.gc-bundled-pack-cache.toml':
+            c.o.require(data==s14_marker(S14_COMMIT_BY_KEY[key]),'cache marker '+key)
+        else:
+            c.o.require(len(data)==want['Size'] and s14_sha(data)==want['SHA256'],'cache content '+key+'/'+rel)
+    c.o.require(_stat.S_ISDIR(os.lstat(root).st_mode),'new cache key is not a real directory '+key)
+    visit(root,'.')
+    c.o.require(seen==set(expected),'cache entry set '+key)
+
+def s14_admit_cache(before,after):
+    b,a=before['inventory'],after['inventory']
+    c.o.require(set(b)<=set(a),'cache entry removed')
+    for key,meta in b.items():
+        if key=='.':
+            # The root directory gains entries, so its mtime, ctime and nlink change. Its atime is also
+            # admitted, because the new supervisor may list the root while resolving the synthetic
+            # key. This is the metadata of one directory, and every entry beneath it is still checked.
+            strip=lambda m:{k:v for k,v in m.items() if k not in ('mtime_ns','ctime_ns','nlink','atime_ns')}
+            c.o.require(strip(a[key])==strip(meta),'cache root metadata')
+        else:
+            c.o.require(a[key]==meta,'pre-existing cache entry changed: '+key)
+    added=set(a)-set(b)
+    tops={k.split('/',1)[0] for k in added}
+    c.o.require(S14_NEW_KEY in tops and tops<={S14_NEW_KEY,S14_OPTIONAL_KEY},'unexpected cache additions')
+    for key in sorted(tops):
+        s14_check_new_dir(key)
+    return sorted(tops)
+
+# --- 4. Capture. This is the base capture() with the stale r5 manifest reads removed (the
+# preimages come from block 1) and with a candidate cache admitted through block 3 instead of
+# required equal.
+def s14_capture(candidate):
+    o,s=c.o,c.s
+    expected=c.expected_predecessor()
+    o.GC_SHA=c.NEW if candidate else c.OLD
+    host=o.host_observation()
+    if not candidate:
+        s.broker_precondition(host)
+    else:
+        service=host['broker']
+        o.require(service['ActiveState']=='active' and service['SubState']=='running'
+                  and service['NRestarts']=='0' and service['Result']=='success'
+                  and service['UnitFileState']=='disabled' and int(service['MainPID'])>1,'broker post-activation state')
+        o.require(host['broker_socket']['ActiveState']=='active','broker socket inactive')
+    s.preimages(None)
+    links=expected['links']
+    for path,target in links.items():
+        o.require(os.path.islink(path) and os.readlink(path)==target,'link changed')
+    pins={}
+    for path,wanted in expected['pins'].items():
+        if candidate and path==o.GC:
+            wanted=dict(wanted,sha256=c.NEW,size=c.NEW_SIZE)
+        actual=s.pin(path,links)
+        o.require(actual==wanted,'infrastructure pin changed: '+path)
+        pins[path]=actual
+    suspension=s.pin(o.CITY/'.gc/runtime/suspension-state.json',links)
+    o.require(suspension==expected['suspension'],'suspension changed')
+    trees,cache,admitted={},None,None
+    for path,wanted in expected['trees'].items():
+        is_cache=path==str(S14_CACHE)
+        value=o.tree_snapshot(path,cache=is_cache)
+        summary={k:value[k] for k in ('sha256','entries','file_bytes')}
+        if is_cache:
+            cache=value
+            if candidate:
+                admitted=s14_admit_cache(expected['cache'],value)
+                # The admitted root atime is not recorded, so postflight1 and postflight2 still
+                # compare exactly. The tree summary hashes paths, modes, sizes and content, not times.
+                cache=copy.deepcopy(value)
+                # The admitted new entries also drop atime from the record. They were written
+                # moments ago, so their atime <= mtime, and the first ordinary read between the
+                # postflights would update it under relatime (review B r2 should_fix 2). Their
+                # content is proven by s14_admit_cache on every capture.
+                for entry in cache['inventory']:
+                    if entry=='.' or entry.split('/',1)[0] in admitted:
+                        cache['inventory'][entry]={k:v for k,v in cache['inventory'][entry].items() if k!='atime_ns'}
+            else:
+                o.require(summary==wanted,'tree changed: '+path)
+        else:
+            o.require(summary==wanted,'tree changed: '+path)
+        trees[path]=summary
+    o.require(cache is not None,'cache tree missing from the closure')
+    if not candidate:
+        o.require(cache==expected['cache'],'cache inventory changed')
+    else:
+        o.require(bool(admitted) and S14_NEW_KEY in admitted,'candidate cache not admitted')
+    protected={}
+    for path,wanted in expected['protected'].items():
+        value=o.tree_snapshot(path,protected=True)
+        o.require(value==wanted,'protected inventory changed: '+path)
+        protected[path]=value
+    scope=s.quiet_scope(host)
+    s.preimages(None)
+    parents=s14_parents()
+    o.require(o.host_observation()==host,'host changed during observation')
+    observed=dict(host=host,pins=pins,suspension=suspension,trees=trees,cache=cache,
+                  protected=protected,links=links,scope=scope,parents=parents)
+    if not candidate:
+        o.require(observed==expected,'predecessor closure changed')
+    else:
+        observed['admitted_cache_keys']=admitted
+    return observed
+c.capture=s14_capture
+
+# --- 5. Transition. This is sequence 13's rule (fresh Core epoch, the gc pin at NEW) plus fresh dolt
+# members with the same identities, the admitted cache, and its tree summary.
+def validate_successor_transition(before,after):
+    adjusted=copy.deepcopy(before)
+    prior,current=before['host'],after['host']
+    for key in ('pid','start','listener'):
+        c.o.require(current['host'][key]!=prior['host'][key],'Core host epoch not fresh '+key)
+        adjusted['host']['host'][key]=current['host'][key]
+    core=current['core'];old=prior['core']
+    c.o.require(int(core['MainPID'])>1 and core['MainPID']!=old['MainPID'],'Core PID not fresh')
+    c.o.require(int(core['ExecMainStartTimestampMonotonic'])>int(old['ExecMainStartTimestampMonotonic']),'Core start not fresh')
+    for key in ('MainPID','ExecMainStartTimestampMonotonic'):
+        adjusted['host']['core'][key]=core[key]
+    adjusted['pins'][c.o.GC]=dict(adjusted['pins'][c.o.GC],sha256=c.NEW,size=c.NEW_SIZE)
+    # Dolt: exactly one of two outcomes (review B r1 must_fix 1).
+    #   fresh:    new watchdog and server PIDs, watchdog on the live (new) binary;
+    #   survived: identical PIDs and process records, watchdog mapping the deleted OLD image.
+    new_scope=after['scope'];old_dolt=before['scope']['dolt_members'];new_dolt=new_scope['dolt_members']
+    c.o.require(old_dolt['watchdog_image']=='live','predecessor watchdog not live')
+    fresh=(new_dolt['watchdog']!=old_dolt['watchdog'] and new_dolt['server']!=old_dolt['server']
+           and new_dolt['watchdog_image']=='live')
+    survived=(new_dolt['watchdog_image']=='deleted-old' and
+              all(new_dolt[k]==old_dolt[k] for k in ('watchdog','server','watchdog_proc','server_proc')))
+    c.o.require(fresh!=survived,'dolt outcome is neither exactly fresh nor exactly survived')
+    adjusted['scope']=dict(adjusted['scope'],core_members=new_scope['core_members'],dolt_members=new_dolt)
+    # Broker: socket activation by the one submission (review B r1 must_fix 2). This is the base
+    # validate_transition rule: inactive to active/running with a fresh epoch, every other field
+    # fixed. The socket either stays unchanged or goes listening to running (the R7 correction).
+    ob,nb=prior['broker'],current['broker']
+    c.o.require(ob.keys()==nb.keys(),'broker record field drift')
+    for key in ob.keys()-{'MainPID','ExecMainStartTimestampMonotonic','ActiveState','SubState'}:
+        c.o.require(ob[key]==nb[key],'broker invariant '+key)
+    c.o.require(nb['ActiveState']=='active' and nb['SubState']=='running' and int(nb['MainPID'])>1
+                and nb['MainPID']!=ob['MainPID']
+                and int(nb['ExecMainStartTimestampMonotonic'])>int(ob['ExecMainStartTimestampMonotonic']),
+                'broker activation epoch')
+    adjusted['host']['broker']=nb
+    sock_old,sock_new=prior['broker_socket'],current['broker_socket']
+    c.o.require(sock_new==sock_old or (sock_old.get('SubState')=='listening' and sock_new==dict(sock_old,SubState='running')),
+                'broker socket transition')
+    adjusted['host']['broker_socket']=sock_new
+    cache_path=str(S14_CACHE)
+    adjusted['cache']=after['cache'];adjusted['trees'][cache_path]=after['trees'][cache_path]
+    adjusted['admitted_cache_keys']=after.get('admitted_cache_keys')
+    c.o.require(adjusted==after,'unexpected full-closure transition')
+c.validate_transition=validate_successor_transition
+
+# --- 6. City rules outside the closure: rig roots, suspension, the shim, and the live-key links and
+# manifests (PLAN S1b, S2 item 3).
+def s14_rig_roots():
+    import tomllib as _toml
+    city=_toml.loads((S14_CITY/'city.toml').read_text())
+    site=_toml.loads((S14_CITY/'.gc/site.toml').read_text())
+    c.o.require(sorted(r['name'] for r in city.get('rigs',[]))==sorted(S14_RIGS),'city.toml rig set')
+    c.o.require({r['name']:r['path'] for r in site.get('rig',[])}==S14_RIGS,'site.toml rig paths')
+
+def s14_suspended():
+    state=json.loads((S14_CITY/'.gc/runtime/suspension-state.json').read_text())
+    c.o.require(state['city']=={'suspended':True},'city not suspended')
+    for name in S14_RIGS:
+        c.o.require(state['rigs'].get(name)=={'suspended':True},'rig not suspended '+name)
+
+# The one symlinked sink component on this host is a tracked Core file: blob 454b8427, created
+# 2026-08-02. It aliases .agents/skills to the sibling .claude/skills sink of the same root, which is
+# inventoried and checked. Writes through the alias land in that sink. It is admitted exactly
+# (path and target); any other symlinked component refuses. Found by the first accept attempt,
+# 2026-09-25T17:13Z, which was refused before observing anything.
+S14_SINK_ALIASES={'/home/loucmane/gascity/city/rigs/gascity/.agents/skills':'../.claude/skills'}
+
+def s14_no_symlinked_vendor_dirs():
+    for root in S14_ROOTS:
+        for vendor in S14_VENDOR:
+            for part in (vendor,vendor+'/skills',vendor+'/formulas'):
+                p=Path(root,part)
+                if not p.is_symlink():
+                    continue
+                c.o.require(S14_SINK_ALIASES.get(str(p))==os.readlink(p),'symlinked sink component '+str(p))
+                target=(p.parent/os.readlink(p)).resolve()
+                c.o.require(str(target)==str(Path(root,'.claude/skills')) and target.is_dir()
+                            and not target.is_symlink(),'sink alias target '+str(p))
+
+S14_LINKS_TSV_SHA='2dfb117b850b0472e8da333bc9a6b73181ee2162d3085f92bfe5357e10e87bff'
+S14_MANIFESTS_TSV_SHA='940d382e1f9aee2b64ce405f692e1ec8ffea53653d2183b5183f5feb9129dfe2'
+
+def s14_scan_key_links(root,found,depth=0):
+    # O_NOATIME listing (review A r1 must_fix 1). Directories at depths 0-4 of each root are listed,
+    # the same bound as live_key_inventory.py (MAX_DEPTH 4). Every sink the materializers write
+    # (<root>/<vendor>/skills, <root>/.beads/formulas) is at depth 2 of its own S14_ROOTS entry.
+    # The nested rig city/rigs/gascity is covered as its own root.
+    for name in s14_listdir(root):
+        p=os.path.join(root,name);st=os.lstat(p)
+        if _stat.S_ISLNK(st.st_mode):
+            t=os.readlink(p)
+            if S14_LIVE_KEY in t or S14_NEW_KEY in t:found.add(p)
+        elif _stat.S_ISDIR(st.st_mode) and depth<4 and name not in ('.git','node_modules'):
+            s14_scan_key_links(p,found,depth+1)
+
+def s14_city_rules(after):
+    s14_rig_roots();s14_suspended();s14_no_symlinked_vendor_dirs()
+    c.o.require(s14_sha((S14_HERE/'live-key-links.tsv').read_bytes())==S14_LINKS_TSV_SHA,'links inventory drift')
+    c.o.require(s14_sha((S14_HERE/'live-key-manifests.tsv').read_bytes())==S14_MANIFESTS_TSV_SHA,'manifest inventory drift')
+    shim=s14_sha(S14_SHIM.read_bytes())
+    c.o.require(shim==(S14_SHIM_AFTER if after else S14_SHIM_BEFORE),'city shim state')
+    c.o.require(_stat.S_IMODE(os.lstat(S14_SHIM).st_mode)==0o755,'city shim mode')
+    links=dict(s14_tsv('live-key-links.tsv'));state_by_sink={};now_by_path={}
+    for path,target in links.items():
+        c.o.require(os.path.islink(path),'live-key link missing '+path)
+        now=os.readlink(path);now_by_path[path]=now
+        new=target.replace(S14_LIVE_KEY,S14_NEW_KEY)
+        c.o.require(now==target or (after and now==new),'live-key link target '+path)
+        state_by_sink.setdefault(str(Path(path).parent),set()).add(now==new)
+    for path,before_sha,size,after_sha in s14_tsv('live-key-manifests.tsv'):
+        c.o.require((before_sha,after_sha)==(S14_MANIFEST_BEFORE,S14_MANIFEST_AFTER),'manifest inventory digests')
+        data=Path(path).read_bytes();digest=s14_sha(data)
+        c.o.require(digest==before_sha or (after and digest==after_sha),'manifest state '+path)
+        c.o.require(b'c5f076a22' not in data,'manifest references c5f076a22')
+        sink=str(Path(path).parent)
+        targets=json.loads(data)['targets']
+        keyed={name:t for name,t in targets.items() if S14_LIVE_KEY in t or S14_NEW_KEY in t}
+        sink_links={p:t for p,t in links.items() if str(Path(p).parent)==sink}
+        # Both directions: every key-bearing entry names a listed link, and every listed link of the
+        # sink has an entry. The recorded target may lag the link (links first, manifest second).
+        c.o.require({os.path.join(sink,n) for n in keyed}==set(sink_links),'manifest and link set differ '+path)
+        for name,t in keyed.items():
+            link=os.path.join(sink,name)
+            c.o.require(t in (links[link],links[link].replace(S14_LIVE_KEY,S14_NEW_KEY)),'manifest entry target '+link)
+        if digest==after_sha:
+            c.o.require(state_by_sink.get(sink)=={True},'manifest repointed before its links '+path)
+        for leftover in s14_listdir(sink):
+            c.o.require(not _re.fullmatch(r'\..+\.tmp\.[0-9a-f]+',leftover),'leftover materialize temp '+sink+'/'+leftover)
+    found=set()
+    for root in S14_ROOTS:
+        s14_scan_key_links(root,found)
+    c.o.require(found==set(links),'live-key link set differs from inventory')
+    return dict(shim=shim,repointed_sinks=sorted(k for k,v in state_by_sink.items() if v=={True}))
+
+# --- 7. The initialization wait (sequence 13 lesson) and the wrappers.
+def s14_wait_initialized():
+    start=time.monotonic_ns();last=None
+    while time.monotonic_ns()-start<S14_INIT_WAIT_NS:
+        try:
+            c.runtime_readiness();return
+        except Exception as exc:
+            last=str(exc);time.sleep(5)
+    c.o.require(False,'runtime not initialized within bound: '+str(last))
+
+# --- 8. The 'accept' phase: the fresh predecessor. It observes the current image over the exact
+# path sets of the accepted R7 closure, using the block 1 and block 2 primitives. It takes two
+# observations at least 5 s apart, which must be equal. It records the delta against R7 for review.
+# It writes only to ACCEPT_ROOT, never to ROOT, and never pauses the timer or signs.
+S14_R7=Path('/home/loucmane/.local/share/gas-city-staging/ga-mutg-20260920/ga-mutg-adoption-20260920-r7/second.json')
+S14_R7_SHA='29c339b5ca9c4d6bcaf95dc306e55455877cfa0535851083d0d6cc1b1d212563'
+S14_ACCEPT_ROOT=Path('/var/tmp/ga-e0t1.15-predecessor-20260925-r2')
+
+def s14_observe_closure(template):
+    o,s=c.o,c.s
+    o.GC_SHA=c.OLD
+    host=o.host_observation()
+    # No broker precondition here: the accepted broker state is what this phase records. The
+    # sequence 13 precondition compares against the accepted predecessor, which does not exist yet.
+    s14_preimages()
+    links={}
+    for path,target in template['links'].items():
+        o.require(os.path.islink(path),'R7 link missing '+path)
+        links[path]=os.readlink(path)
+    pins={}
+    for path in template['pins']:
+        o.require(os.path.lexists(path),'R7 pin missing '+path)
+        pins[path]=s.pin(path,links)
+    suspension=s.pin(o.CITY/'.gc/runtime/suspension-state.json',links)
+    trees,cache={},None
+    for path in template['trees']:
+        o.require(os.path.lexists(path),'R7 tree missing '+path)
+        value=o.tree_snapshot(path,cache=(path==str(S14_CACHE)))
+        trees[path]={k:value[k] for k in ('sha256','entries','file_bytes')}
+        if path==str(S14_CACHE):cache=value
+    protected={path:o.tree_snapshot(path,protected=True) for path in template['protected']}
+    scope=s.quiet_scope(host)
+    # The predecessor properties the postflight depends on are checked here, before anything is
+    # submitted (review B r2 should_fix 1): the broker is exactly inactive with its socket listening
+    # (the base broker_precondition), and the dolt watchdog runs the live binary.
+    o.require(host['broker']==dict(MainPID='0',NRestarts='0',ExecMainStartTimestampMonotonic='0',
+              ActiveState='inactive',SubState='dead',UnitFileState='disabled',Result='success'),
+              'accepted broker is not exactly inactive')
+    o.require(host['broker_socket']==dict(ActiveState='active',SubState='listening',
+              UnitFileState='enabled',Result='success'),'accepted broker socket is not listening')
+    o.require(scope['dolt_members']['watchdog_image']=='live','accepted watchdog image is not live')
+    s14_preimages()
+    parents=s14_parents()
+    o.require(o.host_observation()==host,'host changed during observation')
+    return dict(host=host,pins=pins,suspension=suspension,trees=trees,cache=cache,
+                protected=protected,links=links,scope=scope,parents=parents)
+
+def s14_accept():
+    c.o.require(sys.flags.isolated and sys.flags.dont_write_bytecode and sys.flags.optimize==0,
+                'use python3 -I -B')
+    S14_ACCEPT_ROOT.mkdir(mode=0o700)
+    def rec(name,value):
+        data=json.dumps(value,indent=1,sort_keys=True).encode()
+        fd=os.open(S14_ACCEPT_ROOT/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
+        try:
+            view=memoryview(data)
+            while view:
+                n=os.write(fd,view);c.o.require(n>0,'short record write');view=view[n:]
+            os.fsync(fd)
+        finally:os.close(fd)
+        dfd=os.open(S14_ACCEPT_ROOT,os.O_RDONLY|os.O_DIRECTORY|os.O_CLOEXEC)
+        try:os.fsync(dfd)
+        finally:os.close(dfd)
+        return s14_sha(data)
+    raw=S14_R7.read_bytes();c.o.require(s14_sha(raw)==S14_R7_SHA,'R7 template drift')
+    template=json.loads(raw)['closure']
+    # R7 inventories carry atime_ns; the new closure does not (block 0). Strip it from the template
+    # used for the review delta, so the delta shows real changes only (review B r4 should_fix 4).
+    for key in ('protected',):
+        for tree in template[key].values():
+            tree['inventory']={k:{f:v for f,v in m.items() if f!='atime_ns'} for k,m in tree['inventory'].items()}
+    rec('start.json',dict(executor_sha256=s14_sha(Path(__file__).read_bytes()),r7_sha256=S14_R7_SHA))
+    s14_city_rules(False)
+    first=s14_observe_closure(template)
+    first_sha=rec('first.json',dict(closure=first,monotonic_ns=time.monotonic_ns()))
+    time.sleep(5)
+    second=s14_observe_closure(template)
+    second_sha=rec('second.json',dict(closure=second,monotonic_ns=time.monotonic_ns()))
+    c.o.require(second==first,'predecessor not stable across 5 s')
+    s14_city_rules(False)
+    changed={k:sorted(p for p in set(template[k])|set(second[k]) if template[k].get(p)!=second[k].get(p))
+             for k in ('links','pins','trees','protected')}
+    rec('delta-vs-r7.json',dict(changed=changed,suspension_changed=template['suspension']!=second['suspension'],
+                               host_keys=sorted(k for k in second['host'] if second['host'][k]!=template['host'].get(k))))
+    rec('pass.json',dict(ok=True,first_sha256=first_sha,second_sha256=second_sha,review_required=True))
+    print(json.dumps(dict(ok=True,second_sha256=second_sha,
+                          changed={k:len(v) for k,v in changed.items()}),sort_keys=True))
+
+if len(sys.argv)==2 and sys.argv[1]=='accept' and __name__=='__main__':
+    s14_accept();sys.exit(0)
+
+_s13_prepare=prepare
+def prepare():
+    s14_city_rules(False)
+    result=_s13_prepare()
+    record('city-rules-preflight.json',s14_city_rules(False))
+    return result
+
+_s13_submit=submit
+def submit(args):
+    # City rules immediately before the one broker call (review B r1 should_fix 4).
+    s14_city_rules(False)
+    return _s13_submit(args)
+
+_s13_observe=observe
+def observe(args):
+    after=args.phase.startswith('postflight')
+    if after:
+        s14_wait_initialized()
+    # The rules are checked before _s13_observe can record an ok observation (review r1
+    # should_fix), and once more after it. Their evidence is recorded once both checks pass.
+    s14_city_rules(after)
+    result=_s13_observe(args)
+    record(args.phase+'-city-rules.json',s14_city_rules(after))
+    return result
+
+_s13_main=main
+def main():
+    # Until accepted.json binds the reviewed predecessor, refuse before any ROOT output or lock is
+    # created (review A r1 should_fix 3).
+    c.o.require(ACCEPTED_SHA!='0'*64,'accepted predecessor not yet bound; only the accept phase may run')
+    return _s13_main()
+
+# --- 9. Recovery acceptance (sequence 13 precedent). The broker submission of 2026-09-25T17:34Z
+# succeeded (broker-result.json, submit-done.json in ROOT). postflight1 then refused with 'supervisor
+# scope membership', apparently a transient member seen at initialization. ROOT stays terminal and
+# preserved. This phase is read-only: no broker call, no timer change, no write outside
+# S14_RECOVERY_ROOT. It proves the adopted state with the same capture, transition, receipt and
+# city-rule checks as the postflights, over two complete observations at least 5 s apart, which must
+# be equal. It does not use the elapsed-window fence: the adoption itself happened inside the window
+# (submit-done.json), and this phase only reads.
+S14_RECOVERY_ROOT=Path('/var/tmp/ga-e0t1.15-seq14-recovery-20260925')
+
+def s14_recover(baseline_sha,binding_sha):
+    c.o.require(sys.flags.isolated and sys.flags.dont_write_bytecode and sys.flags.optimize==0,'use python3 -I -B')
+    c.o.require(json.loads((ROOT/'terminal.json').read_text())=={'phase':'postflight1','error_type':'Refused',
+                'reason':'supervisor scope membership','submission_started':True},'terminal disposition changed')
+    c.o.require(os.path.lexists(ROOT/'submit-done.json') and os.path.lexists(ROOT/'broker-result.json'),'submission record')
+    S14_RECOVERY_ROOT.mkdir(mode=0o700)
+    def rec(name,value):
+        data=json.dumps(value,indent=1,sort_keys=True).encode()
+        fd=os.open(S14_RECOVERY_ROOT/name,os.O_WRONLY|os.O_CREAT|os.O_EXCL|os.O_NOFOLLOW|os.O_CLOEXEC,0o600)
+        try:
+            view=memoryview(data)
+            while view:
+                n=os.write(fd,view);c.o.require(n>0,'short record write');view=view[n:]
+            os.fsync(fd)
+        finally:os.close(fd)
+        return s14_sha(data)
+    rec('start.json',dict(executor_sha256=s14_sha(Path(__file__).read_bytes()),baseline_sha256=baseline_sha,
+                          binding_sha256=binding_sha))
+    b=baseline(baseline_sha)
+    binding=c.s.read(ROOT/'envelope-binding.json',binding_sha)
+    c.o.require(binding['baseline_sha256']==baseline_sha,'binding baseline drift')
+    observations=[]
+    for n in (1,2):
+        s14_wait_initialized()
+        c.timer_inactive()
+        rules_before=s14_city_rules(True)
+        runtime=c.runtime_readiness()
+        closure=c.capture(True)
+        now=time.monotonic_ns()
+        rec('observation-%d-raw.json'%n,dict(closure=closure,runtime=runtime,monotonic_ns=now))
+        validate_successor_transition(b['closure'],closure)
+        c.o.require(not Path('/proc',str(b['closure']['host']['host']['pid'])).exists(),'old Core remains')
+        receipt=verified_receipt(binding,closure['host'],b['closure']['host'])
+        c.o.require(c.runtime_readiness()==runtime,'runtime changed during observation')
+        rules_after=s14_city_rules(True)
+        c.o.require(rules_after==rules_before,'city rules changed during observation')
+        observations.append(dict(closure=closure,runtime=runtime,monotonic_ns=now,receipt=receipt,rules=rules_after))
+        rec('observation-%d.json'%n,observations[-1])
+        if n==1:time.sleep(5)
+    first,second=observations
+    c.o.require(5*10**9<=second['monotonic_ns']-first['monotonic_ns']<=900*10**9,'observation interval')
+    c.o.require(first['closure']==second['closure'] and first['runtime']==second['runtime']
+                and first['receipt']==second['receipt'] and first['rules']==second['rules'],'observations differ')
+    rec('pass.json',dict(ok=True,recovery_acceptance=True,
+                         dolt_outcome=second['closure']['scope']['dolt_members']['watchdog_image'],
+                         admitted_cache_keys=second['closure'].get('admitted_cache_keys'),
+                         shim=second['rules']['shim'],repointed_sinks=second['rules']['repointed_sinks']))
+    print(json.dumps(dict(ok=True,root=str(S14_RECOVERY_ROOT)),sort_keys=True))
+
+if len(sys.argv)==4 and sys.argv[1]=='recover' and __name__=='__main__':
+    s14_recover(sys.argv[2],sys.argv[3]);sys.exit(0)

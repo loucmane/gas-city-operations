@@ -1,0 +1,43 @@
+{
+  "schema": "ga-mb91.native-label-controls.v1",
+  "context": "Read-only coordinator native commands; not bounded phase cleanup receipts",
+  "command_prefix": "GIT_OPTIONAL_LOCKS=0 GC_HOME=/home/loucmane/gascity/home PATH=/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin /home/loucmane/gascity/bin/gc --city /home/loucmane/gascity/city bd count",
+  "suffix": [
+    "--include-infra",
+    "--json"
+  ],
+  "controls": [
+    {
+      "name": "missing_labels",
+      "label_any": "nudge:nudge-063038c78780,nudge:nudge-06ad3bea6923,nudge:nudge-0b0e828b066f,nudge:nudge-21af732d1c62,nudge:nudge-2345f4f889dd,nudge:nudge-2387a1053974,nudge:nudge-35da49a5f0ff,nudge:nudge-44ba38d02846,nudge:nudge-4505948a8aec,nudge:nudge-487ff8315440,nudge:nudge-5140a16e3f2a,nudge:nudge-5b28e42475cc,nudge:nudge-659e3d9b50d8,nudge:nudge-85bdd1274282,nudge:nudge-89e18e345a17,nudge:nudge-94fd69b95d92,nudge:nudge-a7bf2b5c04b0,nudge:nudge-a946fc32d33b,nudge:nudge-a9ca4218e940,nudge:nudge-ae81081d682a,nudge:nudge-b40e4aaa1f34,nudge:nudge-b4a516508b78,nudge:nudge-c2d33c944cad,nudge:nudge-f7eb4f765895,nudge:nudge-ff71067357ef",
+      "exit_code": 0,
+      "result": {
+        "count": 0,
+        "schema_version": 1
+      },
+      "tool_chunk_id": "e9513c"
+    },
+    {
+      "name": "positive_label",
+      "label_any": "nudge:nudge-137e9c5b58a7",
+      "exit_code": 0,
+      "result": {
+        "count": 1,
+        "schema_version": 1
+      },
+      "tool_chunk_id": "abeb43"
+    },
+    {
+      "name": "mixed_labels",
+      "label_any": "nudge:nudge-063038c78780,nudge:nudge-06ad3bea6923,nudge:nudge-0b0e828b066f,nudge:nudge-21af732d1c62,nudge:nudge-2345f4f889dd,nudge:nudge-2387a1053974,nudge:nudge-35da49a5f0ff,nudge:nudge-44ba38d02846,nudge:nudge-4505948a8aec,nudge:nudge-487ff8315440,nudge:nudge-5140a16e3f2a,nudge:nudge-5b28e42475cc,nudge:nudge-659e3d9b50d8,nudge:nudge-85bdd1274282,nudge:nudge-89e18e345a17,nudge:nudge-94fd69b95d92,nudge:nudge-a7bf2b5c04b0,nudge:nudge-a946fc32d33b,nudge:nudge-a9ca4218e940,nudge:nudge-ae81081d682a,nudge:nudge-b40e4aaa1f34,nudge:nudge-b4a516508b78,nudge:nudge-c2d33c944cad,nudge:nudge-f7eb4f765895,nudge:nudge-ff71067357ef,nudge:nudge-137e9c5b58a7",
+      "exit_code": 0,
+      "result": {
+        "count": 1,
+        "schema_version": 1
+      },
+      "tool_chunk_id": "f4b6ce"
+    }
+  ],
+  "worker_release": false,
+  "live_mutation": false
+}

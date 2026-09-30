@@ -1,0 +1,32 @@
+{
+  "acceptance_criteria": "Exact task and workspace claim plus fresh capability release. Preserved seed digests and original workspace non-interference. Integrated RED and GREEN fixtures exercise real adapter sequencing with fake external operations and clocks for every review finding. Existing slots and image regressions remain byte-identical and green. Uncommitted candidate and complete evidence returned for two independent reviews. Expected single worker is contained and closed with exact baseline restoration and zero residue. No product activation or provider parity claimed.",
+  "comment_count": 0,
+  "created_at": "2026-09-29T15:33:55Z",
+  "created_by": "loucmane",
+  "dependencies": [
+    {
+      "dependency_type": "relates-to",
+      "id": "ga-e0t1"
+    },
+    {
+      "dependency_type": "relates-to",
+      "id": "ga-9olv"
+    }
+  ],
+  "dependency_count": 2,
+  "dependent_count": 0,
+  "description": "One fresh candidate-only Astra Gas City worker. Preserve ga-9olv and its consumed window. Start from exact signed base 801a5a9d5b0d72f665c949a86573357f02c9f1ac in a fresh candidate worktree. Read the frozen ga-9olv 52-file candidate as immutable input and produce only the same finite product inventory with consolidated review repairs. No new design round. Repair executable staged and runtime binding, actual aggregate deadlines, failed-window restoration, pre-close tmux baseline, fallback claim continuity, CLOSE nudge validation and H1 image byte binding. Reuse the proven reminder-stable startup and containment protocol without permission changes. No Claude inference or live C1 execution.",
+  "id": "ga-rq5n",
+  "issue_type": "task",
+  "labels": [
+    "c1",
+    "gas-city",
+    "review-repair"
+  ],
+  "notes": "WORKTREE preparation PASS at signed package 7d49a281672af42f55db024ff589fd7d82abab07 New isolated candidate workspace is clean at exact signed base 801a5a9d5b0d72f665c949a86573357f02c9f1ac Two exact local rules installed and global rules unchanged Both independent Astra reviews passed No worker launched and no task route claim or rig change occurred The consumed job and its outcome remain preserved PREP and launch review still required\nUninstalled PREP PASS at exact signed candidate 46d6824b60b4366382d6b6720012b0368f56ee28 after two independent Astra reviews Job ga-rq5n-prep-r1 completed once with exit zero and inactive unit Three typed profiles preserved with only revision and receipt digest changed Nothing installed or launched No task claim route or rig transition occurred Complete worker window and fresh reviews remain required The full original goal stays active",
+  "owner": "lookmanbenali@gmail.com",
+  "priority": 2,
+  "status": "open",
+  "title": "Repair executable C1 binding budgets and recovery from ga-9olv reviews",
+  "updated_at": "2026-09-29T16:09:17Z"
+}

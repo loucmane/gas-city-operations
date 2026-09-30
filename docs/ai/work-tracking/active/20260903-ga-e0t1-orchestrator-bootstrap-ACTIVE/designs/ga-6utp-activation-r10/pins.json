@@ -1,0 +1,58 @@
+{
+ "candidate_path": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin",
+ "candidate_root": "/home/loucmane/gas-city-ops-candidate-worktrees",
+ "city": "/home/loucmane/gascity/city",
+ "city_before": "4f7e170fc0503841576c0bb26c33ee5d0aab4e796821f3b1cd874ecef733c591",
+ "claude_json": "/home/loucmane/.claude.json",
+ "env": {
+  "BD_DISABLE_METRICS": "1",
+  "GC_HOME": "/home/loucmane/gascity/home",
+  "GIT_OPTIONAL_LOCKS": "0",
+  "HOME": "/home/loucmane",
+  "LANG": "C",
+  "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
+ },
+ "executor": {
+  "activate.py": "dead6c80fc5661ccb2d04a88099fe5d567c56fd3653645925e75fd7419f31f19",
+  "candidate_git.py": "d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe",
+  "intake.py": "54b990ad612eb273a02b900f136b7818a558b799cfca4c1116049225812cc19f",
+  "preroute.py": "d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6"
+ },
+ "fragment_before": "cba75f87a373a078c11832609c274bd7eaa592b435545ef203ba6211f4f86725",
+ "gc": "/home/loucmane/gascity/bin/gc",
+ "inputs": {
+  "agent.toml": "ba01f223e724e904ae276fe6237c051e34c13de4f5a4d5d631cf5cb8979edcc4",
+  "operations-candidate-prompt.template.md": "9c27418c6354cb4e983ceaba6811a52bd03b8cc1b144da5fc157939616ffbcbf",
+  "rig-permissions.json": "1225b7c57ae69fd068ea35117431ae05e09ee493c01bc11a46ac45b77b950c8e"
+ },
+ "managed_mcp": "/etc/claude-code/managed-mcp.json",
+ "managed_settings": "/etc/claude-code/managed-settings.json",
+ "ops": "/home/loucmane/gas-city-ops",
+ "prompt_source": "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/operations-candidate-prompt.template.md",
+ "python_toolchain": {
+  "executable": {
+   "path": "/usr/bin/python3.12",
+   "resolved_path": "/usr/bin/python3.12",
+   "sha256": "e50d468e8b0adfb05733f5b87b3cff34829c4a8c1aea50c865aa8bdfe4bb150f",
+   "version": "Python 3.12.3",
+   "version_args": [
+    "--version"
+   ]
+  },
+  "name": "python"
+ },
+ "registry_before": "d22cf4c14650e465b6b530e17d16b601079aa1e7dd52b1b76403cc58299c8adf",
+ "renderer_sha": "bb97950c604d4bdb0e1adc35d3559e9b3a93a555080bdfca9008423d4d1c7ebe",
+ "sandbox_writable": [
+  "/tmp",
+  "/var/tmp",
+  "/dev/shm"
+ ],
+ "template": "/home/loucmane/gas-city-template",
+ "template_before": "cfd353f30f465cdf67bbd41fab48812fe5b9617e",
+ "template_changed": [],
+ "template_commit": "cfd353f30f465cdf67bbd41fab48812fe5b9617e",
+ "template_status": "?? deploy/\n?? gas_city_template.egg-info/\n",
+ "uid": 1000,
+ "user_slice": "/sys/fs/cgroup/user.slice/user-1000.slice"
+}

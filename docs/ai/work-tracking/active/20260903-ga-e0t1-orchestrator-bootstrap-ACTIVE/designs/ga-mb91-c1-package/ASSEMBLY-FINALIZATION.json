@@ -1,0 +1,174 @@
+{
+  "changes": {
+    "bind-task.py": {
+      "after": "a1a402fa333aae0d4e7c0d2cf806a7bfd153d562e9972ede1a61f9db4dfc058b",
+      "before": "ff1e0ef26422d2f7a633d27dd1df2a684e932722fcc6b09bb6cba54360e87bd4"
+    },
+    "candidate-inspect.py": {
+      "after": "042c3056809f5477883378dcc39c6b41b24d679dda629468a7ea5fa8bad129c6",
+      "before": "17acb0e8c4e69cdd97e68d5b4c4e98cb89ca045f2d8943c7df245f8e0618c135"
+    },
+    "close-r11.py": {
+      "after": "4326f5b694ea33b35fb7d816b433ba9e68e8cb49dab38f001092d17566841354",
+      "before": "0783e4702308fb4f44b5b275c45c2dd97b174a76ad6bbea10aedcf421a8b150d"
+    },
+    "hold-r11.py": {
+      "after": "4eb272f0ba890a0551579cf07ac39dfb5d580be4cb786744393d5508a913200b",
+      "before": "2e9b9550c1072ff79dba799a4c0e0607e241e93f644e31f0a838d2b97dfb2869"
+    },
+    "observe-integrity-r11.py": {
+      "after": "a17f3d75e24b01692450514cec0021787f87054d30f1bb756d2d08d57cc7606e",
+      "before": "295ebced64c334ac78aa4d9655b259c4929067e2852a3aaece192a89e66161f4"
+    },
+    "observe-terminal-r11.py": {
+      "after": "493199b607503ab28e028d56139fd174af665d11d721963e1955dd7690835cc3",
+      "before": "db923f79215e4fe5d60b44922b3275dfd8bec51db4cb8456838e4489c376720f"
+    },
+    "operator/ADMIT.sh": {
+      "after": "d25d30d68eb58d9ec6d08290a5066f6f533d5b1bb4de3dde5c221de5500a1188",
+      "before": "49a74caed9d8df11af75f2c2e9c995ee8ca9d6bfd072cf92ebd0477778fa6f92"
+    },
+    "operator/BIND.sh": {
+      "after": "5262e0abb0b595490b269eddf2ef16d06a89241c46a4ad3c38500e538ac0f537",
+      "before": "54290a286c2c49478f788565280b3c6ecd8dbd687a69f9f63e05e8bf23eb700c"
+    },
+    "operator/CLOSE-1.sh": {
+      "after": "1608ab71d3a2c18eb78c3c213c4f58a8093dc9a0bd0ac72727a133238a404eab",
+      "before": "84d3266ac01990eaa2f9f674918d581fdf688c9d3771e23f331e443bc725fb31"
+    },
+    "operator/CLOSE-2.sh": {
+      "after": "daa75528671b868b63c8954ef7f7b46d30c0a0da7ba67156d487ccf689b7cb6d",
+      "before": "c49b31f12aa8bcf9342fd0c2e24956aeebe32ec1dddf412459aab8931dd3d65d"
+    },
+    "operator/CONTAIN-1.sh": {
+      "after": "17ea81e33bb3bd22ef9cfd8ecdf2aafabf71a7696f474459488b71fcdd89aedb",
+      "before": "850d8e6764be6f16b1d4907b897fc10fc852557f29b29b43450d4164fa7abfdd"
+    },
+    "operator/CONTAIN-2.sh": {
+      "after": "0635a5cc8b079fc87fdc655f6d4351b05390a6cc5e90e4ec6e04adc4fb96a8a9",
+      "before": "981a5abd8ce55cd5fa2f6b18de4a9fe5f7fe2e6bb696524d2f9def427613ce14"
+    },
+    "operator/HOLD-1.sh": {
+      "after": "0641fb60b6548739e8ca31d686d500ea620150171f60951b0749a00c21e88cc9",
+      "before": "804e58a9fab712e9404ef477e72439a6d90fd1f4bd8ed7c25d781233cf150384"
+    },
+    "operator/HOLD-2.sh": {
+      "after": "e7ec0f1632e03d4db5668e465aadaf7bbd09e5f99bd97ba38194ba049936bd37",
+      "before": "e49d3c7535925d71c52ad18032fcabbb4ce7cca912bd67808945648603e2a500"
+    },
+    "operator/INSPECT.sh": {
+      "after": "37c163e94be70d1440c71d86678b6f47cceb0e0315ec83216ba432b4b8fada69",
+      "before": "d1f04a6bfa1cc37f856586f28b14ac7e24e562d8bef8110fdc4f0b629f323b6a"
+    },
+    "operator/OBSERVE.sh": {
+      "after": "949812d5460690ba80cc13141f7731abb0c498838dad87a27baba464b8bd6dab",
+      "before": "a18971c393931c2e6dcfe264b4f5137a47460c591f886cc9edf947952fed3baf"
+    },
+    "operator/PREFLIGHT.sh": {
+      "after": "b4a570a8b23c237ba6b85d936904d761d8c4ed01fb0f5c59d559033a80f4f29b",
+      "before": "6759e6a28ee0d2df5046581db630482933a2df62148341fe6c2d3e797d5eb7d6"
+    },
+    "operator/RELEASE.sh": {
+      "after": "93878b769d0e9885b938aeeba34a6eb29a29a2f04f502a19fbff7340f1c1e59b",
+      "before": "eb1713777aab81c29fe3de3f47acabc9753ffe9f4be52c7f5877c459a8c68e57"
+    },
+    "operator/RESTORE.sh": {
+      "after": "04ade5670474f48bcb584879012cff4eb1da03c9a799fe02f2262b96901b034d",
+      "before": "f2bd1a93c8e8255cb610b67ea92711ddb94cc62648c07eeb6dbf63d66d4f8f51"
+    },
+    "operator/RESUME.sh": {
+      "after": "8742f7c939c61eb388e8e539d38125370fedb46c74aa5a03423c3b9cc00f6e9f",
+      "before": "5b5ce00b669176ae68c353d0339d8b2fd06741c194348c7353b29c2fb67500f6"
+    },
+    "operator/ROUTE.sh": {
+      "after": "2453052cc8971dd5755a70740d3610541ee27bfb42024de7de873fc1ea3e9459",
+      "before": "c9fdd26287e0511e012342c875e4f4c824ef7b436b6065ba0db1d28e7ddc043b"
+    },
+    "operator/STAGE.sh": {
+      "after": "ab92cc664669340195db4a602bcc443af6ddd4591cc97e8fcec18f2ffc19c544",
+      "before": "ffb3c530e79a1f3269722b2feeae50da94baa3b1357dae9301bb7c893cce84dc"
+    },
+    "operator/TERMINAL.sh": {
+      "after": "8b6b3ecf2081a7156b1617417bb9ab1b2b9dbf955c75c82617d2054474cdaac8",
+      "before": "780ad3b6fe4c8ea46a0a8754348441ac1a7d7751afaf36f5c42322fd17b43787"
+    },
+    "operator/WATCH-1.sh": {
+      "after": "2431fca738713edcdd23d2a2a66119ca9b3746cda3a6d5346fae27218267f47a",
+      "before": "5fef4a2ae6a75de9d6264daa7f1169b75f865f406571357ec281ee381489e9a1"
+    },
+    "operator/WATCH-10.sh": {
+      "after": "793d2cbba5fcb5d9b833d63cc049c72f3d6d64df54161f3364f4980b0a3e7d34",
+      "before": "086d778bcfbe3d139849d768be870a5c87f7022b63b0d0610e326ef4152d0e96"
+    },
+    "operator/WATCH-11.sh": {
+      "after": "559681471baa6f4eec11fd4bf03aa8e5aa30d2038c5a5c2da9a2c9f2d4b1811e",
+      "before": "aba31d581f3f67a0afe076c5165adaf894cae1b2f7f516ac557f39f46ad581d5"
+    },
+    "operator/WATCH-12.sh": {
+      "after": "c7807f0d71a8e3df38ef2a7dc71cfafa9477629d79772f8e9618d964aab013e0",
+      "before": "5595179ef04ca66e183613733b402b759425256ee5f38185a71216bda17a386f"
+    },
+    "operator/WATCH-2.sh": {
+      "after": "8b39b1c9a0126bee9be387922420fcb92e8c516a1afd6726025fe0a175be0544",
+      "before": "a0aed7e49888194f267dfde29b1575afa8d5a0f72bf4fb8790d4581a7a422093"
+    },
+    "operator/WATCH-3.sh": {
+      "after": "65a29997d183e1528e948c8626a8a89aad70bbf18c574cb0f4d1570a942ee5e1",
+      "before": "fbbb18e5f70cd7dbc686efe80d38fca453fe13ad26fc62fc68b32ff749dba44b"
+    },
+    "operator/WATCH-4.sh": {
+      "after": "d7577aa64157030a8c5e071c3218e99561d670cb48ad262081f335bc78e1e89f",
+      "before": "54343a1242f116f7c2a27c72508d4ab18ab443b6c21ef0f0b055971bcca4aadf"
+    },
+    "operator/WATCH-5.sh": {
+      "after": "e5c130015eb2ff5813abc994653cb6f0a312eee9eac8df4c8f834d3e250dc587",
+      "before": "a4208e4497541b8d558672e1e56d6f72d92f32032d94d4424142997546777317"
+    },
+    "operator/WATCH-6.sh": {
+      "after": "3d5382985199ff9f6cb99380b242cca8ec8a26161eaf6277169ba774e087a3c2",
+      "before": "331f669ec0b6a3f1d2d5c0b9681ebf2b232adec76fdbade6354b123b634ddb42"
+    },
+    "operator/WATCH-7.sh": {
+      "after": "a8a0a36b50ef0f040fee019bd10db3896c827bce6018ac84e02fa5b668ea441e",
+      "before": "ac2770d0b9af4387e4db96e4d7ab07875e7e45bb6b7b99fb4409cf21d7350c1e"
+    },
+    "operator/WATCH-8.sh": {
+      "after": "50052045a5bd7bb7a8a9344ec5613d78e55f2fba2b3dbd9b623db524d114b2fb",
+      "before": "cd9e2c69b3aa9920401349e411a1200444933a40dca99ed4d09b8e42bb1f6aa0"
+    },
+    "operator/WATCH-9.sh": {
+      "after": "c04a68f9c652047b3a32c6e99ed07839f0785243af56f1b43b70a84827278689",
+      "before": "6b69a0f4145ca2cd8cac996db824a3f7eec160c2a0bb46efc23c09e60347b651"
+    },
+    "restore-admission-r3.py": {
+      "after": "820c7696c66fff8de257fa437fa0383d5eace3a56de348e806faf866832edee5",
+      "before": "968c93f36a90ee6cb8c9012d4ea97fbc4853362f2467709b83ef7982f78aeee0"
+    },
+    "route-task.py": {
+      "after": "1a2eaca35d70b6b8a9a463d07f597fbf2b68f33aaa179cf1392da030efc9de02",
+      "before": "d120b2de081505b86d7ee84a5318800e31585c35d692307d4ecc84b697939d1f"
+    },
+    "startup-release.py": {
+      "after": "a0957f09d81ac8fc39f507cd6562f9960ab5780ae544e557bd442221e43a4ea9",
+      "before": "c198c6f1068d8a9e87e109ea9b6f516a957bf798866e7f62b440ddc1e24d1ada"
+    },
+    "watch-r11.py": {
+      "after": "5773c13c089fd4406cbabdab912a681a624b79c252dec6be49e7f79628534124",
+      "before": "be783fcbbb56dfd98a9dfdf4e916e11471ac3ed43968f16d73f8596549d3bc82"
+    },
+    "window-base.py": {
+      "after": "8cda13e81dd67ac9654eba96d7dc4630d350e25a6b0b684cf8bb2f274f192e28",
+      "before": "674050dedcba07da1cc4dea137cf8ebd6d8ac96b06fbba62a4cdf4d0fd34c635"
+    },
+    "window-obs-r11.py": {
+      "after": "4f0ff006ee4ec3231fb13fb51fbdd2644494ba6ecbf23a7551c2a9358b7d020d",
+      "before": "6e3b6fb3c63a54a99c1d8ffd69013272e042dd044b432aab2fdc285dafc58ce7"
+    },
+    "window.py": {
+      "after": "82890ed353c7b7e407d610c26d47fa84952574930fd644122d95f045d13f2d4b",
+      "before": "201fd493768e666bcfe1b70097c8f6afb8b37f46146f0cdee41b9bdffd924dd9"
+    }
+  },
+  "executed": false,
+  "reason": "Final queue-file owner/group/link validation before review"
+}

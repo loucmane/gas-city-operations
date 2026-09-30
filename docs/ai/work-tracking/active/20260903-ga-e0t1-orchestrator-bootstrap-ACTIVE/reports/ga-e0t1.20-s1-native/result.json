@@ -1,0 +1,12 @@
+{
+  "exact_agent_inventory": 114,
+  "installed": false,
+  "live_configuration_unchanged": true,
+  "mcp_disabled_in_configuration": true,
+  "ok": true,
+  "only_target": "gascity/codex",
+  "resume_same_single_worktree": true,
+  "revision_after": "9b6e94d8ecba8baa9b550fbb19a62891c0cf8edb033520adbbe964c0eff3999f",
+  "source_repair": false,
+  "worker_launched": false
+}

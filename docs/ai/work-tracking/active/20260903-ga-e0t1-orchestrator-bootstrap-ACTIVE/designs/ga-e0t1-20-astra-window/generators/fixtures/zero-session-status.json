@@ -1,0 +1,209 @@
+{
+  "schema_version": "1",
+  "ok": true,
+  "city_name": "city",
+  "workspace": {
+    "name": "city",
+    "path": "/home/loucmane/gascity/city"
+  },
+  "city_path": "/home/loucmane/gascity/city",
+  "controller": {
+    "running": true,
+    "pid": 2800348,
+    "mode": "supervisor"
+  },
+  "running": true,
+  "suspended": true,
+  "health": {
+    "usable": false,
+    "degraded": true,
+    "signals": [
+      "city_suspended",
+      "no_agents_running"
+    ]
+  },
+  "beads": {
+    "beads_store": "NativeDoltStore",
+    "native_store_eligible": true
+  },
+  "agents": [
+    {
+      "name": "bd.dog-1",
+      "qualified_name": "bd.dog-1",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "bd.dog-2",
+      "qualified_name": "bd.dog-2",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "control-dispatcher",
+      "qualified_name": "core.control-dispatcher",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "control-dispatcher",
+      "qualified_name": "gas-city-template/core.control-dispatcher",
+      "scope": "rig",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "control-dispatcher",
+      "qualified_name": "gascity/core.control-dispatcher",
+      "scope": "rig",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "control-dispatcher",
+      "qualified_name": "blog/core.control-dispatcher",
+      "scope": "rig",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "control-dispatcher",
+      "qualified_name": "hpfetcher/core.control-dispatcher",
+      "scope": "rig",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "attention-fable",
+      "qualified_name": "attention-fable",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "attention-terra",
+      "qualified_name": "attention-terra",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "builder-1",
+      "qualified_name": "builder-1",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "builder-2",
+      "qualified_name": "builder-2",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "evidence-reviewer",
+      "qualified_name": "evidence-reviewer",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "operations-candidate-worker",
+      "qualified_name": "gascity/operations-candidate-worker",
+      "scope": "rig",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "orchestrator",
+      "qualified_name": "orchestrator",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "reviewer",
+      "qualified_name": "reviewer",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "sweeper",
+      "qualified_name": "sweeper",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "watch-officer",
+      "qualified_name": "watch-officer",
+      "scope": "city",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "implementation-worker",
+      "qualified_name": "gas-city-template/gc.implementation-worker",
+      "scope": "rig",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "codex",
+      "qualified_name": "gas-city-template/codex",
+      "scope": "rig",
+      "running": false,
+      "suspended": true
+    },
+    {
+      "name": "codex",
+      "qualified_name": "gascity/codex",
+      "scope": "rig",
+      "running": false,
+      "suspended": false
+    }
+  ],
+  "rigs": [
+    {
+      "name": "gas-city-template",
+      "path": "/home/loucmane/gas-city-native",
+      "prefix": "gct",
+      "suspended": true
+    },
+    {
+      "name": "gascity",
+      "path": "/home/loucmane/gascity/city/rigs/gascity",
+      "prefix": "ga",
+      "suspended": false
+    },
+    {
+      "name": "blog",
+      "path": "/home/loucmane/dev/blog",
+      "prefix": "blog",
+      "suspended": true
+    },
+    {
+      "name": "hpfetcher",
+      "path": "/home/loucmane/dev/hpfetcher-gc-main",
+      "prefix": "hpf",
+      "suspended": true
+    }
+  ],
+  "summary": {
+    "total_agents": 20,
+    "running_agents": 0,
+    "store_health": {
+      "path": "/home/loucmane/gascity/city/.beads/dolt",
+      "size_bytes": 1665933458,
+      "live_rows": 2648,
+      "ratio_mb_per_row": 0.6291289493957704,
+      "warning": false,
+      "threshold_mb_per_row": 1
+    }
+  }
+}

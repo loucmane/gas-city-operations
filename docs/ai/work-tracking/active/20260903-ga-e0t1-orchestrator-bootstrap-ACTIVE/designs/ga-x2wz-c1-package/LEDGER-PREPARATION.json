@@ -1,0 +1,24 @@
+{
+  "schema": "ga-x2wz.preparation.v1",
+  "task": {
+    "id": "ga-x2wz",
+    "title": "Build executable C1 handover window package",
+    "status": "open",
+    "assignee": null,
+    "metadata": null,
+    "description": "Candidate only implementation of the accepted C1 d11 window contract in Operations. Reuse exact gct-e8ex s5 predecessor and accepted image r3 and slots without another design cycle. Produce deterministic package assembly, generated bounded executors and isolated regression fixtures. Use one fresh Gas City Astra high worker with reviewed startup probes and acknowledged release. No C1 launch or changes to Template tasks, live settings, rigs or protected projects by the worker. No signing, push, delegation or activation by the worker. Preserve all historical packages and evidence.",
+    "acceptance_criteria": "Exact signed Operations base and scope bound before dispatch. Proven startup capability and single claim before any edit. Deterministic generation with asserted predecessor digests and replacement counts. Positive and negative offline tests cover every accepted C1 safety invariant including controller cgroup quiet points, bounded live census, tmux jobs, slot arbitration, close self admission, restore deadlines and create only evidence. Two independent read only reviews pass on the exact candidate. All worker files inventoried, unrelated inputs unchanged, supported drain and suspension with zero residue. Candidate only closure does not prove C1 execution or provider parity.",
+    "dependencies": [
+      {
+        "id": "ga-e0t1",
+        "dependency_type": "relates-to"
+      }
+    ],
+    "dependents": []
+  },
+  "base": "bf369ae41cf512f5f5563f842cadff394457da4c",
+  "reverse_relation_verified_via": "bd dep list ga-e0t1 --direction up --json",
+  "worker_launched": false,
+  "workspace_created": false,
+  "executable_write_refused_before_mutation": true
+}

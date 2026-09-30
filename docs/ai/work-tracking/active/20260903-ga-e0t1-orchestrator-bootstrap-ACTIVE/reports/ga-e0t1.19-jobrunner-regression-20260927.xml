@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?><testsuites><testsuite name="pytest" errors="0" failures="3" skipped="0" tests="54" time="0.377" timestamp="2026-09-27T19:36:39.279091" hostname="spaceship"><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Admission" name="test_file_name_must_match_job_id" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Admission" name="test_git_state_refusals" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Admission" name="test_good_job_is_admitted" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Admission" name="test_links_and_fifos_refused_without_blocking" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Admission" name="test_same_wrapper_at_same_commit_never_runs_twice" time="0.023" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Admission" name="test_shape_refusals" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Admission" name="test_working_wrapper_must_match_committed_blob" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Admission" name="test_wrapper_symlink_refused" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Reviews" name="test_any_filed_hold_refuses" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Reviews" name="test_coordinator_transcript_is_refused" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Reviews" name="test_pass_text_outside_the_handback_does_not_count" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Reviews" name="test_prompt_binding" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Reviews" name="test_same_review_twice_or_outside_the_directory" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Reviews" name="test_transcript_identity" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_admitted_job_records_started_before_launch_and_runs_exact_argv" time="0.016" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_directory_in_queue_is_moved_aside" time="0.005" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_failure_halts_every_later_job" time="0.016" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_launch_error_halts" time="0.016" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_missing_user_bus_leaves_the_job_queued" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_more_than_one_queued_job_runs_nothing" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_pause_during_admission_holds_the_job" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_pause_holds_the_queue" time="0.016" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_refusal_is_recorded_and_dequeued_without_launch" time="0.006" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_replayed_job_id_is_refused" time="0.019" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Cycle" name="test_unfinished_job_blocks_until_resolved" time="0.016" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_a_non_object_message_is_a_refusal_not_a_crash" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_an_active_or_unreadable_earlier_unit_blocks_the_next_job" time="0.016" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_final_record_carries_the_unit_state_after" time="0.016" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_heartbeat_never_writes_through_a_hardlink" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_log_skips_linked_files" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_newline_only_splitting" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_resolution_needs_non_empty_strings" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_reviews_are_checked_before_any_host_git" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.R4" name="test_stage_directories_must_be_real" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Status" name="test_render_shows_state_halt_queue_and_jobs" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.Identity" name="test_only_the_runner_unit_passes" time="0.000" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.RealGit" name="test_helpers_against_a_temporary_repository" time="0.024" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.LiveShape" name="test_configuration" time="0.000" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.LiveShape" name="test_installer_pins_this_runner_gcjobs_and_the_p6_launcher" time="0.001" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.LiveShape" name="test_real_worktree_head_verifies_against_the_operator_key" time="0.011" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_jobrunner.LiveShape" name="test_start_wrapper_pins_this_runner_and_the_p6_launcher" time="0.000" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_byte_digest_and_envelope_shape_refuse" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_complete_numbering_cannot_hide_a_second_turn_or_task" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_filename_links_duplicate_keys_and_non_object_payload_refuse" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_native_codex_and_mixed_provider_pairs_are_admitted" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_native_hold_is_parsed_but_refuses_the_commit_even_when_not_cited" time="0.002" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_native_identity_turn_and_completion_guards" time="0.006" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_same_codex_reviewer_twice_is_not_independent" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_tool_output_or_commentary_cannot_supply_a_verdict" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_unsupported_effort_duplicate_attestation_and_invalid_unicode_refuse" time="0.003" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.CodexReviews" name="test_wrong_candidate_wrapper_and_request_attestation_refuse" time="0.004" /><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.Export" name="test_input_link_and_output_link_refuse_without_mutation" time="0.001"><failure message="jobrunner.Refuse: frozen request cannot be opened safely: /tmp/tmprzvvxofw/request.md: [Errno 40] Too many levels of symbolic links: '/tmp/tmprzvvxofw/request.md'">def read_owned(path, uid, limit, name):
+        """Open without following links or blocking on a FIFO, then check the opened file itself."""
+        try:
+&gt;           fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+E           OSError: [Errno 40] Too many levels of symbolic links: '/tmp/tmprzvvxofw/request.md'
+
+jobrunner.py:165: OSError
+
+During handling of the above exception, another exception occurred:
+
+self = &lt;test_codex_reviews.Export testMethod=test_input_link_and_output_link_refuse_without_mutation&gt;
+
+    def test_input_link_and_output_link_refuse_without_mutation(self):
+        target = self.root / 'request-original.md'
+        self.request.rename(target)
+        self.request.symlink_to(target)
+        with self.assertRaises(J.Refuse):
+&gt;           self.run_export()
+
+test_codex_reviews.py:218:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
+test_codex_reviews.py:194: in run_export
+    return E.export(str(self.request), str(self.rollout), str(self.output), COMMIT)
+export_codex_review.py:15: in export
+    request_bytes = J.read_owned(request_path, os.getuid(), J.JOB_LIMIT, 'frozen request')
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
+
+    def read_owned(path, uid, limit, name):
+        """Open without following links or blocking on a FIFO, then check the opened file itself."""
+        try:
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
+        except OSError as exc:
+&gt;           raise Refuse('%s cannot be opened safely: %s: %s' % (name, path, exc))
+E           jobrunner.Refuse: frozen request cannot be opened safely: /tmp/tmprzvvxofw/request.md: [Errno 40] Too many levels of symbolic links: '/tmp/tmprzvvxofw/request.md'
+
+jobrunner.py:167: Refuse</failure></testcase><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.Export" name="test_invalid_provenance_creates_nothing" time="0.001"><failure message="jobrunner.Refuse: Codex reviewer did not attest the exact frozen request">self = &lt;test_codex_reviews.Export testMethod=test_invalid_provenance_creates_nothing&gt;
+
+    def test_invalid_provenance_creates_nothing(self):
+        self.request.write_text(self.value['request'] + 'changed')
+        with self.assertRaises(J.Refuse):
+&gt;           self.run_export()
+
+test_codex_reviews.py:210:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
+test_codex_reviews.py:194: in run_export
+    return E.export(str(self.request), str(self.rollout), str(self.output), COMMIT)
+export_codex_review.py:32: in export
+    J.codex_review(value, output, commit)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
+
+    def codex_review(value, path, commit):
+        """Validate a lossless native rollout plus a reviewer-attested frozen request.
+&#32;&#32;&#32;&#32;
+        Like the existing Claude transcript, this is operator-owned evidence, not a cryptographic
+        provider signature. Hashes bind bytes; native lineage and completion bind the actual report.
+        We do not decrypt the task, treat ciphertext as its plaintext, or synthesize Claude events.
+        Unknown/incomplete/multi-turn evidence is not admitted by this one-shot protocol.
+        """
+        if set(value) != CODEX_KEYS or value.get('schema') != CODEX_SCHEMA \
+                or not all(isinstance(value[k], str) for k in CODEX_KEYS):
+            raise Refuse('Codex review envelope has an invalid shape')
+        for key in ('request', 'rollout'):
+            try:
+                digest = hashlib.sha256(value[key].encode('utf-8')).hexdigest()
+            except UnicodeError as exc:
+                raise Refuse('Codex review is not UTF-8') from exc
+            if value[key + '_sha256'] != digest:
+                raise Refuse('Codex review %s digest differs' % key)
+        request = value['request']
+        if request.split('\n')[:1] != ['candidate=' + commit] or request.count('candidate=') != 1:
+            raise Refuse('Codex review request is not bound to its only candidate')
+        rows = [strict_json(line) for line in value['rollout'].splitlines() if line.strip()]
+        if not rows or any(not isinstance(r, dict) or type(r.get('ordinal')) is not int
+                           or r['ordinal'] != i or not isinstance(r.get('payload'), dict)
+                           for i, r in enumerate(rows)):
+            raise Refuse('Codex review has invalid or discontinuous native records')
+        if rows[0].get('type') != 'session_meta' \
+                or sum(r.get('type') == 'session_meta' for r in rows) != 1:
+            raise Refuse('Codex review must start with one native session identity')
+        meta = rows[0]['payload']
+        agent, parent = meta.get('id'), meta.get('parent_thread_id')
+        spawn = meta.get('source')
+        for key in ('subagent', 'thread_spawn'):
+            spawn = spawn.get(key) if isinstance(spawn, dict) else None
+        if not isinstance(spawn, dict) or not all(isinstance(s, str) and CODEX_ID.fullmatch(s)
+                                                for s in (agent, parent)) \
+                or agent == parent or spawn.get('parent_thread_id') != parent \
+                or type(spawn.get('depth')) is not int or spawn['depth'] &lt; 1 \
+                or meta.get('thread_source') != 'subagent' or meta.get('model_provider') != 'openai':
+            raise Refuse('Codex review is not a native spawned reviewer identity')
+        agent_path = spawn.get('agent_path')
+        if not isinstance(agent_path, str) or not re.fullmatch(r'/root(?:/[a-z0-9_]+)+', agent_path) \
+                or meta.get('agent_path', agent_path) != agent_path \
+                or os.path.basename(path) != 'codex-%s.json' % agent:
+            raise Refuse('Codex review filename or agent path differs from its native identity')
+&#32;&#32;&#32;&#32;
+        def one(kind, subtype=None, **fields):
+            matches = [(i, r['payload']) for i, r in enumerate(rows) if r.get('type') == kind
+                       and (subtype is None or r['payload'].get('type') == subtype)
+                       and all(r['payload'].get(k) == v for k, v in fields.items())]
+            if len(matches) != 1:
+                raise Refuse('Codex review needs exactly one %s %s' % (kind, subtype or ''))
+            return matches[0]
+&#32;&#32;&#32;&#32;
+        started_i, started = one('event_msg', 'task_started')
+        context_i, context = one('turn_context')
+        task_i, task = one('response_item', 'agent_message')
+        final_i, final = one('response_item', 'message', role='assistant', phase='final_answer')
+        complete_i, complete = one('event_msg', 'task_complete')
+        turn = started.get('turn_id')
+        if not isinstance(turn, str) or not CODEX_ID.fullmatch(turn) \
+                or not 0 &lt; started_i &lt; context_i &lt; task_i &lt; final_i &lt; complete_i == len(rows) - 1 \
+                or context.get('turn_id') != turn or complete.get('turn_id') != turn:
+            raise Refuse('Codex review has an incomplete or unordered native turn')
+        if context.get('model') != 'gpt-6-astra' \
+                or context.get('effort') not in ('low', 'medium', 'high', 'xhigh', 'max', 'ultra'):
+            raise Refuse('Codex review model or effort is not in the approved Astra profile')
+        for row in rows:
+            payload = row['payload']
+            if ('thread_id' in payload and payload['thread_id'] != agent) \
+                    or ('turn_id' in payload and payload['turn_id'] != turn):
+                raise Refuse('Codex review mixes native thread or turn identities')
+            passthrough = payload.get('internal_chat_message_metadata_passthrough', {})
+            if not isinstance(passthrough, dict) \
+                    or ('turn_id' in passthrough and passthrough['turn_id'] != turn):
+                raise Refuse('Codex review mixes message turn identities')
+            if row.get('type') == 'event_msg' and payload.get('type') in ('turn_aborted', 'task_failed'):
+                raise Refuse('Codex review contains an aborted task')
+            if row.get('type') == 'response_item' and payload.get('type') == 'message' \
+                    and payload.get('role') == 'user':
+                raise Refuse('Codex subagent review contains an additional user request')
+        if task.get('author') != agent_path.rsplit('/', 1)[0] or task.get('recipient') != agent_path \
+                or not isinstance(task.get('content'), list) or not task['content']:
+            raise Refuse('Codex review task does not match its native parent and recipient')
+        content = final.get('content')
+        if not isinstance(content, list) or not content \
+                or any(not isinstance(x, dict) or x.get('type') != 'output_text'
+                       or not isinstance(x.get('text'), str) for x in content):
+            raise Refuse('Codex review final answer is not native output text')
+        report = ''.join(x['text'] for x in content)
+        if not report.strip() or complete.get('last_agent_message') != report:
+            raise Refuse('Codex review completion does not confirm its final answer')
+        attestations = [line for line in report.split('\n') if line.startswith('Review-Request-SHA256:')]
+        if attestations != ['Review-Request-SHA256: ' + value['request_sha256']]:
+&gt;           raise Refuse('Codex reviewer did not attest the exact frozen request')
+E           jobrunner.Refuse: Codex reviewer did not attest the exact frozen request
+
+jobrunner.py:295: Refuse</failure></testcase><testcase classname="docs.ai.work-tracking.active.20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE.designs.gct-jobrunner.test_codex_reviews.Export" name="test_lossless_create_only_export_does_not_file_or_queue" time="0.006"><failure message="jobrunner.Refuse: cannot create a new native review envelope">def export(request_path, rollout_path, output_dir, commit):
+        if not J.HEX40.fullmatch(commit):
+            raise J.Refuse('candidate must be a full commit SHA')
+        request_bytes = J.read_owned(request_path, os.getuid(), J.JOB_LIMIT, 'frozen request')
+        rollout_bytes = J.read_owned(rollout_path, os.getuid(), J.TRANSCRIPT_LIMIT, 'native rollout')
+        try:
+            request, rollout = request_bytes.decode('utf-8'), rollout_bytes.decode('utf-8')
+            first = J.strict_json(rollout.split('\n')[0])
+            agent = first['payload']['id']
+        except (UnicodeError, KeyError, TypeError, J.Refuse, RecursionError) as exc:
+            raise J.Refuse('native rollout or request cannot be decoded') from exc
+        if not isinstance(agent, str) or not J.CODEX_ID.fullmatch(agent):
+            raise J.Refuse('native rollout does not name a Codex thread')
+        if not re.fullmatch(r'rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-' + re.escape(agent) + r'\.jsonl',
+                            os.path.basename(rollout_path)):
+            raise J.Refuse('native rollout filename differs from its thread identity')
+        output = os.path.join(output_dir, 'codex-%s.json' % agent)
+        value = {'schema': J.CODEX_SCHEMA, 'request': request, 'rollout': rollout,
+                 'request_sha256': hashlib.sha256(request_bytes).hexdigest(),
+                 'rollout_sha256': hashlib.sha256(rollout_bytes).hexdigest()}
+        J.codex_review(value, output, commit)
+        raw = (json.dumps(value, ensure_ascii=True, sort_keys=True) + '\n').encode('utf-8')
+        if len(raw) &gt; J.TRANSCRIPT_LIMIT:
+            raise J.Refuse('native review envelope exceeds the admission size limit')
+        # Validate before creating anything. Never overwrite an earlier export, even with identical bytes.
+        parent_fd = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            if os.fstat(parent_fd).st_uid != os.getuid():
+                raise J.Refuse('export directory must be owned by the operator')
+            try:
+&gt;               fd = os.open(os.path.basename(output), os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                             | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=parent_fd)
+E                            FileExistsError: [Errno 17] File exists: 'codex-11111111-1111-7111-8111-111111111111.json'
+
+export_codex_review.py:42: FileExistsError
+
+The above exception was the direct cause of the following exception:
+
+self = &lt;test_codex_reviews.Export testMethod=test_lossless_create_only_export_does_not_file_or_queue&gt;
+
+    def test_lossless_create_only_export_does_not_file_or_queue(self):
+        before = (self.request.read_bytes(), self.rollout.read_bytes())
+        path = self.run_export()
+        value = json.loads(Path(path).read_bytes())
+        self.assertEqual(value, self.value)
+        self.assertEqual(J.read_review(path, COMMIT, os.getuid())[0], 'codex:' + AGENT)
+        with self.assertRaises(J.Refuse):
+&gt;           self.run_export()
+
+test_codex_reviews.py:203:&#32;
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
+test_codex_reviews.py:194: in run_export
+    return E.export(str(self.request), str(self.rollout), str(self.output), COMMIT)
+_ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _ _&#32;
+
+    def export(request_path, rollout_path, output_dir, commit):
+        if not J.HEX40.fullmatch(commit):
+            raise J.Refuse('candidate must be a full commit SHA')
+        request_bytes = J.read_owned(request_path, os.getuid(), J.JOB_LIMIT, 'frozen request')
+        rollout_bytes = J.read_owned(rollout_path, os.getuid(), J.TRANSCRIPT_LIMIT, 'native rollout')
+        try:
+            request, rollout = request_bytes.decode('utf-8'), rollout_bytes.decode('utf-8')
+            first = J.strict_json(rollout.split('\n')[0])
+            agent = first['payload']['id']
+        except (UnicodeError, KeyError, TypeError, J.Refuse, RecursionError) as exc:
+            raise J.Refuse('native rollout or request cannot be decoded') from exc
+        if not isinstance(agent, str) or not J.CODEX_ID.fullmatch(agent):
+            raise J.Refuse('native rollout does not name a Codex thread')
+        if not re.fullmatch(r'rollout-\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2}-' + re.escape(agent) + r'\.jsonl',
+                            os.path.basename(rollout_path)):
+            raise J.Refuse('native rollout filename differs from its thread identity')
+        output = os.path.join(output_dir, 'codex-%s.json' % agent)
+        value = {'schema': J.CODEX_SCHEMA, 'request': request, 'rollout': rollout,
+                 'request_sha256': hashlib.sha256(request_bytes).hexdigest(),
+                 'rollout_sha256': hashlib.sha256(rollout_bytes).hexdigest()}
+        J.codex_review(value, output, commit)
+        raw = (json.dumps(value, ensure_ascii=True, sort_keys=True) + '\n').encode('utf-8')
+        if len(raw) &gt; J.TRANSCRIPT_LIMIT:
+            raise J.Refuse('native review envelope exceeds the admission size limit')
+        # Validate before creating anything. Never overwrite an earlier export, even with identical bytes.
+        parent_fd = os.open(output_dir, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+        try:
+            if os.fstat(parent_fd).st_uid != os.getuid():
+                raise J.Refuse('export directory must be owned by the operator')
+            try:
+                fd = os.open(os.path.basename(output), os.O_WRONLY | os.O_CREAT | os.O_EXCL
+                             | os.O_NOFOLLOW | os.O_CLOEXEC, 0o600, dir_fd=parent_fd)
+            except OSError as exc:
+&gt;               raise J.Refuse('cannot create a new native review envelope') from exc
+E               jobrunner.Refuse: cannot create a new native review envelope
+
+export_codex_review.py:45: Refuse</failure></testcase></testsuite></testsuites>

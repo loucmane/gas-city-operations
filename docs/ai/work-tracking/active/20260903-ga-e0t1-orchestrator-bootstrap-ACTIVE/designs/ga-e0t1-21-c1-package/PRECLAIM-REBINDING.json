@@ -1,0 +1,25 @@
+{
+  "predecessor": "ga-xyqo-c1-package/PRECLAIM.md",
+  "replacements": [
+    [
+      "ga-xyqo-c1-package",
+      "ga-e0t1-21-c1-package"
+    ],
+    [
+      "ga-xyqo",
+      "ga-e0t1.21"
+    ],
+    [
+      "codex/ga-e0t1-21-c1-package",
+      "codex/ga-e0t1.21-c1-package"
+    ],
+    [
+      "76e3ea1543e0bfb53c658b5d1d6dd9d205f6c73347f743bc9f0c890d5428560f",
+      "3c035276ee8315744f041d36068e5877ff58df64e3ba38a9b49688e89ae1909a"
+    ],
+    [
+      "Create evidence directories with mode 0700 and new evidence files with 0600.\nDo not chmod existing files or repair permissions. Keep task evidence beneath",
+      "Create evidence directories explicitly with mode 0700. Create each new evidence\nfile exclusively with os.open using O_WRONLY | O_CREAT | O_EXCL | O_NOFOLLOW |\nO_CLOEXEC and mode 0o600, then write and fsync through that descriptor. This is\nthe reviewed exclusive() pattern in worker-startup.py. Read back mode 0600,\nowner, single-link identity and content digest. Do not use Path.write_text,\nwrite_bytes or shell redirection to create evidence under an inherited umask.\nBefore pytest or a generator writes scratch evidence, set umask 0o077 in that\nbounded child process only; precreate its output logs and JUnit file at 0600.\nDo not change service configuration, global permissions or the parent process.\nUse fresh output names and basetemp on every test run. Preserve earlier attempts.\nDo not chmod existing files or repair permissions. Keep task evidence beneath"
+    ]
+  ]
+}

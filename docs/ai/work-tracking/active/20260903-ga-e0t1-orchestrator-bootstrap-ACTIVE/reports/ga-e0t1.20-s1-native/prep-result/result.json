@@ -1,0 +1,30 @@
+{
+  "changed_receipt_fields": [
+    "permission_revision",
+    "receipt_sha256"
+  ],
+  "city_after_sha256": "c228dc1e889e794bb1e09da30712789e5acc1f0032b7a76b277009e9c987a0f7",
+  "city_before_sha256": "bdcec2549fae330ed4aedc2c25563f1917e2bfd39e1caea4be443536f94c69b1",
+  "effective_order_names": [
+    "nudge-on-route"
+  ],
+  "effective_orders": 1,
+  "execution_authorized_by_this_result": false,
+  "installed": false,
+  "nudge_env": {
+    "GC_NUDGE_ON_ROUTE_LOOKBACK": "45m",
+    "GC_NUDGE_ON_ROUTE_RETENTION": "2h"
+  },
+  "ok": true,
+  "only_unsuspended_city_core_agent": "gascity/codex",
+  "preparation_only": true,
+  "prior_input_sha256": "7b8472f6cc339f261abc32b32e27b1d7f2a3c494ec24be021c396dbac2d9969d",
+  "receipt_after_sha256": "58f82e4b3de25a64f0c85aaa008531011d1da6219ab25e6525eeca87a501620a",
+  "receipt_before_sha256": "7185414ebade17a1fdd7d485564e85f6ad8d7e0230983c21bf917f1ed27fb0ba",
+  "receipt_self_sha256": "739969552cf7ffdd0ef4b42b93fdee97eca9eaed4cecc0c390e7986593706edc",
+  "revision_after": "9b6e94d8ecba8baa9b550fbb19a62891c0cf8edb033520adbbe964c0eff3999f",
+  "revision_before": "a61666b33528c1cb8b497f55d9c6b8b37df2ce74ed9853345de8d7321e18f58f",
+  "typed_profile_count": 3,
+  "worker_launched": false,
+  "workspace_capacity": 1
+}

@@ -1,0 +1,25 @@
+{
+  "argv": [
+    "/home/loucmane/gas-city-template/bin/gct-claude-candidate-worker",
+    "--permission-mode",
+    "dontAsk",
+    "--effort",
+    "max",
+    "--model",
+    "claude-opus-5-5",
+    "--settings",
+    "/home/loucmane/gas-city-template/templates/claude/candidate-control-policy.json",
+    "--add-dir",
+    "/home/loucmane/gas-city-ops-candidate-worktrees",
+    "--settings",
+    "/home/loucmane/gascity/city/.gc/settings.json"
+  ],
+  "environment": {
+    "PATH": "/home/loucmane/gascity/bin:/usr/local/bin:/usr/bin:/bin"
+  },
+  "permission_revision": "a61666b33528c1cb8b497f55d9c6b8b37df2ce74ed9853345de8d7321e18f58f",
+  "profile": "gascity/operations-candidate-worker",
+  "schema": "gct.configuration-composition-observation.v1",
+  "task_observed": false,
+  "worker_launched": false
+}

@@ -3,7 +3,7 @@ session_id: 2026-09-03-001
 work_context: ga-e0t1-orchestrator-bootstrap
 handler_target: .
 bead_ids: [ga-e0t1]
-attached_bead_ids: [ga-t469, ga-fjoi, ga-fc6p, ga-e0t1.5, ga-e0t1.6, ga-e0t1.8, ga-e0t1.11, ga-ecwh.1, ga-e0t1.12, ga-e0t1.13, ga-fsfg, ga-4p6f]
+attached_bead_ids: [ga-t469, ga-fjoi, ga-fc6p, ga-e0t1.5, ga-e0t1.6, ga-e0t1.8, ga-e0t1.11, ga-ecwh.1, ga-e0t1.12, ga-e0t1.13, ga-fsfg, ga-4p6f, ga-e0t1.19]
 branch_policy: codex/ga-e0t1-orchestrator-bootstrap
 evidence_summary:
   - docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE
@@ -503,3 +503,238 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
 
 - New approved source-only ga-tmgr repair removes only unsupported --preserve-fds 2, preserving anonymous FDs3/4 and every confinement/transaction check. Existing exact-token argv owner RED then GREEN; owning package115 tests/137 subtests and vet PASS. No runtime/build/delivery; R3/R4 remain consumed failures.
 - /tmp/ga-tmgr-bwrap-fd-compatibility-20260911/executor/REPORT.md and source.sha256 bind two-file candidate, preservation and independent-review boundary. Source manifest SHA256 a4b84ae6491727c6a2ee7e360346835e8ed77f4c7a95b9d2db826990d7de41eb. Full objective unchanged; ga-oz9e deferred.
+
+## Current recovery checkpoint — 2026-09-28 11:08 CEST
+
+- Continue the same full provider-independent execution and handover goal. Steps
+  1–3 remain complete and step 4 remains in progress. No provider-parity or C1
+  product completion is claimed. Deferred ga-oz9e remains nonblocking.
+- ga-e0t1.20 r3 staged successfully, then rig resume applied but observation
+  refused Core's omitted zero active_sessions field. City resume never ran and
+  no worker launched. Supported HOLD and CLOSE restored full suspension and
+  proved zero residue. Original failure and all consumed roots are preserved.
+- Operator-authorized recovery-only successor 524f1a3da16b60cc1a036f9e0f681cd3157b2d25
+  earned two independent Astra SOURCE_PASS reviews after preserving R1 HOLDs.
+  ADMIT, RESTORE and TERMINAL passed through the existing host runner. Baseline
+  city and receipt, full native integrity, stable service epochs and read-only
+  cache protection are verified. Terminal result SHA-256 is
+  dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8.
+- Evidence: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/RECOVERY-ONLY-R1.md.
+  Existing Bead and supported session/tracker/handoff logs record the result.
+- Next deliverable: reviewed operational zero/nonzero status-schema correction
+  with real Core fixtures before a fresh worker window. No worker retry occurred
+  or is admitted by this recovery-only package. Preserve the original task,
+  route, worktree and completed WORKTREE/PREP/BIND/ROUTE without replay. Runner
+  remains halted and all rigs suspended. Product implementation remains with
+  the Gas City worker, not a coordinator fallback.
+
+## Zero-session parser source checkpoint — 2026-09-28 11:29 CEST
+
+- The real failed status and independent census are preserved as portable
+  fixtures. Missing active_sessions is accepted only with independently proven
+  zero active sessions and no running worker. Present malformed values and
+  inconsistent or extra sessions still refuse. Worker identity checks remain.
+- The historical recovery assembler now reads its exact signed predecessor
+  rather than rebuilding historical inputs from current authoring source.
+  All 58 completed recovery outputs are proven byte-identical. Live wrappers
+  and the C1 product files are unchanged; the runner terminal latch stays set.
+- All 444 operational regression tests pass. Initial RED and intermediate
+  assertion and historical-input failures remain preserved. Full adapter/meta
+  verification is running; exact-head independent Astra reviews are next.
+- Source report: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/ZERO-SESSION-R1.md.
+  No launch, fresh-window admission, provider parity or goal completion follows
+  from source tests. The recovery-only grant still contains no worker retry.
+
+## Zero-session correction accepted — 2026-09-28 CEST
+
+- Signed source 04408abe73d844a5731724fd1561a1e264865197 received two independent
+  Astra SOURCE_PASS verdicts with no findings. The operational corpus has
+  444 passes. The full adapter/meta corpus is accounted for across preserved
+  runs: 3983 unique tests, 3962 passes, 21 existing conditional skips and no
+  outstanding failures. Sandbox-bound packaging and MCP failures passed in
+  the correctly scoped host test context without any source change.
+- ZERO-SESSION-R1.md binds the exact review envelopes, JUnit hashes, interrupted
+  attempts and temporary-fixture disposition. No failed evidence was erased.
+  The recovery terminal latch and empty queue remain; all rigs stay suspended.
+- Next deliverable is a fresh independently reviewed worker-window package
+  consuming the completed r3 restoration, not a replay of WORKTREE, PREP, BIND,
+  ROUTE or recovery. Preserve the worker task and its three product files.
+  Steps 1 through 3 remain complete; useful C1 execution and the full step 4
+  handover acceptance remain outstanding. The original goal stays active.
+
+## Real worker repair delivered for checkpoint — 2026-09-29 CEST
+
+- ga-e0t1.20 R11 reached actual worker implementation through Astra session
+  ci-1mh3i. The worker returned the exact three-file CLOSE self-admission repair,
+  preserved RED, 53 full-slot passes and 36 negative passes. Both independent
+  Astra reviewers passed patch SHA-256
+  52666932551053c0a2f7c2e8079dba545583e381463ea9a6014a0750836a84d9.
+- Supported containment, close, exact restoration, actual-host terminal integrity
+  and candidate inspection passed with every rig suspended and zero residue.
+  The coordinator intook only that unchanged reviewed patch. The unsigned worker
+  worktree and all earlier failed attempts remain preserved.
+- Final focused delivery rerun passes all 53 slot tests. The required full
+  adapter/meta suite is running. Managed goldens, source drift and all six
+  supported workflow verification checks pass. Signing and publication are not
+  claimed by this entry.
+- The child outcome note and Aegis log are recorded. A concurrent child-note
+  update caused the parent's note transaction to refuse before Bead mutation.
+  The exact pending intent 38f4f7f38b75980a7c0f4c798b489d16255fa6175e1eb27306e36dc21fd01282
+  is preserved unchanged; no supported note-intent reconciliation verb exists.
+  Only the embedded child notes and updated_at differ. Do not replay the intent,
+  hand-edit the journal or conceal this recovery obligation. Serialize subsequent
+  ledger operations. Independent verification and checkpoint work may continue.
+- Durable evidence and next actions:
+  docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/R11-LIVE-OUTCOME.md.
+  Next finish the signed candidate checkpoint, then prepare the C1 package under
+  its existing contract. No completed WORKTREE, PREP, release or recovery job may
+  be repeated. C1/H1/X/H2/C2, final intake and step 5 remain unfinished. This is
+  not a signing-capability, Claude-provider-parity or full-goal completion claim.
+
+### 2026-09-29 continuation — journal recovered and next worker scoped
+
+- The preceding R11 full regression run completed with 3962 passes and 21
+  existing skips. All 53 slot tests passed. The exact reviewed three-file
+  candidate is signed in c046a8981171ff70106a604216d80fe30aa0970a; its evidence
+  closeout is signed in 5b981444bf7d687c0367da4ee3d111ff4b443ead. ga-e0t1.20
+  is closed PASS for that candidate-only contract, not full provider parity.
+- The exact pending note described above is now historically preserved as
+  aborted-before-bead-mutation. After two independent R2 reviews and the fresh
+  explicit operator authorization, the one-off recovery exited PASS. Its
+  byte-exact backup and failed intent remain preserved. Separate readback
+  proved the expected journal postimage, zero pending coordination and no
+  Bead or source change. A fresh supported parent note and all six workflow
+  checks subsequently passed. Do not replay the consumed recovery package.
+- Detailed recovery evidence:
+  docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/reports/ga-e0t1.20-s2-review/NOTE-RECOVERY-RESULT.md.
+- The existing original goal is active, unchanged and incomplete. Next bounded
+  implementation is ga-1aa1, the already-designed image tool r3 changes to two
+  files only. It is P2 open, unassigned and unrouted, linked informationally to
+  ga-e0t1. Its exact base is the signed 5b981444 commit. Duplicate checks and
+  relation readback are in reports/ga-1aa1-kickoff.md under this tracker; its
+  brief is designs/ga-1aa1-image-tool-r3/WORKER-BRIEF.md.
+- Prepare a fresh reviewed Astra worker window using the proven R11 behavior
+  and new task/workspace bindings. No product edit, workspace provisioning,
+  worker launch or rig transition has occurred for ga-1aa1. Do not replay any
+  completed ga-e0t1.20 operation or silently retarget the frozen Claude C1
+  handover contract. C1 package, C1/H1/X/H2/C2, final intake and step 5 remain.
+
+### 2026-09-29 continuation — image tool worker completed
+
+- The real Gas City Astra high worker ci-08vl1 completed ga-1aa1 with the exact
+  two-file image tool r3 patch fe193f17ee2cc2dbaaf533b77b068b9ae1621d98e307906e889e3ef3576d895a.
+  Both independent Astra source reviews passed with no must-fix findings.
+  Pins and generator remain unchanged. The coordinator intook only those exact
+  reviewed bytes after safe terminal inspection.
+- The reviewed window at signed 2ec961803d34c6cc699c17b23fb310c29122dbb2 passed
+  actual startup and delivery acknowledgement, containment, supported close,
+  exact restoration and full host integrity. All rigs are suspended with zero
+  sessions, city tmux sessions and worker-process residue. Do not replay any
+  completed job or relaunch the completed worker.
+- The focused delivery module passes 132 tests. Full adapter/meta regression is
+  running before the signed checkpoint. Record the real result separately.
+  Three direct negative-test additions suggested by both reviewers are saved
+  as nonblocking follow-ups; accepted product bytes remain unchanged.
+- Evidence: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-1aa1-image-tool-r3/LIVE-OUTCOME.md.
+  This is candidate-only code readiness, not signing capability, useful Claude
+  execution, C1 acceptance or provider parity. The original full goal is active.
+  Next complete signed candidate recording, then build the C1 package under
+  its existing provider contract. C1/H1/X/H2/C2, intake, retirement, M13 and
+  terminal step 5 remain. Preserve all failed and completed history.
+
+- Final ga-1aa1 delivery verification is now PASS: full adapter/meta 3962 passes
+  with 21 existing skips and no failures, image module 132 passes, slot module
+  53 passes. Product bytes are unchanged after both independent reviews.
+  DELIVERY-VERIFICATION.md in the ga-1aa1 design folder binds exact JUnit hashes
+  and the preserved limitations. Proceed to the signed local checkpoint and
+  candidate-only task closure, then the unbuilt C1 operational package.
+
+### 2026-09-29 continuation — ga-rq5n R2 release refused and restored
+
+- Signed operational candidate 2d7e3e3df963084c6189b000ed52ad7485d58af9
+  passed two independent source reviews. One real Astra high worker ci-b93t8
+  claimed ga-rq5n and passed the complete startup proof. RELEASE then refused
+  before enqueue because a native session poller marker already existed.
+  No source edit or C1 acceptance occurred. Preserve the consumed attempt.
+- Independently reviewed bounded recovery passed CONTAIN, CLOSE, ADMIT,
+  RESTORE and TERMINAL. The exact original city configuration and receipt are
+  restored, all rigs are suspended, native sessions and process residue are
+  zero, host integrity has no drift, and all pre-existing worker files are
+  unchanged. The final runner HALTED latch remains in place with no queued job.
+- The blocker is in the release transport, not worker coding permissions.
+  Pinned Core already supports native poller reuse. The runtime and delivery
+  wrappers assume marker absence and a RELEASE-owned poller cgroup. Independent
+  diagnosis requires identity-bound existing-poller admission with the current
+  session, queue, receipt, transcript and no-replay checks preserved.
+- The worker-only implementation rule cannot be bypassed as mechanical package
+  preparation. A narrow direct-bootstrap exception for that release gate or an
+  independently proven authorized worker path is needed before implementation.
+  No source repair, repeated window, poller deletion or service restart follows
+  from this recording. The direct child status/note update was refused before
+  execution by the command classifier and remains owed through a supported API.
+- Evidence: docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-rq5n-c1-window-r2/LIVE-OUTCOME.md
+  and adjacent machine-readable outcome and full Bead before-state. The original
+  goal remains active and unchanged. The held ga-9olv product repair, C1/H1/X/H2/C2,
+  intake, retirement, M13 and terminal step 5 remain unproven. No provider parity
+  or full-goal completion is claimed.
+
+### 2026-09-29 continuation — transport corrected and fresh preparation complete
+
+- The narrow direct-bootstrap exception is authorized for the release runtime,
+  delivery predicates, focused tests and deterministic package bindings only.
+  The unchanged broad grant covers safe append-forward execution without new
+  per-hash or per-checkpoint approval. Product code remains Gas City worker-only.
+  All stop conditions and the original full goal remain in force.
+- Exact source 01cff54c2ef0f467e2c590afdcc3ebd1d1e24717 passed both independent
+  Astra reviews. It admits a pinned existing Core poller without signals,
+  deletion or recreation, brackets process identity after hashing, checks
+  marker directory authority and refuses incomplete receipt histories.
+  Focused tests passed 134. Final adapter and meta regression passed 3962 with
+  21 existing skips. The interrupted sandbox result remains preserved.
+- Fresh task ga-xyqo is open unassigned and unrouted. WORKTREE and uninstalled
+  PREP each completed exactly once after two independent reviews. PREP at
+  e22252d7e3e81f1b21f6f5d89cff4df04b99dbe2 passed at 21:28 CEST. No installation,
+  worker launch or lifecycle transition occurred. Both prior workspaces and
+  every failed attempt remain intact. The jobrunner is halted after PREP.
+- Evidence is in designs/ga-rq5n-release-transport-r3 and
+  designs/ga-xyqo-c1-package under this tracker. Next finish the deterministic
+  full worker-window package and obtain two independent reviews, then run its
+  guarded jobs under the standing grant. Do not repeat WORKTREE or PREP.
+  No candidate-only result establishes useful Claude execution or provider
+  parity. Held C1 product repair and the original handover outcomes remain owed.
+
+### 2026-09-29 continuation — actual worker editing and contained evidence failure
+
+- The exact ga-xyqo window at bebe6bb810b3e963d3a5897c596f57019105d8e1
+  passed both independent reviews, actual startup and one same-session release.
+  Astra session ci-0rflg edited the candidate and preserved twelve RED failures.
+  It stopped on one newly created evidence file at mode 0664 instead of 0600.
+  No permission repair, candidate acceptance, signing or delivery occurred.
+- Supported containment and close proved zero worker residue. Original city
+  and receipt restoration passed at 22:45:23 CEST; terminal host integrity
+  passed at 22:46:49 with no drift, read-only cache protection and all rigs
+  suspended. Every failed record and partial source file remains intact.
+- ga-xyqo is blocked after exact supported status and append-only note readback.
+  The only changed own fields are status, notes and updated_at. Native metadata
+  is preserved. The final jobrunner latch remains, with no queued job.
+- The existing broad grant and narrow reviewed bootstrap scope remain valid;
+  no new per-hash or per-checkpoint approval is required. Product implementation
+  remains Gas City worker-only. Next prepare a bounded reviewed successor with
+  secure evidence creation at creation time, preserving and reusing valid
+  partial source only as unaccepted input. Do not chmod or replay this attempt.
+- Evidence: designs/ga-xyqo-c1-package/LIVE-OUTCOME.md and LIVE-BEAD-RECEIPT.json
+  under the active tracker. The full goal and all unproven C1/handover/terminal
+  acceptance items remain open. This recovery is not provider-parity success.
+
+### 2026-09-30 continuation — real startup, release refusal and verified recovery
+
+- ga-5uc9 ran exactly one Astra session ci-f6fgu after independent source review.
+  Startup completed but delayed coordinator release encountered native progress_stall
+  metadata. The strict release check refused before enqueue. No candidate PASS.
+- Supported suspension, session close, exact baseline restoration and terminal
+  host integrity all passed. Zero sessions and worktree processes remain. Full
+  evidence and the failed release are preserved in designs/ga-5uc9-c1-package/LIVE-OUTCOME.md.
+- Standing broad and narrow approval remains valid without per-detail requests.
+  Keep the original full goal active. Do not replay the consumed attempt or
+  weaken monitoring. Any reviewed successor must finish all preparation before
+  resume and keep startup observation plus release within the live idle budget.

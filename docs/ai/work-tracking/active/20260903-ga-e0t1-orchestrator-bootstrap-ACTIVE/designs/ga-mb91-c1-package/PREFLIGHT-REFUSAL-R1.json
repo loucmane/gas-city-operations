@@ -1,0 +1,158 @@
+{
+  "admission-parent-phase.json": {
+    "sha256": "8f59df0b0d3a15e57c0cd9bcd47f92e9235d39f91281e5be0f9c6bc12ac801c8",
+    "mode": 420
+  },
+  "admission-parent-started.json": {
+    "sha256": "e68bb365fdfb02bc5a4f7073a8d072d4eb1921b4a23b03b9b056c16b68087af9",
+    "mode": 384
+  },
+  "admission-repeat-parent-phase.json": {
+    "sha256": "c65dab33bf482dd90d1222fe883c59a2b206a1215f49524e4b065ad32575f6f1",
+    "mode": 420
+  },
+  "admission-repeat-parent-started.json": {
+    "sha256": "1d018740f27df01e08dfef8e5856a115f5c08e7d71c5129325667d1fa55bdda0",
+    "mode": 384
+  },
+  "admission-repeat-task-phase.json": {
+    "sha256": "8396470dccb6a5480fed822db7d8d2639d92fa273ad5b04fe87aa10087f48b53",
+    "mode": 420
+  },
+  "admission-repeat-task-started.json": {
+    "sha256": "097cc2aa6520cccfa236a5dcef418e8800d8c5562f65cc56fcb6afdc66fde803",
+    "mode": 384
+  },
+  "admission-task-phase.json": {
+    "sha256": "2b17f294adb29cb55ac08d513e5d3e77ebc6505f9157e560409cf9317809b7d6",
+    "mode": 420
+  },
+  "admission-task-started.json": {
+    "sha256": "d5860504f68db754d84eb13b25fe28c037bded5d84fa2b1a2c39dea6986e31e6",
+    "mode": 384
+  },
+  "admitted-pair.json": {
+    "sha256": "569de168d05985c84707a1aed8268d4b65a78051a2b03a52d9f770720452b4fa",
+    "mode": 384
+  },
+  "before.json": {
+    "sha256": "ea38c7030f0bcd2d93cf5cf1235fb895f16a41438d65e824cc8ac1e8f29655ab",
+    "mode": 384
+  },
+  "bound-task.json": {
+    "sha256": "fbab94e716ec9a1b33315c5acb31f534fd0fe7bc845473432227ce14f3805ff3",
+    "mode": 384
+  },
+  "cache-atime-137c5e9d17c98931e1ae3c701582b96cb56dbe05e5d0c346531aad4dc758fc96-b397507597c32d94e983c2bce188e1bc221b4395d3913be47f9a4156b05fcc22.json": {
+    "sha256": "cbc76549c93e9b26b65f59759c9752aea028a0a64ef7675c6c26ac672ba39a6d",
+    "mode": 384
+  },
+  "city.before.toml": {
+    "sha256": "bdcec2549fae330ed4aedc2c25563f1917e2bfd39e1caea4be443536f94c69b1",
+    "mode": 420
+  },
+  "claim-store-branch-phase.json": {
+    "sha256": "add85b58e614bb48f3b2e012b7cfc125d3a08f3e4bce90d4c2ee8fd1a366ba82",
+    "mode": 420
+  },
+  "claim-store-branch-started.json": {
+    "sha256": "401ff759e21ebe8eb6d917f52313ccea579bb3e9ff19179a212e4bc08f95a6f0",
+    "mode": 384
+  },
+  "client-inputs-before.json": {
+    "sha256": "76f55479d1af14b03dd2b88f69be684ad9d9b09b385b21366c9fac6f8ab2c293",
+    "mode": 384
+  },
+  "common-before.json": {
+    "sha256": "4de20eafb1491f7666d38a292526b6171e8fd86bc02946f761fe1ca1fe755e5a",
+    "mode": 384
+  },
+  "foreign-preflight-1-sessions-phase.json": {
+    "sha256": "bc81c8b04ba137d20bbfeb013194632f03ff28f28a1e8fb0bd7a24a5e854b633",
+    "mode": 420
+  },
+  "foreign-preflight-1-sessions-started.json": {
+    "sha256": "7ec38602992f445f3e0361c3f4e919e0ba46d383b7d168522aa53f5952a07ad5",
+    "mode": 384
+  },
+  "foreign-preflight-2-config-phase.json": {
+    "sha256": "8719ca26265c9523e704566267e7ba40338bbf01dcb9556c042530328af2b6b6",
+    "mode": 420
+  },
+  "foreign-preflight-2-config-started.json": {
+    "sha256": "9fdd15dbdb97ba19aa97683b6cf7dff8c42b8c0f415e9c4420c449964edca0b7",
+    "mode": 384
+  },
+  "foreign-preflight-3-orders-phase.json": {
+    "sha256": "a7376c979a18af7eeff916d8f9b3697bed788f023c0e06193f6b1a0687a5f144",
+    "mode": 420
+  },
+  "foreign-preflight-3-orders-started.json": {
+    "sha256": "1b855dec38417d3019728897cb9cdce2432d55df755b01cea31f32f3bcaa0a4a",
+    "mode": 384
+  },
+  "foreign-preflight-4-shadow-beads-phase.json": {
+    "sha256": "5509af4f76551b386024c4d0cddfe99ce555886b89aba4662138cdc44c22db9b",
+    "mode": 420
+  },
+  "foreign-preflight-4-shadow-beads-started.json": {
+    "sha256": "9a6c3ec74309a23677ea0d5bc94627b2eaf81588a65c38285d90f2d5b2ff59ee",
+    "mode": 384
+  },
+  "foreign-preflight-5-shadow-beads-phase.json": {
+    "sha256": "4ebaf7f6b6663eb26e27be1d470d15c034a8e763bd24e2ff3cfe42c795fde78f",
+    "mode": 420
+  },
+  "foreign-preflight-5-shadow-beads-started.json": {
+    "sha256": "2ff0d44c677555399598e0c79e17aac1c664bedafbd21915c1edfced9828b81c",
+    "mode": 384
+  },
+  "foreign-preflight-failure.json": {
+    "sha256": "7f2b72cb38c8175d6fc32edb534f29da1d2d37b17ff9e0a8ac793dd3423ffa02",
+    "mode": 384
+  },
+  "foreign-preflight-observation.json": {
+    "sha256": "8ae58976ae331ad6e6dc067fc8dd19221428bc5975fcb01eeed69f07259bf0ba",
+    "mode": 384
+  },
+  "git-head-phase.json": {
+    "sha256": "641797daff8fee420a92cae6f05e32b8da3ff57222ae84c196f564d621023f46",
+    "mode": 420
+  },
+  "git-head-started.json": {
+    "sha256": "12dba9bf765411bf60ce3891e603effa90ce6144537e7cbc43144b2246e8265d",
+    "mode": 384
+  },
+  "git-status-phase.json": {
+    "sha256": "9e8166ac782ec69a48ed9876a9659d3029276b592d4e3b04b932a18071c0c800",
+    "mode": 420
+  },
+  "git-status-started.json": {
+    "sha256": "4b060ebab0f6f36f1abfa29e82b614735e794d3b9f814038b4b0d61efb0366f7",
+    "mode": 384
+  },
+  "integrity-binding.json": {
+    "sha256": "ffbf4cf6fe060da95ea624f9bd5be8aef64e07e4b123fbfbd4acb2e5c4356c59",
+    "mode": 384
+  },
+  "preflight-intent.json": {
+    "sha256": "d77db8d97f2ed5eabad5c820bbb76bffc6677d9139f675299ae7403f6e2f7111",
+    "mode": 384
+  },
+  "receipt.before.json": {
+    "sha256": "2607e90522b5571a5180d882e3d21882bafbc42423e0855f11fae7ec00bdf980",
+    "mode": 384
+  },
+  "route-accounting-460d2ff812eaa9810315ed5b7f4261dcb39fcbccea0ffbca0774ca94360edb96-ecd8fdba36d22db13816c10b4300efc49ab98efeeb016d92820fa7c8a15affa4.json": {
+    "sha256": "3dca5c53f2121d4f4e2f28c62ef3848c462a93a6c07d4ec5faadb9606cf95a08",
+    "mode": 384
+  },
+  "suspension-baseline.json": {
+    "sha256": "4785ce75980bc84a677f95f37b34ddbd81b3b97a14e84e0be702402e617bfab9",
+    "mode": 384
+  },
+  "workspace-before.json": {
+    "sha256": "03ade8a310bc8e002a49c481942c3627032d530b6303544d913c5269ce98b486",
+    "mode": 384
+  }
+}

@@ -1,0 +1,268 @@
+{
+  "schema": "ga-e0t1.20.native-protocol-fixture.v1",
+  "source": "/home/loucmane/.codex/sessions/2026/09/28/rollout-2026-09-28T16-33-11-01a0e86f-1e47-7513-be0f-fa93eeea0167.jsonl",
+  "source_sha256": "e7a8ad79481b21f3f7740d09d6a71d4a56017ff5df0c5dbac0e56515b91a942a",
+  "projection_not_full_rollout": true,
+  "records": [
+    {
+      "type": "session_meta",
+      "payload": {
+        "id": "01a0e86f-1e47-7513-be0f-fa93eeea0167",
+        "cwd": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20",
+        "cli_version": "0.153.4"
+      }
+    },
+    {
+      "type": "turn_context",
+      "payload": {
+        "cwd": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20",
+        "workspace_roots": [
+          "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20"
+        ],
+        "model": "gpt-6-astra",
+        "effort": "high",
+        "approval_policy": "never",
+        "sandbox_policy": {
+          "type": "workspace-write",
+          "network_access": false,
+          "exclude_tmpdir_env_var": false,
+          "exclude_slash_tmp": false
+        },
+        "permission_profile": {
+          "type": "managed",
+          "file_system": {
+            "type": "restricted",
+            "entries": [
+              {
+                "path": {
+                  "type": "special",
+                  "value": {
+                    "kind": "root"
+                  }
+                },
+                "access": "read"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20"
+                },
+                "access": "write"
+              },
+              {
+                "path": {
+                  "type": "special",
+                  "value": {
+                    "kind": "slash_tmp"
+                  }
+                },
+                "access": "write"
+              },
+              {
+                "path": {
+                  "type": "special",
+                  "value": {
+                    "kind": "tmpdir"
+                  }
+                },
+                "access": "write"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20"
+                },
+                "access": "write"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.git"
+                },
+                "access": "read",
+                "missing_path_behavior": "skip"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.agents"
+                },
+                "access": "read",
+                "missing_path_behavior": "skip"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex"
+                },
+                "access": "read",
+                "missing_path_behavior": "skip"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops/.git/worktrees/ga-e0t1.20"
+                },
+                "access": "read",
+                "missing_path_behavior": "skip"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.git"
+                },
+                "access": "read",
+                "missing_path_behavior": "skip"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.agents"
+                },
+                "access": "read",
+                "missing_path_behavior": "skip"
+              },
+              {
+                "path": {
+                  "type": "path",
+                  "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex"
+                },
+                "access": "read",
+                "missing_path_behavior": "skip"
+              }
+            ]
+          },
+          "network": "restricted"
+        },
+        "file_system_sandbox_policy": {
+          "kind": "restricted",
+          "entries": [
+            {
+              "path": {
+                "type": "special",
+                "value": {
+                  "kind": "root"
+                }
+              },
+              "access": "read"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20"
+              },
+              "access": "write"
+            },
+            {
+              "path": {
+                "type": "special",
+                "value": {
+                  "kind": "slash_tmp"
+                }
+              },
+              "access": "write"
+            },
+            {
+              "path": {
+                "type": "special",
+                "value": {
+                  "kind": "tmpdir"
+                }
+              },
+              "access": "write"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20"
+              },
+              "access": "write"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.git"
+              },
+              "access": "read",
+              "missing_path_behavior": "skip"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.agents"
+              },
+              "access": "read",
+              "missing_path_behavior": "skip"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex"
+              },
+              "access": "read",
+              "missing_path_behavior": "skip"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops/.git/worktrees/ga-e0t1.20"
+              },
+              "access": "read",
+              "missing_path_behavior": "skip"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.git"
+              },
+              "access": "read",
+              "missing_path_behavior": "skip"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.agents"
+              },
+              "access": "read",
+              "missing_path_behavior": "skip"
+            },
+            {
+              "path": {
+                "type": "path",
+                "path": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20/.codex"
+              },
+              "access": "read",
+              "missing_path_behavior": "skip"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "type": "response_item",
+      "payload": {
+        "type": "custom_tool_call",
+        "call_id": "call_dcwjQFe2ctD9KAreL3q6rxiT",
+        "name": "exec",
+        "input": "try { text({probe_return: await tools.exec_command({\"cmd\":\"gpg --version\",\"workdir\":\"/home/loucmane/gas-city-ops-candidate-worktrees/ga-e0t1.20\",\"max_output_tokens\":1000})}); } catch (error) { text({probe_error: String(error)}); }\n"
+      }
+    },
+    {
+      "type": "response_item",
+      "payload": {
+        "type": "custom_tool_call_output",
+        "call_id": "call_dcwjQFe2ctD9KAreL3q6rxiT",
+        "output": [
+          {
+            "type": "input_text",
+            "text": "Script completed\nWall time 0.0 seconds\nOutput:\n"
+          },
+          {
+            "type": "input_text",
+            "text": "{\"probe_error\":\"exec_command failed: CreateProcess { message: \\\"Rejected(\\\\\\\"`/usr/bin/zsh -lc 'gpg --version'` rejected: Unsigned candidate workers must not invoke GPG directly; return the candidate for approved managed delivery.\\\\\\\")\\\" }\"}"
+          }
+        ]
+      }
+    }
+  ]
+}

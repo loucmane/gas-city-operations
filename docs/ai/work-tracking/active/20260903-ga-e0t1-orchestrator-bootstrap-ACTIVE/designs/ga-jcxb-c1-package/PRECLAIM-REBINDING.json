@@ -1,0 +1,13 @@
+{
+  "predecessor": "ga-goo5-c1-package/PRECLAIM.md",
+  "replacements": [
+    [
+      "ga-goo5",
+      "ga-jcxb"
+    ],
+    [
+      "09f413a22a2732653f786b77b47c6c5eee6529f49d6194ee76b00932a2fb1170",
+      "bf10646d757d512d100bbaddaacb81c4c8f75ef520b467048603ee0e3d190ecc"
+    ]
+  ]
+}

@@ -1,0 +1,673 @@
+{
+  "schema": "gas-city-worker-candidate-outcome.v1",
+  "bead": "ga-9olv",
+  "classification": "candidate-produced-review-pending",
+  "goal_complete": false,
+  "source_intake": false,
+  "source_release": "/var/tmp/ga-9olv-startup-release-20260929-r1/result.json",
+  "session": "ci-0xi2z",
+  "workspace": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-9olv",
+  "package_commit": "8bb09c0d69471f63991d7437ee141ef44d595d8e",
+  "inspection": {
+    "result": {
+      "candidate_only": true,
+      "candidate_patch_sha256": "8618e7a7dc3c18287793c72097acbb2c16f601a49d8b166601173f9c9ec6605a",
+      "common_git_unchanged": true,
+      "evidence": {
+        "assemble.py": {
+          "mode": 384,
+          "sha256": "fcd95b23f0e15973587d0bad7fe6381b32ab54e4d16c44802f18535786468fab",
+          "size": 13006
+        },
+        "assembly-replacements.json": {
+          "mode": 384,
+          "sha256": "fc4bd2998606c81026ffff05ba8257e5019f3fb4044621dcb65f7058c568a5ca",
+          "size": 33180
+        },
+        "candidate-inventory.json": {
+          "mode": 384,
+          "sha256": "98c3cf28befada473f52bb358c107395e1369aca730689b36ed56b01a816a9d9",
+          "size": 13796
+        },
+        "candidate.patch": {
+          "mode": 384,
+          "sha256": "a2b1c99c7efb835d55ee7bc541bde886c1ade127f3c00efd9bfd901792731385",
+          "size": 698798
+        },
+        "connect.py": {
+          "mode": 384,
+          "sha256": "00025cada44d949de898097b782e5509f9263ce4d266429daba25dc128672e0c",
+          "size": 2862
+        },
+        "digest-history.json": {
+          "mode": 384,
+          "sha256": "50244313c9fbbfc255e8335385588dcc1a57d8ecd8a5751e5a1dce0ff157a764",
+          "size": 25218
+        },
+        "evidence-inventory.json": {
+          "mode": 384,
+          "sha256": "096eaa1dcc62027d69ea91946dbd12606ffdbd3e5ea8af1d0ed444b3c87e12aa",
+          "size": 5046
+        },
+        "final-test-results.json": {
+          "mode": 384,
+          "sha256": "d4f94026a675246052cc0774ea530ffa97931d5f5db1d83648c63d2367dd7473",
+          "size": 1415
+        },
+        "finalize.py": {
+          "mode": 384,
+          "sha256": "0a913f6b542c7bd28d56cf50068b8034471efc9b7fb5f437189425cb8af1e57c",
+          "size": 7958
+        },
+        "historical-facts.json": {
+          "mode": 384,
+          "sha256": "102532036dc788b8fd6e93a6e6ebc0064f7b67d89c29ade756ead585768170bc",
+          "size": 2277
+        },
+        "intermediate-test-results.json": {
+          "mode": 384,
+          "sha256": "23032f725d4868a062c10c6809cad5975e17fc5594911fca0a427623582713e2",
+          "size": 12473
+        },
+        "positive-write.txt": {
+          "mode": 384,
+          "sha256": "e4e568690aead3b961ccb2e568c2e310cd2ef7a9715ff3ebce4d89e4ac2b3850",
+          "size": 29
+        },
+        "qa.json": {
+          "mode": 384,
+          "sha256": "f47886ea9f36a40cf94dcf049f08682b01429de440348cebefce7865692d8c8d",
+          "size": 9890
+        },
+        "red-result.json": {
+          "mode": 384,
+          "sha256": "311bac5b985541ae0de9aef8e4acc02b33fc4dc60356be82b61992e69fac7ff0",
+          "size": 4140
+        },
+        "regression-tmp/test_walk_stops_directory_enum0/0": {
+          "mode": 384,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        "regression-tmp/test_walk_stops_directory_enum0/1": {
+          "mode": 384,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        "regression-tmp/test_walk_stops_directory_enum0/2": {
+          "mode": 384,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        "regression-tmp/test_walk_stops_directory_enum0/3": {
+          "mode": 384,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        "regression-tmp/test_walk_stops_directory_enum0/4": {
+          "mode": 384,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        "regression-tmp/test_walk_stops_directory_enum0/5": {
+          "mode": 384,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        "regression-tmp/test_walk_stops_directory_enum0/6": {
+          "mode": 384,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        "regression-tmp/test_walk_stops_directory_enum0/7": {
+          "mode": 384,
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "size": 0
+        },
+        "report.md": {
+          "mode": 384,
+          "sha256": "3798064c7cdcbeda97f9118735ff954174a691b9507fcf00404c82375bf09507",
+          "size": 10560
+        },
+        "s1-core-source.json": {
+          "mode": 384,
+          "sha256": "8f2c445b6dc61e3e20e85b6627f129c727377f8b82ea13bfe5b193e1b4a1e084",
+          "size": 649733
+        },
+        "source-baseline.json": {
+          "mode": 384,
+          "sha256": "1082c432abbe838e94890b17ffbfe4136ea319558b7b559a214f17e879cac446",
+          "size": 452612
+        },
+        "startup.json": {
+          "mode": 384,
+          "sha256": "416ac40ba3cbbbab2f0b5bed34f681ff002915ed8bf18be8a8ed13236087229e",
+          "size": 1332
+        },
+        "test_predecessor_red.py": {
+          "mode": 384,
+          "sha256": "bc723b673f736c64b7cf157367b06dc0fa063f86c7dd895bb8e18f4bf194df0e",
+          "size": 1887
+        },
+        "wire.py": {
+          "mode": 384,
+          "sha256": "49a99c023c72c4f441554b9e12af6cbca0f1d7d94dc5a488279f495a8670c933",
+          "size": 6102
+        }
+      },
+      "intake": false,
+      "ok": true,
+      "product_execution": false,
+      "source": {
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/README.md": {
+          "mode": 420,
+          "sha256": "4e417aeaf4b5e72f76181366786a3f96e6dfa4fe569c58144af6c798a58bd584"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/audit-queue-r3.py": {
+          "mode": 420,
+          "sha256": "296eb8602acb0c012248ea74feea9f2f3ad6d090fbc9fda4301b99e4946b7cfa"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/bind-task-r5.py": {
+          "mode": 420,
+          "sha256": "a8d7db99c1387826a525e09edd7bc5eee437422e82f4b4ef511378a2c9ec5771"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/budget-r11.py": {
+          "mode": 420,
+          "sha256": "87c0283f4cb67260bf54f316758c01ac8fe9ca975146e1ec9e6e9a31ebed42af"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/c1-census.py": {
+          "mode": 420,
+          "sha256": "ade63258bd9717799ac838e812d3bf3834c5517d0ad5a4f165af1761cda99ff0"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/c1-contract.py": {
+          "mode": 420,
+          "sha256": "4f55cb7dd91681ad9517e5c0563a8b2c60d59e2bbef177e4915f2cd746392106"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/c1-probe.py": {
+          "mode": 420,
+          "sha256": "9405ee37685b325ff63d678897d64f1df0b8422e84acd49426cfe55380b3c90e"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/c1-store.py": {
+          "mode": 420,
+          "sha256": "5a81ab5adcb09b402dd1ffbcd543fa68390523aac1768e32ab8d79c4ad2a13ff"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/cache-atime-policy-r1.py": {
+          "mode": 420,
+          "sha256": "61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/close-r11.py": {
+          "mode": 420,
+          "sha256": "905903630be0c242dd3d76fe56d32843f8b0171165355a679643b0a5c10c628e"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/common-snapshot-r1.py": {
+          "mode": 420,
+          "sha256": "b725a2e363904298c2a621e7d46cd641b3dbc61aaef972222516d7845c35c9d7"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/generators/make_successor.py": {
+          "mode": 420,
+          "sha256": "3b35b618f215e4d1b5487ac1fab2d613bbf2da8e10a7b35eff3cc305f4c50230"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/h1-r1.py": {
+          "mode": 420,
+          "sha256": "742a569649c1dc650e0e8c216a70ca50177976176d08de850a74bc1a468c01d8"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/hold-r11.py": {
+          "mode": 420,
+          "sha256": "920f0c24d4bb4beaa97627c227d5b4c40c5c5101c30f3c661463f2d76dad1c0a"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/image1-record-r1.py": {
+          "mode": 420,
+          "sha256": "40d990c18d4763278a5d0247601d5e2827b0fabfb8d1c2704bb62cddbd49b9d5"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/observe-integrity-r11.py": {
+          "mode": 420,
+          "sha256": "3b21352147ed452635dd0ae3a3496a61bfdcec65773b7d4f7142b16bdd9e5141"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/observe-terminal-r11.py": {
+          "mode": 420,
+          "sha256": "9acd3cc89ad671ec4c23c6eed030cdc441eda7637148f98388a2cfa18a94035f"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/ADMIT.sh": {
+          "mode": 493,
+          "sha256": "17358f71735b225bb45bf937261d2fd2d836505f57b291cb6008160907ee4311"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/BIND.sh": {
+          "mode": 493,
+          "sha256": "585a5f114c6d4bf287595c43b6da3d21aef05334990591cfed9593cdbc17f385"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/CLOSE.sh": {
+          "mode": 493,
+          "sha256": "e64c1c4f24caefe37c0cb0375350a0fe632a1b535b9a9c370c1594b94c41c1a0"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/CONTAIN-2.sh": {
+          "mode": 493,
+          "sha256": "f20294330991f997a695b1247f5d73caeb2e9ed3dfca04ff3b5092cf61a44274"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/H1.sh": {
+          "mode": 493,
+          "sha256": "226ef3b08ac7de0f7412ed7d7b07dccb857bde9ae8f626bfd54af967cf015edf"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/HOLD-1.sh": {
+          "mode": 493,
+          "sha256": "be2485cc635e7afeb7314c325f474a88d8a385cd52e82b0476bf131b43848c14"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/HOLD-2.sh": {
+          "mode": 493,
+          "sha256": "e7a6a405568591af235d7ce093059479ee7f5aaf8feed23fe17edd76f5056bc6"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/OBSERVE.sh": {
+          "mode": 493,
+          "sha256": "74b199456862cce1937cd01f159591b5b29e77c009d848a30601108db4983f1f"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/PREFLIGHT.sh": {
+          "mode": 493,
+          "sha256": "67e6b2da0aafa71591ac4e831d5782fb6333f12e37aef49904830f3d1e2c3bd0"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/PREP.sh": {
+          "mode": 493,
+          "sha256": "32bb53f9b0f23ab6f30d82ba923ceb6b9ae5de984975d9f74061bb2cc430d5f8"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/RESTORE.sh": {
+          "mode": 493,
+          "sha256": "ee18e998ea4a095dd65d516f26dde1f02e24486e27e0f76ad179911343b57227"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/RESUME.sh": {
+          "mode": 493,
+          "sha256": "7573cbd753fb8efc4932f103705f98c2be20414915704d3cd9eafa7019b7ba55"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/ROUTE.sh": {
+          "mode": 493,
+          "sha256": "6438037935ed7136f88cbf6118332d2e30866d328c37ff1405076370d6e63118"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/STAGE.sh": {
+          "mode": 493,
+          "sha256": "d73123b86bcb7f8ffb875f9ba02f5e8c938e01ffba1f8648efa12fbc2ec60bd6"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/TERMINAL.sh": {
+          "mode": 493,
+          "sha256": "7318c81521edc2fac6d7703e69bf5acbc232f47e54c157e04a343baf0b545214"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/WATCH-LOOP-2.sh": {
+          "mode": 493,
+          "sha256": "ac202b36a29984b1c97a23751cd608241fe5d1b4e99e79b5fb9aed6cfb961d56"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/WATCH-LOOP.sh": {
+          "mode": 493,
+          "sha256": "aeafd62f8836d2f5b1598cc8df4f5f35c2f0d3f1becad6a502fcd3ba81526ddf"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/operator/WORKTREE.sh": {
+          "mode": 493,
+          "sha256": "a42f2360a962cbfe697bbf166f241c5d4c51545e1b542f8970787a828b148e49"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/pin-s1.py": {
+          "mode": 420,
+          "sha256": "754797378fdaebe2e8152b1fb40dee26b2a69e636f5a68389b25979a60ee6fe5"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/prep-r11.py": {
+          "mode": 420,
+          "sha256": "3c7b0640395637fff8f2c52cc8fdea1832cdc9564811fe4a3b65f2cf57b49c14"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/restore-admission-r3.py": {
+          "mode": 420,
+          "sha256": "0bf55ea370db6e256f3215c6888b39323860a7c4667f514a96a4d6e161ce719c"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/restore-r9-routes-r3.py": {
+          "mode": 420,
+          "sha256": "8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/route-chain-r1.py": {
+          "mode": 420,
+          "sha256": "c456230f7c51e0d7164c246501c1f7e1a94376a36e405cdb41c119245779e284"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/route-task-r5.py": {
+          "mode": 420,
+          "sha256": "4f6852a6f2bce167ff51bc0c4636c95bf888c5dba70d173ac3edf38d61f08541"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/s1-pins.json": {
+          "mode": 420,
+          "sha256": "f782a2939a7bcf262c5695513ee2d7915de72c44391fce0a8f5e598b1b494f4e"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/suspension-lineage.py": {
+          "mode": 420,
+          "sha256": "ce674da9c855917d1ab2cb98e990226d7839011a121b090194c47a262325bc9e"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/test_c1_contract.py": {
+          "mode": 420,
+          "sha256": "8caf930c5b0e0ce5c756140c5c7467fbbf937b055f96d8c2c547702243498db2"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/test_successor.py": {
+          "mode": 420,
+          "sha256": "2fe3ced09beb8c13521a1887295a9d970a7d0738122e9e9aa90dc4fec8f664ab"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/test_watch_loop.py": {
+          "mode": 420,
+          "sha256": "3e5b4b005ed1f4e5c0affe190e6b50e676231e1d5f913fb620a8b84b8e7c1aa9"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/watch-loop-r1.py": {
+          "mode": 420,
+          "sha256": "cd8bce886becc6385641f6c691524c673d010ad4967bda9abe64b50ffa930839"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/watch-r11.py": {
+          "mode": 420,
+          "sha256": "b648e6fcd4e3aae57dfebfe058b82d0046f2ca51f3e42fdbc8363c94c99012e5"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/window-base-r11.py": {
+          "mode": 420,
+          "sha256": "0aaabc3f42d6d0c4696add6b895dd06341e88fe45bc7836b63c30025f1880880"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/window-obs-r11.py": {
+          "mode": 420,
+          "sha256": "c03b0482db64e78a66640ea88697cb37c463deceaa6db72f6efd6b5a7b86d877"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/window-r11.py": {
+          "mode": 420,
+          "sha256": "3fd1e4394afc955b756c599ae61efc882b538bb02e4edfce7a6c4c652de0db1e"
+        },
+        "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/gct-oak5-c1-window/worktree-task-r1.py": {
+          "mode": 420,
+          "sha256": "c0b1371849e5cbc1bff32de9429712c7c281bdb3f007e9aa299afb85a349c290"
+        }
+      },
+      "worker_launched": false
+    },
+    "pins": {
+      "/var/tmp/ga-9olv-candidate-inspection-20260929-r1/candidate.patch": "8618e7a7dc3c18287793c72097acbb2c16f601a49d8b166601173f9c9ec6605a",
+      "/var/tmp/ga-9olv-candidate-inspection-20260929-r1/result.json": "8aed371e7f4dcd734a88c66e8c8ec7bd4e82a40d3ef404059c59d06b53aa06f7",
+      "/var/tmp/ga-9olv-terminal-20260929-r1/result.json": "dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8",
+      "/home/loucmane/gas-city-ops-candidate-worktrees/ga-9olv/.gc/worker-evidence/ga-9olv/r1/report.md": "3798064c7cdcbeda97f9118735ff954174a691b9507fcf00404c82375bf09507",
+      "/home/loucmane/gas-city-ops-candidate-worktrees/ga-9olv/.gc/worker-evidence/ga-9olv/r1/qa.json": "f47886ea9f36a40cf94dcf049f08682b01429de440348cebefce7865692d8c8d",
+      "/home/loucmane/gas-city-ops-candidate-worktrees/ga-9olv/.gc/worker-evidence/ga-9olv/r1/final-test-results.json": "d4f94026a675246052cc0774ea530ffa97931d5f5db1d83648c63d2367dd7473",
+      "/home/loucmane/gas-city-ops-candidate-worktrees/ga-9olv/.gc/worker-evidence/ga-9olv/r1/candidate-inventory.json": "98c3cf28befada473f52bb358c107395e1369aca730689b36ed56b01a816a9d9"
+    }
+  },
+  "preserved_jobs": [
+    {
+      "job": "ga-9olv-contain-1-r1",
+      "done": {
+        "admitted": true,
+        "argv": [
+          "systemd-run",
+          "--user",
+          "--wait",
+          "--collect",
+          "--quiet",
+          "--service-type=oneshot",
+          "--unit=gc-job-ga-9olv-contain-1-r1",
+          "-p",
+          "UMask=0022",
+          "-p",
+          "TimeoutStartSec=infinity",
+          "/bin/sh",
+          "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/CONTAIN-1.sh",
+          "8bb09c0d69471f63991d7437ee141ef44d595d8e"
+        ],
+        "ended": "2026-09-29T15:08:03Z",
+        "exit": 0,
+        "job": {
+          "commit": "8bb09c0d69471f63991d7437ee141ef44d595d8e",
+          "job_id": "ga-9olv-contain-1-r1",
+          "reviews": [
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6b-bdb8-7510-97a9-50e650a45402.json",
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6c-bba9-7700-8a90-e5c2c31d4893.json"
+          ],
+          "wrapper": "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/CONTAIN-1.sh",
+          "wrapper_sha256": "8b3f5420af5e31520562367b7657e120b3928f359971abf6e204b038152cb7bf"
+        },
+        "job_file": "ga-9olv-contain-1-r1.json",
+        "received": "2026-09-29T15:07:46Z",
+        "started": "2026-09-29T15:07:46Z",
+        "stderr": "",
+        "stdout": "",
+        "unit_state_after": "inactive"
+      },
+      "done_sha": "c949bdb6e5736a0871806187cf40b3731005b1457cb2d0d7fffa4af72652ad1e",
+      "halt_sha": "5ab0ce12288bff698309fd1946f361a1ed71f117c63a89a60ebaeaf9750ecaa6",
+      "log_path": "/home/loucmane/.local/share/gas-city-staging/ga-9olv-c1-package/contain-1-20260929T150746Z.txt",
+      "log_tail": "== context umask=0022 cgroup=0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-ga-9olv-contain-1-r1.service\n== ns ipc=ipc:[4026532219]\n== ns mnt=mnt:[4026532221]\n== ns net=net:[4026531840]\n== ns pid=pid:[4026532223]\n== ns time=time:[4026531834]\n== ns user=user:[4026531837]\n== city-suspend 15:07:46Z\n{\"ok\": true, \"action\": \"city-suspend\", \"phase_only\": true}\n== rig-suspend 15:07:55Z\n{\"ok\": true, \"action\": \"rig-suspend\", \"phase_only\": true}\n== CONTAIN-1 PASS\n== end 15:08:03Z\n"
+    },
+    {
+      "job": "ga-9olv-close-1-r1",
+      "done": {
+        "admitted": true,
+        "argv": [
+          "systemd-run",
+          "--user",
+          "--wait",
+          "--collect",
+          "--quiet",
+          "--service-type=oneshot",
+          "--unit=gc-job-ga-9olv-close-1-r1",
+          "-p",
+          "UMask=0022",
+          "-p",
+          "TimeoutStartSec=infinity",
+          "/bin/sh",
+          "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/CLOSE-1.sh",
+          "8bb09c0d69471f63991d7437ee141ef44d595d8e"
+        ],
+        "ended": "2026-09-29T15:10:24Z",
+        "exit": 0,
+        "job": {
+          "commit": "8bb09c0d69471f63991d7437ee141ef44d595d8e",
+          "job_id": "ga-9olv-close-1-r1",
+          "reviews": [
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6b-bdb8-7510-97a9-50e650a45402.json",
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6c-bba9-7700-8a90-e5c2c31d4893.json"
+          ],
+          "wrapper": "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/CLOSE-1.sh",
+          "wrapper_sha256": "203da2e6620e2b4d7bd472b8697f1087dac49b4575991820f39448013c0d9add"
+        },
+        "job_file": "ga-9olv-close-1-r1.json",
+        "received": "2026-09-29T15:09:19Z",
+        "started": "2026-09-29T15:09:19Z",
+        "stderr": "",
+        "stdout": "",
+        "unit_state_after": "inactive"
+      },
+      "done_sha": "b63540c1a624be5e4cb34946f8438927f050867fe3f5db51bd425b3ce0f1988c",
+      "halt_sha": "73f689126aafcc900481a2b5142f11c28faecce03c1eb1686d5342a8f9b0120d",
+      "log_path": "/home/loucmane/.local/share/gas-city-staging/ga-9olv-c1-package/close-1-20260929T150919Z.txt",
+      "log_tail": "== context umask=0022 cgroup=0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-ga-9olv-close-1-r1.service\n== ns ipc=ipc:[4026532219]\n== ns mnt=mnt:[4026532221]\n== ns net=net:[4026531840]\n== ns pid=pid:[4026532223]\n== ns time=time:[4026531834]\n== ns user=user:[4026531837]\n== close 15:09:19Z\n{\"ok\": true, \"closed_session\": \"ci-0xi2z\", \"open_sessions\": 0, \"city_tmux_sessions\": 0, \"worktree_processes\": 0, \"tmux_server_killed\": false, \"signals_sent\": false, \"executor_sha256\": \"73c6528a0d486d664d8bfc23bbf06cf0f3ec346713f57da6c7306a17ddfeb1b3\"}\n== CLOSE-1 PASS\n== end 15:10:24Z\n"
+    },
+    {
+      "job": "ga-9olv-admit-r1",
+      "done": {
+        "admitted": true,
+        "argv": [
+          "systemd-run",
+          "--user",
+          "--wait",
+          "--collect",
+          "--quiet",
+          "--service-type=oneshot",
+          "--unit=gc-job-ga-9olv-admit-r1",
+          "-p",
+          "UMask=0022",
+          "-p",
+          "TimeoutStartSec=infinity",
+          "/bin/sh",
+          "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/ADMIT.sh",
+          "8bb09c0d69471f63991d7437ee141ef44d595d8e"
+        ],
+        "ended": "2026-09-29T15:11:41Z",
+        "exit": 0,
+        "job": {
+          "commit": "8bb09c0d69471f63991d7437ee141ef44d595d8e",
+          "job_id": "ga-9olv-admit-r1",
+          "reviews": [
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6b-bdb8-7510-97a9-50e650a45402.json",
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6c-bba9-7700-8a90-e5c2c31d4893.json"
+          ],
+          "wrapper": "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/ADMIT.sh",
+          "wrapper_sha256": "88bfd93639911381eb7c549c27f51fecc03fdb2e55d114ef8b138b07d93a59c8"
+        },
+        "job_file": "ga-9olv-admit-r1.json",
+        "received": "2026-09-29T15:11:06Z",
+        "started": "2026-09-29T15:11:06Z",
+        "stderr": "",
+        "stdout": "",
+        "unit_state_after": "inactive"
+      },
+      "done_sha": "46024d61c9dfad51937d1e73a49257d390803a6ba09f75b1d99fcac80c0429ab",
+      "halt_sha": "78264806ba5d3cd53a6a3956f5d56777de950b08b5f0e557d44b1753d5a976d3",
+      "log_path": "/home/loucmane/.local/share/gas-city-staging/ga-9olv-c1-package/admit-20260929T151106Z.txt",
+      "log_tail": "== context umask=0022 cgroup=0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-ga-9olv-admit-r1.service\n== ns ipc=ipc:[4026532219]\n== ns mnt=mnt:[4026532221]\n== ns net=net:[4026531840]\n== ns pid=pid:[4026532223]\n== ns time=time:[4026531834]\n== ns user=user:[4026531837]\nfind: ‘/var/tmp/wsl-clocksource-aba-r2-20260920’: Permission denied\nfind: ‘/var/tmp/systemd-private-3f1f4534ea174cb4b2f2a3f8bce1a8fa-systemd-resolved.service-msNLVZ’: Permission denied\nfind: ‘/var/tmp/wsl-timesync-service-trial-r3-20260921’: Permission denied\nfind: ‘/var/tmp/systemd-private-3f1f4534ea174cb4b2f2a3f8bce1a8fa-systemd-logind.service-dg012U’: Permission denied\nfind: ‘/var/tmp/systemd-private-3f1f4534ea174cb4b2f2a3f8bce1a8fa-polkit.service-1rj9Ck’: Permission denied\nfind: ‘/var/tmp/systemd-private-3f1f4534ea174cb4b2f2a3f8bce1a8fa-gas-city-privileged-provision.service-yd4Awt’: Permission denied\nfind: ‘/var/tmp/systemd-private-3f1f4534ea174cb4b2f2a3f8bce1a8fa-gas-city-managed-git-signerd.service-We5SqM’: Permission denied\nfind: ‘/var/tmp/wsl-timesync-service-trial-r2-20260921’: Permission denied\nfind: ‘/var/tmp/systemd-private-3f1f4534ea174cb4b2f2a3f8bce1a8fa-wsl-pro.service-OjtNqT’: Permission denied\n== budget 15:11:06Z\n{\"minutes_left\": 167.1, \"minutes_required\": 60, \"enough\": true}\n== admit 15:11:06Z\n{\"full_residue_proof_separately_required\": true, \"ok\": true, \"read_only\": true, \"restore_executed\": false}\n== ADMIT PASS\n== end 15:11:41Z\n"
+    },
+    {
+      "job": "ga-9olv-restore-r1",
+      "done": {
+        "admitted": true,
+        "argv": [
+          "systemd-run",
+          "--user",
+          "--wait",
+          "--collect",
+          "--quiet",
+          "--service-type=oneshot",
+          "--unit=gc-job-ga-9olv-restore-r1",
+          "-p",
+          "UMask=0022",
+          "-p",
+          "TimeoutStartSec=infinity",
+          "/bin/sh",
+          "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/RESTORE.sh",
+          "8bb09c0d69471f63991d7437ee141ef44d595d8e"
+        ],
+        "ended": "2026-09-29T15:14:04Z",
+        "exit": 0,
+        "job": {
+          "commit": "8bb09c0d69471f63991d7437ee141ef44d595d8e",
+          "job_id": "ga-9olv-restore-r1",
+          "reviews": [
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6b-bdb8-7510-97a9-50e650a45402.json",
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6c-bba9-7700-8a90-e5c2c31d4893.json"
+          ],
+          "wrapper": "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/RESTORE.sh",
+          "wrapper_sha256": "8c741e9b9307401fd89fb46e8b6a6dfb0b83725e33c64f426b58322910ee638e"
+        },
+        "job_file": "ga-9olv-restore-r1.json",
+        "received": "2026-09-29T15:12:13Z",
+        "started": "2026-09-29T15:12:13Z",
+        "stderr": "",
+        "stdout": "",
+        "unit_state_after": "inactive"
+      },
+      "done_sha": "efb9667ac45aaaa8f2a8459e8b04b19d269dab6aae95d36afe69fddcba924f30",
+      "halt_sha": "bea535e78eece1834bbbd912a62064ac16a298ad9468131e5c42f04567c13df6",
+      "log_path": "/home/loucmane/.local/share/gas-city-staging/ga-9olv-c1-package/restore-20260929T151213Z.txt",
+      "log_tail": "== context umask=0022 cgroup=0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-ga-9olv-restore-r1.service\n== ns ipc=ipc:[4026532219]\n== ns mnt=mnt:[4026532221]\n== ns net=net:[4026531840]\n== ns pid=pid:[4026532223]\n== ns time=time:[4026531834]\n== ns user=user:[4026531837]\n== budget 15:12:13Z\n{\"minutes_left\": 166.0, \"minutes_required\": 45, \"enough\": true}\n== restore 15:12:13Z\n{\"ok\": true, \"action\": \"restore\", \"worker_launched\": false}\n== RESTORE PASS\n== end 15:14:04Z\n"
+    },
+    {
+      "job": "ga-9olv-terminal-r1",
+      "done": {
+        "admitted": true,
+        "argv": [
+          "systemd-run",
+          "--user",
+          "--wait",
+          "--collect",
+          "--quiet",
+          "--service-type=oneshot",
+          "--unit=gc-job-ga-9olv-terminal-r1",
+          "-p",
+          "UMask=0022",
+          "-p",
+          "TimeoutStartSec=infinity",
+          "/bin/sh",
+          "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/TERMINAL.sh",
+          "8bb09c0d69471f63991d7437ee141ef44d595d8e"
+        ],
+        "ended": "2026-09-29T15:16:07Z",
+        "exit": 0,
+        "job": {
+          "commit": "8bb09c0d69471f63991d7437ee141ef44d595d8e",
+          "job_id": "ga-9olv-terminal-r1",
+          "reviews": [
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6b-bdb8-7510-97a9-50e650a45402.json",
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6c-bba9-7700-8a90-e5c2c31d4893.json"
+          ],
+          "wrapper": "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/TERMINAL.sh",
+          "wrapper_sha256": "05a5ef8debe3aa71acf6067819453154b4e2b8f8fc5dd6a4cf93544a61313dd2"
+        },
+        "job_file": "ga-9olv-terminal-r1.json",
+        "received": "2026-09-29T15:15:06Z",
+        "started": "2026-09-29T15:15:07Z",
+        "stderr": "",
+        "stdout": "",
+        "unit_state_after": "inactive"
+      },
+      "done_sha": "cb42f6fe40dae42a777434ba2ada0a653a660b8210da29ea7a0dd1b5d8a990d7",
+      "halt_sha": "add7e0f0da93f4a8e9ed2bc60c2647d4a2880e61b2b925ff91ebd69f4d720319",
+      "log_path": "/home/loucmane/.local/share/gas-city-staging/ga-9olv-c1-package/terminal-20260929T151507Z.txt",
+      "log_tail": "== context umask=0022 cgroup=0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-ga-9olv-terminal-r1.service\n== ns ipc=ipc:[4026532219]\n== ns mnt=mnt:[4026532221]\n== ns net=net:[4026531840]\n== ns pid=pid:[4026532223]\n== ns time=time:[4026531834]\n== ns user=user:[4026531837]\n== budget 15:15:07Z\n{\"minutes_left\": 163.1, \"minutes_required\": 8, \"enough\": true}\n== terminal 15:15:07Z\n{\"ok\": true, \"worker_launched\": false, \"full_native_integrity\": true}\n== TERMINAL PASS\n== end 15:16:07Z\n"
+    },
+    {
+      "job": "ga-9olv-inspect-r1",
+      "done": {
+        "admitted": true,
+        "argv": [
+          "systemd-run",
+          "--user",
+          "--wait",
+          "--collect",
+          "--quiet",
+          "--service-type=oneshot",
+          "--unit=gc-job-ga-9olv-inspect-r1",
+          "-p",
+          "UMask=0022",
+          "-p",
+          "TimeoutStartSec=infinity",
+          "/bin/sh",
+          "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/INSPECT.sh",
+          "8bb09c0d69471f63991d7437ee141ef44d595d8e"
+        ],
+        "ended": "2026-09-29T15:17:18Z",
+        "exit": 0,
+        "job": {
+          "commit": "8bb09c0d69471f63991d7437ee141ef44d595d8e",
+          "job_id": "ga-9olv-inspect-r1",
+          "reviews": [
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6b-bdb8-7510-97a9-50e650a45402.json",
+            "/home/loucmane/.local/share/gas-city-staging/jobs/reviews/8bb09c0d69471f63991d7437ee141ef44d595d8e/codex-01a0ed6c-bba9-7700-8a90-e5c2c31d4893.json"
+          ],
+          "wrapper": "docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/operator/INSPECT.sh",
+          "wrapper_sha256": "815aad4b4133db6f14957639ad4c623e14878c611ea432981d93dcff2ce6041e"
+        },
+        "job_file": "ga-9olv-inspect-r1.json",
+        "received": "2026-09-29T15:16:54Z",
+        "started": "2026-09-29T15:16:54Z",
+        "stderr": "",
+        "stdout": "",
+        "unit_state_after": "inactive"
+      },
+      "done_sha": "bdb6ef63b07d97791ea4a30a4893024975bf3f07cefc90bae641f4e1144a4dad",
+      "halt_sha": "e5e52b37887dee1bb6b2aa35757678ea8319d6b7f0672e876a5c715ca9d5d312",
+      "log_path": "/home/loucmane/.local/share/gas-city-staging/ga-9olv-c1-package/inspect-20260929T151654Z.txt",
+      "log_tail": "== context umask=0022 cgroup=0::/user.slice/user-1000.slice/user@1000.service/app.slice/gc-job-ga-9olv-inspect-r1.service\n== ns ipc=ipc:[4026532219]\n== ns mnt=mnt:[4026532221]\n== ns net=net:[4026531840]\n== ns pid=pid:[4026532223]\n== ns time=time:[4026531834]\n== ns user=user:[4026531837]\n== inspect 15:16:54Z\n{\"ok\": true, \"root\": \"/var/tmp/ga-9olv-candidate-inspection-20260929-r1\", \"intake\": false}\n== INSPECT PASS\n== end 15:17:18Z\n"
+    }
+  ],
+  "bead_after_native_close": {
+    "id": "ga-9olv",
+    "title": "Build C1 executable package with reminder-stable startup",
+    "status": "open",
+    "assignee": null,
+    "metadata": {
+      "gc.continuation_group": "",
+      "gc.routed_to": "gascity/codex",
+      "gc.session_affinity": "",
+      "gc.session_id": "ci-0xi2z",
+      "gc.session_name": "codex-ci-0xi2z",
+      "gc.work_branch": "agent/upstream-pending-create-lease",
+      "gc.work_dir": "/home/loucmane/gas-city-ops-candidate-worktrees/ga-9olv"
+    },
+    "notes": "WORKTREE preparation PASS at signed package 703258693c19186901adbdf3be94bbe2172e8d76 New isolated candidate workspace is clean at exact signed base 801a5a9d5b0d72f665c949a86573357f02c9f1ac Two exact local rules installed and global rules unchanged Both independent Astra reviews passed No worker launched and no task route claim or rig change occurred The consumed job and its outcome remain preserved PREP and launch review still required\nUninstalled PREP PASS at exact signed candidate 88c49954dc186bb5a121c917cdc55b0db0efd18e after two independent Astra reviews Job ga-9olv-prep-r1 completed once with exit zero and inactive unit Three typed profiles preserved with only revision and receipt digest changed Nothing installed or launched No task claim route or rig transition occurred Complete worker window and fresh reviews remain required The full original goal stays active\nOperational startup contract for ga-9olv. Completed WORKTREE and PREP bind the exact clean workspace and signed base. Scope is create only and finite at /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/FILE-SCOPE.json sha256 7e8ae5d859b62751b5f4eb0e752d28f545167585b479bb3b62ab835d1a76b2c5. New product parent directories use mode 0755. Read /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/WORKER-BRIEF.md sha256 9106ebe3b931946af94f40990a7e681e97f23f9662d0f8074c2506219230cd7a and /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/PRECLAIM.md sha256 7781bc962112b57fadc034606385c1dd2ec04a1380b580b5d83f84b4416f41dc. Verify and run /home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-9olv-c1-package/worker-startup.py sha256 d52e98dd6ef8b9450b5523e7ccf034e03bf2e19d8af47e1e284a10e8d0cf8c25 only in the actual worker sandbox with its real session ID. Fresh startup proof including two immutable predecessor reads and one acknowledged same session release are mandatory before editing. Preserve subscription only authentication sandbox and native denials candidate only scope and all historical evidence. No staging signing commits pushes task close native delegation installs or live product execution. New evidence belongs only in .gc/worker-evidence/ga-9olv/r1. Return an uncommitted candidate only.\nSTARTUP READY: ga-9olv report_sha256=416ac40ba3cbbbab2f0b5bed34f681ff002915ed8bf18be8a8ed13236087229e\nREADY FOR SIGNING: ga-9olv worktree evidence=.gc/worker-evidence/ga-9olv/r1/report.md patch_sha256=a2b1c99c7efb835d55ee7bc541bde886c1ade127f3c00efd9bfd901792731385 report_sha256=3798064c7cdcbeda97f9118735ff954174a691b9507fcf00404c82375bf09507",
+    "dependencies": [
+      {
+        "id": "ga-e0t1",
+        "dependency_type": "relates-to"
+      }
+    ]
+  },
+  "product_review_request": "/tmp/ga-9olv-product-review-20260929-r1/request.txt",
+  "product_review_request_sha256": "b5e68e25cff3f89800e9fb2d2a404a395be12f494db21b6bef785102c9ef2c79"
+}

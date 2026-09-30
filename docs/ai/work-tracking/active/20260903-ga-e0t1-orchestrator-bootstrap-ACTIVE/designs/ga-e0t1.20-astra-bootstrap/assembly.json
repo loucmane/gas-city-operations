@@ -1,0 +1,16 @@
+{
+  "files": {
+    "README.md": "e952995ca2e24ff1bcb524ccb86543e2b601eb325d13ffa3e722120d1009cd04",
+    "build.py": "236f10995601378750d1220fc5b88342333735262c2500775382d02b6e544d88",
+    "check_native.py": "20db6fb1976553dec19e7f7b5ce4110372a05345bfb218f930e159d517d44d51",
+    "inputs.json": "baa60914aa077f11e498d966b859b2b965e35274cc8631af4a9704d3aa765e44",
+    "operator/PREP.sh": "ad9e4ee33a50d6b33bc2074a2b2ede214315699b6fb4c4970bf4a318d74e35a0",
+    "operator/WORKTREE.sh": "44149d6f13757d3605a9579ae6077d2856ae1d0397d4a44c822641ca6833f0b5",
+    "prepare.py": "40858f94e795425c38f1e5ae8b973aa60e5c3aa67043bc84b6be36389b4ea6c3",
+    "test_package.py": "d1b07316b50c9a5f42004cd3788d5a3ce3336863c7acc41916eea905ef7a8d7a",
+    "worktree.py": "ec7847c77089f11d774f6d96691faf708b669ea174b6c8377865d7804f7506aa"
+  },
+  "live_execution": false,
+  "schema": "ga-e0t1.20.s1-assembly.v1",
+  "source_base": "c6b789bbe6ff677dd04336803dbf2c2e017812ba"
+}

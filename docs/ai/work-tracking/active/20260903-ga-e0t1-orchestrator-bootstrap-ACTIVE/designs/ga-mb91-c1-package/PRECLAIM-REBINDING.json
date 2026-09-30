@@ -1,0 +1,13 @@
+{
+  "predecessor": "ga-jcxb-c1-package/PRECLAIM.md",
+  "replacements": [
+    [
+      "ga-jcxb",
+      "ga-mb91"
+    ],
+    [
+      "bf10646d757d512d100bbaddaacb81c4c8f75ef520b467048603ee0e3d190ecc",
+      "327d9928b4167642d67a1899f64dafca36ba460012a6ea7e03dfb04bbb86d0e1"
+    ]
+  ]
+}

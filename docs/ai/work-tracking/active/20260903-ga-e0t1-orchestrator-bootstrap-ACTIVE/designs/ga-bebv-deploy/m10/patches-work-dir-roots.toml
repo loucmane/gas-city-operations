@@ -1,0 +1,44 @@
+
+# ga-bebv: task worktree roots outside the city for the ga-6umo work_dir guard. A session or task
+# work_dir from worker-writable metadata must lie under the configured work_dir, the rig session
+# worktrees or one of these roots (never a Git metadata directory).
+
+[[patches.agent]]
+dir = "gas-city-template"
+name = "implementation-worker"
+work_dir_roots = ["/home/loucmane/gas-city-template-worktrees"]
+
+[[patches.agent]]
+dir = "gas-city-template"
+name = "run-operator"
+work_dir_roots = ["/home/loucmane/gas-city-template-worktrees"]
+
+[[patches.agent]]
+dir = "gas-city-template"
+name = "codex"
+work_dir_roots = ["/home/loucmane/gas-city-template-worktrees"]
+
+[[patches.agent]]
+dir = "gascity"
+name = "implementation-worker"
+work_dir_roots = ["/home/loucmane/gascity-core-worktrees"]
+
+[[patches.agent]]
+dir = "gascity"
+name = "operations-candidate-worker"
+work_dir_roots = ["/home/loucmane/gas-city-ops-candidate-worktrees"]
+
+[[patches.agent]]
+dir = "blog"
+name = "implementation-worker"
+work_dir_roots = ["/home/loucmane/dev/blog-worktrees"]
+
+[[patches.agent]]
+dir = "hpfetcher"
+name = "implementation-worker"
+work_dir_roots = ["/home/loucmane/dev/hpfetcher-worktrees"]
+
+[[patches.agent]]
+dir = "hpfetcher"
+name = "run-operator"
+work_dir_roots = ["/home/loucmane/dev/hpfetcher-worktrees"]

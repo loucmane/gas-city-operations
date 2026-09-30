@@ -1,0 +1,119 @@
+{
+  "actual_host_assets_pass": true,
+  "config_unchanged": true,
+  "consumed_root": "/var/tmp/ga-e0t1.20-prompt-prep-20260928-r7",
+  "failed_attempt_preserved": true,
+  "installed_receipt_unchanged": true,
+  "live_snapshot": {
+    "rigs": {
+      "city_name": "city",
+      "city_path": "/home/loucmane/gascity/city",
+      "ok": true,
+      "rigs": [
+        {
+          "beads": "initialized",
+          "hq": true,
+          "name": "city",
+          "path": "/home/loucmane/gascity/city",
+          "prefix": "ci",
+          "running": true,
+          "suspended": false
+        },
+        {
+          "beads": "initialized",
+          "default_branch": "main",
+          "hq": false,
+          "name": "gas-city-template",
+          "path": "/home/loucmane/gas-city-native",
+          "prefix": "gct",
+          "running": false,
+          "suspended": true
+        },
+        {
+          "beads": "initialized",
+          "default_branch": "main",
+          "hq": false,
+          "name": "gascity",
+          "path": "/home/loucmane/gascity/city/rigs/gascity",
+          "prefix": "ga",
+          "running": false,
+          "suspended": true
+        },
+        {
+          "beads": "initialized",
+          "default_branch": "main",
+          "hq": false,
+          "name": "blog",
+          "path": "/home/loucmane/dev/blog",
+          "prefix": "blog",
+          "running": false,
+          "suspended": true
+        },
+        {
+          "beads": "initialized",
+          "default_branch": "main",
+          "hq": false,
+          "name": "hpfetcher",
+          "path": "/home/loucmane/dev/hpfetcher-gc-main",
+          "prefix": "hpf",
+          "running": false,
+          "suspended": true
+        }
+      ],
+      "schema_version": "1",
+      "summary": {
+        "running": 1,
+        "suspended": 4,
+        "total": 5
+      }
+    },
+    "sessions": {
+      "filters": {},
+      "ok": true,
+      "schema_version": "1",
+      "sessions": [],
+      "summary": {
+        "active": 0,
+        "closed": 0,
+        "suspended": 0,
+        "total": 0
+      }
+    }
+  },
+  "ok": true,
+  "owned_processes_gone": true,
+  "phase_sha256": "640a747000051e8aa31972418c9003de53b10a01a97e18eae93c95d5e1267d07",
+  "production_city_unchanged": true,
+  "queue_empty": true,
+  "runner_halted": true,
+  "services": {
+    "gas-city-jobrunner.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestampMonotonic": "301336188076",
+      "MainPID": "2812303",
+      "NRestarts": "0",
+      "SubState": "running"
+    },
+    "gas-city-managed-git-signerd.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestampMonotonic": "39660502",
+      "MainPID": "2310",
+      "NRestarts": "0",
+      "SubState": "running"
+    },
+    "gas-city-privileged-provision.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestampMonotonic": "123477220085",
+      "MainPID": "2940285",
+      "NRestarts": "0",
+      "SubState": "running"
+    },
+    "gascity-supervisor-home-42adab5d.service": {
+      "ActiveState": "active",
+      "ExecMainStartTimestampMonotonic": "229642910742",
+      "MainPID": "2800348",
+      "NRestarts": "0",
+      "SubState": "running"
+    }
+  }
+}

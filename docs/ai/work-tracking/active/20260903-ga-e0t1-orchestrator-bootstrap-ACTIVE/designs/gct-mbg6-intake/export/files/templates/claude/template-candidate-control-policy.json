@@ -1,0 +1,97 @@
+{
+  "_gc": {
+    "schema": "gc.candidate-control-policy.v1",
+    "profile_kind": "candidate"
+  },
+  "_comment": [
+    "Candidate-only native control policy for the Template implementation worker, applied through bin/gct-claude-template-candidate-worker.",
+    "The wrapper removes the generated shared settings and loads no ambient setting sources, so this file is the whole user/project/local permission set (host managed-policy settings still apply).",
+    "The native file tools are bound to the dedicated Template candidate worktree root. The worktree .git link, publication commands, network tools, classified vault, shared settings, and credential stores are denied.",
+    "Project shell work stays in the fail-closed sandbox; only the five native control commands leave it. Reviewed native hooks are the Core policy hooks byte-for-byte."
+  ],
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Edit(//home/loucmane/gas-city-template-candidate-worktrees/*/**)",
+      "Bash(/home/loucmane/gascity/bin/gc hook --claim --json)",
+      "Bash(/home/loucmane/gascity/bin/gc runtime drain-ack)",
+      "Bash(/home/loucmane/gascity/bin/bd close *)",
+      "Bash(/home/loucmane/gascity/bin/bd show *)",
+      "Bash(/home/loucmane/gascity/bin/bd update *)"
+    ],
+    "deny": [
+      "Edit(//home/loucmane/gas-city-template-candidate-worktrees/*/.git)",
+      "Read(//home/loucmane/vaults/**)",
+      "Read(//home/loucmane/.ssh/**)",
+      "Read(//home/loucmane/.gnupg/**)",
+      "Read(//home/loucmane/.config/gh/**)",
+      "Read(//home/loucmane/.claude/**)",
+      "Read(//home/loucmane/.claude.json)",
+      "Read(//home/loucmane/gascity/city/.gc/settings.json)",
+      "Read(//home/loucmane/.git-credentials)",
+      "Read(//home/loucmane/.netrc)",
+      "Read(//home/loucmane/.config/git/**)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git merge *)",
+      "Bash(git config *)",
+      "Bash(gpg *)",
+      "WebFetch",
+      "WebSearch"
+    ]
+  },
+  "sandbox": {
+    "enabled": true,
+    "failIfUnavailable": true,
+    "autoAllowBashIfSandboxed": true,
+    "allowUnsandboxedCommands": false,
+    "excludedCommands": [
+      "/home/loucmane/gascity/bin/gc hook --claim --json",
+      "/home/loucmane/gascity/bin/gc runtime drain-ack",
+      "/home/loucmane/gascity/bin/bd close *",
+      "/home/loucmane/gascity/bin/bd show *",
+      "/home/loucmane/gascity/bin/bd update *"
+    ]
+  },
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "command": "export GC_HOME=\"$HOME/gascity/home\"; export PATH=\"$HOME/gascity/bin:$PATH\"; \"$HOME/gascity/bin/gc\" --city \"$HOME/gascity/city\" handoff --auto \"context cycle\"",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ],
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "command": "export GC_HOME=\"$HOME/gascity/home\"; export PATH=\"$HOME/gascity/bin:$PATH\"; GC_MANAGED_SESSION_HOOK=1 GC_HOOK_EVENT_NAME=SessionStart \"$HOME/gascity/bin/gc\" --city \"$HOME/gascity/city\" prime --hook --hook-format codex",
+            "type": "command"
+          }
+        ],
+        "matcher": "startup"
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "command": "export GC_HOME=\"$HOME/gascity/home\"; export PATH=\"$HOME/gascity/bin:$PATH\"; \"$HOME/gascity/bin/gc\" --city \"$HOME/gascity/city\" hook run --timeout 15s --timeout-exit-code 0 -- nudge drain --inject",
+            "type": "command"
+          },
+          {
+            "command": "export GC_HOME=\"$HOME/gascity/home\"; export PATH=\"$HOME/gascity/bin:$PATH\"; \"$HOME/gascity/bin/gc\" --city \"$HOME/gascity/city\" hook run --timeout 15s --timeout-exit-code 0 -- mail check --inject",
+            "type": "command"
+          }
+        ],
+        "matcher": ""
+      }
+    ]
+  }
+}

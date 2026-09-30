@@ -1,0 +1,18 @@
+
+
+## Skills available to this session
+
+You are `gascity/codex`. The following skills are materialized in your provider's skill directory and load automatically — you don't need to invoke anything extra.
+
+### Shared in this scope
+
+- `core.gc-agents` — Managing agents — list, peek, nudge, suspend, drain *(core)*
+- `core.gc-city` — City lifecycle — status, start, stop, init *(core)*
+- `core.gc-dashboard` — API server and web dashboard — config, start, monitor *(core)*
+- `core.gc-dispatch` — Routing work to agents with gc sling and formulas *(core)*
+- `core.gc-mail` — Sending and reading messages between agents *(core)*
+- `core.gc-rigs` — Managing rigs — add, list, status, suspend, resume *(core)*
+- `core.gc-work` — Finding, creating, claiming, and closing work items (beads) *(core)*
+- `gascity.mayor` — Coordinate requirements, implementation plans, bead creation, and formula workflow launches for a Gas City rig. Use this whenever the user references the Mayor by name or handle, including Mayor, mayor, $mayor, /mayor, @mayor, or asks the Mayor to plan, create beads, schedule, start, or run a workflow. *(gascity)*
+
+These are discovery-time hints, not execution gates — the vendor loads every skill from the sink directory regardless of what this appendix lists.

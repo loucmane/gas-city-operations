@@ -1,0 +1,14 @@
+{
+  "schema": "ga-e0t1.20.prompt-prep-r5.v1",
+  "files": {
+    "PRECLAIM-R5.md": "76d3f3d0a33d4a3572227dfa37b5d38ffe12bc0c60f9541a50364150d3c730e9",
+    "launch-contract-r5.py": "cfd2467d3ce7c8600eb635d28a97249ccdc7bfa055386a423506d3f8e60edc7e",
+    "prompt-prep-r5.py": "bbb119c111d0675688d58e295ab20387f79b801403b8331b0f2137ed5acb7acd",
+    "skills-suffix-r5.txt": "53682c1d8952f8f6345813a1519e9ee76ce72c70145b85de2663e80540c3eae8",
+    "operator/PROMPT-PREP-R5.sh": "99a7bf451ff5224d12dd7fc4ef16e442f279317dff59463d5fc75f89b1e2d5e5"
+  },
+  "live_worker_execution_included": false,
+  "supplemental_preparation_only": true,
+  "predecessor": "78152f1d1400961978b35db610db5eef66babd71",
+  "recovery": "17598e3aca0cbabd391c162f7345284f4132415c"
+}

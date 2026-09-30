@@ -1,0 +1,7 @@
+{
+ "base": "cfd353f30f465cdf67bbd41fab48812fe5b9617e",
+ "diff_sha256": "ff9847cdb066fc414acfd2cfca1bb5ac1bbe163c2ff1394ea7926d86d6268f05",
+ "manifest_sha256": "3a75eaff2a48914bbff70c2e91d5b55d202c6929c3753fe9b1280520b52635e0",
+ "schema": "gct-mbg6.template-intake.v1",
+ "tree": "23b062479ed6f4cbb3c6c9093572fdcd1c6b4e86"
+}

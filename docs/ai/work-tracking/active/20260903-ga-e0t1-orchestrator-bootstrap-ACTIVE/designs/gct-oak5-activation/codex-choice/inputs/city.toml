@@ -1,0 +1,453 @@
+include = ["managed/rig-permissions.toml", "managed/attention-funnel.toml", "managed/core-signing-continuity.toml"]
+[workspace]
+provider = "claude"
+max_active_sessions = 16
+[workspace.env]
+GC_BIN = "$HOME/gascity/bin/gc"
+GC_HOME = "$HOME/gascity/home"
+PATH = "$HOME/gascity/bin:$PATH"
+TMPDIR = "/tmp"
+
+[daemon]
+patrol_interval = "15s"
+max_wakes_per_tick = 10
+
+[providers]
+[providers.claude]
+base = "builtin:claude"
+options_schema_merge = "replace"
+ready_delay_ms = 0
+[providers.claude.option_defaults]
+model = "opus-5-5"
+permission_mode = "auto-edit"
+effort = "max"
+worktree_access = "none"
+
+[[providers.claude.options_schema]]
+key = "permission_mode"
+label = "Permission Mode"
+type = "select"
+default = "auto-edit"
+
+[[providers.claude.options_schema.choices]]
+value = "auto-edit"
+label = "Attend approvals"
+flag_args = ["--permission-mode", "auto"]
+
+[[providers.claude.options_schema.choices]]
+value = "full-auto"
+label = "Fail instead of asking"
+flag_args = ["--permission-mode", "dontAsk"]
+
+[[providers.claude.options_schema.choices]]
+value = "plan"
+label = "Plan mode"
+flag_args = ["--permission-mode", "plan"]
+
+[[providers.claude.options_schema]]
+key = "effort"
+label = "Effort"
+type = "select"
+default = "max"
+
+[[providers.claude.options_schema.choices]]
+value = "low"
+label = "Low"
+flag_args = ["--effort", "low"]
+
+[[providers.claude.options_schema.choices]]
+value = "medium"
+label = "Medium"
+flag_args = ["--effort", "medium"]
+
+[[providers.claude.options_schema.choices]]
+value = "high"
+label = "High"
+flag_args = ["--effort", "high"]
+
+[[providers.claude.options_schema.choices]]
+value = "xhigh"
+label = "Extra High"
+flag_args = ["--effort", "xhigh"]
+
+[[providers.claude.options_schema.choices]]
+value = "max"
+label = "Max"
+flag_args = ["--effort", "max"]
+
+[[providers.claude.options_schema]]
+key = "model"
+label = "Model"
+type = "select"
+default = "opus-5-5"
+
+[[providers.claude.options_schema.choices]]
+value = "opus-5-5"
+label = "Claude Opus 5.5"
+flag_args = ["--model", "claude-opus-5-5"]
+
+[[providers.claude.options_schema.choices]]
+value = "fable-5"
+label = "Claude Fable 5"
+flag_args = ["--model", "claude-fable-5"]
+
+[[providers.claude.options_schema.choices]]
+value = "haiku-4-5"
+label = "Claude Haiku 4.5"
+flag_args = ["--model", "claude-haiku-4-5-20251001"]
+
+[[providers.claude.options_schema.choices]]
+value = "sonnet-5"
+label = "Claude Sonnet 5"
+flag_args = ["--model", "claude-sonnet-5"]
+
+[[providers.claude.options_schema]]
+key = "worktree_access"
+label = "Additional worktree access"
+type = "select"
+default = "none"
+
+[[providers.claude.options_schema.choices]]
+value = "none"
+label = "Current workdir only"
+flag_args = []
+
+[[providers.claude.options_schema.choices]]
+value = "hpfetcher-worktrees"
+label = "HPFetcher worktrees"
+flag_args = ["--add-dir", "/home/loucmane/dev/hpfetcher-worktrees"]
+
+[[providers.claude.options_schema.choices]]
+value = "template-worktrees-and-git-metadata"
+label = "Template worktrees and Git metadata"
+flag_args = ["--add-dir", "/home/loucmane/gas-city-template-worktrees", "--add-dir", "/home/loucmane/gas-city-template/.git"]
+[providers.claude-attention]
+base = "provider:claude"
+command = "/home/loucmane/gas-city-native/bin/claude-attention"
+ready_delay_ms = 0
+path_check = "/home/loucmane/gascity/bin/claude"
+resume_command = "/home/loucmane/gas-city-native/bin/claude-attention --resume {{.SessionKey}} --settings /home/loucmane/gascity/city/.gc/settings.json"
+[providers.codex]
+base = "builtin:codex"
+options_schema_merge = "replace"
+command = "/home/loucmane/gascity/bin/codex"
+ready_delay_ms = 0
+resume_command = "/home/loucmane/gascity/bin/codex resume {{.SessionKey}}"
+title_model = "gpt-5.6-sol"
+[providers.codex.option_defaults]
+effort = "xhigh"
+model = "gpt-5.6-sol"
+permission_mode = "fail-fast"
+worklog_access = "classified-vault"
+
+[[providers.codex.options_schema]]
+key = "permission_mode"
+label = "Approval policy"
+type = "select"
+default = "fail-fast"
+
+[[providers.codex.options_schema.choices]]
+value = "fail-fast"
+label = "Fail fast (managed)"
+flag_args = ["--ask-for-approval", "never"]
+
+[[providers.codex.options_schema.choices]]
+value = "attended"
+label = "Attended approvals"
+flag_args = ["--ask-for-approval", "on-request"]
+
+[[providers.codex.options_schema]]
+key = "model"
+label = "Model"
+type = "select"
+default = "gpt-5.6-sol"
+
+[[providers.codex.options_schema.choices]]
+value = "gpt-5.6-sol"
+label = "GPT-5.6 Sol"
+flag_args = ["--model", "gpt-5.6-sol"]
+
+[[providers.codex.options_schema.choices]]
+value = "gpt-5.6-luna"
+label = "GPT-5.6 Luna"
+flag_args = ["--model", "gpt-5.6-luna"]
+
+[[providers.codex.options_schema.choices]]
+value = "gpt-5.6-terra"
+label = "GPT-5.6 Terra"
+flag_args = ["--model", "gpt-5.6-terra"]
+
+[[providers.codex.options_schema]]
+key = "effort"
+label = "Reasoning effort"
+type = "select"
+default = "xhigh"
+
+[[providers.codex.options_schema.choices]]
+value = "low"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=low"]
+
+[[providers.codex.options_schema.choices]]
+value = "medium"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=medium"]
+
+[[providers.codex.options_schema.choices]]
+value = "high"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=high"]
+
+[[providers.codex.options_schema.choices]]
+value = "xhigh"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=xhigh"]
+
+[[providers.codex.options_schema.choices]]
+value = "max"
+label = ""
+flag_args = ["-c", "model_reasoning_effort=max"]
+
+[[providers.codex.options_schema]]
+key = "worklog_access"
+label = "Worklog access"
+type = "select"
+default = "classified-vault"
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault"
+label = "Classified GasCity vault"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-and-blog-worktrees"
+label = "Classified GasCity vault and Blog worktrees"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\",\"/home/loucmane/dev/blog-worktrees\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-and-template-worktrees"
+label = "Classified GasCity vault and template worktrees"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\",\"/home/loucmane/gas-city-template-worktrees\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-and-template-candidate-worktrees"
+label = "Classified GasCity vault and Template candidate worktrees"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\",\"/home/loucmane/gas-city-template-candidate-worktrees\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-template-worktrees-and-git-metadata"
+label = "Classified vault, template worktrees, and template Git metadata"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[\"/home/loucmane/vaults/main/GasCity\",\"/home/loucmane/gas-city-template-worktrees\",\"/home/loucmane/gas-city-template/.git\"]"]
+
+[[providers.codex.options_schema.choices]]
+value = "classified-vault-hpfetcher-worktrees-and-git-metadata"
+label = "Classified vault, HPFetcher worktrees, and HPFetcher Git metadata"
+flag_args = ["--sandbox", "workspace-write", "-c", 'sandbox_workspace_write.writable_roots=["/home/loucmane/vaults/main/GasCity","/home/loucmane/dev/hpfetcher-worktrees","/home/loucmane/dev/hpfetcher/.git"]']
+
+[providers.codex-evidence]
+base = "provider:codex"
+options_schema_merge = "by_key"
+
+[providers.codex-evidence.option_defaults]
+effort = "xhigh"
+model = "gpt-5.6-sol"
+permission_mode = "fail-fast"
+worklog_access = "isolated-workspace"
+
+[[providers.codex-evidence.options_schema]]
+key = "worklog_access"
+label = "Evidence workspace access"
+type = "select"
+default = "isolated-workspace"
+
+[[providers.codex-evidence.options_schema.choices]]
+value = "isolated-workspace"
+label = "Current evidence workspace only"
+flag_args = ["--sandbox", "workspace-write", "-c", "sandbox_workspace_write.writable_roots=[]"]
+
+[defaults]
+[defaults.rig]
+[defaults.rig.imports]
+[defaults.rig.imports.gc]
+source = "https://github.com/loucmane/gascity-packs/tree/main/gascity/roles"
+version = "sha:cc9e72b2078bab50ce708141961a31ef89ca590f"
+
+[[rigs]]
+name = "gas-city-template"
+default_branch = "main"
+[rigs.imports]
+[rigs.imports.gc]
+source = "https://github.com/loucmane/gascity-packs/tree/main/gascity/roles"
+version = "sha:cc9e72b2078bab50ce708141961a31ef89ca590f"
+
+[[rigs.overrides]]
+agent = "run-operator"
+provider = "claude"
+[rigs.overrides.option_defaults]
+model = "haiku-4-5"
+permission_mode = "auto-edit"
+worktree_access = "template-worktrees-and-git-metadata"
+
+[[rigs]]
+name = "gascity"
+default_branch = "main"
+suspended_on_start = true
+[rigs.imports]
+[rigs.imports.gc]
+source = "https://github.com/loucmane/gascity-packs/tree/main/gascity/roles"
+version = "sha:cc9e72b2078bab50ce708141961a31ef89ca590f"
+
+[[rigs.overrides]]
+agent = "run-operator"
+provider = "claude"
+[rigs.overrides.option_defaults]
+model = "haiku-4-5"
+permission_mode = "auto-edit"
+
+[[rigs]]
+name = "blog"
+prefix = "blog"
+default_branch = "main"
+suspended_on_start = true
+[rigs.imports]
+[rigs.imports.gc]
+source = "https://github.com/loucmane/gascity-packs/tree/main/gascity/roles"
+version = "sha:cc9e72b2078bab50ce708141961a31ef89ca590f"
+
+[[rigs.overrides]]
+agent = "run-operator"
+provider = "claude"
+[rigs.overrides.option_defaults]
+model = "haiku-4-5"
+permission_mode = "auto-edit"
+
+[[rigs.overrides]]
+agent = "builder"
+[rigs.overrides.option_defaults]
+worklog_access = "classified-vault-and-blog-worktrees"
+
+[patches]
+
+[[patches.agent]]
+dir = "blog"
+name = "design-author"
+suspended = false
+
+[[patches.agent]]
+dir = "blog"
+name = "review-synthesizer"
+suspended = true
+
+[[patches.agent]]
+dir = "blog"
+name = "task-decomposer"
+suspended = true
+
+[[patches.agent]]
+dir = "blog"
+name = "implementation-worker"
+suspended = true
+
+[[patches.agent]]
+dir = "gas-city-template"
+name = "codex"
+prompt_template = "/home/loucmane/gas-city-native/agents/codex/prompt.template.md"
+max_active_sessions = 1
+[patches.agent.option_defaults]
+worklog_access = "classified-vault-template-worktrees-and-git-metadata"
+
+[[patches.named_session]]
+template = "mayor"
+mode = "on_demand"
+
+[session]
+startup_timeout = "5m"
+progress_stall_timeout = "5m"
+
+[agent_defaults]
+append_fragments = ["native-command-path"]
+
+[[rigs]]
+name = "hpfetcher"
+prefix = "hpf"
+default_branch = "main"
+suspended_on_start = true
+[rigs.imports]
+[rigs.imports.gc]
+source = "https://github.com/loucmane/gascity-packs/tree/main/gascity/roles"
+version = "sha:cc9e72b2078bab50ce708141961a31ef89ca590f"
+
+[[rigs.overrides]]
+agent = "run-operator"
+provider = "claude"
+
+[rigs.overrides.option_defaults]
+model = "haiku-4-5"
+permission_mode = "auto-edit"
+worktree_access = "hpfetcher-worktrees"
+
+[[rigs.overrides]]
+agent = "implementation-worker"
+provider = "codex"
+
+[rigs.overrides.option_defaults]
+model = "gpt-5.6-sol"
+effort = "xhigh"
+worklog_access = "classified-vault-hpfetcher-worktrees-and-git-metadata"
+
+# Stable mailbox identities for event-driven operator attention. These are
+# addressable at idle and materialize a bounded provider session only on wake.
+[[named_session]]
+template = "watch-officer"
+scope = "city"
+mode = "on_demand"
+
+[[named_session]]
+template = "orchestrator"
+scope = "rig"
+mode = "on_demand"
+
+# ga-bebv: task worktree roots outside the city for the ga-6umo work_dir guard. A session or task
+# work_dir from worker-writable metadata must lie under the configured work_dir, the rig session
+# worktrees or one of these roots (never a Git metadata directory).
+
+[[patches.agent]]
+dir = "gas-city-template"
+name = "implementation-worker"
+work_dir_roots = ["/home/loucmane/gas-city-template-candidate-worktrees"]
+max_active_sessions = 1
+
+[[patches.agent]]
+dir = "gas-city-template"
+name = "run-operator"
+work_dir_roots = ["/home/loucmane/gas-city-template-worktrees"]
+
+[[patches.agent]]
+dir = "gas-city-template"
+name = "codex"
+work_dir_roots = ["/home/loucmane/gas-city-template-worktrees", "/home/loucmane/gas-city-template-candidate-worktrees"]
+
+[[patches.agent]]
+dir = "gascity"
+name = "implementation-worker"
+work_dir_roots = ["/home/loucmane/gascity-core-worktrees"]
+
+[[patches.agent]]
+dir = "gascity"
+name = "operations-candidate-worker"
+work_dir_roots = ["/home/loucmane/gas-city-ops-candidate-worktrees"]
+
+[[patches.agent]]
+dir = "blog"
+name = "implementation-worker"
+work_dir_roots = ["/home/loucmane/dev/blog-worktrees"]
+
+[[patches.agent]]
+dir = "hpfetcher"
+name = "implementation-worker"
+work_dir_roots = ["/home/loucmane/dev/hpfetcher-worktrees"]
+
+[[patches.agent]]
+dir = "hpfetcher"
+name = "run-operator"
+work_dir_roots = ["/home/loucmane/dev/hpfetcher-worktrees"]

@@ -1,0 +1,29 @@
+{
+  "execution": false,
+  "inputs": {
+    "contract.py": "67fe869d1255cc10e7ee3b9a41394ae535fde31c7ed43a59e7f252433d98caf3",
+    "create-only-patch.py": "813665c1caa01a7ea409c806a29b6e5698a18bebd10291ef246d3e6cce71acb0",
+    "fresh-admission.py": "bc01a11497d5def145583800f555f00231ad412a050a00d61263ea4aaf842029",
+    "fresh-workspace.py": "5b2dde047fcf7123ef3304ea057f20ca79d26222a360ee617e5415aaf43f0812",
+    "host-capture.py": "b32cdda669bb15683f1411fad520b3c64c4bb7277ad60485e9602fbed63234d4",
+    "release-delivery-r13.py": "45431e2971636f814a9876992a0694751531b414d2bb5ed7ccb8a4d5ba184f99",
+    "release-runtime-r13.py": "9acd8664a35fd120e12a6eacc92eb81dd3701dac86f134bbea33079a996e08ba",
+    "startup-validation.py": "fd50ed3cc1e0c9bd42790f8fc8a05bba5c56f7f6461dd20e6fa7d1cde139414b",
+    "task-assembly.py": "0cff340377c63adbf26a91681c3b34991b354c864d380aba432d1cbfb3d7c067",
+    "window-assembly.py": "597c634b1d04deab7a224d44c0892a11a097911334a3b02146e23781c188c9b4"
+  },
+  "output": {
+    "contract.py": "39da13666f69e3566b1c23b46c13a1ad12504ce6bbc65297d72cc29c3cb92239",
+    "create-only-patch.py": "813665c1caa01a7ea409c806a29b6e5698a18bebd10291ef246d3e6cce71acb0",
+    "fresh-admission.py": "3c252f11156542cb92907e1b791ce172917692a3f2ae6501f512a4bf9e9ee7ae",
+    "fresh-workspace.py": "5b2dde047fcf7123ef3304ea057f20ca79d26222a360ee617e5415aaf43f0812",
+    "host-capture.py": "35a2832410c9afae7f8ce5bb0c5f4d46f5e0465dee4de1c69630fbcc0281a4cc",
+    "queue-guard.py": "990a8c61952841a0cacc2fdacc5ae0e391f1bc7c7b4dad2d1181bb486c940aed",
+    "release-delivery-r13.py": "97f45c79a028cdff1a1ebfa8c86fc93a1a6406fb99dd3ddddd5f2c34bed2604e",
+    "release-runtime-r13.py": "416af0a5212e063c90933c5d4ab79fab729a7ca77d605c2d70134cc9bf417ea9",
+    "startup-validation.py": "41f41ebba0bc7f74dbb5221d68472e274c6dc482d7564a72ec828b75851d44e3",
+    "task-assembly.py": "bc25467aa630ab2505ded0f6b30bb6fbb92daae3564eed1ce0f972d980976f70",
+    "window-assembly.py": "55339aa1e855d0c186e3c9c174255422533575dad178bef0e0e1126ae245a857"
+  },
+  "predecessor": "ga-jcxb"
+}

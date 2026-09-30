@@ -250,6 +250,60 @@ def test_compact_journal_moves_verified_inline_snapshots_once(lane):
     assert len(json.loads(path.read_text())["events"]) == 1
 
 
+def test_compact_journal_moves_verified_ownership_snapshots_and_coordination_still_works(lane):
+    """ga-e0t1 journal bound: verified external_ownership snapshots also move out-of-line.
+
+    A long-lived coordinator journal accumulates one full before/after Bead pair per
+    attached Bead; those, not coordination records, pushed the live journal past the
+    stationary gate's 1 MiB bound. Pending ownership intents keep their inline preimage.
+    """
+
+    from workflow_coordinate import compact_journal
+    from workflow_snapshots import is_reference, resolve_snapshot
+
+    root, registry, runner, path = lane
+    journal = json.loads(path.read_text())
+    owned = journal["external_ownership"]["ga-test"]
+    assert owned["state"] == "verified"
+    assert not is_reference(owned["before"]) and not is_reference(owned["after"])
+    original_before, original_after = owned["before"], owned["after"]
+    journal["external_ownership"]["ga-pending"] = {
+        "state": "pending",
+        "binding": owned["binding"],
+        "before": {"id": "ga-pending", "notes": "inline preimage"},
+        "reconciliation": False,
+    }
+    path.write_text(json.dumps(journal, indent=2, sort_keys=True) + "\n")
+    before_size = path.stat().st_size
+
+    first = compact_journal(root, runner, registry=registry)
+
+    assert first["status"] == "compacted" and first["ownership_snapshots"] == 2
+    compacted = json.loads(path.read_text())
+    verified = compacted["external_ownership"]["ga-test"]
+    assert is_reference(verified["before"]) and is_reference(verified["after"])
+    assert resolve_snapshot(path, verified["before"]) == original_before
+    assert resolve_snapshot(path, verified["after"]) == original_after
+    assert {key: value for key, value in verified.items() if key not in {"before", "after"}} == {
+        key: value for key, value in owned.items() if key not in {"before", "after"}
+    }
+    assert compacted["external_ownership"]["ga-pending"]["before"] == {
+        "id": "ga-pending",
+        "notes": "inline preimage",
+    }
+    assert compacted["events"][-1]["ownership_snapshots"] == 2
+    # Fixture Beads are tiny, so size is not the signal here; the verified bodies are gone
+    # from the journal file itself (the live 272 KB records are what shrink in practice).
+    assert json.dumps(original_after, sort_keys=True) not in json.dumps(
+        compacted["external_ownership"], sort_keys=True
+    )
+    assert before_size > 0
+    assert compact_journal(root, runner, registry=registry)["status"] == "unchanged"
+    # Ownership checks read only state and binding, so coordination keeps working.
+    note = coordinate(root, "ga-test", "note", {"text": "After compaction"}, runner, registry=registry)
+    assert note["status"] == "applied"
+
+
 def test_pending_id_log_uses_canonical_aegis_cli(lane):
     root, _, runner, _ = lane
     pending_id = "0123456789ab"

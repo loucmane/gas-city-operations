@@ -1,0 +1,31 @@
+{
+  "actual_confined_normalizer": true,
+  "executor_sha256": "102a87679ac8a24bd487a6a1b5bf2cc8574f870a88f0c555a5d60fc42950423d",
+  "exit_code": 0,
+  "host_asset_check_claimed": false,
+  "input_digests": {
+    "city.baseline.toml": "bdcec2549fae330ed4aedc2c25563f1917e2bfd39e1caea4be443536f94c69b1",
+    "city.isolated.toml": "6ade509fbd9e9ee7ccb1cddee9a3c22157267bb122f42bb64e2e768113f7b41c",
+    "composition.after.json": "039a416a90b7b887f06fcdb7f09416400d1651faecd0ad5507f66de1347a43f2",
+    "composition.before.json": "ee17e6ae2e42b8298322b5bf55f5124d8aec1453b7320f119e6d13069d29ca6c",
+    "config.baseline.json": "b336b83e484e29bff1561fc188602b1311563995389cd1511465e943951af2df",
+    "config.isolated.json": "529db2e941d741bf3c932291eda4ac6c4bcbf30e7de6e743c8e638e00d317ead",
+    "declared-delta.json": "9718c728c891048123da394a836cb5757ad73628a929e8c4613716f3b3a1f5ca",
+    "normalize-phase.json": "640a747000051e8aa31972418c9003de53b10a01a97e18eae93c95d5e1267d07",
+    "orders.baseline.json": "87f3130124793e4b4daea93ce9b9e6ec103babdbe8759ccaa12ef41cf4476b57",
+    "orders.isolated.json": "b57082cf8c065a460e4b8414c380c4fdedde6cc83a3b5426206aa4f73f0d02a1",
+    "receipt.before.json": "7185414ebade17a1fdd7d485564e85f6ad8d7e0230983c21bf917f1ed27fb0ba",
+    "receipt.input.json": "293fbb942e0170ed2d168985549e65c7abd2b39b1713be086f79b169a0960024"
+  },
+  "installed": false,
+  "preparer_main_executed": false,
+  "profile_names": [
+    "gas-city-template/gc.implementation-worker",
+    "gascity/gc.implementation-worker",
+    "gascity/operations-candidate-worker"
+  ],
+  "source_inputs_preserved": true,
+  "stderr": "",
+  "stdout_sha256": "2e424935e2a5401985b12e7088fb549073870ff7681e3633bca0c2a692efd1ea",
+  "worker_launched": false
+}
