@@ -725,3 +725,16 @@ Combined R1 source checkpoint: `docs/ai/work-tracking/active/20260903-ga-e0t1-or
 - Evidence: designs/ga-xyqo-c1-package/LIVE-OUTCOME.md and LIVE-BEAD-RECEIPT.json
   under the active tracker. The full goal and all unproven C1/handover/terminal
   acceptance items remain open. This recovery is not provider-parity success.
+
+### 2026-09-30 continuation — real startup, release refusal and verified recovery
+
+- ga-5uc9 ran exactly one Astra session ci-f6fgu after independent source review.
+  Startup completed but delayed coordinator release encountered native progress_stall
+  metadata. The strict release check refused before enqueue. No candidate PASS.
+- Supported suspension, session close, exact baseline restoration and terminal
+  host integrity all passed. Zero sessions and worktree processes remain. Full
+  evidence and the failed release are preserved in designs/ga-5uc9-c1-package/LIVE-OUTCOME.md.
+- Standing broad and narrow approval remains valid without per-detail requests.
+  Keep the original full goal active. Do not replay the consumed attempt or
+  weaken monitoring. Any reviewed successor must finish all preparation before
+  resume and keep startup observation plus release within the live idle budget.
