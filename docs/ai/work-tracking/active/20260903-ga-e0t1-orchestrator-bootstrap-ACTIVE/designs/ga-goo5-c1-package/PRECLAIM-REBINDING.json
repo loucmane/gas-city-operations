@@ -1,0 +1,13 @@
+{
+  "predecessor": "ga-5uc9-c1-package/PRECLAIM.md",
+  "replacements": [
+    [
+      "ga-5uc9",
+      "ga-goo5"
+    ],
+    [
+      "d314bdbea040d4af47b8373eacd5e57ace7d02d6726b8cfb9d05336e1d999c24",
+      "09f413a22a2732653f786b77b47c6c5eee6529f49d6194ee76b00932a2fb1170"
+    ]
+  ]
+}

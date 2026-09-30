@@ -1,0 +1,17 @@
+{
+  "predecessor": "ga-5uc9-c1-package/worker-startup.py",
+  "replacements": [
+    [
+      "ga-5uc9",
+      "ga-goo5"
+    ],
+    [
+      "ga-goo5-bind-20260929-r1",
+      "ga-goo5-bind-20260930-r1"
+    ],
+    [
+      "7e8e57ccb552d6c6dce30a7d380e7e2af0cf3619ef06fb7f2740b4daeb810a6f",
+      "509a70efb8a7add6a705910d6448e7f3e01e41b61af458985f62869b11b1eeff"
+    ]
+  ]
+}
