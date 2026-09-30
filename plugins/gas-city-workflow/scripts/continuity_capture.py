@@ -360,6 +360,10 @@ def _transactions(root: Path) -> list[dict[str, Any]]:
     if not transaction_root.is_dir():
         return records
     for path in sorted(transaction_root.glob("*.json")):
+        # Context recovery keeps its plan and pre-recovery backups beside the journals
+        # (workflow_context_recovery.py); neither is a live transaction journal.
+        if path.name.endswith((".context-recovery.json", ".before.json")):
+            continue
         payload = _read_object(path, "workflow transaction")
         spec = payload.get("spec")
         if not isinstance(spec, Mapping):
