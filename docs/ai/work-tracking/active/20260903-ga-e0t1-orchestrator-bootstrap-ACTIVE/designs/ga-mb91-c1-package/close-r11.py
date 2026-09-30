@@ -44,8 +44,8 @@ import types
 
 BASE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/'
             '20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package/window-base.py')
-BASE_SHA = '2d6fce271cb590c8eb53292d00e529567025deb8e100b313f6329b7cac39f51d'
-WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r2')
+BASE_SHA = 'f7c7e0abb0e8202ca328b9ec6e488ff7b7633dbb2ea00dfd83bb46582d95175a'
+WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r3')
 VAR = Path('/var/tmp')
 TEMPLATE = 'gascity/codex'
 ANY = tuple(range(256))
@@ -153,7 +153,7 @@ def main():
     def claim_before_mutation(session):
         tasks=json.loads(run('claim',w.GC+['--rig','gascity','bd','show',contract.TASK,'--json'])['stdout'])
         w.require(isinstance(tasks,list) and len(tasks)==1,'close task cardinality')
-        admitted=json.loads(w.read(Path('/var/tmp/ga-mb91-route-20260930-r1/task-after.json')))
+        admitted=json.loads(w.read(Path('/var/tmp/ga-mb91-route-20260930-r2/task-after.json')))
         contract.close_claim(tasks[0],session,admitted)
     session=first[0] if first else None
     w.save('session.json', dict(session=session))

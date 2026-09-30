@@ -14,7 +14,7 @@ import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-ROOT=Path('/var/tmp/ga-mb91-route-20260930-r1')
+ROOT=Path('/var/tmp/ga-mb91-route-20260930-r2')
 BIND=Path('/var/tmp/ga-mb91-bind-20260930-r1')
 BIND_SHA='028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'
 DESCRIPTION_SHA='ad19a287bfdb5e85a29b01a0c3e988e683b6fd7d2ae9bc4f77e3b8445c6e34f0'
@@ -22,11 +22,11 @@ PREROUTE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootst
 PREROUTE_SHA='d52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6'
 CANDIDATE_GIT=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/candidate_git.py')
 CANDIDATE_GIT_SHA='d2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe'
-# s1 r8: the reviewed preroute.py record refresh after the sequence 16 controller restart (pid 466463).
-RECORD=Path('/home/loucmane/.local/share/gas-city-staging/ga-bebv-process-record-20260927/process-record.json')
-RECORD_SHA='df765fd0e357925bab51891c72019018bb43b65fcd6e97addf0582c9bdf5e5d7'
+# Refreshed through the reviewed recorder after R7 restoration; same epoch as preflight and stage.
+RECORD=Path('/tmp/ga-mb91-process-record-20260930-r1.json')
+RECORD_SHA='10b956a5458bb88443789cf3fbde1c1abdf99dbcaabc542fa92369db0679e086'
 HELPER=HERE/'window.py'
-SHA='d56e3e6ae3f06f04d53b09c2c8ed4e587ce986f622c26c23633320cf86099285'
+SHA='666f0af06ad3fe6339578ee031e10512f1facf4ab5139ffdf29f9d81466e080a'
 TARGET='gascity/codex'
 ADMISSION_SHA='3c252f11156542cb92907e1b791ce172917692a3f2ae6501f512a4bf9e9ee7ae'
 

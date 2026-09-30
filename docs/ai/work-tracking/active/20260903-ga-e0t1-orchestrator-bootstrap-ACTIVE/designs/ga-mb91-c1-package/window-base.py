@@ -18,7 +18,7 @@ import time
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-ROOT = Path('/var/tmp/ga-mb91-window-20260930-r2')
+ROOT = Path('/var/tmp/ga-mb91-window-20260930-r3')
 PREP = Path('/var/tmp/ga-mb91-prep-20260930-r1')
 SUSPENSION = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
 LINEAGE_SHA = '26acf7ebd1ca9e1832db64b1ede34b3e7858c548463d3bde9581b1900d50cd90'
@@ -45,8 +45,8 @@ INPUT_SHA = ('9d2cb1b2b21150594d9ccd3bec35d69ed092c6074e51b774e018fb9debcc53b4',
              None)  # The isolated input is compared to the exact native-finalized wire below.
 RUNNER = Path('/var/tmp/ga-ecwh-preflight-diagnostic-20260920-r1/phase_runner.py')
 # Accepted restored TERMINAL observation; all host, pin and protected fields remain exact.
-ACCEPTED = Path('/tmp/ga-mb91-readonly-baseline-20260930-r2/observed.json')
-ACCEPTED_SHA = '339e7ab62a5f2a1aa06af1ef4bc72441de18512edd2d36016e2c8308a61afbc4'
+ACCEPTED = Path('/var/tmp/ga-mb91-terminal-20260930-r1/observed-after.json')
+ACCEPTED_SHA = '5481ac1d2b37c678c9d261a05cc2207aecca882c5637db13473392ecb8e0c813'
 ACCEPTED_KEYS = ('cache', 'host', 'pins', 'protected')
 PROVIDER = Path('/var/tmp/ga-e0t1.22-p14-adoption-20260930/after.json.provider-pins')
 PROVIDER_SHA = '82a4a70c43fa1e0d581f6d8c72b8c46c0478bdebca761f7b18cf05d43708765b'
@@ -119,16 +119,16 @@ def load_support():
     return b, o, owned
 
 def pins():
-    previous=json.loads(read(Path('/var/tmp/ga-jcxb-terminal-20260930-r1/result.json'),
+    previous=json.loads(read(Path('/var/tmp/ga-mb91-terminal-20260930-r1/result.json'),
         'dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8'))
     require(previous['ok'] is True and previous['accepted_restoration_bound'] is True
         and previous['actual_host_verified'] is True and previous['worker_launched'] is False
         and previous['root_cache_protected_read_only'] is True
         and previous['terminal_suspension_endpoint_bound'] is True,
         'previous window was not proven restored')
-    closed=json.loads(read(Path('/var/tmp/ga-jcxb-r1-close-20260930T041304Z/result.json'),
-        '8f65d7d473dacdddbb6a6654f74c6d749346375bf47b3989f335ca229e3d656c'))
-    require(closed['ok'] is True and closed['closed_session']=='ci-mzoxg'
+    closed=json.loads(read(Path('/var/tmp/ga-mb91-r1-close-20260930T130514Z/result.json'),
+        '64597781748525f5aa60b95334e372f6392bca9b020a3553f895deb1acba5540'))
+    require(closed['ok'] is True and closed['closed_session'] is None
         and closed['open_sessions']==0 and closed['city_tmux_sessions']==0
         and closed['worktree_processes']==0, 'prior close lacks zero residue')
     # The R9-era diagnostic pins are not evidence for this window; its evidence is the prep root.
@@ -733,6 +733,25 @@ def verify_prelaunch_permissions():
     guard.verify(read,lambda path,pin,name:module(path,pin))
 
 
+
+def verify_process_record(o):
+    # The recorder does not grant authority. Bind it to the separately accepted
+    # host epoch and retain every native city identity and quiescence check.
+    module(Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/candidate_git.py'),
+           'd2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe')
+    pr=module(Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-6utp-activation-r10/preroute.py'),
+           'd52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6')
+    value=json.loads(read(Path('/tmp/ga-mb91-process-record-20260930-r1.json'),'10b956a5458bb88443789cf3fbde1c1abdf99dbcaabc542fa92369db0679e086'))
+    require(isinstance(value,dict) and set(value)==pr.RECORD_KEYS,'process record shape')
+    before=host(o)
+    core=before['core']
+    require(value['controller']['pid']==int(core['MainPID'])
+        and value['controller']['start']==int(core['ExecMainStartTimestampMonotonic'])*os.sysconf('SC_CLK_TCK')//1000000,
+        'process record disagrees with accepted host epoch')
+    problems=pr.city_problems(pr.user_slice(1000),value)
+    require(not problems,'process record or city quiescence drift: '+str(problems))
+    require(host(o)==before,'host changed during process record validation')
+
 def main():
     require(globals().get('_SOURCE_SHA') and os.getuid()==os.geteuid()==1000, 'bound user entry')
     read(Path(__file__),_SOURCE_SHA)
@@ -746,6 +765,7 @@ def main():
     require(len(sys.argv)==2 and sys.argv[1] in ('preflight','stage','restore'), 'unknown action')
     action=sys.argv[1]
     if action=='preflight':
+        verify_process_record(o)
         verify_prelaunch_permissions()
         stable_read_times()
         ROOT.mkdir(mode=0o700)
@@ -792,6 +812,7 @@ def main():
         foreign_queue('preflight',b,o,owned,capture=True,scoped=False)
         save('preflight-pass.json',dict(ok=True,executor_sha256=_SOURCE_SHA,worker_launched=False))
     elif action=='stage':
+        verify_process_record(o)
         verify_prelaunch_permissions()
         require(record('preflight-pass.json')['executor_sha256']==_SOURCE_SHA,'preflight binding')
         module(HERE/'fresh-admission.py','3c252f11156542cb92907e1b791ce172917692a3f2ae6501f512a4bf9e9ee7ae').recheck(types.SimpleNamespace(**globals()),b,owned)
@@ -893,7 +914,7 @@ def route_read_account(before, after, window, *, regenerated=False):
 
 
 def foreign_queue(label,b,o,owned,**kwargs):
-    guard=module(HERE/'queue-guard.py','46324b39cbcb49c315bad41ec6594ec31ace869dfdb65465507b50a845c87e07')
+    guard=module(HERE/'queue-guard.py','b5b5688c8e8277188fd2437e65751ce952012f57efeee03a516d05aabd641582')
     return guard.checkpoint(types.SimpleNamespace(**globals()),label,b,o,owned,**kwargs)
 
 if __name__=='__main__':

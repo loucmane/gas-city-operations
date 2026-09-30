@@ -1,0 +1,204 @@
+{
+  "changes": {
+    "budget-r11.py": {
+      "after": "603aa9df15294e2144a9797570edb32e069daccf09df49a4ed08db19fd5c7823",
+      "before": "0ddcaad308029242bbd1c6f3685f3109023a6543236b46c0ed08cfd81e1550d1"
+    },
+    "candidate-inspect.py": {
+      "after": "dc43437231cfd33cea1a285b14cf91fc528b6b4aaa3c4472804afe3d952fbb61",
+      "before": "f74a5c3dd313c9a9a9d5b6a8cbcfd0b6df1ad7984e007c22a46fb3e7b5ab0d2b"
+    },
+    "close-r11.py": {
+      "after": "4a48bb3e61534078d253785b705868c297c4c5716d882c64cf598f5b5c9d3b0c",
+      "before": "55f8d8ef527820e90320d7a51bc9637c5a3cc7b1d9be3bf474045d29d995c41a"
+    },
+    "hold-r11.py": {
+      "after": "eb8f234cf60104fd1ffeae096f74ffee78ecafaad22a759c749e570b14abef13",
+      "before": "9ffeaaf592671ee46ebe88f6fe5f3973220fb2f731fe1792dca349b562d1ef32"
+    },
+    "observe-integrity-r11.py": {
+      "after": "1c538b8e517a2aa4b7bbfdc1df9f9d48d107b23f31ebe263459f0c77807872e7",
+      "before": "e074a8e1d8c9221dd46edf338925442f42f03c4478b8713518fdde78de0fbdf0"
+    },
+    "observe-terminal-r11.py": {
+      "after": "addf2933b0ba011d89298f7b1e550a55f79162ea7cf744555fb1689648c73508",
+      "before": "e5faf77db36ef5d191315b82e12cf547de844a0ab1e5d3af0e89093912f89b3a"
+    },
+    "operator/ADMIT.sh": {
+      "after": "a0f9dd9b86fcb468bbec6e7a3ef5b72b6a8f977e8fa028bd18d95f339fe406bf",
+      "before": "28cf2a6f904076fd5c24f407e470fe64557984dbccfd60fd5a15c31df8e02adf"
+    },
+    "operator/CLOSE-1.sh": {
+      "after": "911bcbf8092df39e8217cdf199da0a3acd6ec596fb3c540f2918bac9bae1220e",
+      "before": "be11e98e5d0ebca32cc44f8cd08b12acdecdf0c475a2524633a9f2dec0786b0e"
+    },
+    "operator/CLOSE-2.sh": {
+      "after": "8235e01b4443af17bbdaa144a336f0fc3542452dfb2233976aea520d38d41a17",
+      "before": "4eda864e386294789c5ebd1389fafe1dc3830b8b917ea551f538c22f20983f33"
+    },
+    "operator/CONTAIN-1.sh": {
+      "after": "89136ac2434cfe90a461d94fada6a655129c7eac67617093dada1a9add7c2d5c",
+      "before": "48bc2dc0665f3f92ea919f78d242e7cafb22c442f598ce4ef28ce4da4c5ef93e"
+    },
+    "operator/CONTAIN-2.sh": {
+      "after": "c3c7fcdbe7fbbe221ea12b40ca20c7eccdd26e6d7a9ae8a52f51067bda9f0176",
+      "before": "cab5d4a615a508017f047daed98c79e9613b275af856858dd5eddc4588b8eb1d"
+    },
+    "operator/HOLD-1.sh": {
+      "after": "c1a99b23ddccb6442d0da8f4cb8433163a7657b87a8c50e5b72e8ed6ec1afbfe",
+      "before": "da7fa2f39008b143a6989c5ba77c0153c124ac3f3ed07509da81329d7f305bb0"
+    },
+    "operator/HOLD-2.sh": {
+      "after": "ea05607a712109ec85fa9a284ce2f3ed9159d26e5b95505a90a8cfb2f07918a1",
+      "before": "26af6e343232fc059933f45986e5bf53a5882dbd357c86b41453084dee616abc"
+    },
+    "operator/INSPECT.sh": {
+      "after": "dc750f792c27a067f15f5fb4d5d8c900848c359984769bd58a82f28015a1504b",
+      "before": "05ebf7f7c63240870ac37495b336b52b3d5de2230ec2aec2bb841c95a34416a8"
+    },
+    "operator/OBSERVE.sh": {
+      "after": "0f6eca9d2322ae1a8f036244b86742b42f90cf0ff63026d6853754c71f1c54a9",
+      "before": "681411e5455911c13eeb4c3495f0449d1b7a7fc19f7ce0807bbd2cff629f66ef"
+    },
+    "operator/PREFLIGHT.sh": {
+      "after": "eb931e680b5c09294f239486fdf8555e57ae65d52c2e7a6fc700a480e305a439",
+      "before": "94328cb9cf98a37956267ceeca204bfe0d0ad06ac47f30d3b831ded324ced168"
+    },
+    "operator/RELEASE.sh": {
+      "after": "4a22da20337d4f2e7948cfccb60293110cb436976493f0bfbb0e4654c0fedce2",
+      "before": "32103919975f3d86e09f10dcfcd5038390bf9c7738a0d3bd8a573c3df8e27e08"
+    },
+    "operator/RESTORE.sh": {
+      "after": "3a542438790b35b44a5b8e9220a663d8240540aac39c1ab72c56763c0e162fdb",
+      "before": "e909703ea4914449e03ae9142e25346a6f86a882358ef78dbe4ccc8b6427d4fd"
+    },
+    "operator/RESUME.sh": {
+      "after": "b0db6c017075ef2cecf40eef6dafcc1073815e9c873ba5fe49b39c8868135241",
+      "before": "83623deb6f079ce2ccdc36e0ac510f5f10a7c4a1c25c6aa162ab4bced7296f18"
+    },
+    "operator/ROUTE.sh": {
+      "after": "b39ed1495ef1e258d1324f70e9df22e46983deb68897a410fe9ea9371e477a52",
+      "before": "a3d03955886a5025e8a95f22d9ff5a7230f8d912ae5d488eaddda6a29dd5e3b0"
+    },
+    "operator/STAGE.sh": {
+      "after": "7e4c5794ddffa32cf3c70fd358c7e0ee0070efeecb839f1f09b2d6e227a95110",
+      "before": "20384fc1fe37a44001df349bbb872888f01b75da6ed71d34b4d5536b09ede493"
+    },
+    "operator/TERMINAL.sh": {
+      "after": "6e67df390c0150bca6a5aec46330b07686555db35ad782f7bede9f00e13d032b",
+      "before": "7a2358b76eb03bb877e7fff74bd92d422cf8a29e58f3f08a6db1694b26b07967"
+    },
+    "operator/WATCH-1.sh": {
+      "after": "df6ba95882a788c945831538ca3ac8f109b556f517bf1870821ed076c759dd21",
+      "before": "e2781d852bff55520e25280a34614b3759aafc6b8d85e543aeea4b8406591780"
+    },
+    "operator/WATCH-10.sh": {
+      "after": "94be65b4d9eced7eeb762b3456e52752b97dace16a3486ebbb4dac32b3c87b51",
+      "before": "cc08094a82c782c3cc41130ca359532ca35236fb2811509d40f24f16c32e4fdd"
+    },
+    "operator/WATCH-11.sh": {
+      "after": "a35e744fe5c874b4fc1f6d54fa377e4bf66a953fc67332dcbbf323f6c7b5fc35",
+      "before": "3751d3c3c00ed1cd346b9d6d5aa628c6ff307feaef4c580b624d6d8c141ec7b4"
+    },
+    "operator/WATCH-12.sh": {
+      "after": "5edf778d625d8a4bede2984a3ade0b755c119ce73af932e3dd0f128519716383",
+      "before": "14f53e8ec4aae55edbe3389822016f576b56d105b3e9e7a6f5f94726dbf67179"
+    },
+    "operator/WATCH-2.sh": {
+      "after": "2fe1f7cbef73ad8eb4926fa555d2017772cf9e7e08d9a916c740ee6e2e24e83a",
+      "before": "64d3c916dc773a2d88d1d254aa9f19a887662fc8b21231d25dc44b844d16e426"
+    },
+    "operator/WATCH-3.sh": {
+      "after": "2116975883fcde4f551b31f1caa07145dc6495cf4edb48bea242eaaf69bfd00a",
+      "before": "b291375cda73e30d63949b588d7af57de92bca68db2e96429e762c42762f8c46"
+    },
+    "operator/WATCH-4.sh": {
+      "after": "397a86564990a704a699476a42261d0b4c4a9c2c77044b24fa04afca29a42a4d",
+      "before": "0d173ef20e7c8339f08ffb3316ef127e6c69083082aad1c4d7b146195147f52c"
+    },
+    "operator/WATCH-5.sh": {
+      "after": "0b10cded7576936a26fdc1b960cfa5477e18c828725f9439e33c24dc22226c35",
+      "before": "93cf22210ef1c9b1915ef283431a8829b5e2259d2bbd102a2685b301980f7f91"
+    },
+    "operator/WATCH-6.sh": {
+      "after": "3365c654367abfaa56eea3bf610ba361b1f5e4538098fb9e67e37e6c94415c39",
+      "before": "1c8fdbb6cbbdaa000d541a6b2600e429c092b1a26aa8524a279c68a0cfce2c65"
+    },
+    "operator/WATCH-7.sh": {
+      "after": "ba2df73b6c7aae42aec395f87611705353d553a2471c7b67b5c23e46d7792463",
+      "before": "d07153576913789ad0373dd7a86dc3d38db45211ad3b93d80e08950b486dee45"
+    },
+    "operator/WATCH-8.sh": {
+      "after": "f6314638d56ad41b27002dea6d6af558bbdfe3fefc4e846f8de1aac38b894c3d",
+      "before": "06fd01bd570496cffcca7a990ecdfa49f8b4108bf3eba8bb94c7c860ea732c75"
+    },
+    "operator/WATCH-9.sh": {
+      "after": "a0bac3fec5db41a2a10beed51c496f56ec1d32628ce9ee224ccac1ad001fd7c1",
+      "before": "e98d3580e008fb8a40c4e80ef2f17f09dcab55ad966b857f0c888b389059cb35"
+    },
+    "restore-admission-r3.py": {
+      "after": "9a8b332c574431e41adc4a974138d840063ed88f421dd2ff9b24a4366b3ee387",
+      "before": "cec54499d11f57e2bae14b4a6bc4c708b3648e406a9003e1ffb07b6e768aa914"
+    },
+    "route-task.py": {
+      "after": "c4625b41ac63ea096ada49eac93d4f26aa4833a008015e4aa55f0282655f1c73",
+      "before": "d635ad172ab591511a9361d61cb880cd5227b5fd72d01fc7f4fb985a07d2e5b7"
+    },
+    "startup-release.py": {
+      "after": "10a6f8de89fcbcd9e5f7b1e63c2a9dc100ddf876191b0cf81f1385cc1f53d37a",
+      "before": "0b45932746b402628fb16b16386274bd3c3fb04f81722ff2ec312eb2abeadb51"
+    },
+    "stranded-recovery.py": {
+      "after": "1fef0e8ee9bf994e3d7f5a5232ba70e7bf7eef6e74e5343ca4288669954db871",
+      "before": "4bc2b50198a1152c40a68c600450585b53d6709a8352513cd925c211185fad65"
+    },
+    "watch-r11.py": {
+      "after": "1b65c856897796805c53c932be9145ba35ed3b2a5629195e7ad1a3bdee9f0cfb",
+      "before": "c9f13270de28ac184002d2a0e5123a81b69b636f6ac124d0d98c3b6f97fab867"
+    },
+    "window-base.py": {
+      "after": "7652c4a21007cb567fa105f24eb4d55c7dd00baf5b6d0e984769b09f8636ae6c",
+      "before": "2d6fce271cb590c8eb53292d00e529567025deb8e100b313f6329b7cac39f51d"
+    },
+    "window-obs-r11.py": {
+      "after": "5cc9dba0ce813ec1db3413d7122ddc8fc4ca90184c45d4098f9688c794a97eb0",
+      "before": "687339c3524fc010a62c17de48fb5aef8e4e9218ec75686e37cc96e9d925a2f0"
+    },
+    "window.py": {
+      "after": "7dbf37cd7b714522172d660912f05d0c4842a030632a443b4c4ccf8faf0f1db2",
+      "before": "d56e3e6ae3f06f04d53b09c2c8ed4e587ce986f622c26c23633320cf86099285"
+    }
+  },
+  "live_changes": false,
+  "parent": "309c0ecdd252c1a837ad26736a79526292c2937c",
+  "preserved_route_files": {
+    "preroute-bead-phase.json": {
+      "mode": 420,
+      "sha256": "6d22fcb522ccf7e003a21751daff98c6259987816c1f053a1239315577520e9e"
+    },
+    "preroute-bead-started.json": {
+      "mode": 384,
+      "sha256": "40c46ea3f77afdc1e7c245c35bb2010b081411a5f765a6ffd3415a22540c4ee2"
+    },
+    "preroute-bead.json": {
+      "mode": 384,
+      "sha256": "2e737c19dd9acac9580960de3c964fd35abe4d9fd1aa2ee02909c851a18c8b43"
+    },
+    "task-before-read-phase.json": {
+      "mode": 420,
+      "sha256": "0999df929c0a77655d369972726ad628d115bcc723b575fc3e8a873b025298df"
+    },
+    "task-before-read-started.json": {
+      "mode": 384,
+      "sha256": "086ffba9baafb0a2bdbff61221fdc660e24f3f34e8d70c2b050dca633e64c521"
+    },
+    "task-before.json": {
+      "mode": 384,
+      "sha256": "25c3c0c13ea613070a46646793165e07103a35d0084078624f90d713153eafe6"
+    }
+  },
+  "preserved_route_root": "/var/tmp/ga-mb91-route-20260930-r1",
+  "process_record_sha256": "10b956a5458bb88443789cf3fbde1c1abdf99dbcaabc542fa92369db0679e086",
+  "terminal_observation_sha256": "5481ac1d2b37c678c9d261a05cc2207aecca882c5637db13473392ecb8e0c813",
+  "worker_launched": false
+}

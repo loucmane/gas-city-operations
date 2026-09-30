@@ -1,8 +1,7 @@
 {
   "added_tests": {
-    "test_historical_absence.py": "d38a25b036dbb786e7e8ec51ba38ea8388ad8748815c0756cfdd7e8da49ff6b3",
+    "test_historical_absence.py": "5a33db41e4514eea0ec63e83a0c259759c61b4d2c07175421003a3af2994f515",
     "test_owned_reminders.py": "fc4be1f5df9f234bc3fbb536310179741046c5200404d0481cd75ec6bc5e4de5",
-    "test_process_record_binding.py": "eb7734954b9a33bca7439784cb31f6a64017cdf7d87fbe577e1965452156af01",
     "test_queue_guard.py": "3101bd1e54ca5be9eec1caeb5b5eec8282b9fab46986017b990b2c19142f895e",
     "test_queue_preservation.py": "194f6a35a1f933b0b125b925a03d890643dd48099f6ed87dcae3c866e0798015",
     "test_queue_reader.py": "8f97f63d5143ac0d4a094f949ff3eedd783467be8c66359b2d5d3ad9853982ca",
@@ -19,7 +18,7 @@
       "before_sha256": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f"
     },
     "preserve-halt.py": {
-      "after_sha256": "1d8ba9725ab4b071170d3df78d4a707db0aac963b4ea02fa538a58a1b63a53cb",
+      "after_sha256": "627af869760b7389bdbaa0f31fd7ae566f52173cc9f353aa310044208480af7f",
       "before_sha256": "5ad5aff5ccc2bee2fb2b8bfa9d5e65d9619fe9d4eafd48af9a76d2a125b50a8b"
     },
     "test_create_only_candidate.py": {
@@ -59,7 +58,7 @@
       "before_sha256": "caf93eb741b81fe22a7fa25ff2fadf40d0083399c000cbd4ce9159b61e10f8d7"
     },
     "test_window_assembly.py": {
-      "after_sha256": "3858510c8755499d46e63dab0f68dd5aa24c6b0097d031209876a523e8aca279",
+      "after_sha256": "d2929585e3192764b0473ae54c5ba3bf6579fe6aa8302fd462d4b6f8ecff5c5d",
       "before_sha256": "b41feb179be25b5ab942d49e6370d7a41b10d825226a2b8a8286d2792a62b50a"
     }
   },
@@ -70,6 +69,5 @@
   "r5": "Both integrity observers and window consumer bind the rebuilt M15 inspector from adopted Core; fresh OBSERVE r3; all failed evidence preserved.",
   "r6": "Exact digest-only historical DEAD-shadow absence binding with complete count/list census and fresh exact-ID absence count. No history rewrite, generic missing exception, worker authority or payload export.",
   "r7": "Exact Core label fallback absence query without type or class-label filtering, independent of metadata and ownership. Retains all R6 exact-ID, census, history and containment checks.",
-  "r8": "Exact refreshed native process record checked before preflight and stage, retained at route; fresh roots and R7 terminal baseline; completed BIND unchanged.",
   "reason": "Previous expiry exception superseded by exact pre-poller preservation. Historical tests retained unchanged in predecessor. New queue suites cover strict rejection and owned transitions."
 }

@@ -18,6 +18,9 @@ OLD = HERE.parent / 'ga-e0t1-20-astra-window'
 MANIFEST_SHA = '25faae1f8b21f1ffbb2db3388450e1217c46a54d92a192d5ae3c2d1b8b96a8e3'
 PREP = Path('/var/tmp/ga-mb91-prep-20260930-r1')
 PREP_SHA = '74e69f6f1f43098f236cb89d0b35709fd15b6b05ea76460249769d1d428310d7'
+PROCESS_RECORD = '/tmp/ga-mb91-process-record-20260930-r1.json'
+PROCESS_RECORD_SHA = '10b956a5458bb88443789cf3fbde1c1abdf99dbcaabc542fa92369db0679e086'
+TERMINAL_BASELINE = '/var/tmp/ga-mb91-terminal-20260930-r1/observed-after.json'
 OLD_NAMES = (
     'audit-queue-r3.py', 'bind-task-r5.py', 'route-task-r5.py',
     'budget-r11.py', 'cache-atime-policy-r1.py', 'candidate-inspect.py',
@@ -69,6 +72,14 @@ def once(text, before, after):
 
 
 def read_inputs():
+    record_raw = Path(PROCESS_RECORD).read_bytes()
+    if sha(record_raw) != PROCESS_RECORD_SHA:
+        raise ValueError('reviewed process record drift')
+    record = json.loads(record_raw)
+    if record['controller'] != dict(pid=466463, start=51763309,
+            exe='/home/loucmane/gascity/bin/gc',
+            cgroup='user@1000.service/app.slice/gascity-supervisor-home-42adab5d.service'):
+        raise ValueError('process record differs from accepted supervisor epoch')
     raw = (OLD / 'assembly.json').read_bytes()
     if sha(raw) != MANIFEST_SHA:
         raise ValueError('successful R11 manifest drift')
@@ -116,13 +127,15 @@ def retarget(text):
     # Also bind Path(VAR) / relative names, not only absolute path literals.
     text = re.sub(r'(ga-mb91-[a-z%0-9.-]+)-202609[0-9]{2}-r[0-9]+',
                   r'\1-20260930-r1', text)
-    # R3 OBSERVE passed and R1 PREFLIGHT refused before staging. Source rebinding
-    # requires a fresh observation and window, never replay of consumed roots.
+    # R7 refused before routing and its complete staged window was restored.
+    # Successor observation, window, route and terminal roots must be fresh.
     # WORKTREE, PREP and the completed BIND retain their original receipts.
     text = text.replace('ga-mb91-integrity-20260930-r1',
-                        'ga-mb91-integrity-20260930-r4')
+                        'ga-mb91-integrity-20260930-r5')
     text = text.replace('ga-mb91-window-20260930-r1',
-                        'ga-mb91-window-20260930-r2')
+                        'ga-mb91-window-20260930-r3')
+    text = text.replace('ga-mb91-route-20260930-r1', 'ga-mb91-route-20260930-r2')
+    text = text.replace('ga-mb91-terminal-20260930-r1', 'ga-mb91-terminal-20260930-r2')
     text = text.replace('ga-mb91-r11-', 'ga-mb91-r1-')
     text = text.replace('.gc/worker-evidence/ga-mb91/r11', '.gc/worker-evidence/ga-mb91/r1')
     # The completed PREP probe and fresh BIND both bind September 30.
@@ -136,16 +149,16 @@ def base_source(raw, prep, *, observation, observation_sha, cache_ns):
     # Prior success is historical evidence only, never authority to replay.
     start = text.index('    previous=json.loads(', text.index('def pins():'))
     stop = text.index('    # The R9-era diagnostic pins', start)
-    text = text[:start] + """    previous=json.loads(read(Path('/var/tmp/ga-jcxb-terminal-20260930-r1/result.json'),
+    text = text[:start] + """    previous=json.loads(read(Path('/var/tmp/ga-mb91-terminal-20260930-r1/result.json'),
         'dd9a145c6eaf29b03fe117c18d4e1a20d1537ba6a64919efe44531ef554a1ff8'))
     require(previous['ok'] is True and previous['accepted_restoration_bound'] is True
         and previous['actual_host_verified'] is True and previous['worker_launched'] is False
         and previous['root_cache_protected_read_only'] is True
         and previous['terminal_suspension_endpoint_bound'] is True,
         'previous window was not proven restored')
-    closed=json.loads(read(Path('/var/tmp/ga-jcxb-r1-close-20260930T041304Z/result.json'),
-        '8f65d7d473dacdddbb6a6654f74c6d749346375bf47b3989f335ca229e3d656c'))
-    require(closed['ok'] is True and closed['closed_session']=='ci-mzoxg'
+    closed=json.loads(read(Path('/var/tmp/ga-mb91-r1-close-20260930T130514Z/result.json'),
+        '64597781748525f5aa60b95334e372f6392bca9b020a3553f895deb1acba5540'))
+    require(closed['ok'] is True and closed['closed_session'] is None
         and closed['open_sessions']==0 and closed['city_tmux_sessions']==0
         and closed['worktree_processes']==0, 'prior close lacks zero residue')
 """ + text[stop:]
@@ -263,9 +276,52 @@ def bind_inspector(sources):
     return out
 
 
+def bind_process_record(sources):
+    """Same reviewed identity/cgroup checks before staging and before routing."""
+    out = dict(sources)
+    route = out['route-task.py'].decode()
+    route = once(route,
+        '/home/loucmane/.local/share/gas-city-staging/ga-bebv-process-record-20260927/process-record.json',
+        PROCESS_RECORD)
+    route = once(route, 'df765fd0e357925bab51891c72019018bb43b65fcd6e97addf0582c9bdf5e5d7',
+                 PROCESS_RECORD_SHA)
+    route = once(route,
+        '# s1 r8: the reviewed preroute.py record refresh after the sequence 16 controller restart (pid 466463).',
+        '# Refreshed through the reviewed recorder after R7 restoration; same epoch as preflight and stage.')
+    out['route-task.py'] = route.encode()
+    helper = f"""
+def verify_process_record(o):
+    # The recorder does not grant authority. Bind it to the separately accepted
+    # host epoch and retain every native city identity and quiescence check.
+    module(Path({str(HERE.parent/'ga-6utp-activation-r10/candidate_git.py')!r}),
+           'd2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe')
+    pr=module(Path({str(HERE.parent/'ga-6utp-activation-r10/preroute.py')!r}),
+           'd52e09214381fb6ce92becc2aed72fd1318821fd327ad3fb07e4974b57a3f4c6')
+    value=json.loads(read(Path({PROCESS_RECORD!r}),{PROCESS_RECORD_SHA!r}))
+    require(isinstance(value,dict) and set(value)==pr.RECORD_KEYS,'process record shape')
+    before=host(o)
+    core=before['core']
+    require(value['controller']['pid']==int(core['MainPID'])
+        and value['controller']['start']==int(core['ExecMainStartTimestampMonotonic'])*os.sysconf('SC_CLK_TCK')//1000000,
+        'process record disagrees with accepted host epoch')
+    problems=pr.city_problems(pr.user_slice(1000),value)
+    require(not problems,'process record or city quiescence drift: '+str(problems))
+    require(host(o)==before,'host changed during process record validation')
+
+"""
+    text = out['window-base.py'].decode()
+    text = once(text, 'def main():', helper+'def main():')
+    text = once(text, "    if action=='preflight':",
+                "    if action=='preflight':\n        verify_process_record(o)")
+    text = once(text, "    elif action=='stage':",
+                "    elif action=='stage':\n        verify_process_record(o)")
+    out['window-base.py'] = text.encode()
+    return out
+
+
 def assemble(*, observation, observation_sha, cache_ns):
     if re.fullmatch(r'/tmp/ga-mb91-readonly-baseline-20260930-r[1-9][0-9]*/observed.json',
-                    observation) is None:
+                    observation) is None and observation != TERMINAL_BASELINE:
         raise ValueError('fresh task observation path required')
     if re.fullmatch(r'[0-9a-f]{64}', observation_sha) is None:
         raise ValueError('observation SHA256 required')
@@ -298,7 +354,7 @@ def assemble(*, observation, observation_sha, cache_ns):
         out[name] = text.encode()
     text = out['close-r11.py'].decode()
     text = once(text, "WINDOW/'admitted-task.json'",
-                "Path('/var/tmp/ga-mb91-route-20260930-r1/task-after.json')")
+                "Path('/var/tmp/ga-mb91-route-20260930-r2/task-after.json')")
     out['close-r11.py'] = text.encode()
     # Only fresh roots regain their BIND/ROUTE wrappers. Historical wrappers
     # and all WORKTREE/PREP operations are excluded rather than re-enabled.
@@ -322,6 +378,7 @@ def assemble(*, observation, observation_sha, cache_ns):
     wiring=load((HERE/'queue-wiring.py').read_bytes(),'queue_wiring')
     out=wiring.apply(out,prep)
     out=bind_inspector(out)
+    out=bind_process_record(out)
     out = rebind(out, before, references, set(LOCAL) | {'bind-task.py'})
     for name, raw in out.items():
         if name.endswith('.py'):

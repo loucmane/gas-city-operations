@@ -16,7 +16,7 @@ import time
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-BASE_SHA='2d6fce271cb590c8eb53292d00e529567025deb8e100b313f6329b7cac39f51d'
+BASE_SHA='f7c7e0abb0e8202ca328b9ec6e488ff7b7633dbb2ea00dfd83bb46582d95175a'
 POLICY_SHA='61c3e38e4475061c658a853036922742ab2ce69d44a4577e3f91490674047783'
 
 def load(path,expected,name):
@@ -35,7 +35,7 @@ def load(path,expected,name):
 
 w=load(HERE/'window-base.py',BASE_SHA,'window_r7_base')
 p=load(HERE/'cache-atime-policy-r1.py',POLICY_SHA,'window_r7_atime')
-w.ROOT=Path('/var/tmp/ga-mb91-window-20260930-r2')
+w.ROOT=Path('/var/tmp/ga-mb91-window-20260930-r3')
 original_save=w.save
 original_snapshot=w.snapshot
 original_preservation=w.preservation
@@ -125,8 +125,8 @@ routes=load(HERE/'restore-r9-routes-r3.py',
     '8d041af74297b44c0bedecdbcaa776ac92f433eba801afa0ee0a89a71eecc7c2','window_routes')
 routes_policy=load(HERE/'route-chain-r1.py',
     'c8faa7a629eca9560a75a86487273baa6409a635cd39ea54c5673ce5265bba09','window_route_chain')
-INTEGRITY=Path('/var/tmp/ga-mb91-integrity-20260930-r4')
-OBSERVER_SHA='e074a8e1d8c9221dd46edf338925442f42f03c4478b8713518fdde78de0fbdf0'
+INTEGRITY=Path('/var/tmp/ga-mb91-integrity-20260930-r5')
+OBSERVER_SHA='1a40da7de4d2bd4cb3779d82ad2d50387a9588c4f6deaeda0c4dd114922719ff'
 INSPECTOR_SHA='1c999e8147759505e434149668b95e70b727efad584e5659a0969a8ddefbfa87'
 
 def integrity_baseline(first):

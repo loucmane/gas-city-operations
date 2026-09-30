@@ -12,7 +12,7 @@ from pathlib import Path
 import re
 import stat
 
-WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r2')
+WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r3')
 CITY = Path('/home/loucmane/gascity/city')
 TASK = 'ga-mb91'
 POLICY_SHA = '86e29f2593b75f98818308cdf3d11840bbd8276ab17bdd660a9880a3df7153a3'

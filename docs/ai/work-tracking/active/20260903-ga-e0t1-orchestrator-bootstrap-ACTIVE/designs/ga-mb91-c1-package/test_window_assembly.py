@@ -59,8 +59,9 @@ def test_no_stale_source_dependencies_or_consumed_task_operations(built):
             refs = {m['digest'] or m['shell'] for m in a.HEX.finditer(raw.decode())}
             assert not (refs & (changed-current)), name
         if name == 'window-base.py':
-            assert raw.count(b'/var/tmp/ga-jcxb-') == 2
-            assert b"closed['closed_session']=='ci-mzoxg'" in raw  # exact completed-session predecessor
+            assert b'/var/tmp/ga-jcxb-' not in raw
+            assert b'/var/tmp/ga-mb91-terminal-20260930-r1/result.json' in raw
+            assert b"closed['closed_session'] is None" in raw  # exact never-launched R7 closeout
         else:
             assert b'ga-e0t1.20' not in raw, name
         assert b'c6b789bbe6ff677dd04336803dbf2c2e017812ba' not in raw, name
@@ -69,9 +70,9 @@ def test_no_stale_source_dependencies_or_consumed_task_operations(built):
             assert b'exit 125' in raw
         else:
             assert b'COMPLETED OPERATION' not in raw, name
-    assert b'/var/tmp/ga-mb91-route-20260930-r1' in out['route-task.py']
+    assert b'/var/tmp/ga-mb91-route-20260930-r2' in out['route-task.py']
     assert b"ROUTE/'task-after.json'" in out['startup-release.py']
-    assert b'/var/tmp/ga-mb91-route-20260930-r1/task-after.json' in out['close-r11.py']
+    assert b'/var/tmp/ga-mb91-route-20260930-r2/task-after.json' in out['close-r11.py']
 
 
 def test_exact_preparation_and_dynamic_hook_order(built):
@@ -248,7 +249,8 @@ def test_observation_successor_preserves_exact_completed_binding(built):
     assert a.sha(out['bind-task.py']) == '028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'
     assert b"BIND_SHA='028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'" in out['route-task.py']
     for name in ('observe-integrity-r11.py','operator/OBSERVE.sh','window.py'):
-        assert b'ga-mb91-integrity-20260930-r4' in out[name]
+        assert b'ga-mb91-integrity-20260930-r5' in out[name]
+        assert b'ga-mb91-integrity-20260930-r4' not in out[name]
         assert b'ga-mb91-integrity-20260930-r3' not in out[name]
         assert b'ga-mb91-integrity-20260930-r1' not in out[name]
         assert b'ga-mb91-integrity-20260930-r2' not in out[name]
@@ -277,13 +279,14 @@ def test_failure_latch_helper_is_exact_and_does_not_execute():
 
 
 def test_materialized_package_matches_exact_final_baseline():
-    baseline=Path('/tmp/ga-mb91-readonly-baseline-20260930-r2')
-    result=json.loads((baseline/'result.json').read_bytes())
-    _,out=a.assemble(observation=str(baseline/'observed.json'),
-        observation_sha=result['observed_sha256'],cache_ns=result['cache_pin_ns'])
+    baseline=Path(a.TERMINAL_BASELINE)
+    assert a.sha(baseline.read_bytes()) == '5481ac1d2b37c678c9d261a05cc2207aecca882c5637db13473392ecb8e0c813'
+    cache_ns=1790766204990519059
+    _,out=a.assemble(observation=str(baseline),
+        observation_sha=a.sha(baseline.read_bytes()),cache_ns=cache_ns)
     manifest=json.loads((HERE/'assembly.json').read_bytes())
     assert manifest['files']=={name:a.sha(raw) for name,raw in out.items()}
-    assert manifest['cache_pin_ns']==result['cache_pin_ns']
+    assert manifest['cache_pin_ns']==cache_ns
     for name,raw in out.items():
         assert (HERE/name).read_bytes()==raw,name
         if name.endswith('.sh'):

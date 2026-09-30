@@ -8,12 +8,12 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-BASE_SHA = '2d6fce271cb590c8eb53292d00e529567025deb8e100b313f6329b7cac39f51d'
+BASE_SHA = 'f7c7e0abb0e8202ca328b9ec6e488ff7b7633dbb2ea00dfd83bb46582d95175a'
 COMMON_SHA = '34ce775b59318acc01499e3cc27e9d09c4d39d8bb64d723b7970fc6dcf8b6301'
 VALIDATOR_SHA = '41f41ebba0bc7f74dbb5221d68472e274c6dc482d7564a72ec828b75851d44e3'
-TERMINAL_SHA = 'e5faf77db36ef5d191315b82e12cf547de844a0ab1e5d3af0e89093912f89b3a'
+TERMINAL_SHA = 'a2456a0dd26140951a839c61d1eeeb25aba4d76672a4de89261fd25313e20bde'
 ROOT = Path('/var/tmp/ga-mb91-candidate-inspection-20260930-r1')
-TERMINAL = Path('/var/tmp/ga-mb91-terminal-20260930-r1')
+TERMINAL = Path('/var/tmp/ga-mb91-terminal-20260930-r2')
 CG = HERE.parent/'ga-6utp-activation-r10/candidate_git.py'
 CG_SHA = 'd2894e829618ad1fdcb5640b47b99baa3c783173acccb4f7f5918c958823bebe'
 
@@ -99,7 +99,7 @@ def inspect(w, b, o, owned, common):
     workspace_before=w.record('workspace-before.json')
     observed = common.observe()
     w.require(not common.compare(before, observed), 'common Git changed before candidate inspection')
-    close = w.module(HERE/'close-r11.py', '55f8d8ef527820e90320d7a51bc9637c5a3cc7b1d9be3bf474045d29d995c41a')
+    close = w.module(HERE/'close-r11.py', '1bbf9b032b08f4d79b300da98eeb8f3ba12ebaabbf927f420415425f60fa7d5a')
     w.require(not close.processes(w.WORK), 'candidate worker process remains')
     cg = w.module(CG, CG_SHA)
     admin = cg.verify_linked(w.WORK.parent, common.COMMON, w.WORK, 'ga-mb91')
@@ -107,7 +107,7 @@ def inspect(w, b, o, owned, common):
     w.ROOT = ROOT
     ROOT.mkdir(mode=0o700)
     w.save('intent.json', dict(source_sha256=_SOURCE_SHA, common_before_sha256=
-        w.digest(w.read(Path('/var/tmp/ga-mb91-window-20260930-r2')/'common-before.json')),
+        w.digest(w.read(Path('/var/tmp/ga-mb91-window-20260930-r3')/'common-before.json')),
         product_execution=False, intake=False))
     # Reuse reviewed hardened Git grammar, but all subprocesses also receive
     # owned-phase containment rather than cg.git's ordinary subprocess runner.

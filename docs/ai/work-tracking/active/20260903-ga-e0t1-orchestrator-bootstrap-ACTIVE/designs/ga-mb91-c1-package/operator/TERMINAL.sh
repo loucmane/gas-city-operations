@@ -10,8 +10,8 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-mb91-c1-package
 COMMIT=${1:?usage: TERMINAL.sh <reviewed commit>}
-TERMINAL_SHA=e5faf77db36ef5d191315b82e12cf547de844a0ab1e5d3af0e89093912f89b3a
-BUDGET_SHA=0ddcaad308029242bbd1c6f3685f3109023a6543236b46c0ed08cfd81e1550d1
+TERMINAL_SHA=a2456a0dd26140951a839c61d1eeeb25aba4d76672a4de89261fd25313e20bde
+BUDGET_SHA=603aa9df15294e2144a9797570edb32e069daccf09df49a4ed08db19fd5c7823
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -26,7 +26,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-mb91-terminal-20260930-r1 ] && [ ! -L /var/tmp/ga-mb91-terminal-20260930-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-mb91-terminal-20260930-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-mb91-terminal-20260930-r2 ] && [ ! -L /var/tmp/ga-mb91-terminal-20260930-r2 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-mb91-terminal-20260930-r2"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

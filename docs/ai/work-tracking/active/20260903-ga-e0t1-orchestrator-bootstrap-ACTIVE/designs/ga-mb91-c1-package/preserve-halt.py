@@ -17,7 +17,11 @@ JOB_COMMITS={'ga-mb91-prep-r1':'160cbd9e450fad22b22e5b254840abfab5e74c54',
     'ga-mb91-observe-r2':CANDIDATE,
     'ga-mb91-observe-r3':CANDIDATE,
     'ga-mb91-observe-r4':CANDIDATE,
+    'ga-mb91-observe-r5':CANDIDATE,
     'ga-mb91-preflight-r2':CANDIDATE,
+    'ga-mb91-preflight-r3':CANDIDATE,
+    **{f'ga-mb91-{name}-r2':CANDIDATE for name in
+       ('stage','route','close-1','admit','restore','terminal')},
     **{f'ga-mb91-{name}-r1':CANDIDATE for name in
     ('bind','observe','preflight','stage','route','resume','release','contain-1','contain-2',
      'hold-1','hold-2','close-1','close-2','admit','restore','terminal','inspect',
