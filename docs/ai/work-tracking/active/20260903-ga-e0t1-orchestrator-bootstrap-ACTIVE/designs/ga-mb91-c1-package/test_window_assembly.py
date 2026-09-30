@@ -37,7 +37,7 @@ def built():
 def test_deterministic_complete_subset_and_immutable_inputs(built):
     before, out = built
     assert a.assemble(**PARAMS) == built
-    assert len(out) == 68
+    assert len(out) == 69
     assert {n for n in out if n.startswith('operator/')} == {
         'operator/'+n+'.sh' for n in a.WRAPPERS}
     assert not any(n in out for n in ('operator/WORKTREE.sh', 'operator/PREP.sh'))
@@ -248,7 +248,8 @@ def test_observation_successor_preserves_exact_completed_binding(built):
     assert a.sha(out['bind-task.py']) == '028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'
     assert b"BIND_SHA='028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'" in out['route-task.py']
     for name in ('observe-integrity-r11.py','operator/OBSERVE.sh','window.py'):
-        assert b'ga-mb91-integrity-20260930-r3' in out[name]
+        assert b'ga-mb91-integrity-20260930-r4' in out[name]
+        assert b'ga-mb91-integrity-20260930-r3' not in out[name]
         assert b'ga-mb91-integrity-20260930-r1' not in out[name]
         assert b'ga-mb91-integrity-20260930-r2' not in out[name]
     assert b'/var/tmp/ga-mb91-bind-20260930-r1' in out['route-task.py']

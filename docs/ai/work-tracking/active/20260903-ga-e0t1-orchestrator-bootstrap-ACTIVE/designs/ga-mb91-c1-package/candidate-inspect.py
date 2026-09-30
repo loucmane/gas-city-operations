@@ -8,10 +8,10 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-BASE_SHA = 'd9b69ed812075f1dee938e786c052b05059e4bb9dce03b8d3e0e3831a7bee117'
+BASE_SHA = '3f939c96b7379ffc6e42ce09b0ee3b261607904949e9bbc907bb9a1ac83270ad'
 COMMON_SHA = '34ce775b59318acc01499e3cc27e9d09c4d39d8bb64d723b7970fc6dcf8b6301'
 VALIDATOR_SHA = '41f41ebba0bc7f74dbb5221d68472e274c6dc482d7564a72ec828b75851d44e3'
-TERMINAL_SHA = '6562db4f2b295b4fda6b3d71de249f05683592dcf097ad80a077a0f05b4cfcc5'
+TERMINAL_SHA = '8b456a2c6a78980eb2ecdf9842e9378b65c67ac3c71d2d1896679d7e122f2b7a'
 ROOT = Path('/var/tmp/ga-mb91-candidate-inspection-20260930-r1')
 TERMINAL = Path('/var/tmp/ga-mb91-terminal-20260930-r1')
 CG = HERE.parent/'ga-6utp-activation-r10/candidate_git.py'
@@ -99,7 +99,7 @@ def inspect(w, b, o, owned, common):
     workspace_before=w.record('workspace-before.json')
     observed = common.observe()
     w.require(not common.compare(before, observed), 'common Git changed before candidate inspection')
-    close = w.module(HERE/'close-r11.py', '8085291529868284d7126700254e8d62eb67a033cf71e151e2bcd59899683c82')
+    close = w.module(HERE/'close-r11.py', '5defdeaea797a226b763513350cb1bcc31eb13ac13008a7fe0424c202e3d1fbd')
     w.require(not close.processes(w.WORK), 'candidate worker process remains')
     cg = w.module(CG, CG_SHA)
     admin = cg.verify_linked(w.WORK.parent, common.COMMON, w.WORK, 'ga-mb91')
@@ -107,7 +107,7 @@ def inspect(w, b, o, owned, common):
     w.ROOT = ROOT
     ROOT.mkdir(mode=0o700)
     w.save('intent.json', dict(source_sha256=_SOURCE_SHA, common_before_sha256=
-        w.digest(w.read(Path('/var/tmp/ga-mb91-window-20260930-r1')/'common-before.json')),
+        w.digest(w.read(Path('/var/tmp/ga-mb91-window-20260930-r2')/'common-before.json')),
         product_execution=False, intake=False))
     # Reuse reviewed hardened Git grammar, but all subprocesses also receive
     # owned-phase containment rather than cg.git's ordinary subprocess runner.

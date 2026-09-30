@@ -8,7 +8,7 @@ import copy
 import json
 from pathlib import Path
 
-WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r1')
+WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r2')
 HOLD = Path('/var/tmp/ga-mb91-r3-hold-20260928T083013Z')
 CLOSE = Path('/var/tmp/ga-mb91-r3-close-20260928T083154Z')
 PINS = {

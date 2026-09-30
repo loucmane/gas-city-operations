@@ -1,0 +1,248 @@
+{
+  "schema": "ga-mb91.historical-shadow-absence.v1",
+  "queue_sha256": "96f74c1fc18d1c401592bcce4716c72a950588f3c7e9b75c0345a982c640ec28",
+  "records": {
+    "nudge-a9ca4218e940": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-jkqhhfc",
+      "record_sha256": "01804d8d6283453cd19db5c0bde6c15b4c04ae14b141740542bd13d8cb7766de"
+    },
+    "nudge-063038c78780": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-2lwp7lg",
+      "record_sha256": "739c9516861b99d53e6404bf04ba62fba1fbffe35033218d58641955c20620f5"
+    },
+    "nudge-f7eb4f765895": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-u3rj1u7",
+      "record_sha256": "b1b3f613c309145685a7591ad897ca14eed17e8bb44027357b9244d4abdf476c"
+    },
+    "nudge-21af732d1c62": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-om21bmk",
+      "record_sha256": "6fc13c33dd32e388c725b0112c6cab9ca375d919f220e88b8b4b36f31ca3d46a"
+    },
+    "nudge-0b0e828b066f": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-jlqwjby",
+      "record_sha256": "2c3c1d05710e4f529b55c10ac15d29aef884cd5dfcb6293130799a4f6278f6f5"
+    },
+    "nudge-ff71067357ef": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-hhw3srg",
+      "record_sha256": "1792bd10c2c9025375180b08d3952a396e36ca2810e6dd55471767dbce92012f"
+    },
+    "nudge-5b28e42475cc": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-xis7wov",
+      "record_sha256": "7721d86fdfa277c99887a65baf4795cfa834c8b8605555e104695ee6e9ab1dab"
+    },
+    "nudge-b40e4aaa1f34": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-hz2nc1r",
+      "record_sha256": "7d849309414ff25bbe2b79cfdc8a9db32d439a47e770f3706330fd90a59ffe9c"
+    },
+    "nudge-94fd69b95d92": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-97dnjws",
+      "record_sha256": "579d3b623e5368f1c6b17838421dd8a6cf6d347beb5efa3f8e6bb11e71241093"
+    },
+    "nudge-5140a16e3f2a": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-nf6r1yr",
+      "record_sha256": "f544419293ba48f00226f575de51c85083a68afda6a38749667fc396a97bb2b3"
+    },
+    "nudge-487ff8315440": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-i6qqhbw",
+      "record_sha256": "8b210322e508c500948ebbd8b421ef8e26b615e718a9719ff50b7ed677450031"
+    },
+    "nudge-4505948a8aec": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-5717mep",
+      "record_sha256": "ef6666d97ac50aaf12faea62d7ff7ac79862e9f416481234a36f689419ed63e2"
+    },
+    "nudge-659e3d9b50d8": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-om8zex7",
+      "record_sha256": "7686380b721af163c473707838a2c395e56f8ea82b41fd2484cb9fa2b2fe89fb"
+    },
+    "nudge-2345f4f889dd": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-l0bpxfe",
+      "record_sha256": "e6a042f084beda843f13f2f68b17c214de1c27a85c5a0031c06677053ef490e1"
+    },
+    "nudge-a946fc32d33b": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-spcjlkb",
+      "record_sha256": "1281f413ff853da17ce7eb6c8a03a9deee16621a77c6e5d1d95293f00278eaad"
+    },
+    "nudge-a7bf2b5c04b0": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-xnp78y5",
+      "record_sha256": "caa8f04abffb926da7a477729d5291530803bd5cec35238212f7c04f7612db22"
+    },
+    "nudge-44ba38d02846": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-64t4dcz",
+      "record_sha256": "f0d11113be34dc80d14563716c93ade4aaebec1cb98958511af29579f151dece"
+    },
+    "nudge-2387a1053974": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-axdnx5q",
+      "record_sha256": "b1f3df1c4d9debaa6aa3b1107dda6ba410a7bc79ad43ca346c5c6606fd10dd59"
+    },
+    "nudge-06ad3bea6923": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-jcp9k8n",
+      "record_sha256": "43a0a4a3cf9bb24da901ecc17cb57952da8fa92170e91108b4ca49df8ea67142"
+    },
+    "nudge-c2d33c944cad": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-fg43gn5",
+      "record_sha256": "6d4185d0a75726c45a6adf9019d7544c7ad5c2e76e4d08922427b4536c937fa4"
+    },
+    "nudge-85bdd1274282": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-omi43ok",
+      "record_sha256": "8997eb5d32951ff0a9e4e83e51a52d336f97df74072f9491edd484f1e0e03c2e"
+    },
+    "nudge-89e18e345a17": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-g5yixhq",
+      "record_sha256": "d3e574842611725f93d7ca3dea3897615b6bad55b88d710586416e44cc0aaa8a"
+    },
+    "nudge-ae81081d682a": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-w9yrmzi",
+      "record_sha256": "e96a2a40c24e0fdb3fd0e4784fc4bfa42affe487158d183a0378ee43038bd890"
+    },
+    "nudge-35da49a5f0ff": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-8c01nv2",
+      "record_sha256": "61f28c77c822d12941e193ca1700ed0d8a98404d4e1215d00a0f566c78b492a7"
+    },
+    "nudge-b4a516508b78": {
+      "bucket": "dead",
+      "bead_id": "ci-wisp-8td872e",
+      "record_sha256": "5008f673ce6538ea262313695236888dc0a4afa6ee4f2e1220141dfca437bb2c"
+    }
+  },
+  "exact_absence_proofs": {
+    "ci-wisp-2lwp7lg": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-0-phase.json",
+      "sha256": "78004672f8235b849fb4e289e563f1333efef93e449dda62d4a2d6d680473ff7"
+    },
+    "ci-wisp-5717mep": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-1-phase.json",
+      "sha256": "3e165eb3aa633c0a60ce3751b09b1197d29254cc7c6e8ff6f5cb5fcc7f91fe94"
+    },
+    "ci-wisp-64t4dcz": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-2-phase.json",
+      "sha256": "8256e7660d1ef93e179cacf08993110000d90f7816dc4950754f5ca3e3cedc50"
+    },
+    "ci-wisp-8c01nv2": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-3-phase.json",
+      "sha256": "558f4396ce404df0eab44601852a736e06090e420bd8e249c9fddff46fb5101e"
+    },
+    "ci-wisp-8td872e": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-4-phase.json",
+      "sha256": "322e37ae09db273d13f6e52ee85f550d110e74fc03e77ad3cbb032ee98a2df79"
+    },
+    "ci-wisp-97dnjws": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-5-phase.json",
+      "sha256": "b330f591626ee959468683286221511754efa08be914978701e85ef52f433d69"
+    },
+    "ci-wisp-axdnx5q": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-6-phase.json",
+      "sha256": "c124dee0e1f33d838537d7903093ce1ca4a6d02c1ea7a63eddff100a06a2096a"
+    },
+    "ci-wisp-fg43gn5": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-7-phase.json",
+      "sha256": "9687f9f91d9dd143005b5effedb40faba60ce476d01ee3e8bf1f7762e6f59002"
+    },
+    "ci-wisp-g5yixhq": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-8-phase.json",
+      "sha256": "160f30b4dcd5ed4192903d9011beea34ae185a4080de2a73397b71631e8f68d4"
+    },
+    "ci-wisp-hhw3srg": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-9-phase.json",
+      "sha256": "5b7b0772691dae983a9669b4ec51c0d2989a3659d9845f4085a76d581b68132d"
+    },
+    "ci-wisp-hz2nc1r": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-10-phase.json",
+      "sha256": "57997fe700d01d1a9906b6370133cdd5b26adb1ef8e2df0d4fd6d1a41f9684e3"
+    },
+    "ci-wisp-i6qqhbw": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-11-phase.json",
+      "sha256": "3b6782fd92a28af6911ea0f3d69c3341e6f448c7b8fc4604e5bddea9b6da7872"
+    },
+    "ci-wisp-jcp9k8n": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-12-phase.json",
+      "sha256": "01390f2f32c9068449c603684e8281a0d023cbf8a144d95d136a3c335719cde6"
+    },
+    "ci-wisp-jkqhhfc": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-13-phase.json",
+      "sha256": "29ddbed3309ac238118291352163839fd29a19dd1b3f83b2448c27f0dd03b7e8"
+    },
+    "ci-wisp-jlqwjby": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-14-phase.json",
+      "sha256": "26debb9c5353069128ab9eed80ad3a54188b3fa6cdb243c402d2cf7ed90d62e4"
+    },
+    "ci-wisp-l0bpxfe": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-15-phase.json",
+      "sha256": "599ba7c7d17ec506cb69def848d6f2a8377e635d9810b010f7e58fd225cc5815"
+    },
+    "ci-wisp-nf6r1yr": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-16-phase.json",
+      "sha256": "1337a4dfb24ebba171b9cd8cb6368005d2ad79a22ce5420acdd43dd647d9bf3e"
+    },
+    "ci-wisp-om21bmk": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-17-phase.json",
+      "sha256": "546c4fd9b6d82bee9ba587a173ae250ff16eac0d92b35fb18905d7d026895437"
+    },
+    "ci-wisp-om8zex7": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-18-phase.json",
+      "sha256": "5029273a6e10f4fe39f65f8b3a25bdfb731e216c90d9814e184ca219eb696c4b"
+    },
+    "ci-wisp-omi43ok": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-19-phase.json",
+      "sha256": "8d2f647db5a519a6b87d6c3eae11b663f6f7237e4709a10c49cc039eb42074e7"
+    },
+    "ci-wisp-spcjlkb": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-20-phase.json",
+      "sha256": "84fc6d1cc66306bdbeb7bae1c1d282322513e876c8c5bfa47ba326598750cb13"
+    },
+    "ci-wisp-u3rj1u7": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-21-phase.json",
+      "sha256": "e5c5947f77876def899f9b94fb21535e661c5f378adb5f901a2def26893b80b5"
+    },
+    "ci-wisp-w9yrmzi": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-22-phase.json",
+      "sha256": "29a873d9ffd878decbc5d07dadcce25e170a7ff90b63930dc1fd8efea8fa3371"
+    },
+    "ci-wisp-xis7wov": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-23-phase.json",
+      "sha256": "e37f2a03a3fdb7ed8fd5a9c5d583a2f77507a886a5320874366353b4ea955122"
+    },
+    "ci-wisp-xnp78y5": {
+      "path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/missing-24-phase.json",
+      "sha256": "01f4f173d84785566702999288ccf6111407f1ba10347b341ce06763a484fccd"
+    }
+  },
+  "origin_observation": {
+    "path": "/var/tmp/ga-mb91-window-20260930-r1/foreign-preflight-observation.json",
+    "sha256": "8ae58976ae331ad6e6dc067fc8dd19221428bc5975fcb01eeed69f07259bf0ba"
+  },
+  "complete_census": {
+    "count": 50,
+    "result_path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r3/result.json",
+    "sha256": "ac4d8a2b030746985e2182d6f72a09f681bc1bddbf88857cc3f3111e0256d159"
+  },
+  "native_count_controls": {
+    "result_path": "/tmp/ga-mb91-queue-readback-diagnostic-20260930-r4/result.json",
+    "sha256": "3fe78efb4d66cad3ecb117f8dcd60376c405cc62df659f5a211599279feec289"
+  },
+  "worker_release": false,
+  "maintenance_authorized": false
+}

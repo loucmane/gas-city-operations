@@ -1,8 +1,7 @@
 {
   "added_tests": {
-    "test_historical_absence.py": "ae19587628ac030288cbfdf1d55cea844ca2c19ad03ce13f39140d4aec8749d2",
     "test_owned_reminders.py": "fc4be1f5df9f234bc3fbb536310179741046c5200404d0481cd75ec6bc5e4de5",
-    "test_queue_guard.py": "79da5e8c127577cf4fe15d11b69d8028501ff0b8238234d60270ab2f670e0106",
+    "test_queue_guard.py": "27b41c4576418d4db6792067014452b6d9d914e8b4359d9ba3f96d49770605ee",
     "test_queue_preservation.py": "194f6a35a1f933b0b125b925a03d890643dd48099f6ed87dcae3c866e0798015",
     "test_queue_reader.py": "8f97f63d5143ac0d4a094f949ff3eedd783467be8c66359b2d5d3ad9853982ca",
     "test_queue_scope_prep.py": "9a00f1ec0e89b97b28c0aeb79ed4a48a9908fe784c7761acdde0a7bdf07933b5",
@@ -18,7 +17,7 @@
       "before_sha256": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f"
     },
     "preserve-halt.py": {
-      "after_sha256": "627af869760b7389bdbaa0f31fd7ae566f52173cc9f353aa310044208480af7f",
+      "after_sha256": "63a5231804126d3408d6d02f03053e6efe4e99619c73382e419ac9956ca14636",
       "before_sha256": "5ad5aff5ccc2bee2fb2b8bfa9d5e65d9619fe9d4eafd48af9a76d2a125b50a8b"
     },
     "test_create_only_candidate.py": {
@@ -58,7 +57,7 @@
       "before_sha256": "caf93eb741b81fe22a7fa25ff2fadf40d0083399c000cbd4ce9159b61e10f8d7"
     },
     "test_window_assembly.py": {
-      "after_sha256": "d2929585e3192764b0473ae54c5ba3bf6579fe6aa8302fd462d4b6f8ecff5c5d",
+      "after_sha256": "a5cb8604beec542118384d8a0740d3bee73aa3d5e35d9549cc1989ac916ecd5a",
       "before_sha256": "b41feb179be25b5ab942d49e6370d7a41b10d825226a2b8a8286d2792a62b50a"
     }
   },
@@ -67,6 +66,5 @@
   "r3": "Native metadata-injected then separate close transition is pending only; bounded pre-enqueue settling; closed AND ingress proof remains required.",
   "r4": "Exact observed cache directory time pair; fresh observation root; completed BIND executor and result remain exact; replay wrapper disabled.",
   "r5": "Both integrity observers and window consumer bind the rebuilt M15 inspector from adopted Core; fresh OBSERVE r3; all failed evidence preserved.",
-  "r6": "Exact digest-only historical DEAD-shadow absence binding with complete count/list census and fresh exact-ID absence count. No history rewrite, generic missing exception, worker authority or payload export.",
   "reason": "Previous expiry exception superseded by exact pre-poller preservation. Historical tests retained unchanged in predecessor. New queue suites cover strict rejection and owned transitions."
 }

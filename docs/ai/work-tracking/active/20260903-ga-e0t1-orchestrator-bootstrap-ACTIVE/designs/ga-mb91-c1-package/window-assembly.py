@@ -47,7 +47,7 @@ LOCAL = ('contract.py', 'startup-validation.py', 'worker-startup.py', 'PRECLAIM.
          'WORKER-BRIEF.md', 'permissions-baseline.py', 'launch-contract.py',
          'fresh-admission.py', 'fresh-workspace.py', 'FILE-SCOPE.json', 'create-only-patch.py',
          'release-runtime-r13.py', 'release-delivery-r13.py',
-         'queue-preservation.py', 'queue-guard.py')
+         'queue-preservation.py', 'queue-guard.py', 'historical-shadow-absence.json')
 HEX = re.compile(r"(?P<quote>['\"])(?P<digest>[0-9a-f]{64})(?P=quote)|(?P<assignment>^[A-Z_]+_SHA=)(?P<shell>[0-9a-f]{64})$", re.M)
 
 
@@ -116,10 +116,13 @@ def retarget(text):
     # Also bind Path(VAR) / relative names, not only absolute path literals.
     text = re.sub(r'(ga-mb91-[a-z%0-9.-]+)-202609[0-9]{2}-r[0-9]+',
                   r'\1-20260930-r1', text)
-    # R1/R2 OBSERVE were consumed without live mutation. Only the successor uses r3;
+    # R3 OBSERVE passed and R1 PREFLIGHT refused before staging. Source rebinding
+    # requires a fresh observation and window, never replay of consumed roots.
     # WORKTREE, PREP and the completed BIND retain their original receipts.
     text = text.replace('ga-mb91-integrity-20260930-r1',
-                        'ga-mb91-integrity-20260930-r3')
+                        'ga-mb91-integrity-20260930-r4')
+    text = text.replace('ga-mb91-window-20260930-r1',
+                        'ga-mb91-window-20260930-r2')
     text = text.replace('ga-mb91-r11-', 'ga-mb91-r1-')
     text = text.replace('.gc/worker-evidence/ga-mb91/r11', '.gc/worker-evidence/ga-mb91/r1')
     # The completed PREP probe and fresh BIND both bind September 30.

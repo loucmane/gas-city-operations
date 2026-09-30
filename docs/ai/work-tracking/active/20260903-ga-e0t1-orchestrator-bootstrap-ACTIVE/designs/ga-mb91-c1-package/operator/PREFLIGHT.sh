@@ -10,7 +10,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-mb91-c1-package
 COMMIT=${1:?usage: PREFLIGHT.sh <reviewed commit>}
-WINDOW_SHA=32cd0d252eadb4c908eb2a798688cceb55bf410976be538ed90c341345caaa42
+WINDOW_SHA=d203fb72d696ff97fe85c72104fa61edee1a0f7eebd046e14d2c81bd932fc3c4
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -25,7 +25,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-mb91-window-20260930-r1 ] && [ ! -L /var/tmp/ga-mb91-window-20260930-r1 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-mb91-window-20260930-r1"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-mb91-window-20260930-r2 ] && [ ! -L /var/tmp/ga-mb91-window-20260930-r2 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-mb91-window-20260930-r2"; echo "== end"; exit 1; }
 # s5: the window accounts read-only access-time changes (window-base account_read_times), so no
 # FRESHEN pass is required before PREFLIGHT.
 tmux_out=$(/usr/bin/env -u TMUX_TMPDIR -u TMUX /usr/bin/tmux -u -L city list-sessions -F "#{session_name}" 2>&1); tmux_rc=$?

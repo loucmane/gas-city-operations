@@ -152,7 +152,7 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
     baseline_window_ns = [baseline_lower_ns, time.time_ns()]
     d.time_window_ns(baseline_window_ns)
     # Preserve the pre-poller baseline, not a snapshot made after startup.
-    early = json.loads(w.read(Path('/var/tmp/ga-mb91-window-20260930-r1/foreign-before.json')))
+    early = json.loads(w.read(Path('/var/tmp/ga-mb91-window-20260930-r2/foreign-before.json')))
     queue_before = json.loads(base64.b64decode(early['raw_base64'], validate=True))
     d.queue_baseline(queue_before, bound)
     d.admit_before(initial_receipts, json.loads(queue_raw), queue_before, bound, message)

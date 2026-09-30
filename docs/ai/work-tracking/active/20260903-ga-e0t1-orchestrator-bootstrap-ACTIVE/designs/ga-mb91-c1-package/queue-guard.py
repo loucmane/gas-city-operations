@@ -12,16 +12,35 @@ from pathlib import Path
 import re
 import stat
 
-WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r1')
+WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r2')
 CITY = Path('/home/loucmane/gascity/city')
 TASK = 'ga-mb91'
-POLICY_SHA = 'e59e29fd34177936fc259bd5ef3dd11619df888a898ead8855553b863ac939a5'
+POLICY_SHA = '2f84cb048ae68a9738277cd1ca908a36147764cc333556936b06df7951b1b138'
+ABSENCE_SHA = '44c2507fc5f6b2c226c24637f6e775ac1fd8e17bf69379c1947fddc13d325482'
 CORE = '/home/loucmane/gascity/bin/gc'
 CORE_CGROUP = '0::/user.slice/user-1000.slice/user@1000.service/app.slice/gascity-supervisor-home-42adab5d.service\n'
 
 
 def policy(w):
     return w.module(w.HERE/'queue-preservation.py', POLICY_SHA)
+
+
+def absence(w):
+    raw = w.read(w.HERE/'historical-shadow-absence.json')
+    w.require(hashlib.sha256(raw).hexdigest() == ABSENCE_SHA, 'historical absence digest')
+    value = json.loads(raw)
+    w.require(value.get('schema') == 'ga-mb91.historical-shadow-absence.v1'
+              and type(value.get('records')) is dict and len(value['records']) == 25,
+              'historical absence manifest')
+    return value['records']
+
+
+def count_value(p, value):
+    p.require(type(value) is dict and set(value) == {'count', 'schema_version'}
+              and type(value['schema_version']) is int and value['schema_version'] == 1
+              and type(value['count']) is int and 0 <= value['count'] <= p.LIMIT,
+              'native Bead count schema or bound')
+    return value['count']
 
 
 def read_queue(w):
@@ -151,9 +170,23 @@ def checkpoint(w, label, b, o, owned_phase, *, capture=False, scoped=True, fatal
 
     def observation(frozen, session):
         first = read_queue(w)
+        count_args = ['bd', 'count', '--type', 'chore', '--label', 'gc:nudge',
+                      '--include-infra', '--json']
+        before_count = count_value(p, command('shadow-count-before', count_args))
         rows = command('shadow-beads', ['bd', 'list', '--type', 'chore', '--label', 'gc:nudge',
                         '--include-infra', '--all', '--limit', str(p.LIMIT+1), '--json'])
         p.bead_records(rows)  # Full page fails; no filtered absence inference.
+        after_count = count_value(p, command('shadow-count-after', count_args))
+        w.require(before_count == len(rows) == after_count, 'shadow census incomplete or changed')
+        absent = absence(w)
+        # Unfiltered exact-ID count detects reappearance with changed labels or
+        # type. Native positive and mixed-ID controls are frozen in the manifest.
+        if absent:
+            p.absent_records(p.queue_records(json.loads(first)), p.bead_records(rows), absent)
+            ids = ','.join(sorted(record['bead_id'] for record in absent.values()))
+            w.require(count_value(p, command('absent-ids',
+                ['bd', 'count', '--id', ids, '--include-infra', '--json'])) == 0,
+                'historical shadow reappeared')
         last = read_queue(w)
         if frozen is None:
             w.require(first == last, 'queue changed around shadow read')
@@ -164,7 +197,8 @@ def checkpoint(w, label, b, o, owned_phase, *, capture=False, scoped=True, fatal
             p.preserve(frozen['history'], json.loads(first), rows, session)
             p.preserve(frozen['history'], json.loads(last), rows, session)
         return dict(raw_base64=base64.b64encode(last).decode('ascii'),
-                    sha256=hashlib.sha256(last).hexdigest(), queue=json.loads(last), beads=rows)
+                    sha256=hashlib.sha256(last).hexdigest(), queue=json.loads(last), beads=rows,
+                    absent_dead=absent)
 
     try:
         session = session_read()
@@ -193,7 +227,7 @@ def checkpoint(w, label, b, o, owned_phase, *, capture=False, scoped=True, fatal
                        before_sha256=hashlib.sha256(w.read(WINDOW/'before.json')).hexdigest())
         if capture:
             value = dict(binding=binding, raw_base64=first['raw_base64'],
-                         history=p.baseline(first['queue'], first['beads']))
+                         history=p.baseline(first['queue'], first['beads'], first['absent_dead']))
             w.durable(baseline_path, (json.dumps(value, sort_keys=True)+'\n').encode())
         frozen = json.loads(w.read(baseline_path))
         w.require(frozen['binding'] == binding, 'foreign baseline binding drift')

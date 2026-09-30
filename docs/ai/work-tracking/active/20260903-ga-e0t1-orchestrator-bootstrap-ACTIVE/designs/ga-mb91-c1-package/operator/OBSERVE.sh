@@ -12,7 +12,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-mb91-c1-package
 COMMIT=${1:?usage: OBSERVE.sh <reviewed commit>}
-OBSERVE_SHA=c22c72aa6ce237d6d0e168d68f03f4cca6121f9222a6a97f209a7404f0b9b7e5
+OBSERVE_SHA=4cccac858a5c71cead2189f580a001561cdcb265c2a0bc0cf18e1757c389f7a3
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,7 +27,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-{ [ ! -e /var/tmp/ga-mb91-integrity-20260930-r3 ] && [ ! -L /var/tmp/ga-mb91-integrity-20260930-r3 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-mb91-integrity-20260930-r3"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-mb91-integrity-20260930-r4 ] && [ ! -L /var/tmp/ga-mb91-integrity-20260930-r4 ]; } || { echo "== STOP: output root already used: /var/tmp/ga-mb91-integrity-20260930-r4"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"

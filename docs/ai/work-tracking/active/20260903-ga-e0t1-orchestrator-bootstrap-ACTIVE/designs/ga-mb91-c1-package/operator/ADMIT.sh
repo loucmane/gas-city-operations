@@ -10,9 +10,9 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-mb91-c1-package
 COMMIT=${1:?usage: ADMIT.sh <reviewed commit>}
-ADMIT_SHA=d0360a5dade6f43a5ac859b997fad2b5e97c3c509f3251b7c03bebdc0913b3a3
-BUDGET_SHA=e5fda5c3deea983a911597ba6d152da514e419aaeb4cd531f53e5a1073b36f3b
-CLOSE_SHA=8085291529868284d7126700254e8d62eb67a033cf71e151e2bcd59899683c82
+ADMIT_SHA=c28bd024a5f7b7d738c478a308be21a1f1b6a322652c5ccc28cbfa05216910c0
+BUDGET_SHA=0ddcaad308029242bbd1c6f3685f3109023a6543236b46c0ed08cfd81e1550d1
+CLOSE_SHA=5defdeaea797a226b763513350cb1bcc31eb13ac13008a7fe0424c202e3d1fbd
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -27,8 +27,8 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-mb91-window-20260930-r1/stage-consumed.json ] && [ ! -e /var/tmp/ga-mb91-window-20260930-r1/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
-{ [ ! -e /var/tmp/ga-mb91-window-20260930-r1/restore-admission.json ] && [ ! -L /var/tmp/ga-mb91-window-20260930-r1/restore-admission.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-mb91-window-20260930-r1/restore-admission.json"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-mb91-window-20260930-r2/stage-consumed.json ] && [ ! -e /var/tmp/ga-mb91-window-20260930-r2/restore-consumed.json ] || { echo "== STOP: no owned window or restore already consumed"; echo "== end"; exit 1; }
+{ [ ! -e /var/tmp/ga-mb91-window-20260930-r2/restore-admission.json ] && [ ! -L /var/tmp/ga-mb91-window-20260930-r2/restore-admission.json ]; } || { echo "== STOP: output root already used: /var/tmp/ga-mb91-window-20260930-r2/restore-admission.json"; echo "== end"; exit 1; }
 find /var/tmp -maxdepth 2 -user 1000 -path "/var/tmp/ga-mb91-r1-close-*/result.json" -exec grep -l '"ok": true' {} + | xargs -r grep -l "$CLOSE_SHA" | grep -q . || { echo "== STOP: CLOSE has not passed"; echo "== end"; exit 1; }
 step() {
   label=$1; shift

@@ -31,6 +31,7 @@ def rig(tmp_path, monkeypatch):
     monkeypatch.setattr(g,'WINDOW',window)
     monkeypatch.setattr(g,'read_queue',lambda w:json.dumps(state['queue']).encode())
     monkeypatch.setattr(g,'pollers',lambda w,s:[])
+    monkeypatch.setattr(g,'absence',lambda w:{})
     def phase(label,args,b,owned,timeout):
         state['calls'].append((label,args))
         args=args[3:]
@@ -44,6 +45,10 @@ def rig(tmp_path, monkeypatch):
                                 template='gascity/codex',provider='codex-managed',
                                 **{'gc.trigger_bead_id':'ga-mb91','gc.trigger_bead_store_ref':'rig:gascity'}))]
         elif args[:2]==['bd','list']:value=state['beads']
+        elif args[:2]==['bd','count']:
+            ids = set(args[args.index('--id')+1].split(',')) if '--id' in args else None
+            value=dict(count=sum(ids is None or row['id'] in ids for row in state['beads']),
+                       schema_version=1)
         elif args[:2]==['config','show']:value=c
         elif args[:2]==['order','list']:value=orders
         else:raise AssertionError(args)
