@@ -903,6 +903,30 @@ def test_post_cycle_projection_keeps_authority_without_volatile_observation_time
     assert report["findings"] == []
 
 
+def test_transactions_skip_context_recovery_plans_and_backups(tmp_path: Path) -> None:
+    """Context recovery writes a plan and pre-recovery backups beside the journals.
+
+    They are not transaction journals: the plan has no spec (the live gascity rig's
+    ga-tmgr.context-recovery.json broke every continuity cycle), and a backup would
+    duplicate its journal. Only <bead>.json journals are transactions.
+    """
+
+    capture = _load("continuity_capture")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    transactions = tmp_path / ".git" / "gas-city-workflow" / "transactions"
+    transactions.mkdir(parents=True)
+    journal = {"spec": {"bead_id": "ga-tmgr", "branch": "codex/ga-tmgr-x", "worktree": "/w"}, "phase": "ready"}
+    (transactions / "ga-tmgr.json").write_text(json.dumps(journal))
+    (transactions / "ga-tmgr.context-recovery.json").write_text(json.dumps({"schema": "plan", "child": {}}))
+    (transactions / f"ga-tmgr.context-{'a' * 64}.before.json").write_text(json.dumps(journal))
+
+    records = capture._transactions(tmp_path)
+
+    assert [(record["bead_id"], Path(record["path"]).name) for record in records] == [
+        ("ga-tmgr", "ga-tmgr.json")
+    ]
+
+
 def test_human_status_is_derived_from_the_json_report() -> None:
     model = _load("continuity_model")
     project = _project("gas-city", [_bead("ga-next", "open", title="Do the next thing")])
