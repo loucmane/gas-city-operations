@@ -11,7 +11,7 @@ W=/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap
 D=$W/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs
 C=$D/ga-mb91-c1-package
 COMMIT=${1:?usage: CONTAIN-2.sh <reviewed commit>}
-WINDOW_SHA=666f0af06ad3fe6339578ee031e10512f1facf4ab5139ffdf29f9d81466e080a
+WINDOW_SHA=dc1ea276946e52fe2506b023289071df7ac5ab9bd78be324017ffb4426ade969
 PATH=/usr/local/bin:/usr/bin:/bin
 export PATH
 mkdir -p "$S" || exit 1
@@ -26,7 +26,7 @@ status=$(git -c core.fsmonitor=false -c core.hooksPath=/dev/null -C "$W" --no-op
 if [ "$head" != "$COMMIT" ] || [ -n "$status" ]; then
   echo "== STOP: package worktree head=$head not clean or not the reviewed commit"; echo "== end"; exit 1
 fi
-[ -e /var/tmp/ga-mb91-window-20260930-r3/stage-pass.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }
+[ -e /var/tmp/ga-mb91-window-20260930-r4/stage-pass.json ] || { echo "== STOP: no staged window"; echo "== end"; exit 1; }
 step() {
   label=$1; shift
   echo "== $label $(date -u +%H:%M:%SZ)"
@@ -37,10 +37,10 @@ step() {
     echo "== end $(date -u +%H:%M:%SZ)"; exit "$rc"
   fi
 }
-if [ -e /var/tmp/ga-mb91-window-20260930-r3/suspension-city-resume-event.json ] && [ ! -e /var/tmp/ga-mb91-window-20260930-r3/suspension-city-suspend-event.json ]; then
+if [ -e /var/tmp/ga-mb91-window-20260930-r4/suspension-city-resume-event.json ] && [ ! -e /var/tmp/ga-mb91-window-20260930-r4/suspension-city-suspend-event.json ]; then
   step city-suspend "$C/window.py" "$WINDOW_SHA" lifecycle city-suspend
 fi
-if [ -e /var/tmp/ga-mb91-window-20260930-r3/suspension-rig-resume-event.json ] && [ ! -e /var/tmp/ga-mb91-window-20260930-r3/suspension-rig-suspend-event.json ]; then
+if [ -e /var/tmp/ga-mb91-window-20260930-r4/suspension-rig-resume-event.json ] && [ ! -e /var/tmp/ga-mb91-window-20260930-r4/suspension-rig-suspend-event.json ]; then
   step rig-suspend "$C/window.py" "$WINDOW_SHA" lifecycle rig-suspend
 fi
 echo "== CONTAIN-2 PASS"

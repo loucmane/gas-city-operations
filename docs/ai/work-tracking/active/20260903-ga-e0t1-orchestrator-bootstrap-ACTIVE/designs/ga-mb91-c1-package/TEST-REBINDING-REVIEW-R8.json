@@ -1,9 +1,8 @@
 {
   "added_tests": {
-    "test_historical_absence.py": "a08001d471596c3060168a7aeb6fb5e196a151c0316d67b1b1e5422f8eb4e20e",
-    "test_output_root_admission.py": "cd5a9c97fa1cfee30a00c00c03fff504e41c8a00e29ed2b9e678394ff3ae209e",
+    "test_historical_absence.py": "d38a25b036dbb786e7e8ec51ba38ea8388ad8748815c0756cfdd7e8da49ff6b3",
     "test_owned_reminders.py": "fc4be1f5df9f234bc3fbb536310179741046c5200404d0481cd75ec6bc5e4de5",
-    "test_process_record_binding.py": "d952b94818385549b22d080f97fed6f1cdfe603539902ebea3d3001aa631f2c5",
+    "test_process_record_binding.py": "eb7734954b9a33bca7439784cb31f6a64017cdf7d87fbe577e1965452156af01",
     "test_queue_guard.py": "3101bd1e54ca5be9eec1caeb5b5eec8282b9fab46986017b990b2c19142f895e",
     "test_queue_preservation.py": "194f6a35a1f933b0b125b925a03d890643dd48099f6ed87dcae3c866e0798015",
     "test_queue_reader.py": "8f97f63d5143ac0d4a094f949ff3eedd783467be8c66359b2d5d3ad9853982ca",
@@ -20,7 +19,7 @@
       "before_sha256": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f"
     },
     "preserve-halt.py": {
-      "after_sha256": "22ed896ed4bc3f7e2ed2bd9544a95809b64f91e514a90b244ecbe4f007431551",
+      "after_sha256": "1d8ba9725ab4b071170d3df78d4a707db0aac963b4ea02fa538a58a1b63a53cb",
       "before_sha256": "5ad5aff5ccc2bee2fb2b8bfa9d5e65d9619fe9d4eafd48af9a76d2a125b50a8b"
     },
     "test_create_only_candidate.py": {
@@ -60,7 +59,7 @@
       "before_sha256": "caf93eb741b81fe22a7fa25ff2fadf40d0083399c000cbd4ce9159b61e10f8d7"
     },
     "test_window_assembly.py": {
-      "after_sha256": "081370dbee458d3fede88a60c780f6d6c62d1d0aa01ea16dbbec166ae877d8b4",
+      "after_sha256": "3858510c8755499d46e63dab0f68dd5aa24c6b0097d031209876a523e8aca279",
       "before_sha256": "b41feb179be25b5ab942d49e6370d7a41b10d825226a2b8a8286d2792a62b50a"
     }
   },
@@ -72,6 +71,5 @@
   "r6": "Exact digest-only historical DEAD-shadow absence binding with complete count/list census and fresh exact-ID absence count. No history rewrite, generic missing exception, worker authority or payload export.",
   "r7": "Exact Core label fallback absence query without type or class-label filtering, independent of metadata and ownership. Retains all R6 exact-ID, census, history and containment checks.",
   "r8": "Exact refreshed native process record checked before preflight and stage, retained at route; fresh roots and R7 terminal baseline; completed BIND unchanged.",
-  "r9": "Preserve R8 source and failed stage. Fresh audit roots and generated nine-root guard before first observation. Existing tests change exact successor paths only; no assertions removed.",
   "reason": "Previous expiry exception superseded by exact pre-poller preservation. Historical tests retained unchanged in predecessor. New queue suites cover strict rejection and owned transitions."
 }

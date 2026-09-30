@@ -127,15 +127,19 @@ def retarget(text):
     # Also bind Path(VAR) / relative names, not only absolute path literals.
     text = re.sub(r'(ga-mb91-[a-z%0-9.-]+)-202609[0-9]{2}-r[0-9]+',
                   r'\1-20260930-r1', text)
-    # R7 refused before routing and its complete staged window was restored.
+    # R8 refused at a consumed audit root before staging. Preserve that window.
     # Successor observation, window, route and terminal roots must be fresh.
     # WORKTREE, PREP and the completed BIND retain their original receipts.
     text = text.replace('ga-mb91-integrity-20260930-r1',
-                        'ga-mb91-integrity-20260930-r5')
+                        'ga-mb91-integrity-20260930-r6')
     text = text.replace('ga-mb91-window-20260930-r1',
-                        'ga-mb91-window-20260930-r3')
+                        'ga-mb91-window-20260930-r4')
     text = text.replace('ga-mb91-route-20260930-r1', 'ga-mb91-route-20260930-r2')
     text = text.replace('ga-mb91-terminal-20260930-r1', 'ga-mb91-terminal-20260930-r2')
+    text = text.replace('ga-mb91-audit-%s-20260930-r1', 'ga-mb91-audit-%s-20260930-r2')
+    for phase in ('stage', 'route', 'resume'):
+        text = text.replace('ga-mb91-audit-'+phase+'-20260930-r1',
+                            'ga-mb91-audit-'+phase+'-20260930-r2')
     text = text.replace('ga-mb91-r11-', 'ga-mb91-r1-')
     text = text.replace('.gc/worker-evidence/ga-mb91/r11', '.gc/worker-evidence/ga-mb91/r1')
     # The completed PREP probe and fresh BIND both bind September 30.
@@ -319,6 +323,56 @@ def verify_process_record(o):
     return out
 
 
+def fresh_output_roots(out):
+    """Fixed create-only roots of runnable stages, without imports or host reads.
+
+    Completed WORKTREE/PREP/BIND and the inert legacy restore helper are excluded.
+    WATCH/HOLD/CLOSE retain their exclusive timestamp-root creation checks.
+    """
+    roots = []
+    for name in ('observe-integrity-r11.py', 'window-base.py', 'audit-queue-r3.py',
+                 'route-task.py', 'startup-release.py', 'observe-terminal-r11.py',
+                 'candidate-inspect.py'):
+        tree = ast.parse(out[name])
+        values = [node.value for node in tree.body if isinstance(node, ast.Assign)
+                  and any(isinstance(t, ast.Name) and t.id == 'ROOT' for t in node.targets)]
+        if len(values) != 1:
+            raise ValueError('missing or ambiguous fixed output root: '+name)
+        call = values[0]
+        if not (isinstance(call, ast.Call) and isinstance(call.func, ast.Name)
+                and call.func.id == 'Path' and len(call.args) == 1 and not call.keywords):
+            raise ValueError('nonliteral output root: '+name)
+        value = call.args[0]
+        if name == 'audit-queue-r3.py':
+            if not (isinstance(value, ast.BinOp) and isinstance(value.op, ast.Mod)
+                    and isinstance(value.right, ast.Name) and value.right.id == 'MODE'
+                    and isinstance(value.left, ast.Constant) and isinstance(value.left.value, str)
+                    and value.left.value.count('%s') == 1):
+                raise ValueError('unknown audit output family')
+            paths = [value.left.value % mode for mode in ('stage', 'route', 'resume')]
+        elif isinstance(value, ast.Constant) and isinstance(value.value, str):
+            paths = [value.value]
+        else:
+            raise ValueError('nonliteral output root: '+name)
+        if any(re.fullmatch(r'/var/tmp/ga-mb91-[a-z0-9.-]+-20260930-r[1-9][0-9]*',p) is None for p in paths):
+            raise ValueError('unexpected output-root scope: '+name)
+        roots.extend(paths)
+    if len(roots) != 9 or len(set(roots)) != 9:
+        raise ValueError('duplicate fixed output root')
+    return tuple(sorted(roots))
+
+
+def bind_output_admission(out):
+    roots = fresh_output_roots(out)
+    guard = '# BEGIN fresh output admission\nfor output_root in '+ ' '.join("'"+p+"'" for p in roots)+'\ndo\n'
+    guard += '  if [ -e "$output_root" ] || [ -L "$output_root" ]; then\n'
+    guard += '    echo "== STOP: fixed output root already consumed: $output_root"; echo "== end"; exit 1\n'
+    guard += '  fi\ndone\n# END fresh output admission\n'
+    name = 'operator/OBSERVE.sh'
+    out[name] = once(out[name].decode(), 'step() {\n', guard+'step() {\n').encode()
+    return out
+
+
 def assemble(*, observation, observation_sha, cache_ns):
     if re.fullmatch(r'/tmp/ga-mb91-readonly-baseline-20260930-r[1-9][0-9]*/observed.json',
                     observation) is None and observation != TERMINAL_BASELINE:
@@ -379,6 +433,7 @@ def assemble(*, observation, observation_sha, cache_ns):
     out=wiring.apply(out,prep)
     out=bind_inspector(out)
     out=bind_process_record(out)
+    out=bind_output_admission(out)
     out = rebind(out, before, references, set(LOCAL) | {'bind-task.py'})
     for name, raw in out.items():
         if name.endswith('.py'):

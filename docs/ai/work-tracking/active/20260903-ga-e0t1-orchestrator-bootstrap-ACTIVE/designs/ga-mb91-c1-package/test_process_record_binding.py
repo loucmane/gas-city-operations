@@ -93,8 +93,8 @@ def test_actual_generated_check_keeps_live_identity_and_quiescence(defect):
 
 def test_successor_roots_fresh_and_completed_binding_unchanged():
     out = generated()
-    assert b"ga-mb91-window-20260930-r3" in out["window-base.py"]
+    assert b"ga-mb91-window-20260930-r4" in out["window-base.py"]
     assert b"ga-mb91-route-20260930-r2" in out["route-task.py"]
-    assert b"ga-mb91-integrity-20260930-r5" in out["observe-integrity-r11.py"]
+    assert b"ga-mb91-integrity-20260930-r6" in out["observe-integrity-r11.py"]
     assert b"ga-mb91-terminal-20260930-r2" in out["observe-terminal-r11.py"]
     assert hashlib.sha256(out["bind-task.py"]).hexdigest() == "028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea"

@@ -14,13 +14,13 @@ import sys
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-BASE_SHA = 'f7c7e0abb0e8202ca328b9ec6e488ff7b7633dbb2ea00dfd83bb46582d95175a'
+BASE_SHA = '4d30f8c96e017271c5cc0833e4d437836412ec08222ebd4a928664b0d0bd2b1f'
 VALIDATOR_SHA = '41f41ebba0bc7f74dbb5221d68472e274c6dc482d7564a72ec828b75851d44e3'
 PROBE_SHA = '327d9928b4167642d67a1899f64dafca36ba460012a6ea7e03dfb04bbb86d0e1'
-INSPECT_SHA = '20ed7c17dc5d8f3b849abef61dc20c7b226dbadc2e94df7af1eff0a80c9e0098'
+INSPECT_SHA = 'b5ac44fb683e312915f6fc164d2d2b165cd0fc2440866c886030132e584fcd18'
 COMMON_SHA = '34ce775b59318acc01499e3cc27e9d09c4d39d8bb64d723b7970fc6dcf8b6301'
 ROOT = Path('/var/tmp/ga-mb91-startup-release-20260930-r1')
-WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r3')
+WINDOW = Path('/var/tmp/ga-mb91-window-20260930-r4')
 ROUTE = Path('/var/tmp/ga-mb91-route-20260930-r2')
 CLIENT_INPUTS = tuple(Path(p) for p in (
     '/home/loucmane/.codex/config.toml', '/home/loucmane/.codex/hooks.json',
@@ -86,7 +86,7 @@ def main():
     runtime=w.module(HERE/'runtime-process-r7.py','ea63f0ffda927baa34b777aeb210bf37cd7d7b408a629a9db9abc32445d40e65')
     common=w.module(HERE/'common-snapshot-r1.py',COMMON_SHA)
     delivery=w.module(HERE/'release-delivery-r13.py','1c3651736137af5c8566e62c823ec3c7ffe58466df00049aed48fb786910a436')
-    transport=w.module(HERE/'release-runtime-r13.py','cc79be5ae8fd98a7fa878ef044737df94a5c01bba2146c27212100152d1bf243')
+    transport=w.module(HERE/'release-runtime-r13.py','40df06c0384f396d97ea35d033ae21fbfa23d16acfa8c4f437458ba4aece3d5c')
     b,o,owned=w.load_support()
     w.active_epoch(o)
     require(w.record('stage-pass.json')==dict(ok=True,worker_launched=False),'window not staged')

@@ -153,12 +153,12 @@ def test_failed_preflight_disposition_preserves_exact_evidence_without_dispatch(
 
 def test_fresh_window_root_is_shared_and_completed_bind_unchanged():
     g = load('queue-guard.py')
-    assert str(g.WINDOW) == '/var/tmp/ga-mb91-window-20260930-r3'
+    assert str(g.WINDOW) == '/var/tmp/ga-mb91-window-20260930-r4'
     for name in ('window-base.py', 'window.py', 'release-runtime-r13.py'):
         raw = (HERE/name).read_bytes()
         assert b'ga-mb91-window-20260930-r1' not in raw
         assert b'ga-mb91-window-20260930-r2' not in raw
-        assert b'ga-mb91-window-20260930-r3' in raw
+        assert b'ga-mb91-window-20260930-r4' in raw
     assert hashlib.sha256((HERE/'bind-task.py').read_bytes()).hexdigest() == '028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'
 
 

@@ -18,7 +18,7 @@ import time
 import types
 
 HERE = Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-ROOT = Path('/var/tmp/ga-mb91-window-20260930-r3')
+ROOT = Path('/var/tmp/ga-mb91-window-20260930-r4')
 PREP = Path('/var/tmp/ga-mb91-prep-20260930-r1')
 SUSPENSION = '/home/loucmane/gascity/city/.gc/runtime/suspension-state.json'
 LINEAGE_SHA = '26acf7ebd1ca9e1832db64b1ede34b3e7858c548463d3bde9581b1900d50cd90'
@@ -914,7 +914,7 @@ def route_read_account(before, after, window, *, regenerated=False):
 
 
 def foreign_queue(label,b,o,owned,**kwargs):
-    guard=module(HERE/'queue-guard.py','b5b5688c8e8277188fd2437e65751ce952012f57efeee03a516d05aabd641582')
+    guard=module(HERE/'queue-guard.py','a41357581cc2f05ef7cf3c2cc5f6d31b4f8654987aed3495c8739f99281ee8be')
     return guard.checkpoint(types.SimpleNamespace(**globals()),label,b,o,owned,**kwargs)
 
 if __name__=='__main__':
