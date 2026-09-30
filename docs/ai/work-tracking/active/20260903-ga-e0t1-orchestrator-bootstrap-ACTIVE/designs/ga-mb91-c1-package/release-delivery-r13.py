@@ -104,12 +104,13 @@ def ordinary_receipts(rows, session):
         identity = m.get('nudge_id', '')
         require(isinstance(identity, str) and re.fullmatch(r'nudge-[0-9a-f]{12}', identity)
                 and identity not in result and isinstance(row.get('id'), str) and row['id']
-                and row.get('issue_type') == 'chore' and 'gc:nudge' in row.get('labels', [])
+                and row.get('issue_type') == 'chore' and type(row.get('labels')) is list
+                and 'gc:nudge' in row['labels']
                 and m.get('agent') == 'gascity/codex' and m.get('source') == 'session',
                 'ordinary receipt authority differs')
         state = m.get('state')
         require((state in ('queued', 'in_flight') and row.get('status') == 'open')
-                or (state == 'injected' and row.get('status') == 'closed'
+                or (state == 'injected' and row.get('status') in ('open', 'closed')
                     and m.get('commit_boundary') == 'provider-nudge-return'
                     and m.get('terminal_reason') == '' and not m.get('last_error')),
                 'ordinary receipt failed or unknown')
@@ -165,10 +166,11 @@ def transcript_counts(before, after, message):
 def transcript_before(before, after, message, rows, session):
     releases, ordinary_count = transcript_counts(before, after, message)
     ordinary = ordinary_receipts(rows, session)
-    injected = sum(r['metadata']['state'] == 'injected' for r in ordinary.values())
-    require(releases == 0 and ordinary_count <= injected,
-            'unreceipted or release ingress before enqueue')
-    return dict(ordinary_ingress=ordinary_count, release_ingress=0)
+    injected = sum(r['metadata']['state'] == 'injected' and r['status'] == 'closed'
+                   for r in ordinary.values())
+    require(releases == 0, 'release ingress before enqueue')
+    return dict(ordinary_ingress=ordinary_count, release_ingress=0,
+                settled=ordinary_count <= injected)
 
 
 def transcript_ingress(before, after, message, *, rows=None, session=None):
@@ -176,7 +178,8 @@ def transcript_ingress(before, after, message, *, rows=None, session=None):
     ordinary = ordinary_receipts(rows, session) if rows is not None else {}
     # Receipt read may precede native injection/close by a few milliseconds.
     # Never infer delivery from transcript alone; the bounded observer rereads.
-    injected = sum(r['metadata']['state'] == 'injected' for r in ordinary.values())
+    injected = sum(r['metadata']['state'] == 'injected' and r['status'] == 'closed'
+                   for r in ordinary.values())
     return releases == 1 and ordinary_count <= injected
 
 
@@ -299,9 +302,11 @@ def acknowledged(rows, queue, session, message, started_epoch, queue_before, *,
         require(row.get('status') == 'open' and state in ('queued', 'in_flight'),
                 'native receipt failed or unknown')
         return None
-    require(row.get('status') == 'closed' and m.get('commit_boundary') == 'provider-nudge-return'
+    require(row.get('status') in ('open', 'closed') and m.get('commit_boundary') == 'provider-nudge-return'
             and m.get('terminal_reason') == '' and not m.get('last_error'),
             'native delivery acknowledgement differs')
+    if row['status'] == 'open':
+        return None  # Native SetMetadataBatch and Close are separate writes.
     if fresh:
         return None  # Receipt close and queue removal are not one atomic read.
     return dict(bead_id=row['id'], nudge_id=nudge, commit_boundary=m['commit_boundary'])

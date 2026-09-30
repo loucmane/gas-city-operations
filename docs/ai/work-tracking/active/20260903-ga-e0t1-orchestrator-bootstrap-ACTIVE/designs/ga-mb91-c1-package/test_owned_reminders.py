@@ -71,6 +71,29 @@ def test_release_ingress_before_enqueue_refuses(messages):
     with pytest.raises(RuntimeError,match='before enqueue'):
         d.transcript_before(BEFORE,BEFORE+ingress(messages),M,[receipt()],S)
 
-def test_unreceipted_ordinary_ingress_before_enqueue_refuses():
-    with pytest.raises(RuntimeError,match='before enqueue'):
-        d.transcript_before(BEFORE,BEFORE+ingress([O]),M,[],S)
+def test_unreceipted_ordinary_ingress_before_enqueue_waits_without_admission():
+    assert not d.transcript_before(BEFORE,BEFORE+ingress([O]),M,[],S)['settled']
+
+@pytest.mark.parametrize('kind',['ordinary','release','both'])
+def test_native_metadata_then_close_transition_waits_for_both_closed_receipts(kind):
+    from test_delivery_regression import snapshot,run
+    from test_delivery_regression import S as native_session, M as native_message
+    first=snapshot(True,True)
+    ordinary=receipt(identity='nudge-999999999999');ordinary['metadata']['session_id']=native_session['id']
+    first['receipts'].append(ordinary)
+    # Use the actual wait fixture's existing prefix, never fabricate delivery.
+    from test_delivery_regression import BEFORE as native_before
+    first['transcript']=native_before+ingress([O,native_message])
+    second=copy.deepcopy(first)
+    if kind in ('ordinary','both'):first['receipts'][1]['status']='open'
+    if kind in ('release','both'):first['receipts'][0]['status']='open'
+    result,calls=run([first,second])
+    assert result['delivered'] and len(calls)==2
+    with pytest.raises(RuntimeError,match='timeout'):run([first])
+
+@pytest.mark.parametrize('field,value',[('commit_boundary','wrong'),('terminal_reason','expired'),('last_error','transport failed')])
+def test_injected_open_with_invalid_terminal_authority_is_not_a_wait(field,value):
+    from test_delivery_regression import snapshot,run
+    row=snapshot(True,True);row['receipts'][0]['status']='open'
+    row['receipts'][0]['metadata'][field]=value
+    with pytest.raises(RuntimeError,match='acknowledgement'):run([row])

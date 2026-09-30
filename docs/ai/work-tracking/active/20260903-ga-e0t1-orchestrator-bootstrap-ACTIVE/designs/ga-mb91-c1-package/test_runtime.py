@@ -14,6 +14,7 @@ from test_delivery_regression import S, M, BEFORE, BASELINE, EXE, CG, START, ing
 
 def harness(monkeypatch, existing=True, fault=None, task='ga-mb91'):
     enqueued = False
+    receipt_reads = 0
     calls, saved = [], {}
     binary = b'fixture-core'
     digest = hashlib.sha256(binary).hexdigest()
@@ -35,7 +36,7 @@ def harness(monkeypatch, existing=True, fault=None, task='ga-mb91'):
         return row
 
     def phase(label, args, timeout):
-        nonlocal enqueued
+        nonlocal enqueued,receipt_reads
         assert 0 < timeout <= 15
         calls.append(args)
         assert args[:3] == [EXE, '--city', str(r.CITY)]
@@ -45,6 +46,7 @@ def harness(monkeypatch, existing=True, fault=None, task='ga-mb91'):
                 record['metadata']['continuation_epoch'] = '2'
             value = [record]
         elif op[:2] == ['bd', 'list']:
+            receipt_reads += 1
             assert op[:-3] == ['bd','list','--type','chore','--label','gc:nudge','--include-infra',
                 '--all','--metadata-field','session_id='+S['id']]
             assert op[-3] == '--limit' and op[-1] == '--json'
@@ -52,6 +54,10 @@ def harness(monkeypatch, existing=True, fault=None, task='ga-mb91'):
             value = snapshot(True, True)['receipts'] if enqueued else []
             if fault in ('pending-ordinary', 'unknown-pending', 'ordinary-ingress-before'):
                 value += [ordinary('injected' if enqueued or fault == 'ordinary-ingress-before' else 'queued')]
+            if fault in ('ordinary-close-race','ordinary-never-closes'):
+                row=ordinary('injected')
+                if fault=='ordinary-never-closes' or receipt_reads<=2:row['status']='open'
+                value += [row]
             if fault == 'ordinary-reminder' and not enqueued:
                 value = snapshot(True, True)['receipts']
                 value[0]['metadata']['message'] = 'Ordinary startup reminder'
@@ -94,9 +100,9 @@ def harness(monkeypatch, existing=True, fault=None, task='ga-mb91'):
                 value.setdefault('pending',[]).append(item)
             return json.dumps(value).encode()
         if path == transcript:
-            if fault in ('pending-ordinary', 'ordinary-ingress-before'):
+            if fault in ('pending-ordinary', 'ordinary-ingress-before','ordinary-close-race','ordinary-never-closes'):
                 from test_owned_reminders import ingress as batch
-                if fault == 'ordinary-ingress-before':
+                if fault != 'pending-ordinary':
                     return BEFORE + batch(['check for assigned work']) + (ingress() if enqueued else b'')
                 return BEFORE + (batch(['check for assigned work',M]) if enqueued else b'')
             return BEFORE + (ingress() if enqueued else b'')
@@ -200,6 +206,20 @@ def test_receipted_ordinary_ingress_before_enqueue_is_not_a_release(monkeypatch)
     run,calls,saved=harness(monkeypatch,fault='ordinary-ingress-before')
     assert run()['delivered']
     assert sum(c[3:5]==['session','nudge'] for c in calls)==1
+
+
+def test_native_ordinary_close_race_settles_before_single_enqueue(monkeypatch):
+    run,calls,saved=harness(monkeypatch,fault='ordinary-close-race')
+    assert run()['delivered']
+    assert saved['delivery-preparation.json']['observations']==2
+    assert sum(c[3:5]==['session','nudge'] for c in calls)==1
+
+
+def test_never_closed_ordinary_receipt_times_out_without_enqueue(monkeypatch):
+    run,calls,saved=harness(monkeypatch,fault='ordinary-never-closes')
+    with pytest.raises(RuntimeError,match='receipt close timeout'):run()
+    assert not any(c[3:5]==['session','nudge'] for c in calls)
+    assert 'delivery-enqueued.json' not in saved
 
 
 def test_more_than_two_reminders_do_not_hide_prior_release(monkeypatch):

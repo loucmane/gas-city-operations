@@ -1,0 +1,23 @@
+{
+  "changes": {
+    "operator/RELEASE.sh": {
+      "after": "255895921788978741cb464c38bb404a07754acd3829d2ab12b6af35946beb5c",
+      "before": "34f376ff24fc424de5c484ede0fee2d40ca751cbca768f63aee7edb179b11150"
+    },
+    "release-delivery-r13.py": {
+      "after": "1c3651736137af5c8566e62c823ec3c7ffe58466df00049aed48fb786910a436",
+      "before": "fba71bb2edcdf62beee7c1c7884dde8904ba29c378df1383c16b24703bb80f02"
+    },
+    "release-runtime-r13.py": {
+      "after": "9e1d99dd93dad894008e9b880dd254c9361fc22dbefb6480811eec8990a81100",
+      "before": "c04d4c9c8a12bf5b1d39ab0ff1d0d92a6db0bffda78eb53c6993c42b15e5e060"
+    },
+    "startup-release.py": {
+      "after": "6bcaa3022093c5104c055244ab1ed987a3ec55fd60f0ba896c6e2b5836e71eb6",
+      "before": "9741a6c1c872af0519b9f0a3472ddeaf638c8f0f3b2e03d2364a40e6fa1581f8"
+    }
+  },
+  "executed": false,
+  "parent": "d13bb386e21df87fc235369eb6c2d759d7a86d66",
+  "reason": "Both independent R2 HOLDs addressed before any window launch"
+}

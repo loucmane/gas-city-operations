@@ -156,8 +156,25 @@ def execute(w, phase, inspector, runtime, d, session, proof, message, before, al
     queue_before = json.loads(base64.b64decode(early['raw_base64'], validate=True))
     d.queue_baseline(queue_before, bound)
     d.admit_before(initial_receipts, json.loads(queue_raw), queue_before, bound, message)
-    d.transcript_before(before, stable_read(Path(proof['transcript_path']), 32 << 20),
-                        message, receipts(), bound)
+    # Native shadow metadata, transcript injection and Bead close are separate
+    # observations. Settle only receipted ordinary ingress before enqueue;
+    # unknown text or premature release still refuses immediately.
+    preparation_deadline = time.monotonic() + 15
+    for attempt in range(16):
+        remaining = preparation_deadline - time.monotonic()
+        require(remaining > 0, 'ordinary receipt close timeout before enqueue')
+        prior_rows = receipts(min(15, remaining))
+        prior_transcript = stable_read(Path(proof['transcript_path']), 32 << 20)
+        settled = d.transcript_before(before, prior_transcript, message, prior_rows, bound)
+        require(time.monotonic() <= preparation_deadline,
+                'ordinary receipt close timeout before enqueue')
+        if settled['settled']:
+            break
+        time.sleep(min(1, max(0, preparation_deadline - time.monotonic())))
+    else:
+        raise RuntimeError('ordinary receipt close observation count exhausted')
+    w.save('delivery-preparation.json', dict(settled, observations=attempt+1,
+        transcript_sha256=hashlib.sha256(prior_transcript).hexdigest()))
     expected_sha = w.b_gc_sha()
     require(hashlib.sha256(inspector.file_bytes(Path(EXE), 256 << 20)).hexdigest() == expected_sha,
             'native poller source differs')
