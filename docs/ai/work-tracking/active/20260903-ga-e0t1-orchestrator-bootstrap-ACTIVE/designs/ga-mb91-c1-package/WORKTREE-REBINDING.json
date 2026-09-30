@@ -1,0 +1,18 @@
+{
+  "files": {
+    "LEDGER-BINDING.json": "0c5f50c083552418172c8fc8e18cb6e1b75ac96d60de9cc273220917595ad93e",
+    "inputs.json": "f5ef43f27142f1571c9f7a314d98f6e34b524769b0932bd55cdc1310d31bde52",
+    "operator/WORKTREE.sh": "806d0a7e73018dd56ab30d7ae15342a1cdc61141325b9214c5736e97e2106500",
+    "worktree.py": "f22af7e0d2edec5de07e6aee84b8ffd1020e32414bb9eeb6042cea2608bce59b"
+  },
+  "mutation_scope": "new package source only",
+  "predecessor": "/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-jcxb-c1-package",
+  "predecessor_sources": {
+    "inputs.json": "f5ef43f27142f1571c9f7a314d98f6e34b524769b0932bd55cdc1310d31bde52",
+    "operator/WORKTREE.sh": "8d55f0029c5f249c56e2d3b2d964a55a0aac2f7df6f358f8a7c2adaedd1bbd41",
+    "worktree.py": "2ebe1d576f255509cdd12822a767ee3b1a8b39085efb7a0918d704287af48aee"
+  },
+  "runtime_changed": false,
+  "schema": "ga-mb91.worktree-source-rebinding.v1",
+  "worker_launched": false
+}

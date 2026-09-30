@@ -1,0 +1,22 @@
+{
+  "id": "ga-mb91",
+  "title": "C1 candidate with session epoch scoped queue delivery",
+  "description": "Append forward candidate-only Gas City Astra successor after preserved ga-jcxb release failure and verified zero-residue restoration. Core PR50 image 5802a356 and M15 P14 receipts are adopted. Opt in session.nudge_queue_scope=session-epoch before poller creation and bind every queue operation to the real session and continuation epoch. Preserve all foreign queue entries and exclude unrelated maintenance. Reuse the frozen 52-file C1 create-only product inventory and reviewed product repairs. Standalone task with informational initiative relation only. Implementation through one reviewed Gas City worker only. No reopening or replay of failed predecessors.",
+  "acceptance_criteria": "Fresh exact workspace base scope and two independent package reviews. Native ready membership and singleton audit before lifecycle changes. Subscription-only Astra workspace sandbox control startup and same-session acknowledged release proofs. Foreign queue tuples preserved through enqueue claim acknowledgement failure and release. Exact 44-file Git baseline exception retained. Consolidated RED GREEN regression evidence and finite unsigned uncommitted candidate for independent review. Supported containment exact restoration and zero residue. No signing delivery activation or provider parity claim from candidate-only success.",
+  "status": "open",
+  "priority": 2,
+  "issue_type": "task",
+  "owner": "lookmanbenali@gmail.com",
+  "created_at": "2026-09-30T09:02:55Z",
+  "created_by": "loucmane",
+  "updated_at": "2026-09-30T09:02:55Z",
+  "dependencies": [
+    {
+      "id": "ga-e0t1",
+      "dependency_type": "relates-to"
+    }
+  ],
+  "dependent_count": 0,
+  "dependency_count": 1,
+  "comment_count": 0
+}
