@@ -116,6 +116,10 @@ def retarget(text):
     # Also bind Path(VAR) / relative names, not only absolute path literals.
     text = re.sub(r'(ga-mb91-[a-z%0-9.-]+)-202609[0-9]{2}-r[0-9]+',
                   r'\1-20260930-r1', text)
+    # R1 OBSERVE was consumed before inspection. Only its successor uses r2;
+    # WORKTREE, PREP and the completed BIND retain their original receipts.
+    text = text.replace('ga-mb91-integrity-20260930-r1',
+                        'ga-mb91-integrity-20260930-r2')
     text = text.replace('ga-mb91-r11-', 'ga-mb91-r1-')
     text = text.replace('.gc/worker-evidence/ga-mb91/r11', '.gc/worker-evidence/ga-mb91/r1')
     # The completed PREP probe and fresh BIND both bind September 30.
@@ -237,8 +241,9 @@ def assemble(*, observation, observation_sha, cache_ns):
     out.update(local)
     out['window-base.py'] = base_source(before['window-base-r11.py'], prep,
         observation=observation, observation_sha=observation_sha, cache_ns=cache_ns)
-    out['bind-task.py'] = tasks.binding(before['bind-task-r5.py'],
-        base_sha=sha(before['window-base-r11.py']), contract=c)
+    out['bind-task.py'] = (HERE/'bind-task.py').read_bytes()
+    if sha(out['bind-task.py']) != '028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea':
+        raise ValueError('completed BIND executor drift')
     out['route-task.py'] = tasks.routing(before['route-task-r5.py'],
         window_sha=sha(before['window-r11.py']), binding_sha=sha(before['bind-task-r5.py']),
         admission_sha=sha(local['fresh-admission.py']), contract=c)
@@ -260,7 +265,7 @@ def assemble(*, observation, observation_sha, cache_ns):
     out['close-r11.py'] = text.encode()
     # Only fresh roots regain their BIND/ROUTE wrappers. Historical wrappers
     # and all WORKTREE/PREP operations are excluded rather than re-enabled.
-    for name in ('BIND', 'ROUTE'):
+    for name in ('ROUTE',):
         key = 'operator/'+name+'.sh'
         out[key] = once(out[key].decode(),
             'echo "COMPLETED OPERATION - replay prohibited" >&2\nexit 125\n', '').encode()
@@ -279,7 +284,7 @@ def assemble(*, observation, observation_sha, cache_ns):
     out['candidate-inspect.py'] = once(inspector,old,new).encode()
     wiring=load((HERE/'queue-wiring.py').read_bytes(),'queue_wiring')
     out=wiring.apply(out,prep)
-    out = rebind(out, before, references, set(LOCAL))
+    out = rebind(out, before, references, set(LOCAL) | {'bind-task.py'})
     for name, raw in out.items():
         if name.endswith('.py'):
             ast.parse(raw, filename=name)

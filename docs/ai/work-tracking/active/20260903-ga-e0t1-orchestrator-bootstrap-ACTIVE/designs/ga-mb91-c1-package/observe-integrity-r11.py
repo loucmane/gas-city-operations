@@ -12,9 +12,9 @@ import sys
 import types
 
 HERE=Path('/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap/docs/ai/work-tracking/active/20260903-ga-e0t1-orchestrator-bootstrap-ACTIVE/designs/ga-mb91-c1-package')
-ROOT=Path('/var/tmp/ga-mb91-integrity-20260930-r1')
+ROOT=Path('/var/tmp/ga-mb91-integrity-20260930-r2')
 BUILD=Path('/var/tmp/gct-oak5-platform-inspector-m12-20260927')
-W_SHA='d621f16722874b2bed07f672052fb1415371cd7a31fd30f4e9b266b5319e708c'
+W_SHA='3a23ed9b8281ff662a42f4151c2919b60fa24a885ec0be9019ab67a575fb8268'
 BINARY_SHA='0da1ff146cb3e1e1ba7329d669f2135bbc7d26c6c0f35999e6dad1bef88d08c6'
 MANIFEST=Path('/home/loucmane/gascity/city/.gc/platform/install-manifest.json')
 MANIFEST_SHA='d02a3adbd044ebaf4f1dd4606c0af5dea50bcab4bca5efb2f3da5aab14e68481'

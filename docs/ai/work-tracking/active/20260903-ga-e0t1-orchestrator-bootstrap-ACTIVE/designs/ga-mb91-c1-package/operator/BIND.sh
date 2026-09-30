@@ -1,4 +1,6 @@
 #!/bin/sh
+echo "COMPLETED OPERATION - replay prohibited" >&2
+exit 125
 # ga-mb91 window bind: the one ga-mb91 contract binding (gc.work_dir only), before the window.
 #
 # Runs as a job of the host job runner (designs/gct-jobrunner), a oneshot unit started by the runner.

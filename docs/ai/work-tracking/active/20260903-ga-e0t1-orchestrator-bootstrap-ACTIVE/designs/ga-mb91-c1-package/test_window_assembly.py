@@ -64,7 +64,11 @@ def test_no_stale_source_dependencies_or_consumed_task_operations(built):
         else:
             assert b'ga-e0t1.20' not in raw, name
         assert b'c6b789bbe6ff677dd04336803dbf2c2e017812ba' not in raw, name
-        assert b'COMPLETED OPERATION' not in raw, name
+        if name == 'operator/BIND.sh':
+            assert b'COMPLETED OPERATION - replay prohibited' in raw
+            assert b'exit 125' in raw
+        else:
+            assert b'COMPLETED OPERATION' not in raw, name
     assert b'/var/tmp/ga-mb91-route-20260930-r1' in out['route-task.py']
     assert b"ROUTE/'task-after.json'" in out['startup-release.py']
     assert b'/var/tmp/ga-mb91-route-20260930-r1/task-after.json' in out['close-r11.py']
@@ -239,8 +243,39 @@ def test_generated_bind_references_completed_worktree(built):
     assert '163cfd690bcd1f0ca7586d3f1f8bad12f49a8a2a7fb5bb8d48175c5b0acf354c' not in text
 
 
+def test_observation_successor_preserves_exact_completed_binding(built):
+    _,out=built
+    assert a.sha(out['bind-task.py']) == '028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'
+    assert b"BIND_SHA='028ccef1db747088c7f8552c86094ded85b5db12f1d58d890bd7678fa432adea'" in out['route-task.py']
+    for name in ('observe-integrity-r11.py','operator/OBSERVE.sh','window.py'):
+        assert b'ga-mb91-integrity-20260930-r2' in out[name]
+        assert b'ga-mb91-integrity-20260930-r1' not in out[name]
+    assert b'/var/tmp/ga-mb91-bind-20260930-r1' in out['route-task.py']
+
+
+def test_completed_bind_wrapper_cannot_replay(built,tmp_path):
+    wrapper=tmp_path/'BIND.sh'
+    wrapper.write_bytes(built[1]['operator/BIND.sh'])
+    result=subprocess.run(['/bin/sh',str(wrapper)],capture_output=True,text=True)
+    assert result.returncode == 125
+    assert result.stderr.strip() == 'COMPLETED OPERATION - replay prohibited'
+
+
+def test_failure_latch_helper_is_exact_and_does_not_execute():
+    text=(HERE/'preserve-observe-refusal.py').read_text()
+    ast.parse(text)
+    assert "JOB_COMMITS={'ga-mb91-observe-r1':'022495898d995d5311cd4921b04a35273ca3e7ed'}" in text
+    assert 'EXPECTED_EXIT=1' in text
+    assert "assert set(p.name for p in failed.iterdir())==set(expected)" in text
+    assert '339e7ab62a5f2a1aa06af1ef4bc72441de18512edd2d36016e2c8308a61afbc4' in text
+    assert '6840d428b0c808cf9ca857270668b95cce24c87e5d4abd24b586c03582260ebb' in text
+    assert "done['unit_state_after']=='inactive'" in text
+    assert 'rename(directory,b\'HALTED\',directory,archive.encode(),1)' in text
+    assert 'submit_job' not in text and 'systemd-run' not in text
+
+
 def test_materialized_package_matches_exact_final_baseline():
-    baseline=Path('/tmp/ga-mb91-readonly-baseline-20260930-r1')
+    baseline=Path('/tmp/ga-mb91-readonly-baseline-20260930-r2')
     result=json.loads((baseline/'result.json').read_bytes())
     _,out=a.assemble(observation=str(baseline/'observed.json'),
         observation_sha=result['observed_sha256'],cache_ns=result['cache_pin_ns'])

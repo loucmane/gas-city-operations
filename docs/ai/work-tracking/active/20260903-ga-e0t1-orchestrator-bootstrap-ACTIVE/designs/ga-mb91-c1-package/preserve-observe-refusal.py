@@ -1,4 +1,4 @@
-"""Archive one successful ga-mb91 window latch after outcome adjudication; never queue or execute a job."""
+"""Preserve only the exact ga-mb91 OBSERVE preflight refusal; never replay or queue."""
 import ctypes
 import hashlib
 import json
@@ -13,13 +13,8 @@ ROOT=Path('/home/loucmane/.local/share/gas-city-staging/jobs')
 O='/home/loucmane/gas-city-ops-worktrees/ga-e0t1-orchestrator-bootstrap'
 CANDIDATE,job,halt_sha,done_sha=sys.argv[1:]
 assert re.fullmatch('[0-9a-f]{40}',CANDIDATE)
-JOB_COMMITS={'ga-mb91-prep-r1':'160cbd9e450fad22b22e5b254840abfab5e74c54',
-    'ga-mb91-observe-r2':CANDIDATE,
-    **{f'ga-mb91-{name}-r1':CANDIDATE for name in
-    ('bind','observe','preflight','stage','route','resume','release','contain-1','contain-2',
-     'hold-1','hold-2','close-1','close-2','admit','restore','terminal','inspect',
-     *[f'watch-{i}' for i in range(1,13)])}}
-EXPECTED_EXIT=0
+JOB_COMMITS={'ga-mb91-observe-r1':'022495898d995d5311cd4921b04a35273ca3e7ed'}
+EXPECTED_EXIT=1
 assert job in JOB_COMMITS
 assert all(re.fullmatch('[0-9a-f]{64}',v) for v in (halt_sha,done_sha))
 assert os.getuid()==os.geteuid()==1000
@@ -35,11 +30,23 @@ signed=subprocess.run(['/usr/bin/git','--no-optional-locks','-C',O,'verify-commi
     capture_output=True,text=True)
 assert signed.returncode==0 and '[GNUPG:] VALIDSIG ' in signed.stderr
 assert '7720D1FE503A88EDECA61A6F0C7D823543E01875' in signed.stderr
-if job=='ga-mb91-prep-r1':
-    raw=Path('/var/tmp/ga-mb91-prep-20260930-r1/result.json').read_bytes()
-    assert hashlib.sha256(raw).hexdigest()=='74e69f6f1f43098f236cb89d0b35709fd15b6b05ea76460249769d1d428310d7'
-    result=json.loads(raw)
-    assert result['ok'] is True and result['installed'] is False and result['worker_launched'] is False
+failed=Path('/var/tmp/ga-mb91-integrity-20260930-r1')
+expected={
+    'intent.json':'6840d428b0c808cf9ca857270668b95cce24c87e5d4abd24b586c03582260ebb',
+    'before-refused-observation.json':'339e7ab62a5f2a1aa06af1ef4bc72441de18512edd2d36016e2c8308a61afbc4'}
+assert set(p.name for p in failed.iterdir())==set(expected),'refusal phase advanced'
+for name,pin in expected.items():
+    fd=os.open(failed/name,os.O_RDONLY|os.O_NOFOLLOW|os.O_NOATIME|os.O_NONBLOCK)
+    try:
+        st=os.fstat(fd)
+        assert stat.S_ISREG(st.st_mode) and st.st_uid==1000 and st.st_nlink==1
+        assert stat.S_IMODE(st.st_mode)==0o600 and st.st_size<16<<20
+        with os.fdopen(os.dup(fd),'rb') as stream: raw=stream.read()
+        assert hashlib.sha256(raw).hexdigest()==pin and os.fstat(fd)==st
+    finally:os.close(fd)
+assert not os.path.lexists('/var/tmp/ga-mb91-window-20260930-r1'),'window already started'
+assert not os.path.lexists('/var/tmp/ga-mb91-route-20260930-r1'),'task already routed'
+assert hashlib.sha256(Path('/var/tmp/ga-mb91-bind-20260930-r1/result.json').read_bytes()).hexdigest()=='02cedf2952f9839e88b9599414f3ba4eb58751cbc026753ebc2b4f668fe0a25d'
 path=ROOT/'done'/f'{job}.json'
 fd=os.open(path,os.O_RDONLY|os.O_NOFOLLOW|os.O_NOATIME|os.O_NONBLOCK)
 try:

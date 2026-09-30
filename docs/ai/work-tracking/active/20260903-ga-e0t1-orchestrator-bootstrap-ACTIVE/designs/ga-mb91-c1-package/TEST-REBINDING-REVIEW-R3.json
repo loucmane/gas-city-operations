@@ -17,7 +17,7 @@
       "before_sha256": "eaa6f83af18c396bbd9701e0a5067d879fcf0ca8c92722510d7c6ed0ba3add0f"
     },
     "preserve-halt.py": {
-      "after_sha256": "996e2a7a4a1e4194119681f6318f48ac02d8bde34e6f220e2e472ae266b03bb9",
+      "after_sha256": "9141c210a781b31dbb118fcd8d85f75262a9002270d4d776a32c85f19f87fb49",
       "before_sha256": "5ad5aff5ccc2bee2fb2b8bfa9d5e65d9619fe9d4eafd48af9a76d2a125b50a8b"
     },
     "test_create_only_candidate.py": {
@@ -57,13 +57,12 @@
       "before_sha256": "caf93eb741b81fe22a7fa25ff2fadf40d0083399c000cbd4ce9159b61e10f8d7"
     },
     "test_window_assembly.py": {
-      "after_sha256": "acaa34f6093ff60ea251b7f8406cd850a400aeb0cbb844bb51e38221c8002f15",
+      "after_sha256": "8d0e104af3d09c65572766230ad18f5901ca72697a50215119d5d022b3b36c50",
       "before_sha256": "b41feb179be25b5ab942d49e6370d7a41b10d825226a2b8a8286d2792a62b50a"
     }
   },
   "fixture_corrections": "Native LEDGER-BINDING fixture and synthetic times after creation. Exact accepted Core PID/start literal rebinding. No production guard weakened.",
   "r2": "Native 0644 descriptor reader; receipt-bound owned routing reminders and exact release ingress; real complete lifecycle body with failing preservation guard.",
   "r3": "Native metadata-injected then separate close transition is pending only; bounded pre-enqueue settling; closed AND ingress proof remains required.",
-  "r4": "Exact observed cache directory time pair; fresh observation root; completed BIND executor and result remain exact; replay wrapper disabled.",
   "reason": "Previous expiry exception superseded by exact pre-poller preservation. Historical tests retained unchanged in predecessor. New queue suites cover strict rejection and owned transitions."
 }
