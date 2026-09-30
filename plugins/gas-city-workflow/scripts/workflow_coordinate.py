@@ -38,7 +38,7 @@ from workflow_ownership import (
     check_active_ownership,
     require_external_candidate,
 )
-from workflow_snapshots import compact_records, resolve_snapshot, store_snapshot
+from workflow_snapshots import compact_ownership, compact_records, resolve_snapshot, store_snapshot
 
 FIELDS = {
     "note": {"text"},
@@ -303,9 +303,15 @@ def compact_journal(
         raise WorkflowError("active work has no Gas City workflow transition journal")
     bytes_before = path.stat().st_size
     moved = compact_records(path, journal)
-    if not moved:
+    owned = compact_ownership(path, journal)
+    if not moved and not owned:
         return result_payload(
-            "compact-journal", "unchanged", journal=str(path), snapshots=0, bytes=bytes_before
+            "compact-journal",
+            "unchanged",
+            journal=str(path),
+            snapshots=0,
+            ownership_snapshots=0,
+            bytes=bytes_before,
         )
     atomic_write_json(path, journal)
     bytes_after = path.stat().st_size
@@ -315,6 +321,7 @@ def compact_journal(
         "compact-journal",
         "compacted",
         snapshots=moved,
+        ownership_snapshots=owned,
         bytes_before=bytes_before,
         bytes_after=bytes_after,
     )
@@ -323,6 +330,7 @@ def compact_journal(
         "compacted",
         journal=str(path),
         snapshots=moved,
+        ownership_snapshots=owned,
         bytes_before=bytes_before,
         bytes_after=path.stat().st_size,
     )

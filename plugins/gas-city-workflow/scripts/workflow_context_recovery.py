@@ -371,7 +371,7 @@ def _verify_postimage(plan, after, images):
 
 
 def _verify_parent_journal(plan, before, after, facts, path):
-    from workflow_snapshots import resolve_record
+    from workflow_snapshots import resolve_record, resolve_snapshot
 
     child_id, parent_id = plan["child"]["bead_id"], plan["parent"]["bead_id"]
     allowed = {"updated_at", "events", "coordination", "external_ownership", "attached_bead_ids"}
@@ -392,7 +392,7 @@ def _verify_parent_journal(plan, before, after, facts, path):
         raise WorkflowError("context recovery unexpected coordination journal delta")
     ownership = after.get("external_ownership", {}).get(child_id, {})
     if (ownership.get("state") != "verified" or ownership.get("binding") != plan["binding"]
-            or ownership.get("after") != facts["beads"]["child"]
+            or resolve_snapshot(path, ownership.get("after")) != facts["beads"]["child"]
             or after["external_ownership"] != {**before.get("external_ownership", {}), child_id: ownership}):
         raise WorkflowError("context recovery unexpected ownership journal delta")
     events = after.get("events", [])

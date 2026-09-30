@@ -107,6 +107,34 @@ def compact_records(journal_path: Path, journal: Mapping[str, Any]) -> int:
     return moved
 
 
+OWNERSHIP_SNAPSHOT_FIELDS = ("before", "after")
+
+
+def compact_ownership(journal_path: Path, journal: Mapping[str, Any]) -> int:
+    """Move verified external-ownership snapshots out-of-line; return the number moved.
+
+    A coordinator journal keeps one full before/after Bead pair per owned or attached
+    Bead, which alone can exceed the stationary gate's bound. Once an ownership record
+    is verified its snapshots are evidence only: the gate and every ownership check
+    read just its state and binding, and the context-recovery comparison resolves
+    through `resolve_snapshot`. Pending intents keep their inline preimage.
+    """
+
+    records = journal.get("external_ownership", {})
+    if not isinstance(records, dict):
+        raise WorkflowError("external ownership journal is invalid")
+    moved = 0
+    for record in records.values():
+        if not isinstance(record, dict) or record.get("state") != "verified":
+            continue
+        for field in OWNERSHIP_SNAPSHOT_FIELDS:
+            value = record.get(field)
+            if isinstance(value, Mapping) and not is_reference(value):
+                record[field] = store_snapshot(journal_path, value)
+                moved += 1
+    return moved
+
+
 def _load(path: Path) -> Any:
     if path.stat().st_size > _SNAPSHOT_BOUND:
         raise WorkflowError("snapshot exceeds bounds")
