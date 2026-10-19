@@ -620,3 +620,23 @@ def test_cli_gate_uses_same_explicit_bead_snapshot_as_build(
     gated = json.loads(capsys.readouterr().out)
     assert gated["ok"] is True
     assert gated["gate"] == "obsidian-readiness"
+
+
+def test_identity_projection_holds_busy_per_bead_projects() -> None:
+    # 2026-10-19: per-bead worktrees gave blog 547 sessions, over the old
+    # 500 ceiling, which froze its vault projection.
+    events = [
+        {"session_id": f"s-{n}", "branch": f"codex/b-{n}", "worktree": f"/w/b-{n}"}
+        for n in range(600)
+    ]
+    records = obsidian_vault._identity_records(events, obsidian_vault.VaultLimits())
+    assert len(records) == 600
+
+
+def test_identity_projection_still_bounded_by_edge_ceiling() -> None:
+    limits = obsidian_vault.VaultLimits()
+    events = [
+        {"session_id": f"s-{n}"} for n in range(limits.max_identity_edges + 1)
+    ]
+    with pytest.raises(obsidian_vault.VaultError, match="edge limit"):
+        obsidian_vault._identity_records(events, limits)
