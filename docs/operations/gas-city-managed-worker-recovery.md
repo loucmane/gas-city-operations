@@ -56,11 +56,26 @@ This health check waits up to 60 seconds for an in-progress timer reconciliation
 one coherent post-cycle snapshot. A `lock-timeout` result means the writer did not quiesce within
 that bound; inspect the user service instead of retrying the doctor or weakening freshness.
 
-The installed registry is a generated projection of the canonical workflow project registry. It
-must contain Gas City Operations, Gas City, HPFetcher, Blog, and Gas City Template, plus any later
+The installed registry is generated from the canonical workflow project registry and the
+Obsidian-only `config/obsidian-sources.json` input. The latter adds display projects and pins
+physical gate roots without registering workflow policy identities. Continuity reads the same
+companion input; `continuity_dashboard.workflow_registry` still names canonical `projects.json`. It
+must contain Gas City Operations, Gas City, HPFetcher, Blog, Gas City Template, Bounty,
+Vernissage, and Harpoon, plus any later
 validated project;
 do not add projects by hand to the installed JSON. Every host registry entry declares the exact
-absolute `rig_root`; never derive it from the city name or project ID. Regenerate the tracked source from the
+absolute `rig_root` and explicit `rig`; never derive them from the city name or project ID.
+Bead reads use `gc --city <city> --rig <rig> bd list --all --limit 0 --json` so a
+linked checkout cannot fall back to an ancestor's `.beads`. The service supplies
+`GC_HOME` and `GIT_OPTIONAL_LOCKS=0`; it retains `ProtectHome=read-only` and grants
+no project-store writes. The exact requested rig's `gc bd: answering from the
+rig "<rig>" store` stderr line is required. One additional bd gate-acquisition warning
+is accepted only for `read-only file system`, an exact `bead_gate_paths` entry,
+exit zero, and a valid JSON bead list. Workspace gates are siblings of `.beads`;
+physical gates are siblings of the configured database root. Every other diagnostic or nonzero exit
+refuses publication and retains the last good output. Both error streams are
+included in bounded failure reports, because bd may put a JSON refusal on stdout
+beside a gate warning on stderr. Regenerate the tracked source from the
 canonical checkout and require an exact check before installation:
 
 ```bash

@@ -24,6 +24,11 @@
             "minItems": 1,
             "items": {"type": "string", "minLength": 1}
           },
+          "bead_gate_paths": {
+            "type": "array",
+            "uniqueItems": true,
+            "items": {"type": "string", "pattern": "^/.*\\.gate\\.lock$"}
+          },
           "include_bead_content": {"type": "boolean", "default": false},
           "freshness_sla_seconds": {"type": "integer", "minimum": 60, "maximum": 86400, "default": 180},
           "min_interval_seconds": {"type": "integer", "minimum": 0, "maximum": 300, "default": 10},

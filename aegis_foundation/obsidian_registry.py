@@ -51,6 +51,7 @@ class ProjectConfig:
     min_interval_seconds: int = 10
     export_timeout_seconds: int = 30
     live_index: LiveIndexConfig | None = None
+    bead_gate_paths: tuple[Path, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -146,6 +147,7 @@ def _project(raw: Any, *, seen: set[str]) -> ProjectConfig:
         "target_dir",
         "output_dir",
         "bead_export_argv",
+        "bead_gate_paths",
         "include_bead_content",
         "freshness_sla_seconds",
         "min_interval_seconds",
@@ -190,6 +192,21 @@ def _project(raw: Any, *, seen: set[str]) -> ProjectConfig:
             f"project {project_id} bead_export_argv requires an absolute executable"
         )
     include_content = raw.get("include_bead_content", False)
+    gate_paths = raw.get("bead_gate_paths", [])
+    if not isinstance(gate_paths, list) or any(
+        not isinstance(value, str)
+        or not Path(value).is_absolute()
+        or Path(value).as_posix() != value
+        or ".." in Path(value).parts
+        or not value.endswith(".gate.lock")
+        or any(ord(char) < 32 or ord(char) == 127 for char in value)
+        for value in gate_paths
+    ):
+        raise RegistryError(
+            f"project {project_id} bead_gate_paths must be exact absolute gate paths"
+        )
+    if len(set(gate_paths)) != len(gate_paths):
+        raise RegistryError(f"project {project_id} bead_gate_paths must be unique")
     if not isinstance(include_content, bool):
         raise RegistryError(f"project {project_id} include_bead_content must be boolean")
     return ProjectConfig(
@@ -198,6 +215,7 @@ def _project(raw: Any, *, seen: set[str]) -> ProjectConfig:
         target_dir=target,
         output_dir=output,
         bead_export_argv=tuple(argv),
+        bead_gate_paths=tuple(Path(value) for value in gate_paths),
         include_bead_content=include_content,
         freshness_sla_seconds=_integer(
             raw.get("freshness_sla_seconds", 180),

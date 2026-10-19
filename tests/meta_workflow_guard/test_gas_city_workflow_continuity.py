@@ -967,7 +967,10 @@ def test_cli_audit_and_status_are_byte_deterministic(tmp_path: Path, capsys) -> 
     ] == "ga-next"
 
 
-def test_live_collector_uses_registry_without_hardcoded_project_ids(tmp_path: Path) -> None:
+@pytest.mark.parametrize("source", ["descriptor", "obsidian"])
+def test_live_collector_uses_registry_without_hardcoded_project_ids(
+    tmp_path: Path, source: str
+) -> None:
     capture = _load("continuity_capture")
     root = tmp_path / "future"
     root.mkdir()
@@ -979,9 +982,7 @@ def test_live_collector_uses_registry_without_hardcoded_project_ids(tmp_path: Pa
         "workflow_authority": "beads",
         "workflow_profile": "beads-with-aegis-evidence",
     }
-    (root / ".gas-city-workflow.json").write_text(
-        json.dumps(descriptor) + "\n", encoding="utf-8"
-    )
+    (root / ".gas-city-workflow.json").write_text(json.dumps(descriptor) + "\n", encoding="utf-8")
     subprocess.run(["git", "init", "-b", "main"], cwd=root, check=True, capture_output=True)
     subprocess.run(["git", "add", "."], cwd=root, check=True, capture_output=True)
     subprocess.run(
@@ -1027,6 +1028,26 @@ def test_live_collector_uses_registry_without_hardcoded_project_ids(tmp_path: Pa
         encoding="utf-8",
     )
     obsidian_state = tmp_path / "state"
+    extra_roots = [root]
+    if source == "obsidian":
+        # Display-only registrations work without policy registration or a descriptor.
+        (root / ".gas-city-workflow.json").unlink()
+        (tmp_path / "obsidian-sources.json").write_text(
+            json.dumps(
+                {
+                    "schema": "gas-city-obsidian.sources.v1",
+                    "physical_roots": {},
+                    "projects": [
+                        {
+                            **{k: v for k, v in descriptor.items() if k != "schema"},
+                            "root": str(root),
+                            "rig_root": str(root),
+                        }
+                    ],
+                }
+            )
+        )
+        extra_roots = []
     obsidian_state.mkdir()
     (obsidian_state / "future-project.json").write_text(
         json.dumps(
@@ -1077,7 +1098,7 @@ def test_live_collector_uses_registry_without_hardcoded_project_ids(tmp_path: Pa
 
     first = capture.capture_snapshot(
         registry,
-        extra_roots=[root],
+        extra_roots=extra_roots,
         obsidian_registry=obsidian_registry,
         obsidian_state=obsidian_state,
         signing_policies=signing,
@@ -1086,7 +1107,7 @@ def test_live_collector_uses_registry_without_hardcoded_project_ids(tmp_path: Pa
     )
     second = capture.capture_snapshot(
         registry,
-        extra_roots=[root],
+        extra_roots=extra_roots,
         obsidian_registry=obsidian_registry,
         obsidian_state=obsidian_state,
         signing_policies=signing,
@@ -1100,7 +1121,7 @@ def test_live_collector_uses_registry_without_hardcoded_project_ids(tmp_path: Pa
         fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         running = capture.capture_snapshot(
             registry,
-            extra_roots=[root],
+            extra_roots=extra_roots,
             obsidian_registry=obsidian_registry,
             obsidian_state=obsidian_state,
             signing_policies=signing,
@@ -1109,7 +1130,7 @@ def test_live_collector_uses_registry_without_hardcoded_project_ids(tmp_path: Pa
         )
         projected = capture.capture_snapshot(
             registry,
-            extra_roots=[root],
+            extra_roots=extra_roots,
             obsidian_registry=obsidian_registry,
             obsidian_state=obsidian_state,
             obsidian_cycle_status="idle",
@@ -1133,6 +1154,76 @@ def test_snapshot_cli_accepts_only_the_post_cycle_idle_projection() -> None:
     assert args.obsidian_cycle_status == "idle"
     with pytest.raises(SystemExit):
         cli.parse_args(["snapshot", "--obsidian-cycle-status", "running"])
+
+
+def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_path, monkeypatch):
+    capture = _load("continuity_capture")
+    config = SCRIPTS.parent / "config"
+    workflow = json.loads((config / "projects.json").read_text())
+    sources = json.loads((config / "obsidian-sources.json").read_text())
+    assert len(workflow["projects"]) == 5
+    assert len(sources["projects"]) == 3
+    template = tmp_path / "template"
+    template.mkdir()
+    for args in (
+        ["init", "-b", "main"],
+        [
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "-m",
+            "fixture",
+        ],
+    ):
+        subprocess.run(["git", *args], cwd=template, check=True, capture_output=True)
+    projects = workflow["projects"] + sources["projects"]
+    for project in projects:
+        root = tmp_path / project["id"]
+        shutil.copytree(template, root)
+        project["root"] = str(root)
+        project["rig_root"] = str(root)
+        project.pop("worktree_root", None)
+    registry = tmp_path / "projects.json"
+    registry.write_text(json.dumps(workflow))
+    (tmp_path / "obsidian-sources.json").write_text(json.dumps(sources))
+    before = registry.read_bytes()
+    obsidian = tmp_path / "obsidian.json"
+    obsidian.write_text(
+        json.dumps({"projects": [{"id": p["id"], "target_dir": p["root"]} for p in projects]})
+    )
+    signing = tmp_path / "signing.json"
+    signing.write_text('{"policies": {}}')
+    monkeypatch.setattr(capture, "_capture_city_runtime", lambda *a, **kw: _snapshot([])["runtime"])
+    monkeypatch.setattr(capture, "_obsidian_process", lambda *a: {"status": "not-running"})
+
+    class Runner(capture.ReadOnlyRunner):
+        def run(self, argv, *, cwd=None):
+            if "bd" in argv:
+                return subprocess.CompletedProcess(
+                    argv, 0, json.dumps([_bead("fx-next", "open")]), ""
+                )
+            if argv[:3] == ["gh", "pr", "list"]:
+                return subprocess.CompletedProcess(argv, 0, "[]", "")
+            return super().run(argv, cwd=cwd)
+
+    snapshot = capture.capture_snapshot(
+        registry,
+        obsidian_registry=obsidian,
+        obsidian_state=tmp_path / "state",
+        signing_policies=signing,
+        runner=Runner(),
+    )
+    assert {p["id"] for p in snapshot["projects"]} == {p["id"] for p in projects}
+    assert all(p["obsidian"]["registered"] for p in snapshot["projects"])
+    assert len(snapshot["ledgers"]) == 7  # Operations and Core share gascity.
+    assert registry.read_bytes() == before
+    report = _load("continuity_model").build_report(snapshot)
+    assert {p["id"] for p in report["projects"]} == {p["id"] for p in projects}
 
 
 def test_read_only_runner_pins_the_managed_operator_path(monkeypatch) -> None:
