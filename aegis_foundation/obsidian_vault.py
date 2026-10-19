@@ -93,10 +93,12 @@ class VaultLimits:
     """Hard ceilings that keep the derived view safe for agents and humans."""
 
     max_tasks: int = 2_000
-    max_sessions: int = 500
-    max_branches: int = 500
+    # Per-bead worktrees multiply sessions, branches and worktrees (blog had 547
+    # sessions on 2026-10-19). max_identity_edges still bounds the projection.
+    max_sessions: int = 5_000
+    max_branches: int = 5_000
     max_agents: int = 5_000
-    max_worktrees: int = 500
+    max_worktrees: int = 5_000
     max_identity_edges: int = 5_000
     max_evidence_notes: int = 1_000
     max_legacy_documents: int = 5_000
