@@ -50,6 +50,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     snapshot.add_argument("--obsidian-registry", type=Path, default=OBSIDIAN_REGISTRY)
     snapshot.add_argument("--obsidian-state", type=Path, default=OBSIDIAN_STATE)
     snapshot.add_argument(
+        "--offline-beads", action="store_true",
+        help="Use this cycle's digest-checked reconciler snapshots; never execute gc or bd",
+    )
+    snapshot.add_argument(
         "--obsidian-cycle-status",
         choices=("idle",),
         help=(
@@ -95,6 +99,7 @@ def main(argv: list[str] | None = None) -> int:
                 extra_roots=args.project_root,
                 obsidian_registry=args.obsidian_registry,
                 obsidian_state=args.obsidian_state,
+                offline_beads=args.offline_beads,
                 obsidian_cycle_status=args.obsidian_cycle_status,
                 signing_policies=args.signing_policies,
                 residue_dispositions=args.residue_dispositions,

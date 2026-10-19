@@ -103,7 +103,7 @@ def test_capture_accepts_operationally_blocked_report_and_constructs_fixed_argv(
 
     assert report["ok"] is False
     assert len(calls) == 2
-    assert calls[0][2:4] == ("snapshot", "--registry")
+    assert calls[0][2:5] == ("snapshot", "--offline-beads", "--registry")
     assert "--obsidian-registry" in calls[0]
     assert calls[0][calls[0].index("--obsidian-cycle-status") + 1] == "idle"
     assert calls[1][2:4] == ("audit", "--snapshot")

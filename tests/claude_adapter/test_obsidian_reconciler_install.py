@@ -104,6 +104,7 @@ def test_source_installer_plans_from_external_working_directory(tmp_path: Path) 
     assert plan["service_transition"] == [
         "stop aegis-obsidian-reconcile.timer",
         "wait for aegis-obsidian-reconcile.service to become inactive",
+        "wait for aegis-obsidian-export.service to become inactive",
         "systemctl --user daemon-reload",
         "enable aegis-obsidian-reconcile.timer",
         "start aegis-obsidian-reconcile.service",
@@ -126,8 +127,21 @@ def test_systemctl_start_uses_reconciliation_wide_timeout(
     obsidian_install._run_systemctl("start", "aegis-obsidian-reconcile.service")
     obsidian_install._run_systemctl("start", "aegis-obsidian-reconcile.timer")
 
-    assert calls[0][1]["timeout"] == 360
+    assert calls[0][1]["timeout"] == 600
     assert calls[1][1]["timeout"] == 30
+
+
+def test_quiescence_waits_for_activating_oneshot(monkeypatch):
+    states = iter([
+        {"active": False, "active_value": "activating"},
+        {"active": False, "active_value": "inactive"},
+    ])
+    waits = []
+    monkeypatch.setattr(obsidian_install, "_unit_state", lambda unit: next(states))
+    monkeypatch.setattr(obsidian_install.time, "sleep", waits.append)
+    result = obsidian_install._wait_for_service_inactive("aegis-obsidian-export.service")
+    assert result["active_value"] == "inactive"
+    assert waits == [0.25]
 
 
 def _source_registry(tmp_path: Path, home: Path) -> Path:
@@ -214,6 +228,8 @@ def test_install_applies_exact_user_files_and_enables_timer(
     )
 
     assert result["ok"] is True
+    assert (home / ".config/systemd/user/aegis-obsidian-export.service").is_file()
+    assert (home / ".local/state/aegis/obsidian-exports").stat().st_mode & 0o777 == 0o700
     assert (home / ".local/bin/aegis-obsidian-reconcile").stat().st_mode & 0o777 == 0o755
     assert (home / ".config/aegis/obsidian-projects.json").stat().st_mode & 0o777 == 0o600
     assert (home / ".local/state/aegis/obsidian-reconciler/install-manifest.json").is_file()
@@ -300,12 +316,14 @@ def test_quiescence_failure_restores_timer_without_stopping_active_service(
     ("baseline_result", "expected_service_starts", "expected_reset_count"),
     [("success", 2, 2), ("failed", 1, 1)],
 )
+@pytest.mark.parametrize("prior_exports", [False, True])
 def test_install_failure_rolls_back_new_files(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
     baseline_result: str,
     expected_service_starts: int,
     expected_reset_count: int,
+    prior_exports: bool,
 ) -> None:
     home = tmp_path / "home"
     registry = _source_registry(tmp_path, home)
@@ -316,6 +334,10 @@ def test_install_failure_rolls_back_new_files(
     state.mkdir(parents=True)
     state.chmod(0o700)
     (state / "before.json").write_text('{"before":true}\n', encoding="utf-8")
+    exports = home / ".local/state/aegis/obsidian-exports"
+    if prior_exports:
+        exports.mkdir(mode=0o700)
+        (exports / "before.json").write_text('{"before":true}\n')
     systemctl_calls: list[tuple[str, ...]] = []
     service_starts = 0
     restoring_timer = False
@@ -326,6 +348,8 @@ def test_install_failure_rolls_back_new_files(
         systemctl_calls.append(arguments)
         if arguments[:2] == ("start", "aegis-obsidian-reconcile.service"):
             service_starts += 1
+            if exports.is_dir():
+                (exports / "before.json").write_text('{"mutated":true}\n')
             (output / "before.md").write_text("mutated\n", encoding="utf-8")
             (output / "transient.md").write_text("transient\n", encoding="utf-8")
             (state / "before.json").write_text('{"before":false}\n', encoding="utf-8")
@@ -385,6 +409,11 @@ def test_install_failure_rolls_back_new_files(
     assert not (home / ".local/bin/aegis-obsidian-reconcile").exists()
     assert not (home / ".config/aegis/obsidian-projects.json").exists()
     assert not (home / ".config/systemd/user/aegis-obsidian-reconcile.service").exists()
+    assert not (home / ".config/systemd/user/aegis-obsidian-export.service").exists()
+    if prior_exports:
+        assert (exports / "before.json").read_text() == '{"before":true}\n'
+    else:
+        assert not exports.exists()
     assert not (home / ".local/state/aegis/obsidian-reconciler/install-manifest.json").exists()
     assert (state / "before.json").read_text(encoding="utf-8") == '{"before":true}\n'
     assert not (state / "transient.json").exists()
@@ -506,7 +535,8 @@ def test_install_removes_new_empty_managed_parent_on_failure(
         if arguments[:2] == ("start", "aegis-obsidian-reconcile.service"):
             return subprocess.CompletedProcess(arguments, 1, "", "simulated refusal")
         if arguments[0] in {"is-enabled", "is-active"}:
-            return subprocess.CompletedProcess(arguments, 1, "disabled\n", "")
+            value = "inactive\n" if arguments[0] == "is-active" else "disabled\n"
+            return subprocess.CompletedProcess(arguments, 1, value, "")
         return subprocess.CompletedProcess(arguments, 0, "", "")
 
     monkeypatch.setattr(obsidian_install, "_run_systemctl", systemctl)

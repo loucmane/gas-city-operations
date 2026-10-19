@@ -61,6 +61,8 @@ class Registry:
     projects: tuple[ProjectConfig, ...]
     continuity_dashboard: ContinuityDashboardConfig | None = None
     managed_output_root: Path | None = None
+    export_dir: Path | None = None
+    export_max_age_seconds: int = 600
 
 
 def _strict_json(content: str, path: Path) -> Any:
@@ -318,6 +320,8 @@ def load_registry(path: str | Path) -> Registry:
         "projects",
         "continuity_dashboard",
         "managed_output_root",
+        "export_dir",
+        "export_max_age_seconds",
     }
     if not {"schema_version", "projects"}.issubset(payload) or not set(payload).issubset(
         allowed_root
@@ -338,6 +342,19 @@ def load_registry(path: str | Path) -> Registry:
     if not any(item.enabled for item in projects):
         raise RegistryError("registry must enable at least one project")
     dashboard = _continuity_dashboard(payload.get("continuity_dashboard"))
+    export_dir = (
+        _absolute_path(payload["export_dir"], field="export_dir")
+        if "export_dir" in payload else None
+    )
+    if export_dir is not None:
+        for project in projects:
+            for other in (project.target_dir, project.output_dir.parent):
+                if export_dir == other or export_dir in other.parents or other in export_dir.parents:
+                    raise RegistryError("export_dir must not overlap sources or vault write paths")
+        if dashboard is not None:
+            other = dashboard.output_dir.parent
+            if export_dir == other or export_dir in other.parents or other in export_dir.parents:
+                raise RegistryError("export_dir must not overlap dashboard write paths")
     managed_output_root = (
         _absolute_path(payload.get("managed_output_root"), field="managed_output_root")
         if payload.get("managed_output_root") is not None
@@ -371,6 +388,11 @@ def load_registry(path: str | Path) -> Registry:
         projects=projects,
         continuity_dashboard=dashboard,
         managed_output_root=managed_output_root,
+        export_dir=export_dir,
+        export_max_age_seconds=_integer(
+            payload.get("export_max_age_seconds", 600), field="export_max_age_seconds",
+            minimum=60, maximum=3600,
+        ),
     )
 
 

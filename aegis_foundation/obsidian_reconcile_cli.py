@@ -13,6 +13,7 @@ from aegis_foundation.obsidian_reconciler import (
     reconcile_registry,
 )
 from aegis_foundation.obsidian_registry import RegistryError, load_registry
+from aegis_foundation.obsidian_exports import export_registry
 
 
 def _default_state() -> Path:
@@ -22,6 +23,8 @@ def _default_state() -> Path:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="aegis-obsidian-reconcile")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    export = subparsers.add_parser("export")
+    export.add_argument("--registry", required=True)
     for name in ("run", "check"):
         command = subparsers.add_parser(name)
         command.add_argument("--registry", required=True)
@@ -48,7 +51,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
         registry = load_registry(args.registry)
-        if args.command == "run":
+        if args.command == "export":
+            result = export_registry(registry)
+        elif args.command == "run":
             result = reconcile_registry(
                 registry,
                 state_dir=args.state_dir,

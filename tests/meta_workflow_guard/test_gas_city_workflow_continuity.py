@@ -1156,7 +1156,8 @@ def test_snapshot_cli_accepts_only_the_post_cycle_idle_projection() -> None:
         cli.parse_args(["snapshot", "--obsidian-cycle-status", "running"])
 
 
-def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_path, monkeypatch):
+@pytest.mark.parametrize("offline", [False, True])
+def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_path, monkeypatch, offline):
     capture = _load("continuity_capture")
     config = SCRIPTS.parent / "config"
     workflow = json.loads((config / "projects.json").read_text())
@@ -1203,6 +1204,8 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
 
     class Runner(capture.ReadOnlyRunner):
         def run(self, argv, *, cwd=None):
+            if offline:
+                assert Path(argv[0]).name not in {"gc", "bd"}
             if "bd" in argv:
                 return subprocess.CompletedProcess(
                     argv, 0, json.dumps([_bead("fx-next", "open")]), ""
@@ -1211,17 +1214,33 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
                 return subprocess.CompletedProcess(argv, 0, "[]", "")
             return super().run(argv, cwd=cwd)
 
+    if offline:
+        # The dashboard consumes the exact snapshots committed by this reconcile cycle.
+        state = tmp_path / "state"
+        state.mkdir()
+        for project in projects:
+            content = json.dumps([_bead("fx-next", "open")]).encode()
+            (state / f"{project['id']}-beads.json").write_bytes(content)
+            (state / f"{project['id']}.json").write_text(json.dumps({
+                "project_id": project["id"], "target_dir": project["root"],
+                "last_error": None,
+                "last_success": {"bead_snapshot_sha256": hashlib.sha256(content).hexdigest()},
+            }))
     snapshot = capture.capture_snapshot(
         registry,
         obsidian_registry=obsidian,
         obsidian_state=tmp_path / "state",
         signing_policies=signing,
         runner=Runner(),
+        offline_beads=offline,
     )
     assert {p["id"] for p in snapshot["projects"]} == {p["id"] for p in projects}
     assert all(p["obsidian"]["registered"] for p in snapshot["projects"])
     assert len(snapshot["ledgers"]) == 7  # Operations and Core share gascity.
     assert registry.read_bytes() == before
+    if offline:
+        assert snapshot["runtime"]["city"]["session_ledger"]["status"] == "unknown"
+        assert snapshot["runtime"]["city"]["tmux"]["status"] == "unknown"
     report = _load("continuity_model").build_report(snapshot)
     assert {p["id"] for p in report["projects"]} == {p["id"] for p in projects}
 

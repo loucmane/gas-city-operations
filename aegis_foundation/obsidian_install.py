@@ -19,6 +19,7 @@ import zipfile
 from aegis_foundation.obsidian_registry import Registry, load_registry
 
 RUNTIME_MODULES = (
+    "obsidian_exports.py",
     "obsidian_continuity.py",
     "obsidian_reconcile_cli.py",
     "obsidian_reconciler.py",
@@ -88,6 +89,9 @@ def render_assets(
     stable_registry_path = Path(registry_path).resolve()
     runtime = resolved_home / ".local" / "bin" / "aegis-obsidian-reconcile"
     state = resolved_home / ".local" / "state" / "aegis" / "obsidian-reconciler"
+    exports = active_registry.export_dir or state.with_name("obsidian-exports")
+    if exports == state or exports in state.parents or state in exports.parents:
+        raise RuntimeError("export_dir must not overlap reconciler state")
     writable = {
         state,
         *(item.output_dir.parent for item in active_registry.projects if item.enabled),
@@ -97,7 +101,8 @@ def render_assets(
     write_lines = "\n".join(f"ReadWritePaths={_unit_quote(path)}" for path in sorted(writable))
     service = f"""[Unit]
 Description=Reconcile deterministic Aegis evidence into Obsidian
-After=default.target
+Wants=aegis-obsidian-export.service
+After=default.target aegis-obsidian-export.service
 
 [Service]
 Type=oneshot
@@ -110,12 +115,26 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=read-only
+ReadOnlyPaths={_unit_quote(exports)}
 {write_lines}
 ProtectControlGroups=true
 ProtectKernelModules=true
 ProtectKernelTunables=true
 RestrictSUIDSGID=true
 LockPersonality=true
+"""
+    exporter = f"""[Unit]
+Description=Export pinned Bead snapshots for Obsidian
+After=default.target
+
+[Service]
+Type=oneshot
+ExecStart={_unit_quote(runtime)} export --registry {_unit_quote(stable_registry_path)}
+Environment={_unit_quote(f"PATH={resolved_home}/gascity/bin:/usr/local/bin:/usr/bin:/bin")}
+Environment={_unit_quote(f"GC_HOME={resolved_home}/gascity/home")}
+Environment="GIT_OPTIONAL_LOCKS=0"
+UMask=0077
+NoNewPrivileges=true
 """
     timer = """[Unit]
 Description=Keep deterministic Aegis Obsidian projections fresh
@@ -133,6 +152,7 @@ Unit=aegis-obsidian-reconcile.service
 WantedBy=timers.target
 """
     return {
+        "aegis-obsidian-export.service": exporter.encode(),
         "aegis-obsidian-reconcile.service": service.encode(),
         "aegis-obsidian-reconcile.timer": timer.encode(),
     }
@@ -232,7 +252,7 @@ def _missing_directories(paths: set[Path]) -> list[Path]:
 
 
 def _run_systemctl(*arguments: str) -> subprocess.CompletedProcess[str]:
-    timeout = 360 if arguments[:2] == ("start", "aegis-obsidian-reconcile.service") else 30
+    timeout = 600 if arguments[:2] == ("start", "aegis-obsidian-reconcile.service") else 30
     return subprocess.run(
         ["systemctl", "--user", *arguments],
         capture_output=True,
@@ -291,7 +311,7 @@ def _wait_for_service_inactive(
 ) -> dict[str, object]:
     deadline = time.monotonic() + timeout_seconds
     state = _unit_state(service)
-    while state["active"]:
+    while state["active_value"] not in {"inactive", "failed"}:
         if time.monotonic() >= deadline:
             raise RuntimeError(f"reconciler service did not quiesce before snapshot: {state}")
         time.sleep(poll_seconds)
@@ -434,8 +454,11 @@ def install(
     before_service = _unit_state(service)
     baseline_service = before_service
     state_dir = manifest_path.parent
+    export_dir = registry.export_dir or state_dir.with_name("obsidian-exports")
+    exporter = "aegis-obsidian-export.service"
+    output_dirs.append(export_dir)
     initially_missing_directories = _missing_directories(
-        {state_dir, *output_parents, *(path.parent for path in files)}
+        {state_dir, export_dir, *output_parents, *(path.parent for path in files)}
     )
     state_snapshot: TreeSnapshot = None
     output_snapshots: dict[Path, TreeSnapshot] = {}
@@ -446,6 +469,7 @@ def install(
             if stopped.returncode != 0:
                 raise RuntimeError(f"timer stop failed: {stopped.stderr.strip()}")
         baseline_service = _wait_for_service_inactive(service)
+        _wait_for_service_inactive(exporter)
         stopped = _run_systemctl("stop", service)
         if stopped.returncode != 0:
             raise RuntimeError(f"service stabilization stop failed: {stopped.stderr.strip()}")
@@ -482,6 +506,10 @@ def install(
         if state_dir.is_symlink() or not state_dir.is_dir():
             raise RuntimeError(f"reconciler state directory is unsafe: {state_dir}")
         os.chmod(state_dir, 0o700)
+        export_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+        if export_dir.is_symlink() or not export_dir.is_dir():
+            raise RuntimeError(f"export directory is unsafe: {export_dir}")
+        os.chmod(export_dir, 0o700)
         for path, (content, mode) in files.items():
             _atomic_write(path, content, mode)
         reload_result = _run_systemctl("daemon-reload")
@@ -546,6 +574,9 @@ def install(
         stopped = _run_systemctl("stop", service)
         if stopped.returncode != 0:
             rollback_errors.append(f"service stop failed: {stopped.stderr.strip()}")
+        stopped = _run_systemctl("stop", exporter)
+        if stopped.returncode != 0:
+            rollback_errors.append(f"exporter stop failed: {stopped.stderr.strip()}")
         for path, (content, mode) in previous_files.items():
             try:
                 if content is None:
@@ -665,10 +696,12 @@ def main(argv: Sequence[str] | None = None) -> int:
                 {
                     "schema_version": "1",
                     "registry_digest": registry.digest,
+                    "export_dir": str(registry.export_dir or home / ".local/state/aegis/obsidian-exports"),
                     "expected": expected,
                     "service_transition": [
                         "stop aegis-obsidian-reconcile.timer",
                         "wait for aegis-obsidian-reconcile.service to become inactive",
+                        "wait for aegis-obsidian-export.service to become inactive",
                         "systemctl --user daemon-reload",
                         "enable aegis-obsidian-reconcile.timer",
                         "start aegis-obsidian-reconcile.service",
@@ -696,6 +729,10 @@ def main(argv: Sequence[str] | None = None) -> int:
     manifest = _read_manifest(_manifest_path(home))
     declared = manifest.get("files") if isinstance(manifest, dict) else {}
     problems = []
+    export_dir = registry.export_dir or home / ".local/state/aegis/obsidian-exports"
+    if (export_dir.is_symlink() or not export_dir.is_dir()
+            or stat.S_IMODE(export_dir.stat().st_mode) != 0o700):
+        problems.append(f"missing, unsafe or non-private export directory: {export_dir}")
     for raw, digest in expected.items():
         path = Path(raw)
         if not path.is_file() or path.is_symlink():

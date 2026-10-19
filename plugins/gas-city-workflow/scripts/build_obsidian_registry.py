@@ -33,6 +33,7 @@ DEFAULT_GC = DEFAULT_HOME / "gascity" / "bin" / "gc"
 DEFAULT_VAULT_ROOT = DEFAULT_HOME / "vaults" / "main" / "GasCity"
 DEFAULT_OBSIDIAN = DEFAULT_HOME / ".local" / "bin" / "obsidian"
 DEFAULT_SIGNING_POLICIES = Path("/etc/gas-city-signing/signing-policies.json")
+DEFAULT_EXPORT_DIR = DEFAULT_HOME / ".local/state/aegis/obsidian-exports"
 
 
 class BuildError(RuntimeError):
@@ -50,6 +51,7 @@ def build_payload(
     signing_policies: Path,
     validate_roots: bool = False,
     obsidian_sources: Path | None = None,
+    export_dir: Path = DEFAULT_EXPORT_DIR,
 ) -> dict[str, Any]:
     try:
         projects = _load_registry(workflow_registry)
@@ -123,6 +125,8 @@ def build_payload(
     source_root = canonical_source_root.resolve()
     return {
         "schema_version": "1",
+        "export_dir": export_dir.resolve().as_posix(),
+        "export_max_age_seconds": 600,
         "managed_output_root": vault_root.resolve().as_posix(),
         "continuity_dashboard": {
             "python": "/usr/bin/python3",
@@ -182,6 +186,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--vault-root", type=Path, default=DEFAULT_VAULT_ROOT)
     parser.add_argument("--obsidian-cli", type=Path, default=DEFAULT_OBSIDIAN)
     parser.add_argument("--signing-policies", type=Path, default=DEFAULT_SIGNING_POLICIES)
+    parser.add_argument("--export-dir", type=Path, default=DEFAULT_EXPORT_DIR)
     parser.add_argument("--validate-roots", action="store_true")
     return parser.parse_args(argv)
 
@@ -200,6 +205,7 @@ def main(argv: list[str] | None = None) -> int:
                 signing_policies=args.signing_policies,
                 validate_roots=args.validate_roots,
                 obsidian_sources=args.obsidian_sources,
+                export_dir=args.export_dir,
             )
         )
     except (BuildError, OSError) as exc:

@@ -943,6 +943,27 @@ def _load_residue_dispositions(
     return result
 
 
+def _published_beads(state_root: Path, project: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Read the exact snapshot already validated and published by the owning cycle."""
+    project_id = str(project["id"])
+    state_path = state_root / f"{project_id}.json"
+    beads_path = state_root / f"{project_id}-beads.json"
+    try:
+        if any(p.is_symlink() or not p.is_file() for p in (state_path, beads_path)):
+            raise ValueError("missing or unsafe reconciler snapshot")
+        state = json.loads(state_path.read_bytes())
+        content = beads_path.read_bytes()
+        if (state.get("project_id") != project_id
+                or state.get("target_dir") != str(Path(project["root"]).resolve())
+                or state.get("last_error") is not None
+                or hashlib.sha256(content).hexdigest()
+                != (state.get("last_success") or {}).get("bead_snapshot_sha256")):
+            raise ValueError("reconciler snapshot identity or digest mismatch")
+        return _json_list(content.decode("utf-8"), f"{project_id} published Bead list")
+    except (OSError, ValueError, AttributeError) as exc:
+        raise ContinuityError(f"{project_id} published beads refused: {exc}") from exc
+
+
 def capture_snapshot(
     registry_path: Path,
     *,
@@ -954,11 +975,18 @@ def capture_snapshot(
     residue_dispositions: Path | None = None,
     runner: ReadOnlyRunner | None = None,
     proc_root: Path = PROC_ROOT,
+    offline_beads: bool = False,
 ) -> dict[str, Any]:
     if obsidian_cycle_status not in {None, "idle"}:
         raise ContinuityError("Obsidian cycle projection must be idle when explicitly provided")
     runner = runner or ReadOnlyRunner()
-    runtime = _capture_city_runtime(runner, proc_root=proc_root, uid=os.getuid())
+    runtime = (
+        {"city": {
+            "session_ledger": {"status": "unknown", "authority": "gc-session-list-v1", "sessions": []},
+            "tmux": {"status": "unknown", "authority": "same-uid-procfs", "uid": os.getuid(), "servers": []},
+        }}
+        if offline_beads else _capture_city_runtime(runner, proc_root=proc_root, uid=os.getuid())
+    )
     registry_bytes = registry_path.read_bytes()
     projects = _load_registry(registry_path)
     sources_path = registry_path.parent / SOURCE_NAME
@@ -1022,7 +1050,14 @@ def capture_snapshot(
         project = context["project"]
         project_id = str(project["id"])
         rig = str(project["rig"])
-        if rig not in beads_by_rig:
+        if offline_beads:
+            # Check every project, including those sharing a rig. The reconciler
+            # holds its registry-cycle lock throughout this capture.
+            raw_beads = _published_beads(obsidian_state, project)
+            beads_by_rig[rig] = sorted(
+                (_project_bead(bead) for bead in raw_beads), key=lambda bead: bead["id"]
+            )
+        elif rig not in beads_by_rig:
             raw_beads = _json_list(
                 runner.run(
                     [

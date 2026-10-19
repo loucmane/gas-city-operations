@@ -961,7 +961,8 @@ def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stder
     from aegis_foundation.obsidian_install import build_runtime_bytes
 
     root = _repo(tmp_path)
-    output = tmp_path / "vault"
+    output = tmp_path / "vault" / "Aegis"
+    output.parent.mkdir()
     state_dir = tmp_path / "state"
     registry_path = _registry(tmp_path, root, output)
     fake_gc = tmp_path / "gc"
@@ -997,6 +998,7 @@ def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stder
     payload["projects"][0]["id"] = "hpfetcher"
     payload["projects"][0]["bead_export_argv"] = [str(fake_gc), *arguments]
     payload["projects"][0]["bead_gate_paths"] = [str(gate)]
+    payload["export_dir"] = str(tmp_path / "exports")
     registry_path.write_text(json.dumps(payload))
     runtime = tmp_path / "aegis-obsidian-reconcile"
     runtime.write_bytes(build_runtime_bytes(Path(__file__).parents[2]))
@@ -1010,6 +1012,9 @@ def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stder
         str(state_dir),
         "--force",
     ]
+    export_command = [sys.executable, str(runtime), "export", "--registry", str(registry_path)]
+    exported = subprocess.run(export_command, cwd=tmp_path, capture_output=True, check=False)
+    assert exported.returncode == 0, exported.stdout + exported.stderr
     first = subprocess.run(command, cwd=tmp_path, capture_output=True, check=False)
     assert first.returncode == 0, first.stdout + first.stderr
     assert json.loads(first.stdout)["ok"] is True
@@ -1017,6 +1022,8 @@ def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stder
     before = {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
     source_before = (state_dir / "hpfetcher-beads.json").read_bytes()
     notice.write_text('gc bd: answering from the rig "blog" store\n')
+    exported = subprocess.run(export_command, cwd=tmp_path, capture_output=True, check=False)
+    assert exported.returncode == 1
     failed = subprocess.run(command, cwd=tmp_path, capture_output=True, check=False)
     assert failed.returncode == 1
     assert "unexpected stderr" in json.loads(failed.stdout)["projects"][0]["error"]
