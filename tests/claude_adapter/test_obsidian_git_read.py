@@ -113,6 +113,8 @@ def test_safe_directory_trust_survives_hardening(tmp_path, monkeypatch, scope):
     home.mkdir()
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     config = home / (".gitconfig" if scope == "global" else "system.gitconfig")
+    empty_system = tmp_path / "empty-system.gitconfig"
+    empty_system.write_text("")
     environment = _home_environment(home)
     real_run = subprocess.run
 
@@ -121,6 +123,11 @@ def test_safe_directory_trust_survives_hardening(tmp_path, monkeypatch, scope):
         if scope == "system":
             # Model a different compiled-in system config without writing /etc.
             child_env.setdefault("GIT_CONFIG_SYSTEM", str(config))
+        else:
+            # CI runners trust every directory system-wide (safe.directory=*),
+            # which would mask the untrusted positive control.
+            child_env.setdefault("GIT_CONFIG_SYSTEM", str(empty_system))
+        return real_run(argv, env=child_env, **kwargs)
         return real_run(argv, env=child_env, **kwargs)
 
     untrusted = ownership_check(["git", "-C", str(repo), "rev-parse", "--show-toplevel"],

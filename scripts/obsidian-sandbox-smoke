@@ -12,6 +12,7 @@ from pathlib import Path
 import shlex
 import subprocess
 import sys
+import tempfile
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
@@ -45,8 +46,10 @@ def main() -> int:
     parser.add_argument("--fixture-root", required=True, type=Path)
     args = parser.parse_args()
     root = args.fixture_root.resolve()
-    if not root.is_relative_to("/work/ga-56po"):
-        parser.error("fixture-root must be under /work/ga-56po")
+    # Host runs use /work/ga-56po; test runs (CI, pytest tmp_path) use the temp dir.
+    allowed = (Path("/work/ga-56po"), Path(tempfile.gettempdir()).resolve())
+    if not any(root.is_relative_to(base) for base in allowed):
+        parser.error("fixture-root must be under /work/ga-56po or the system temp directory")
     root.mkdir(parents=True, mode=0o700)  # Refuse to reuse prior evidence.
     source = json.loads(args.registry.read_bytes())
     selected = [p for p in source["projects"] if p["id"] == args.project and p.get("enabled", True)]
