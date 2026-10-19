@@ -7,6 +7,7 @@ import argparse
 from datetime import datetime, timezone
 import hashlib
 import json
+import os
 from pathlib import Path
 import shlex
 import subprocess
@@ -85,6 +86,50 @@ def main() -> int:
         "export_max_age_seconds": 600,
         "projects": [fixture_project],
     }
+    workflow = root / "projects.json"
+    workflow.write_text(json.dumps({
+        "schema": "gas-city-workflow.project-registry.v1",
+        "projects": [{
+            "id": project["id"], "root": str(repo),
+            "repository": "fixture/smoke", "rig": fixture_project["bead_export_argv"][4],
+            "workflow_profile": "beads-with-aegis-evidence",
+            "workflow_authority": "beads",
+        }],
+    }))
+    signing = root / "signing-policies.json"
+    signing.write_text('{"policies": {}}\n')
+    dispositions = root / "residue-dispositions.json"
+    dispositions.write_text(json.dumps({
+        "schema": "gas-city-workflow.residue-dispositions.v1", "dispositions": [],
+    }))
+    # Run the real snapshot/audit implementation; only PR/process observations are
+    # fixture responses. Git, context, ledger and dashboard publication stay real.
+    continuity = root / "continuity.py"
+    continuity.write_text(
+        "import sys, subprocess\n"
+        f"sys.path.insert(0, {str(ROOT / 'plugins/gas-city-workflow/scripts')!r})\n"
+        "import continuity, continuity_capture\n"
+        "class FixtureRunner(continuity_capture.ReadOnlyRunner):\n"
+        "    def run(self, argv, *, cwd=None):\n"
+        "        if argv[:3] == ['gh', 'pr', 'list']:\n"
+        "            return subprocess.CompletedProcess(argv, 0, '[]', '')\n"
+        "        if argv[0] == 'systemctl':\n"
+        "            raise continuity_capture.ContinuityError('fixture: process visibility unknown')\n"
+        "        if argv[0] != 'git':\n"
+        "            raise RuntimeError('unexpected fixture command: ' + repr(argv))\n"
+        "        return super().run(argv, cwd=cwd)\n"
+        "def capture(*args, **kwargs):\n"
+        "    assert kwargs['offline_beads']\n"
+        f"    kwargs['residue_dispositions'] = continuity_capture.Path({str(dispositions)!r})\n"
+        "    return continuity_capture.capture_snapshot(*args, runner=FixtureRunner(), **kwargs)\n"
+        "continuity.capture_snapshot = capture\n"
+        "raise SystemExit(continuity.main())\n"
+    )
+    fixture["continuity_dashboard"] = {
+        "python": "/usr/bin/python3", "entrypoint": str(continuity),
+        "workflow_registry": str(workflow), "signing_policies": str(signing),
+        "output_dir": str(vault_parent / "Continuity"),
+    }
     fixture_path = root / "fixture-registry.json"
     fixture_path.write_text(json.dumps(fixture))
     # The live stage writes only under real-exports and executes exactly ONE pinned read.
@@ -93,6 +138,7 @@ def main() -> int:
         json.dumps(
             {
                 **fixture,
+                "continuity_dashboard": None,
                 "export_dir": str(real_exports),
                 "projects": [{**project, "output_dir": str(vault_parent / "unused")}],
             }
@@ -161,8 +207,11 @@ def main() -> int:
         print(shlex.join(command), flush=True)
     if args.plan:
         return 0
+    (repo / "tracked.txt").write_text("before\n")
+    (repo / ".gitattributes").write_text("*.txt diff=marker filter=marker\n")
     for argv in (
         ["init", "-q"],
+        ["add", "."],
         [
             "-c",
             "user.name=Fixture",
@@ -183,6 +232,26 @@ def main() -> int:
             capture_output=True,
             env={"HOME": str(home), "PATH": "/usr/bin:/bin", "TMPDIR": str(root)},
         )
+    hooks = repo / ".git/hooks"
+    markers = []
+    for name in ("fsmonitor", "post-index-change", "textconv", "clean"):
+        marker = state / f"{name}.executed"
+        markers.append(marker)
+        hook = hooks / name
+        hook.write_text(f"#!/bin/sh\nprintf executed > {shlex.quote(str(marker))}\n")
+        hook.chmod(0o755)
+    for key, value in {
+        "core.fsmonitor": str(hooks / "fsmonitor"),
+        "core.hooksPath": str(hooks),
+        "diff.marker.textconv": str(hooks / "textconv"),
+        "filter.marker.clean": str(hooks / "clean"),
+    }.items():
+        subprocess.run(
+            ["git", "config", key, value], cwd=repo, check=True, capture_output=True,
+            env={"HOME": str(home), "PATH": "/usr/bin:/bin", "TMPDIR": str(root)},
+        )
+    (repo / "tracked.txt").write_text("after!\n")
+    os.utime(repo / "tracked.txt", (1, 1))
     beads = '[{"id":"fx-smoke","title":"Sandbox smoke","status":"open"}]\n'
     (exports / f"{project['id']}.json").write_text(
         json.dumps(
@@ -208,13 +277,20 @@ def main() -> int:
         report = json.loads(result.stdout)
         if not report["ok"]:
             raise RuntimeError(f"{label} JSON refused: {report}")
+        if label == "consumer":
+            assert not [str(marker) for marker in markers if marker.exists()], "Git descendant executed"
+            dashboard = json.loads((vault_parent / "Continuity/report.json").read_text())
+            assert [p["id"] for p in dashboard["projects"]] == [project["id"]]
     attempts = [json.loads(line) for line in log.read_text().splitlines()]
-    assert attempts and all(Path(item["executable"]).name == "git" for item in attempts)
+    names = [Path(item["executable"]).name for item in attempts]
+    assert "git" in names and names.count("python3") == 2
+    assert all(name in {"git", "python3"} for name in names)
     real = load_registry(real_path)
     records = json.loads(read_export(real, real.projects[0], now=datetime.now(timezone.utc)))
     assert isinstance(records, list)
     print(
-        f"PASS: sandbox consumer used fixture exports; no gc/bd exec; real export {len(records)} beads"
+        "PASS: sandbox consumer and Continuity used fixture exports; "
+        f"no gc/bd exec or Git descendant markers; real export {len(records)} beads"
     )
     return 0
 

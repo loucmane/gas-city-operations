@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from aegis_foundation.git_read import run_git_read
+
 import hashlib
 import json
 import os
@@ -9,7 +11,6 @@ from pathlib import Path
 import shutil
 import sqlite3
 import stat
-import subprocess
 import tempfile
 from typing import Any, Mapping
 
@@ -47,7 +48,7 @@ class LedgerReadError(RuntimeError):
 
 
 def _git_common_dir(target: Path) -> Path:
-    result = subprocess.run(
+    result = run_git_read(
         ["git", "rev-parse", "--git-common-dir"],
         cwd=target,
         capture_output=True,

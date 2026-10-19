@@ -331,6 +331,10 @@ def test_smoke_fixture_and_exec_audit_work_with_fake_systemd(registry, tmp_path,
     assert smoke["main"]() == 0
     assert len(systemd_calls) == 2
     assert (root / "consumer.stdout").is_file()
+    dashboard = json.loads((root / "vault/Continuity/report.json").read_text())
+    assert [p["id"] for p in dashboard["projects"]] == ["alpha"]
+    assert not list((root / "home/.local/state/aegis/obsidian-reconciler").glob("*.executed"))
+    assert (root / "repo/.git/hooks/fsmonitor").is_file()
     assert len(list((root / "real-exports").glob("*.json"))) == 1
 
 

@@ -17,6 +17,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from _git_read import run_git_read  # noqa: E402
 from continuity_model import (  # noqa: E402
     BEAD_ID_PATTERN,
     SNAPSHOT_SCHEMA,
@@ -57,7 +58,8 @@ class ReadOnlyRunner:
         *,
         cwd: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        result = subprocess.run(
+        run = run_git_read if argv[0] == "git" else subprocess.run
+        result = run(
             list(argv),
             cwd=str(cwd) if cwd is not None else None,
             env={**os.environ, "PATH": OPERATOR_PATH},
@@ -349,7 +351,7 @@ def _active_trackers(root: Path) -> list[dict[str, Any]]:
 
 
 def _transactions(root: Path) -> list[dict[str, Any]]:
-    result = subprocess.run(
+    result = run_git_read(
         ["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
         check=False,
         capture_output=True,

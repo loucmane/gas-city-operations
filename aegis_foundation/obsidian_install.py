@@ -19,6 +19,7 @@ import zipfile
 from aegis_foundation.obsidian_registry import Registry, load_registry
 
 RUNTIME_MODULES = (
+    "git_read.py",
     "obsidian_exports.py",
     "obsidian_continuity.py",
     "obsidian_reconcile_cli.py",
@@ -412,6 +413,7 @@ def install(
     home: Path,
     source_root: Path,
     registry_source: Path,
+    defer_activation: bool = False,
 ) -> dict[str, object]:
     files, registry = _expected_files(
         home=home,
@@ -515,43 +517,48 @@ def install(
         reload_result = _run_systemctl("daemon-reload")
         if reload_result.returncode != 0:
             raise RuntimeError(f"systemd user daemon-reload failed: {reload_result.stderr.strip()}")
-        enabled = _run_systemctl("enable", timer)
-        if enabled.returncode != 0:
-            raise RuntimeError(f"timer enable failed: {enabled.stderr.strip()}")
-        reset = _run_systemctl("reset-failed", service)
-        if reset.returncode != 0:
-            raise RuntimeError(f"service reset-failed failed: {reset.stderr.strip()}")
-        started = _run_systemctl("start", "aegis-obsidian-reconcile.service")
-        if started.returncode != 0:
-            raise RuntimeError(f"initial reconciliation failed: {started.stderr.strip()}")
-        state = _unit_state(timer)
-        if not state["enabled"] or state["active"]:
-            raise RuntimeError(f"timer was not held enabled and inactive for validation: {state}")
-        runtime_check = subprocess.run(
-            [
-                str(home / ".local/bin/aegis-obsidian-reconcile"),
-                "check",
-                "--registry",
-                str(home / ".config/aegis/obsidian-projects.json"),
-                "--state-dir",
-                str(home / ".local/state/aegis/obsidian-reconciler"),
-            ],
-            capture_output=True,
-            text=True,
-            timeout=120,
-            check=False,
-        )
-        if runtime_check.returncode != 0:
-            raise RuntimeError(f"installed reconciler check failed: {runtime_check.stdout.strip()}")
-        started = _run_systemctl("start", timer)
-        if started.returncode != 0:
-            raise RuntimeError(f"timer start failed: {started.stderr.strip()}")
-        state = _wait_for_timer_waiting(timer, service)
-        settled_service = _unit_state(service)
-        if settled_service["result"] != "success":
-            raise RuntimeError(
-                f"initial reconciliation did not leave a successful service: {settled_service}"
+        if defer_activation:
+            state = _unit_state(timer)
+            if state["active"] or state.get("active_value") not in {"inactive", "failed"}:
+                raise RuntimeError(f"timer must remain stopped for operator validation: {state}")
+        else:
+            enabled = _run_systemctl("enable", timer)
+            if enabled.returncode != 0:
+                raise RuntimeError(f"timer enable failed: {enabled.stderr.strip()}")
+            reset = _run_systemctl("reset-failed", service)
+            if reset.returncode != 0:
+                raise RuntimeError(f"service reset-failed failed: {reset.stderr.strip()}")
+            started = _run_systemctl("start", "aegis-obsidian-reconcile.service")
+            if started.returncode != 0:
+                raise RuntimeError(f"initial reconciliation failed: {started.stderr.strip()}")
+            state = _unit_state(timer)
+            if not state["enabled"] or state["active"]:
+                raise RuntimeError(f"timer was not held enabled and inactive for validation: {state}")
+            runtime_check = subprocess.run(
+                [
+                    str(home / ".local/bin/aegis-obsidian-reconcile"),
+                    "check",
+                    "--registry",
+                    str(home / ".config/aegis/obsidian-projects.json"),
+                    "--state-dir",
+                    str(home / ".local/state/aegis/obsidian-reconciler"),
+                ],
+                capture_output=True,
+                text=True,
+                timeout=120,
+                check=False,
             )
+            if runtime_check.returncode != 0:
+                raise RuntimeError(f"installed reconciler check failed: {runtime_check.stdout.strip()}")
+            started = _run_systemctl("start", timer)
+            if started.returncode != 0:
+                raise RuntimeError(f"timer start failed: {started.stderr.strip()}")
+            state = _wait_for_timer_waiting(timer, service)
+            settled_service = _unit_state(service)
+            if settled_service["result"] != "success":
+                raise RuntimeError(
+                    f"initial reconciliation did not leave a successful service: {settled_service}"
+                )
         manifest = {
             "schema_version": "1",
             "registry_digest": registry.digest,
@@ -565,7 +572,11 @@ def install(
             (json.dumps(manifest, indent=2, sort_keys=True) + "\n").encode(),
             0o600,
         )
-        return {"ok": True, "status": "installed", **manifest}
+        return {
+            "ok": True,
+            "status": "installed-awaiting-validation" if defer_activation else "installed",
+            **manifest,
+        }
     except Exception as exc:
         rollback_errors: list[str] = []
         disabled = _run_systemctl("disable", "--now", timer)
@@ -669,6 +680,11 @@ def build_parser() -> argparse.ArgumentParser:
     mode.add_argument("--plan", action="store_true")
     mode.add_argument("--check", action="store_true")
     mode.add_argument("--apply", action="store_true")
+    parser.add_argument(
+        "--defer-activation", action="store_true",
+        help="Install files/manifest with timer stopped; check requires a stopped timer. "
+             "Operator must smoke-test, run a full cycle and check before starting it.",
+    )
     parser.add_argument("--registry-source")
     parser.add_argument("--home", default=str(Path.home()))
     parser.add_argument("--source-root", default=str(Path(__file__).resolve().parent.parent))
@@ -703,10 +719,15 @@ def main(argv: Sequence[str] | None = None) -> int:
                         "wait for aegis-obsidian-reconcile.service to become inactive",
                         "wait for aegis-obsidian-export.service to become inactive",
                         "systemctl --user daemon-reload",
-                        "enable aegis-obsidian-reconcile.timer",
-                        "start aegis-obsidian-reconcile.service",
-                        "check installed reconciliation while timer remains inactive",
-                        "start aegis-obsidian-reconcile.timer",
+                        *(
+                            ["write install manifest; leave timer stopped for operator validation"]
+                            if args.defer_activation else [
+                                "enable aegis-obsidian-reconcile.timer",
+                                "start aegis-obsidian-reconcile.service",
+                                "check installed reconciliation while timer remains inactive",
+                                "start aegis-obsidian-reconcile.timer",
+                            ]
+                        ),
                     ],
                 },
                 indent=2,
@@ -720,6 +741,7 @@ def main(argv: Sequence[str] | None = None) -> int:
                 home=home,
                 source_root=source_root,
                 registry_source=registry_source,
+                defer_activation=args.defer_activation,
             )
         except (OSError, RuntimeError, subprocess.SubprocessError) as exc:
             print(json.dumps({"ok": False, "status": "failed", "error": str(exc)}, sort_keys=True))
@@ -742,7 +764,10 @@ def main(argv: Sequence[str] | None = None) -> int:
         elif not isinstance(declared, dict) or declared.get(raw) != digest:
             problems.append(f"install manifest drift: {path}")
     timer = _unit_state("aegis-obsidian-reconcile.timer")
-    if not timer["enabled"] or not timer["active"]:
+    if args.defer_activation:
+        if timer["active"] or timer.get("active_value") not in {"inactive", "failed"}:
+            problems.append(f"reconciler timer must be stopped for validation: {timer}")
+    elif not timer["enabled"] or not timer["active"]:
         problems.append(f"reconciler timer is not enabled and active: {timer}")
     if problems:
         print("\n".join(problems))

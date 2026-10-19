@@ -1166,8 +1166,11 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
     assert len(sources["projects"]) == 3
     template = tmp_path / "template"
     template.mkdir()
+    (template / "tracked.txt").write_text("before\n")
+    (template / ".gitattributes").write_text("*.txt diff=marker filter=marker\n")
     for args in (
         ["init", "-b", "main"],
+        ["add", "."],
         [
             "-c",
             "user.name=Fixture",
@@ -1182,6 +1185,27 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
         ],
     ):
         subprocess.run(["git", *args], cwd=template, check=True, capture_output=True)
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    markers = []
+    for name in ("fsmonitor", "post-index-change", "textconv", "clean", "smudge", "process", "external-diff"):
+        marker = tmp_path / f"{name}.executed"
+        markers.append(marker)
+        script = hooks / name
+        script.write_text(f"#!/bin/sh\nprintf executed > '{marker}'\n")
+        script.chmod(0o755)
+    for key, value in {
+        "core.fsmonitor": str(hooks / "fsmonitor"),
+        "core.hooksPath": str(hooks),
+        "diff.marker.textconv": str(hooks / "textconv"),
+        "diff.external": str(hooks / "external-diff"),
+        "filter.marker.clean": str(hooks / "clean"),
+        "filter.marker.smudge": str(hooks / "smudge"),
+        "filter.marker.process": str(hooks / "process"),
+    }.items():
+        subprocess.run(["git", "config", key, value], cwd=template, check=True)
+    (template / "tracked.txt").write_text("after!\n")
+    os.utime(template / "tracked.txt", (1, 1))
     projects = workflow["projects"] + sources["projects"]
     for project in projects:
         root = tmp_path / project["id"]
@@ -1234,6 +1258,7 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
         runner=Runner(),
         offline_beads=offline,
     )
+    assert not [marker.name for marker in markers if marker.exists()]
     assert {p["id"] for p in snapshot["projects"]} == {p["id"] for p in projects}
     assert all(p["obsidian"]["registered"] for p in snapshot["projects"])
     assert len(snapshot["ledgers"]) == 7  # Operations and Core share gascity.

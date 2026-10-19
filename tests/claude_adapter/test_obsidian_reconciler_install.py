@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import hashlib
 from pathlib import Path
 import subprocess
 import sys
@@ -167,8 +168,9 @@ def _source_registry(tmp_path: Path, home: Path) -> Path:
     return path
 
 
+@pytest.mark.parametrize("defer_activation", [False, True])
 def test_install_applies_exact_user_files_and_enables_timer(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, defer_activation: bool
 ) -> None:
     home = tmp_path / "home"
     registry = _source_registry(tmp_path, home)
@@ -225,6 +227,7 @@ def test_install_applies_exact_user_files_and_enables_timer(
         home=home,
         source_root=Path(__file__).parents[2],
         registry_source=registry,
+        **({"defer_activation": True} if defer_activation else {}),
     )
 
     assert result["ok"] is True
@@ -233,6 +236,46 @@ def test_install_applies_exact_user_files_and_enables_timer(
     assert (home / ".local/bin/aegis-obsidian-reconcile").stat().st_mode & 0o777 == 0o755
     assert (home / ".config/aegis/obsidian-projects.json").stat().st_mode & 0o777 == 0o600
     assert (home / ".local/state/aegis/obsidian-reconciler/install-manifest.json").is_file()
+    if defer_activation:
+        assert result["status"] == "installed-awaiting-validation"
+        assert not any(call[0] in {"start", "enable"} for call in systemctl_calls)
+        assert not timer_active
+        assert obsidian_install.main([
+            "--check", "--defer-activation", "--home", str(home),
+            "--source-root", str(REPO_ROOT), "--registry-source", str(registry),
+        ]) == 0
+        # Model a previously installed version with its own correct manifest.
+        # Upgrade must replace both bytes and hashes while keeping scheduling off.
+        runtime = home / ".local/bin/aegis-obsidian-reconcile"
+        manifest_path = home / ".local/state/aegis/obsidian-reconciler/install-manifest.json"
+        prior = json.loads(manifest_path.read_text())
+        runtime.write_bytes(b"previous reviewed runtime\n")
+        prior["files"][str(runtime)] = hashlib.sha256(runtime.read_bytes()).hexdigest()
+        manifest_path.write_text(json.dumps(prior))
+        arguments = [
+            "--defer-activation", "--home", str(home), "--source-root", str(REPO_ROOT),
+            "--registry-source", str(registry),
+        ]
+        assert obsidian_install.main(["--check", *arguments]) == 1
+        prior_manifest = manifest_path.read_bytes()
+        real_write = obsidian_install._atomic_write
+
+        def fail_manifest(path, content, mode):
+            if path == manifest_path and content != prior_manifest:
+                raise OSError("fixture manifest publication failure")
+            real_write(path, content, mode)
+
+        monkeypatch.setattr(obsidian_install, "_atomic_write", fail_manifest)
+        assert obsidian_install.main(["--apply", *arguments]) == 1
+        assert manifest_path.read_bytes() == prior_manifest
+        assert runtime.read_bytes() == b"previous reviewed runtime\n"
+        assert not timer_active
+        monkeypatch.setattr(obsidian_install, "_atomic_write", real_write)
+        assert obsidian_install.main(["--apply", *arguments]) == 0
+        assert obsidian_install.main(["--check", *arguments]) == 0
+        assert manifest_path.read_bytes() != prior_manifest
+        assert not any(call[0] == "start" for call in systemctl_calls)
+        return
     assert ("enable", "--now", "aegis-obsidian-reconcile.timer") not in systemctl_calls
     assert ("enable", "aegis-obsidian-reconcile.timer") in systemctl_calls
     assert systemctl_calls.index(
