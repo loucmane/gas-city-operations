@@ -1,0 +1,302 @@
+#!/usr/bin/env python3
+"""Host-only proof of the two Obsidian unit boundaries; --plan never runs systemd."""
+
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+import hashlib
+import json
+import os
+from pathlib import Path
+import shlex
+import subprocess
+import sys
+import tempfile
+
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT))
+from aegis_foundation.obsidian_install import render_assets  # noqa: E402
+from aegis_foundation.obsidian_registry import load_registry  # noqa: E402
+from aegis_foundation.obsidian_exports import EXPORTER_VERSION, read_export  # noqa: E402
+
+
+def service_properties(unit: bytes) -> list[str]:
+    """Use every rendered service property except its separately supplied command."""
+    lines = unit.decode().split("[Service]\n", 1)[1].splitlines()
+    return [line for line in lines if "=" in line and not line.startswith("ExecStart=")]
+
+
+def transient(unit: bytes, argv: list[str]) -> list[str]:
+    command = ["systemd-run", "--user", "--wait", "--pipe", "--collect"]
+    for prop in service_properties(unit):
+        command.extend(["--property", prop])
+    return [*command, "--", *argv]
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    mode = parser.add_mutually_exclusive_group(required=True)
+    mode.add_argument("--plan", action="store_true")
+    mode.add_argument("--run", action="store_true")
+    parser.add_argument("--registry", required=True, type=Path)
+    parser.add_argument("--runtime", required=True, type=Path)
+    parser.add_argument("--project", default="hpfetcher")
+    parser.add_argument("--home", type=Path, default=Path.home())
+    parser.add_argument("--fixture-root", required=True, type=Path)
+    args = parser.parse_args()
+    root = args.fixture_root.resolve()
+    # Host runs use /work/ga-56po; test runs (CI, pytest tmp_path) use the temp dir.
+    allowed = (Path("/work/ga-56po"), Path(tempfile.gettempdir()).resolve())
+    if not any(root.is_relative_to(base) for base in allowed):
+        parser.error("fixture-root must be under /work/ga-56po or the system temp directory")
+    root.mkdir(parents=True, mode=0o700)  # Refuse to reuse prior evidence.
+    source = json.loads(args.registry.read_bytes())
+    selected = [p for p in source["projects"] if p["id"] == args.project and p.get("enabled", True)]
+    if len(selected) != 1:
+        parser.error("project must identify exactly one enabled real rig")
+    project = selected[0]
+    home = root / "home"
+    state = home / ".local/state/aegis/obsidian-reconciler"
+    exports = root / "fixture-exports"
+    real_exports = root / "real-exports"
+    repo = root / "repo"
+    vault_parent = root / "vault"
+    for path in (state, exports, real_exports, repo, vault_parent):
+        path.mkdir(parents=True, mode=0o700)
+    fixture_project = {
+        **project,
+        "target_dir": str(repo),
+        "output_dir": str(vault_parent / "Aegis"),
+    }
+    fixture_project.pop("live_index", None)
+    fixture_project["bead_export_argv"] = [
+        "/forbidden/gc",
+        "--city",
+        "/forbidden/city",
+        "--rig",
+        project["bead_export_argv"][4],
+        "bd",
+        "list",
+        "--all",
+        "--limit",
+        "0",
+        "--json",
+    ]
+    fixture = {
+        "schema_version": "1",
+        "export_dir": str(exports),
+        "export_max_age_seconds": 600,
+        "projects": [fixture_project],
+    }
+    workflow = root / "projects.json"
+    workflow.write_text(json.dumps({
+        "schema": "gas-city-workflow.project-registry.v1",
+        "projects": [{
+            "id": project["id"], "root": str(repo),
+            "repository": "fixture/smoke", "rig": fixture_project["bead_export_argv"][4],
+            "workflow_profile": "beads-with-aegis-evidence",
+            "workflow_authority": "beads",
+        }],
+    }))
+    signing = root / "signing-policies.json"
+    signing.write_text('{"policies": {}}\n')
+    dispositions = root / "residue-dispositions.json"
+    dispositions.write_text(json.dumps({
+        "schema": "gas-city-workflow.residue-dispositions.v1", "dispositions": [],
+    }))
+    # Run the real snapshot/audit implementation; only PR/process observations are
+    # fixture responses. Git, context, ledger and dashboard publication stay real.
+    continuity = root / "continuity.py"
+    continuity.write_text(
+        "import sys, subprocess\n"
+        f"sys.path.insert(0, {str(ROOT / 'plugins/gas-city-workflow/scripts')!r})\n"
+        "import continuity, continuity_capture\n"
+        "class FixtureRunner(continuity_capture.ReadOnlyRunner):\n"
+        "    def run(self, argv, *, cwd=None):\n"
+        "        if argv[:3] == ['gh', 'pr', 'list']:\n"
+        "            return subprocess.CompletedProcess(argv, 0, '[]', '')\n"
+        "        if argv[0] == 'systemctl':\n"
+        "            raise continuity_capture.ContinuityError('fixture: process visibility unknown')\n"
+        "        if argv[0] != 'git':\n"
+        "            raise RuntimeError('unexpected fixture command: ' + repr(argv))\n"
+        "        return super().run(argv, cwd=cwd)\n"
+        "def capture(*args, **kwargs):\n"
+        "    assert kwargs['offline_beads']\n"
+        f"    kwargs['residue_dispositions'] = continuity_capture.Path({str(dispositions)!r})\n"
+        "    return continuity_capture.capture_snapshot(*args, runner=FixtureRunner(), **kwargs)\n"
+        "continuity.capture_snapshot = capture\n"
+        "raise SystemExit(continuity.main())\n"
+    )
+    fixture["continuity_dashboard"] = {
+        "python": "/usr/bin/python3", "entrypoint": str(continuity),
+        "workflow_registry": str(workflow), "signing_policies": str(signing),
+        "output_dir": str(vault_parent / "Continuity"),
+    }
+    fixture_path = root / "fixture-registry.json"
+    fixture_path.write_text(json.dumps(fixture))
+    # The live stage writes only under real-exports and executes exactly ONE pinned read.
+    real_path = root / "real-registry.json"
+    real_path.write_text(
+        json.dumps(
+            {
+                **fixture,
+                "continuity_dashboard": None,
+                "export_dir": str(real_exports),
+                "projects": [{**project, "output_dir": str(vault_parent / "unused")}],
+            }
+        )
+    )
+    runtime = args.runtime.resolve()
+    consumer_unit = render_assets(home=home, registry_path=fixture_path)[
+        "aegis-obsidian-reconcile.service"
+    ]
+    exporter_unit = render_assets(home=args.home, registry_path=real_path)[
+        "aegis-obsidian-export.service"
+    ]
+    (root / "consumer.service").write_bytes(consumer_unit)
+    (root / "exporter.service").write_bytes(exporter_unit)
+    # Python's audit hook covers every subprocess request in the runtime; propagate
+    # it to Python children (e.g. Continuity) as sitecustomize as well.
+    audit = root / "audit"
+    audit.mkdir()
+    log = state / "exec-audit.jsonl"
+    (audit / "sitecustomize.py").write_text(
+        "import json, os, sys\nfrom pathlib import Path\n"
+        f"LOG = Path({str(log)!r})\n"
+        "def audit(event, args):\n"
+        "    if event not in {'subprocess.Popen', 'os.exec', 'os.posix_spawn', 'os.system'}:\n"
+        "        return\n"
+        "    exe = os.fsdecode(args[0])\n"
+        "    with LOG.open('a') as out:\n"
+        "        out.write(json.dumps({'event': event, 'executable': exe}) + '\\n')\n"
+        "    if event == 'os.system' or Path(exe).name in {'gc', 'bd', 'sh', 'bash', 'zsh'}:\n"
+        "        raise RuntimeError('forbidden execution: ' + exe)\n"
+        "sys.addaudithook(audit)\n"
+    )
+    consumer_command = transient(
+        consumer_unit,
+        [
+            "/usr/bin/python3",
+            str(runtime),
+            "run",
+            "--registry",
+            str(fixture_path),
+            "--state-dir",
+            str(state),
+            "--force",
+        ],
+    )
+    # Only test instrumentation and fixture HOME are additional; sandbox directives
+    # come verbatim from the renderer, with state/vault/export paths scoped to fixtures.
+    consumer_command[1:1] = [
+        f"--setenv=PYTHONPATH={audit}",
+        f"--setenv=HOME={home}",
+        "--setenv=PYTHONDONTWRITEBYTECODE=1",
+    ]
+    exporter_command = transient(
+        exporter_unit,
+        [
+            "/usr/bin/python3",
+            str(runtime),
+            "export",
+            "--registry",
+            str(real_path),
+        ],
+    )
+    commands = [consumer_command, exporter_command]
+    (root / "commands.json").write_text(json.dumps(commands, indent=2) + "\n")
+    for command in commands:
+        print(shlex.join(command), flush=True)
+    if args.plan:
+        return 0
+    (repo / "tracked.txt").write_text("before\n")
+    (repo / ".gitattributes").write_text("*.txt diff=marker filter=marker\n")
+    for argv in (
+        ["init", "-q"],
+        ["add", "."],
+        [
+            "-c",
+            "user.name=Fixture",
+            "-c",
+            "user.email=fixture@example.test",
+            "-c",
+            "commit.gpgsign=false",
+            "commit",
+            "--allow-empty",
+            "-qm",
+            "smoke fixture",
+        ],
+    ):
+        subprocess.run(
+            ["git", *argv],
+            cwd=repo,
+            check=True,
+            capture_output=True,
+            env={"HOME": str(home), "PATH": "/usr/bin:/bin", "TMPDIR": str(root)},
+        )
+    hooks = repo / ".git/hooks"
+    markers = []
+    for name in ("fsmonitor", "post-index-change", "textconv", "clean"):
+        marker = state / f"{name}.executed"
+        markers.append(marker)
+        hook = hooks / name
+        hook.write_text(f"#!/bin/sh\nprintf executed > {shlex.quote(str(marker))}\n")
+        hook.chmod(0o755)
+    for key, value in {
+        "core.fsmonitor": str(hooks / "fsmonitor"),
+        "core.hooksPath": str(hooks),
+        "diff.marker.textconv": str(hooks / "textconv"),
+        "filter.marker.clean": str(hooks / "clean"),
+    }.items():
+        subprocess.run(
+            ["git", "config", key, value], cwd=repo, check=True, capture_output=True,
+            env={"HOME": str(home), "PATH": "/usr/bin:/bin", "TMPDIR": str(root)},
+        )
+    (repo / "tracked.txt").write_text("after!\n")
+    os.utime(repo / "tracked.txt", (1, 1))
+    beads = '[{"id":"fx-smoke","title":"Sandbox smoke","status":"open"}]\n'
+    (exports / f"{project['id']}.json").write_text(
+        json.dumps(
+            {
+                "beads_json": beads,
+                "manifest": {
+                    "project_id": project["id"],
+                    "rig": fixture_project["bead_export_argv"][4],
+                    "command": fixture_project["bead_export_argv"],
+                    "completed_at": datetime.now(timezone.utc).isoformat(),
+                    "beads_sha256": hashlib.sha256(beads.encode()).hexdigest(),
+                    "exporter_version": EXPORTER_VERSION,
+                },
+            }
+        )
+    )
+    for label, command in zip(("consumer", "exporter"), commands):
+        result = subprocess.run(command, capture_output=True, text=True, timeout=600, check=False)
+        (root / f"{label}.stdout").write_text(result.stdout)
+        (root / f"{label}.stderr").write_text(result.stderr)
+        if result.returncode != 0:
+            raise RuntimeError(f"{label} failed ({result.returncode}); see {root}")
+        report = json.loads(result.stdout)
+        if not report["ok"]:
+            raise RuntimeError(f"{label} JSON refused: {report}")
+        if label == "consumer":
+            assert not [str(marker) for marker in markers if marker.exists()], "Git descendant executed"
+            dashboard = json.loads((vault_parent / "Continuity/report.json").read_text())
+            assert [p["id"] for p in dashboard["projects"]] == [project["id"]]
+    attempts = [json.loads(line) for line in log.read_text().splitlines()]
+    names = [Path(item["executable"]).name for item in attempts]
+    assert "git" in names and names.count("python3") == 2
+    assert all(name in {"git", "python3"} for name in names)
+    real = load_registry(real_path)
+    records = json.loads(read_export(real, real.projects[0], now=datetime.now(timezone.utc)))
+    assert isinstance(records, list)
+    print(
+        "PASS: sandbox consumer and Continuity used fixture exports; "
+        f"no gc/bd exec or Git descendant markers; real export {len(records)} beads"
+    )
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

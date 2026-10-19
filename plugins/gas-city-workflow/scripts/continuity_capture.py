@@ -17,12 +17,14 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
+from _git_read import run_git_read  # noqa: E402
 from continuity_model import (  # noqa: E402
     BEAD_ID_PATTERN,
     SNAPSHOT_SCHEMA,
     ContinuityError,
 )
-from project_context import CITY, GC, build_context  # noqa: E402
+from project_context import CITY, GC  # noqa: E402
+from continuity_context import build_context  # noqa: E402
 from obsidian_sources import SOURCE_NAME, load_sources  # noqa: E402
 from project_context import ContextError  # noqa: E402
 
@@ -48,6 +50,12 @@ GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
+class GitObservationError(ContinuityError):
+    def __init__(self, message: str, result: subprocess.CompletedProcess[str]):
+        super().__init__(message)
+        self.result = result
+
+
 class ReadOnlyRunner:
     """Small injectable runner; every live command is a read-only query."""
 
@@ -57,20 +65,27 @@ class ReadOnlyRunner:
         *,
         cwd: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
-        result = subprocess.run(
-            list(argv),
-            cwd=str(cwd) if cwd is not None else None,
-            env={**os.environ, "PATH": OPERATOR_PATH},
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        run = run_git_read if argv[0] == "git" else subprocess.run
+        try:
+            result = run(
+                list(argv),
+                cwd=str(cwd) if cwd is not None else None,
+                env={**os.environ, "PATH": OPERATOR_PATH},
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
+            raise ContinuityError(f"read-only command failed: {exc}") from exc
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()
-            raise ContinuityError(
+            message = (
                 f"read-only command failed ({result.returncode}): {' '.join(argv)}"
                 + (f": {detail}" if detail else "")
             )
+            if argv[0] == "git":
+                raise GitObservationError(message, result)
+            raise ContinuityError(message)
         return result
 
 
@@ -241,8 +256,14 @@ def _optional_git_value(
 ) -> str | None:
     try:
         value = runner.run(["git", "-C", str(root), *args]).stdout.strip()
-    except ContinuityError:
-        return None
+    except GitObservationError as exc:
+        # Only quiet ref queries have a documented, diagnostic-free absence.
+        quiet_ref = args[:2] == ("symbolic-ref", "--quiet") or args[:3] == (
+            "rev-parse", "--verify", "--quiet"
+        )
+        if quiet_ref and exc.result.returncode == 1 and not (exc.result.stdout or exc.result.stderr):
+            return None
+        raise
     return value or None
 
 
@@ -272,6 +293,7 @@ def _capture_canonical_git(
         root,
         "rev-parse",
         "--verify",
+        "--quiet",
         f"{target_ref}^{{commit}}",
     )
     if target_head is not None and not GIT_COMMIT_PATTERN.fullmatch(target_head):
@@ -349,11 +371,8 @@ def _active_trackers(root: Path) -> list[dict[str, Any]]:
 
 
 def _transactions(root: Path) -> list[dict[str, Any]]:
-    result = subprocess.run(
+    result = ReadOnlyRunner().run(
         ["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        check=False,
-        capture_output=True,
-        text=True,
     )
     if result.returncode != 0 or not result.stdout.strip():
         raise ContinuityError(f"cannot resolve Git common directory for {root}")
@@ -943,6 +962,27 @@ def _load_residue_dispositions(
     return result
 
 
+def _published_beads(state_root: Path, project: Mapping[str, Any]) -> list[dict[str, Any]]:
+    """Read the exact snapshot already validated and published by the owning cycle."""
+    project_id = str(project["id"])
+    state_path = state_root / f"{project_id}.json"
+    beads_path = state_root / f"{project_id}-beads.json"
+    try:
+        if any(p.is_symlink() or not p.is_file() for p in (state_path, beads_path)):
+            raise ValueError("missing or unsafe reconciler snapshot")
+        state = json.loads(state_path.read_bytes())
+        content = beads_path.read_bytes()
+        if (state.get("project_id") != project_id
+                or state.get("target_dir") != str(Path(project["root"]).resolve())
+                or state.get("last_error") is not None
+                or hashlib.sha256(content).hexdigest()
+                != (state.get("last_success") or {}).get("bead_snapshot_sha256")):
+            raise ValueError("reconciler snapshot identity or digest mismatch")
+        return _json_list(content.decode("utf-8"), f"{project_id} published Bead list")
+    except (OSError, ValueError, AttributeError) as exc:
+        raise ContinuityError(f"{project_id} published beads refused: {exc}") from exc
+
+
 def capture_snapshot(
     registry_path: Path,
     *,
@@ -954,11 +994,18 @@ def capture_snapshot(
     residue_dispositions: Path | None = None,
     runner: ReadOnlyRunner | None = None,
     proc_root: Path = PROC_ROOT,
+    offline_beads: bool = False,
 ) -> dict[str, Any]:
     if obsidian_cycle_status not in {None, "idle"}:
         raise ContinuityError("Obsidian cycle projection must be idle when explicitly provided")
     runner = runner or ReadOnlyRunner()
-    runtime = _capture_city_runtime(runner, proc_root=proc_root, uid=os.getuid())
+    runtime = (
+        {"city": {
+            "session_ledger": {"status": "unknown", "authority": "gc-session-list-v1", "sessions": []},
+            "tmux": {"status": "unknown", "authority": "same-uid-procfs", "uid": os.getuid(), "servers": []},
+        }}
+        if offline_beads else _capture_city_runtime(runner, proc_root=proc_root, uid=os.getuid())
+    )
     registry_bytes = registry_path.read_bytes()
     projects = _load_registry(registry_path)
     sources_path = registry_path.parent / SOURCE_NAME
@@ -1022,7 +1069,14 @@ def capture_snapshot(
         project = context["project"]
         project_id = str(project["id"])
         rig = str(project["rig"])
-        if rig not in beads_by_rig:
+        if offline_beads:
+            # Check every project, including those sharing a rig. The reconciler
+            # holds its registry-cycle lock throughout this capture.
+            raw_beads = _published_beads(obsidian_state, project)
+            beads_by_rig[rig] = sorted(
+                (_project_bead(bead) for bead in raw_beads), key=lambda bead: bead["id"]
+            )
+        elif rig not in beads_by_rig:
             raw_beads = _json_list(
                 runner.run(
                     [

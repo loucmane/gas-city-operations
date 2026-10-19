@@ -160,6 +160,87 @@ def _proc_process(
     return process
 
 
+@pytest.mark.parametrize("detail", ["fatal: detected dubious ownership", "fatal: bad config", "error: permission denied"])
+@pytest.mark.parametrize("code", [1, 128])
+def test_optional_git_observation_refuses_errors(tmp_path, monkeypatch, detail, code):
+    capture = _load("continuity_capture")
+    monkeypatch.setattr(capture, "run_git_read", lambda argv, **kwargs:
+                        subprocess.CompletedProcess(argv, code, "", detail))
+    with pytest.raises(capture.ContinuityError, match=detail):
+        capture._optional_git_value(capture.ReadOnlyRunner(), tmp_path,
+                                    "symbolic-ref", "--quiet", "--short", "HEAD")
+
+
+def test_optional_git_ref_absence_is_distinct_from_bad_config(tmp_path):
+    capture = _load("continuity_capture")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    runner = capture.ReadOnlyRunner()
+    assert capture._optional_git_value(runner, tmp_path, "rev-parse", "--verify", "--quiet",
+                                       "refs/remotes/origin/main^{commit}") is None
+    assert capture._optional_git_value(runner, tmp_path, "symbolic-ref", "--quiet",
+                                       "refs/remotes/origin/HEAD") is None
+    with (tmp_path / ".git/config").open("a") as config:
+        config.write("\n[invalid config\n")
+    with pytest.raises(capture.ContinuityError, match="bad config"):
+        capture._optional_git_value(runner, tmp_path, "symbolic-ref", "--quiet",
+                                    "refs/remotes/origin/HEAD")
+
+
+def test_continuity_context_uses_only_its_own_git_path(tmp_path, monkeypatch):
+    capture = _load("continuity_capture")
+    import continuity_context
+    import project_context
+    import root_policy
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("workflow gate Git path reached")
+
+    monkeypatch.setattr(project_context, "_git", forbidden)
+    monkeypatch.setattr(project_context, "build_context", forbidden)
+    monkeypatch.setattr(root_policy, "_git_common_root", forbidden)
+    root = tmp_path / "project"
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    registry = tmp_path / "registry.json"
+    project = {"id": "fixture", "root": str(root), "repository": "fixture/project",
+               "rig": "fixture", "workflow_authority": "beads",
+               "workflow_profile": "beads-with-aegis-evidence"}
+    registry.write_text(json.dumps({"schema": "gas-city-workflow.project-registry.v1",
+                                    "projects": [project]}))
+    calls = []
+    original = continuity_context.run_git_read
+
+    def observe(argv, **kwargs):
+        calls.append(argv[3:])
+        return original(argv, **kwargs)
+
+    monkeypatch.setattr(continuity_context, "run_git_read", observe)
+    result = capture.build_context(root, registry)
+    assert result["project"]["id"] == "fixture"
+    assert result["workspace"]["canonical_root"] == str(root)
+    assert calls == [["rev-parse", "--show-toplevel"],
+                     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+                     ["remote", "get-url", "origin"]]
+    subprocess.run(["git", "-C", str(root), "-c", "user.name=Fixture",
+                    "-c", "user.email=fixture@example.test", "-c", "commit.gpgsign=false",
+                    "commit", "--allow-empty", "-qm", "fixture"], check=True)
+    linked = tmp_path / "project-worktrees" / "linked"
+    subprocess.run(["git", "-C", str(root), "worktree", "add", "-q", "-b", "linked",
+                    str(linked)], check=True)
+    policy = tmp_path / "root-policy.json"
+    policy.write_text(json.dumps({"schema": "gas-city-workflow.root-policy.v1",
+                                 "canonical": {"root": str(tmp_path / "active"),
+                                               "repository": "fixture/project"},
+                                 "retired": [{"root": str(root), "repository": "fixture/project",
+                                              "reason": "retired fixture"}]}))
+    monkeypatch.setattr(project_context, "DEFAULT_ROOT_POLICY", policy)
+    with pytest.raises(project_context.ContextError, match="preserved historical checkout"):
+        capture.build_context(linked, registry)
+    monkeypatch.setattr(continuity_context, "run_git_read", lambda argv, **kwargs:
+                        subprocess.CompletedProcess(argv, 128, "", "fatal: detected dubious ownership"))
+    with pytest.raises(project_context.ContextError, match="dubious ownership"):
+        capture.build_context(root, registry)
+
+
 def test_report_classifies_all_work_states_and_uses_one_next_action_source() -> None:
     model = _load("continuity_model")
     project = _project(
@@ -1156,7 +1237,8 @@ def test_snapshot_cli_accepts_only_the_post_cycle_idle_projection() -> None:
         cli.parse_args(["snapshot", "--obsidian-cycle-status", "running"])
 
 
-def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_path, monkeypatch):
+@pytest.mark.parametrize("offline", [False, True])
+def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_path, monkeypatch, offline):
     capture = _load("continuity_capture")
     config = SCRIPTS.parent / "config"
     workflow = json.loads((config / "projects.json").read_text())
@@ -1165,8 +1247,11 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
     assert len(sources["projects"]) == 3
     template = tmp_path / "template"
     template.mkdir()
+    (template / "tracked.txt").write_text("before\n")
+    (template / ".gitattributes").write_text("*.txt diff=marker filter=marker\n")
     for args in (
         ["init", "-b", "main"],
+        ["add", "."],
         [
             "-c",
             "user.name=Fixture",
@@ -1181,6 +1266,27 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
         ],
     ):
         subprocess.run(["git", *args], cwd=template, check=True, capture_output=True)
+    hooks = tmp_path / "hooks"
+    hooks.mkdir()
+    markers = []
+    for name in ("fsmonitor", "post-index-change", "textconv", "clean", "smudge", "process", "external-diff"):
+        marker = tmp_path / f"{name}.executed"
+        markers.append(marker)
+        script = hooks / name
+        script.write_text(f"#!/bin/sh\nprintf executed > '{marker}'\n")
+        script.chmod(0o755)
+    for key, value in {
+        "core.fsmonitor": str(hooks / "fsmonitor"),
+        "core.hooksPath": str(hooks),
+        "diff.marker.textconv": str(hooks / "textconv"),
+        "diff.external": str(hooks / "external-diff"),
+        "filter.marker.clean": str(hooks / "clean"),
+        "filter.marker.smudge": str(hooks / "smudge"),
+        "filter.marker.process": str(hooks / "process"),
+    }.items():
+        subprocess.run(["git", "config", key, value], cwd=template, check=True)
+    (template / "tracked.txt").write_text("after!\n")
+    os.utime(template / "tracked.txt", (1, 1))
     projects = workflow["projects"] + sources["projects"]
     for project in projects:
         root = tmp_path / project["id"]
@@ -1203,6 +1309,8 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
 
     class Runner(capture.ReadOnlyRunner):
         def run(self, argv, *, cwd=None):
+            if offline:
+                assert Path(argv[0]).name not in {"gc", "bd"}
             if "bd" in argv:
                 return subprocess.CompletedProcess(
                     argv, 0, json.dumps([_bead("fx-next", "open")]), ""
@@ -1211,17 +1319,34 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
                 return subprocess.CompletedProcess(argv, 0, "[]", "")
             return super().run(argv, cwd=cwd)
 
+    if offline:
+        # The dashboard consumes the exact snapshots committed by this reconcile cycle.
+        state = tmp_path / "state"
+        state.mkdir()
+        for project in projects:
+            content = json.dumps([_bead("fx-next", "open")]).encode()
+            (state / f"{project['id']}-beads.json").write_bytes(content)
+            (state / f"{project['id']}.json").write_text(json.dumps({
+                "project_id": project["id"], "target_dir": project["root"],
+                "last_error": None,
+                "last_success": {"bead_snapshot_sha256": hashlib.sha256(content).hexdigest()},
+            }))
     snapshot = capture.capture_snapshot(
         registry,
         obsidian_registry=obsidian,
         obsidian_state=tmp_path / "state",
         signing_policies=signing,
         runner=Runner(),
+        offline_beads=offline,
     )
+    assert not [marker.name for marker in markers if marker.exists()]
     assert {p["id"] for p in snapshot["projects"]} == {p["id"] for p in projects}
     assert all(p["obsidian"]["registered"] for p in snapshot["projects"])
     assert len(snapshot["ledgers"]) == 7  # Operations and Core share gascity.
     assert registry.read_bytes() == before
+    if offline:
+        assert snapshot["runtime"]["city"]["session_ledger"]["status"] == "unknown"
+        assert snapshot["runtime"]["city"]["tmux"]["status"] == "unknown"
     report = _load("continuity_model").build_report(snapshot)
     assert {p["id"] for p in report["projects"]} == {p["id"] for p in projects}
 

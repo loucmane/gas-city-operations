@@ -9,6 +9,8 @@ directory that it cannot prove it owns.
 
 from __future__ import annotations
 
+from aegis_foundation.git_read import run_git_read
+
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 import hashlib
@@ -158,7 +160,7 @@ def _link(path: str, label: str | None = None) -> str:
 
 def _git(target: Path, *args: str) -> str:
     try:
-        result = subprocess.run(
+        result = run_git_read(
             ["git", *args],
             cwd=str(target),
             capture_output=True,
@@ -166,7 +168,7 @@ def _git(target: Path, *args: str) -> str:
             timeout=10,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
         raise VaultError(f"unable to inspect git repository at {target}: {exc}") from exc
     if result.returncode != 0:
         detail = _redact(result.stderr or result.stdout, limit=300)

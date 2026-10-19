@@ -10,23 +10,22 @@ import json
 import math
 import os
 from pathlib import Path
-import subprocess
 import tempfile
 import time
 from typing import Any, Protocol
 
 from aegis_foundation import obsidian_continuity, obsidian_live_index, obsidian_vault
-from aegis_foundation.obsidian_ledger_reader import read_events
+from aegis_foundation.obsidian_ledger_reader import LedgerReadError, read_events
 from aegis_foundation.obsidian_registry import (
     ContinuityDashboardConfig,
     LiveIndexConfig,
-    PROJECT_ID,
     ProjectConfig,
     Registry,
 )
 
+from aegis_foundation.obsidian_exports import MAX_EXPORT_BYTES, ReconcileError, read_export
+
 SCHEMA_VERSION = "1"
-MAX_EXPORT_BYTES = 8 * 1024 * 1024
 CHECK_LOCK_TIMEOUT_SECONDS = 60.0
 LOCK_POLL_SECONDS = 0.05
 
@@ -41,10 +40,6 @@ EventReader = Callable[[Path], list[dict[str, Any]]]
 Clock = Callable[[], datetime]
 LiveIndexRunner = obsidian_live_index.Runner
 DashboardRunner = obsidian_continuity.Runner
-
-
-class ReconcileError(RuntimeError):
-    """Raised for a bounded source, publication, or state failure."""
 
 
 def _now() -> datetime:
@@ -66,99 +61,6 @@ def _parse_time(value: Any) -> datetime | None:
 
 def _redact_error(value: object) -> str:
     return " ".join(str(value).split())[:1_000]
-
-
-def _export_scope_notice(argv: tuple[str, ...]) -> bytes | None:
-    """Recognize the complete, explicitly scoped gc read emitted by the registry.
-
-    Do not infer a store from a checkout or accept gc's ambient/city fallback.
-    Legacy exporters still require empty stderr.
-    """
-    if not argv or Path(argv[0]).name != "gc":
-        return None
-    if (
-        len(argv) != 11
-        or not Path(argv[0]).is_absolute()
-        or argv[1] != "--city"
-        or not Path(argv[2]).is_absolute()
-        or argv[3] != "--rig"
-        or not PROJECT_ID.fullmatch(argv[4])
-        or argv[5:] != ("bd", "list", "--all", "--limit", "0", "--json")
-    ):
-        raise ReconcileError(
-            "gc bead export requires an explicit city and rig with a complete list"
-        )
-    return f'gc bd: answering from the rig "{argv[4]}" store'.encode()
-
-
-def _export_stderr_allowed(
-    stderr: bytes, scope_notice: bytes | None, gate_paths: tuple[Path, ...]
-) -> bool:
-    if scope_notice is None:
-        return stderr == b""
-    # Remove only ONE optional final LF; blank lines and duplicate notices fail.
-    lines = stderr.removesuffix(b"\n").split(b"\n")
-    if lines == [scope_notice]:
-        return True
-    if len(lines) != 2 or lines.count(scope_notice) != 1:
-        return False
-    warning = lines[1] if lines[0] == scope_notice else lines[0]
-    # bd e243402b cmd/bd/workspace_gate.go:222 + workspacegate/gate.go:392.
-    # os.OpenFile wraps errno as "open <path>: <reason>"; compare both paths.
-    return any(
-        warning
-        == (
-            "warning: workspace gate acquisition failed, continuing ungated: "
-            f"workspacegate: open gate {path}: open {path}: read-only file system"
-        ).encode()
-        for path in gate_paths
-    )
-
-
-def export_beads(
-    argv: tuple[str, ...], timeout: int, *, gate_paths: tuple[Path, ...] = ()
-) -> bytes:
-    scope_notice = _export_scope_notice(argv)
-    try:
-        result = subprocess.run(
-            argv,
-            capture_output=True,
-            timeout=timeout,
-            check=False,
-        )
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise ReconcileError(f"bead export failed: {_redact_error(exc)}") from exc
-    if result.returncode != 0:
-        # bd can emit the warning on stderr and the actual JSON refusal on stdout.
-        # Bound each independently so a long warning cannot hide the refusal again.
-        detail = "; ".join(
-            f"{name}: {_redact_error(content.decode('utf-8', errors='replace'))[:450]}"
-            for name, content in (("stderr", result.stderr), ("stdout", result.stdout))
-            if content
-        )
-        raise ReconcileError(f"bead export refused ({result.returncode}): {detail}")
-    if not _export_stderr_allowed(result.stderr, scope_notice, gate_paths):
-        detail = _redact_error(result.stderr.decode("utf-8", errors="replace"))
-        raise ReconcileError(f"bead export has unexpected stderr (store unconfirmed): {detail}")
-    if len(result.stdout) > MAX_EXPORT_BYTES:
-        raise ReconcileError(
-            f"bead export exceeds size limit ({len(result.stdout)} > {MAX_EXPORT_BYTES})"
-        )
-    if not result.stdout.strip():
-        raise ReconcileError("bead export returned no records")
-    if scope_notice is not None:
-        try:
-            records = json.loads(result.stdout)
-        except (ValueError, UnicodeDecodeError) as exc:
-            raise ReconcileError("gc bead export is not a JSON list") from exc
-        if not isinstance(records, list) or any(
-            not isinstance(record, dict)
-            or not isinstance(record.get("id"), str)
-            or not record["id"]
-            for record in records
-        ):
-            raise ReconcileError("gc bead export requires a JSON list of bead objects with ids")
-    return result.stdout
 
 
 def _read_state(path: Path) -> dict[str, Any]:
@@ -206,15 +108,21 @@ def _atomic_bytes(path: Path, content: bytes) -> None:
 
 def _snapshot(
     project: ProjectConfig,
+    registry: Registry,
+    now: datetime,
     *,
     state_dir: Path,
-    bead_exporter: BeadExporter,
+    bead_exporter: BeadExporter | None,
     event_reader: EventReader,
 ) -> tuple[dict[str, Any], bytes]:
-    exported = bead_exporter(
-        project.bead_export_argv,
-        project.export_timeout_seconds,
-        gate_paths=project.bead_gate_paths,
+    exported = (
+        read_export(registry, project, now=now)
+        if bead_exporter is None
+        else bead_exporter(
+            project.bead_export_argv,
+            project.export_timeout_seconds,
+            gate_paths=project.bead_gate_paths,
+        )
     )
     if len(exported) > MAX_EXPORT_BYTES:
         raise ReconcileError(
@@ -233,7 +141,7 @@ def _snapshot(
             bead_snapshot=temporary,
             include_bead_content=project.include_bead_content,
         )
-    except (obsidian_vault.VaultError, OSError, ValueError) as exc:
+    except (obsidian_vault.VaultError, LedgerReadError, OSError, ValueError) as exc:
         raise ReconcileError(_redact_error(exc)) from exc
     finally:
         temporary.unlink(missing_ok=True)
@@ -298,7 +206,7 @@ def _reconcile_project(
     registry: Registry,
     *,
     state_dir: Path,
-    bead_exporter: BeadExporter,
+    bead_exporter: BeadExporter | None,
     event_reader: EventReader,
     live_index_runner: LiveIndexRunner,
     clock: Clock,
@@ -323,6 +231,8 @@ def _reconcile_project(
     try:
         snapshot, exported = _snapshot(
             project,
+            registry,
+            now,
             state_dir=state_dir,
             bead_exporter=bead_exporter,
             event_reader=event_reader,
@@ -533,7 +443,7 @@ def _reconcile_registry_unlocked(
     registry: Registry,
     *,
     state_dir: str | Path,
-    bead_exporter: BeadExporter = export_beads,
+    bead_exporter: BeadExporter | None = None,
     event_reader: EventReader = read_events,
     live_index_runner: LiveIndexRunner = obsidian_live_index.run_command,
     dashboard_runner: DashboardRunner = obsidian_continuity.run_command,
@@ -636,7 +546,7 @@ def reconcile_registry(
     registry: Registry,
     *,
     state_dir: str | Path,
-    bead_exporter: BeadExporter = export_beads,
+    bead_exporter: BeadExporter | None = None,
     event_reader: EventReader = read_events,
     live_index_runner: LiveIndexRunner = obsidian_live_index.run_command,
     dashboard_runner: DashboardRunner = obsidian_continuity.run_command,
@@ -680,7 +590,7 @@ def _check_registry_unlocked(
     registry: Registry,
     *,
     state_dir: str | Path,
-    bead_exporter: BeadExporter = export_beads,
+    bead_exporter: BeadExporter | None = None,
     event_reader: EventReader = read_events,
     live_index_runner: LiveIndexRunner = obsidian_live_index.run_command,
     dashboard_runner: DashboardRunner = obsidian_continuity.run_command,
@@ -704,6 +614,8 @@ def _check_registry_unlocked(
         try:
             snapshot, _exported = _snapshot(
                 project,
+                registry,
+                clock(),
                 state_dir=state,
                 bead_exporter=bead_exporter,
                 event_reader=event_reader,
@@ -851,7 +763,7 @@ def check_registry(
     registry: Registry,
     *,
     state_dir: str | Path,
-    bead_exporter: BeadExporter = export_beads,
+    bead_exporter: BeadExporter | None = None,
     event_reader: EventReader = read_events,
     live_index_runner: LiveIndexRunner = obsidian_live_index.run_command,
     dashboard_runner: DashboardRunner = obsidian_continuity.run_command,
@@ -905,6 +817,5 @@ __all__ = [
     "MAX_EXPORT_BYTES",
     "ReconcileError",
     "check_registry",
-    "export_beads",
     "reconcile_registry",
 ]

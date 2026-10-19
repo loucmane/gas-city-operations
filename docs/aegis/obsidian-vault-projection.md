@@ -50,6 +50,7 @@ aegis vault gate --target-dir . --beads-json /owner/evidence/beads.json --phase 
 aegis vault build --target-dir . --output /safe/path/project-aegis-vault
 
 # Host-maintained freshness from an explicit project registry.
+aegis-obsidian-reconcile export --registry ~/.config/aegis/obsidian-projects.json
 aegis-obsidian-reconcile run --registry ~/.config/aegis/obsidian-projects.json
 aegis-obsidian-reconcile check --registry ~/.config/aegis/obsidian-projects.json
 aegis-obsidian-reconcile check --registry ~/.config/aegis/obsidian-projects.json --require-live-index
@@ -91,6 +92,37 @@ declares each enabled project with:
 - an explicit human-content policy;
 - freshness, debounce, and export-timeout bounds.
 
+Each timer activation pulls in `aegis-obsidian-export.service` through the consumer's
+`Wants=` and `After=` dependencies. Both services are oneshots without `RemainAfterExit`,
+so every activation performs a new export before consuming it. `Wants` allows healthy
+projects to publish even if another export fails; `Requires` would block the entire cycle.
+The timer still targets `aegis-obsidian-reconcile.service` and waits 60 seconds after it
+finishes (plus up to five seconds of jitter and one second of accuracy).
+
+The exporter has no namespace options: only `NoNewPrivileges`, `UMask=0077`, and the
+fixed PATH, GC_HOME and GIT_OPTIONAL_LOCKS environment. Sandboxed user services hide
+other processes' `/proc` entries from bd's proxy discovery, causing it to mistake a
+running proxy for a dead one. Its pinned argv reads each rig with
+`gc --city <city> --rig <rig> bd list --all --limit 0 --json`, without a shell.
+The exact rig notice and the strictly bound round-2 gate warning remain the only
+permitted stderr. Exit status, one JSON list and bead ids are validated before publication.
+
+The registry's `export_dir` points to a private `0700` directory. Each `0600` project
+envelope contains `beads_json` (the exact UTF-8 stdout) and a manifest binding project id,
+rig, full argv, UTC completion time, SHA-256 of those bytes, and exporter format version.
+Publication uses a same-directory temporary file, file fsync, rename, and directory fsync.
+Failures replace only that project's envelope with an explicit refusal and are also
+reported to the service journal. A failure to record on disk is reported in the result.
+The consumer reads this directory through `ReadOnlyPaths`; its existing sandbox and
+vault/state write grants remain unchanged. It refuses missing, malformed, mismatched,
+future-dated or digest-invalid exports and preserves that project's last good vault.
+
+The default `export_max_age_seconds=600` permits eight sequential 30-second exports
+(240 seconds), the 66-second timer window and processing margin. It bounds stale source
+reuse at ten minutes; the separate 180-second projection SLA remains unchanged. `run`
+and `check` never fall back to a live Bead command, including with a legacy registry
+missing `export_dir`. Such a registry must be regenerated before use.
+
 The registry cycle has one cross-process writer lock. A second reconciliation remains a
 nonblocking, successful no-op. A read-only `check` instead waits up to 60 seconds by default for
 the active writer, then evaluates one coherent post-cycle snapshot. Operators may reduce that
@@ -118,7 +150,7 @@ authoritative and the observer is recorded as unavailable. The explicit
 can read the configured managed note.
 
 The reconciler never starts a rig or database, discovers a store, or edits a repository. It reads
-whatever the declared host command can currently prove. Reconciliation and strict checks serialize
+only validated exported bytes. Reconciliation and strict checks serialize
 through the same non-blocking registry-cycle lock, so a check never compares a dashboard or project
 against bytes from two different cycles. The reconciler-owned dashboard uses an explicit semantic
 post-cycle projection: it preserves filesystem, live-index authority, process, and cycle status,
@@ -128,10 +160,18 @@ invalidating its own dashboard solely by advancing audit clocks. It retains the
 last valid output on failure, records last-success and last-error state with mode `0600`, and runs
 all three vault gates after every changed publication. Because publication is an atomic directory
 exchange, the hardened service grants write access to each registered output's existing parent,
-not the source repository or the rest of the home directory. The `check` surface re-exports
-sources and recomputes the digest, so its health signal is source freshness rather than “the timer
-ran.” Its default result remains filesystem-authoritative. Live host-application reachability is
+not the source repository or the rest of the home directory. The `check` surface validates
+export age and integrity and recomputes the projection digest. Its default result remains
+filesystem-authoritative. Live host-application reachability is
 reported separately and becomes blocking only when `--require-live-index` is requested.
+
+The reconciler's Continuity capture uses `--offline-beads` and the digest-checked bead
+snapshots published by that same locked cycle, for all eight registered projects. It
+does not execute gc or bd. City session and process visibility are reported as unknown
+inside the sandbox, never as evidence of absent sessions. Standalone diagnostic captures
+retain their existing live mode. Host qualification is available through
+`scripts/obsidian-sandbox-smoke --plan|--run`; use `--plan` in offline environments and
+run the actual smoke on the host before re-enabling the timer.
 
 The timer is intentionally not a per-edit hook. A one-minute coalescing window avoids turning a
 large atomic vault into a write-amplifying workflow database while giving the readiness doctor a
@@ -234,7 +274,7 @@ rollback target until the replacement succeeds. The synchronous vault gate remai
 reports missing files until that digest-proven atomic repair completes. A byte-identical complete
 source snapshot is a no-op.
 
-The user-level installer stops the timer first, waits for any already-activated oneshot service to
+The user-level installer stops the timer first, waits for both already-activated oneshot services to
 finish, and issues a final idempotent service stop to cancel any queued activation before capturing
 rollback snapshots. It installs and validates with the timer held inactive, starts the timer after
 the strict check passes, and verifies the settled scheduler policy (`enabled/active/waiting` timer
@@ -242,6 +282,7 @@ plus inactive service) rather than comparing transient `running/start` substates
 quiescence. A rollback primes the restored runtime only when the post-quiescence baseline had a
 successful service result; a previously failed result is preserved without replaying the known-bad
 cycle.
+The exporter unit and export directory are included in installation and rollback snapshots.
 
 The generator never:
 

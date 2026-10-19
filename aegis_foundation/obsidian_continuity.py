@@ -74,6 +74,7 @@ def capture_report(
             (
                 *base,
                 "snapshot",
+                "--offline-beads",
                 "--registry",
                 config.workflow_registry.as_posix(),
                 "--obsidian-registry",

@@ -7,6 +7,8 @@
   "required": ["schema_version", "projects"],
   "properties": {
     "schema_version": {"const": "1"},
+    "export_dir": {"type": "string", "pattern": "^/"},
+    "export_max_age_seconds": {"type": "integer", "minimum": 60, "maximum": 3600, "default": 600},
     "managed_output_root": {"type": "string", "pattern": "^/"},
     "continuity_dashboard": {
       "type": "object",

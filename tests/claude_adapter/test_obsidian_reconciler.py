@@ -169,6 +169,39 @@ def _registry(
     return path
 
 
+def test_ledger_git_failure_refuses_only_affected_project_and_preserves_output(tmp_path, monkeypatch):
+    root = _repo(tmp_path)
+    registry_path = _registry(tmp_path, root, tmp_path / "vault")
+    payload = json.loads(registry_path.read_text())
+    payload["projects"].append({**payload["projects"][0], "id": "second-project",
+                                "output_dir": str(tmp_path / "second-vault")})
+    registry_path.write_text(json.dumps(payload))
+    registry = load_registry(registry_path)
+    state = tmp_path / "reconcile-state"
+    arguments = dict(state_dir=state, bead_exporter=lambda *a, **kw: _beads(), force=True)
+    result = obsidian_reconciler.reconcile_registry(registry, event_reader=lambda _: [], **arguments)
+    assert result["ok"]
+    before = {p.relative_to(tmp_path / "vault"): p.read_bytes()
+              for p in (tmp_path / "vault").rglob("*") if p.is_file()}
+    original = obsidian_ledger_reader.run_git_read
+    calls = []
+
+    def fail_first(argv, **kwargs):
+        calls.append(argv)
+        if len(calls) == 1:
+            return subprocess.CompletedProcess(argv, 128, "", "fatal: detected dubious ownership")
+        return original(argv, **kwargs)
+
+    monkeypatch.setattr(obsidian_ledger_reader, "run_git_read", fail_first)
+    result = obsidian_reconciler.reconcile_registry(registry, **arguments)
+    assert not result["ok"]
+    assert not result["projects"][0]["ok"]
+    assert "dubious ownership" in result["projects"][0]["error"]
+    assert result["projects"][1]["ok"]
+    assert before == {p.relative_to(tmp_path / "vault"): p.read_bytes()
+                      for p in (tmp_path / "vault").rglob("*") if p.is_file()}
+
+
 def test_registry_is_explicit_bounded_and_rejects_ambiguous_paths(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     registry_path = _registry(tmp_path, root, tmp_path / "vault")
@@ -961,7 +994,8 @@ def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stder
     from aegis_foundation.obsidian_install import build_runtime_bytes
 
     root = _repo(tmp_path)
-    output = tmp_path / "vault"
+    output = tmp_path / "vault" / "Aegis"
+    output.parent.mkdir()
     state_dir = tmp_path / "state"
     registry_path = _registry(tmp_path, root, output)
     fake_gc = tmp_path / "gc"
@@ -997,6 +1031,7 @@ def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stder
     payload["projects"][0]["id"] = "hpfetcher"
     payload["projects"][0]["bead_export_argv"] = [str(fake_gc), *arguments]
     payload["projects"][0]["bead_gate_paths"] = [str(gate)]
+    payload["export_dir"] = str(tmp_path / "exports")
     registry_path.write_text(json.dumps(payload))
     runtime = tmp_path / "aegis-obsidian-reconcile"
     runtime.write_bytes(build_runtime_bytes(Path(__file__).parents[2]))
@@ -1010,6 +1045,9 @@ def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stder
         str(state_dir),
         "--force",
     ]
+    export_command = [sys.executable, str(runtime), "export", "--registry", str(registry_path)]
+    exported = subprocess.run(export_command, cwd=tmp_path, capture_output=True, check=False)
+    assert exported.returncode == 0, exported.stdout + exported.stderr
     first = subprocess.run(command, cwd=tmp_path, capture_output=True, check=False)
     assert first.returncode == 0, first.stdout + first.stderr
     assert json.loads(first.stdout)["ok"] is True
@@ -1017,6 +1055,8 @@ def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stder
     before = {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
     source_before = (state_dir / "hpfetcher-beads.json").read_bytes()
     notice.write_text('gc bd: answering from the rig "blog" store\n')
+    exported = subprocess.run(export_command, cwd=tmp_path, capture_output=True, check=False)
+    assert exported.returncode == 1
     failed = subprocess.run(command, cwd=tmp_path, capture_output=True, check=False)
     assert failed.returncode == 1
     assert "unexpected stderr" in json.loads(failed.stdout)["projects"][0]["error"]

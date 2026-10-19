@@ -41,6 +41,8 @@ def test_tracked_registry_is_exact_generated_projection_of_project_registry() ->
     sources = json.loads(OBSIDIAN_SOURCES.read_text(encoding="utf-8"))
     projects = workflow["projects"] + sources["projects"]
     obsidian = load_registry(OBSIDIAN_REGISTRY)
+    assert obsidian.export_dir == Path("/home/loucmane/.local/state/aegis/obsidian-exports")
+    assert obsidian.export_max_age_seconds == 600
     assert obsidian.managed_output_root == Path("/home/loucmane/vaults/main/GasCity")
     assert [project.id for project in obsidian.projects] == [project["id"] for project in projects]
     for source, project in zip(projects, obsidian.projects, strict=True):

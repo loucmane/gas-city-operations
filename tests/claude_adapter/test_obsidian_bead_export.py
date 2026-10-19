@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from aegis_foundation.obsidian_reconciler import ReconcileError, export_beads
+from aegis_foundation.obsidian_exports import ReconcileError, export_beads
 
 GC_ARGV = (
     "/srv/bin/gc",
@@ -38,7 +38,7 @@ def test_gc_export_accepts_exact_scoped_readonly_warning(monkeypatch, gate, warn
     warning = gate_warning(gate)
     stderr = warning + SCOPE if warning_first else SCOPE + warning
     monkeypatch.setattr(
-        "aegis_foundation.obsidian_reconciler.subprocess.run",
+        "aegis_foundation.obsidian_exports.subprocess.run",
         lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, RECORDS, stderr),
     )
     assert export_beads(GC_ARGV, 17, gate_paths=GATES) == RECORDS
@@ -69,7 +69,7 @@ def test_gc_export_accepts_exact_scoped_readonly_warning(monkeypatch, gate, warn
 )
 def test_gc_gate_exception_is_fail_closed(monkeypatch, stderr, returncode, stdout):
     monkeypatch.setattr(
-        "aegis_foundation.obsidian_reconciler.subprocess.run",
+        "aegis_foundation.obsidian_exports.subprocess.run",
         lambda argv, **kwargs: subprocess.CompletedProcess(argv, returncode, stdout, stderr),
     )
     with pytest.raises(ReconcileError):
@@ -78,7 +78,7 @@ def test_gc_gate_exception_is_fail_closed(monkeypatch, stderr, returncode, stdou
 
 def test_gc_warning_requires_explicit_gate_binding(monkeypatch):
     monkeypatch.setattr(
-        "aegis_foundation.obsidian_reconciler.subprocess.run",
+        "aegis_foundation.obsidian_exports.subprocess.run",
         lambda argv, **kwargs: subprocess.CompletedProcess(
             argv, 0, RECORDS, SCOPE + gate_warning(GATES[0])
         ),
@@ -94,7 +94,7 @@ def test_gc_export_accepts_only_the_requested_rig_notice(monkeypatch, stderr) ->
         assert kwargs == {"capture_output": True, "timeout": 17, "check": False}
         return subprocess.CompletedProcess(argv, 0, RECORDS, stderr)
 
-    monkeypatch.setattr("aegis_foundation.obsidian_reconciler.subprocess.run", run)
+    monkeypatch.setattr("aegis_foundation.obsidian_exports.subprocess.run", run)
     assert export_beads(GC_ARGV, 17) == RECORDS
 
 
@@ -112,7 +112,7 @@ def test_gc_export_accepts_only_the_requested_rig_notice(monkeypatch, stderr) ->
 )
 def test_gc_export_refuses_missing_wrong_or_additional_diagnostics(monkeypatch, stderr) -> None:
     monkeypatch.setattr(
-        "aegis_foundation.obsidian_reconciler.subprocess.run",
+        "aegis_foundation.obsidian_exports.subprocess.run",
         lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, RECORDS, stderr),
     )
     with pytest.raises(ReconcileError, match="stderr"):
@@ -121,7 +121,7 @@ def test_gc_export_refuses_missing_wrong_or_additional_diagnostics(monkeypatch, 
 
 def test_legacy_export_does_not_accept_gc_notice_or_other_warnings(monkeypatch) -> None:
     monkeypatch.setattr(
-        "aegis_foundation.obsidian_reconciler.subprocess.run",
+        "aegis_foundation.obsidian_exports.subprocess.run",
         lambda argv, **kwargs: subprocess.CompletedProcess(argv, 0, RECORDS, SCOPE),
     )
     with pytest.raises(ReconcileError, match="stderr"):
@@ -130,7 +130,7 @@ def test_legacy_export_does_not_accept_gc_notice_or_other_warnings(monkeypatch) 
 
 def test_nonzero_export_preserves_stdout_error_beside_gate_warning(monkeypatch) -> None:
     monkeypatch.setattr(
-        "aegis_foundation.obsidian_reconciler.subprocess.run",
+        "aegis_foundation.obsidian_exports.subprocess.run",
         lambda argv, **kwargs: subprocess.CompletedProcess(
             argv,
             1,
@@ -160,14 +160,14 @@ def test_gc_export_requires_one_explicit_complete_rig_read(monkeypatch, argv) ->
     def unexpected(*args, **kwargs):
         pytest.fail("invalid gc source must be refused before execution")
 
-    monkeypatch.setattr("aegis_foundation.obsidian_reconciler.subprocess.run", unexpected)
+    monkeypatch.setattr("aegis_foundation.obsidian_exports.subprocess.run", unexpected)
     with pytest.raises(ReconcileError, match="explicit city and rig"):
         export_beads(argv, 17)
 
 
 def test_scope_notice_never_overrides_nonzero_exit(monkeypatch) -> None:
     monkeypatch.setattr(
-        "aegis_foundation.obsidian_reconciler.subprocess.run",
+        "aegis_foundation.obsidian_exports.subprocess.run",
         lambda argv, **kwargs: subprocess.CompletedProcess(argv, 1, RECORDS, SCOPE),
     )
     with pytest.raises(ReconcileError, match=r"refused \(1\)"):

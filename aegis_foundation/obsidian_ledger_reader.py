@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from aegis_foundation.git_read import run_git_read
+
 import hashlib
 import json
 import os
@@ -47,16 +49,22 @@ class LedgerReadError(RuntimeError):
 
 
 def _git_common_dir(target: Path) -> Path:
-    result = subprocess.run(
-        ["git", "rev-parse", "--git-common-dir"],
-        cwd=target,
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
+    try:
+        result = run_git_read(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
+        raise LedgerReadError(f"cannot inspect Git common directory: {exc}") from exc
     if result.returncode != 0 or not result.stdout.strip():
-        raise LedgerReadError(f"target is not a Git repository: {target}")
+        raise LedgerReadError(
+            f"cannot inspect Git common directory for {target}: "
+            f"{result.stderr.strip() or 'empty Git response'}"
+        )
     common = Path(result.stdout.strip())
     if not common.is_absolute():
         common = target / common
