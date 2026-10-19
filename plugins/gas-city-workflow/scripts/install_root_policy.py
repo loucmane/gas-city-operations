@@ -428,14 +428,11 @@ def install(
 
     policy_data = _regular_bytes(policy_source, label="root policy source")
     runtime_data = _regular_bytes(runtime_source, label="root policy runtime source")
-    git_read_data = _regular_bytes(runtime_source.with_name("_git_read.py"), label="Git read helper source")
     runtime_executable = runtime_dir / "root-policy"
-    installed_git_read = runtime_dir / "_git_read.py"
     installed_policy = runtime_dir / "root-policy.json"
     command = f"/usr/bin/python3 {runtime_executable} --hook --policy {installed_policy}"
     managed_paths = (
         runtime_executable,
-        installed_git_read,
         installed_policy,
         codex_hooks,
         claude_settings,
@@ -451,11 +448,11 @@ def install(
         for path in managed_paths
     }
     runtime_created_dirs = _missing_directories(runtime_dir)
-    runtime_states = (snapshots[runtime_executable], snapshots[installed_git_read], snapshots[installed_policy])
+    runtime_states = (snapshots[runtime_executable], snapshots[installed_policy])
     if any(snapshot.existed for snapshot in runtime_states):
         if not all(snapshot.existed for snapshot in runtime_states):
             raise InstallError("installed root-policy runtime is incomplete")
-        expected_runtime = ((runtime_data, 0o755), (git_read_data, 0o644), (policy_data, 0o644))
+        expected_runtime = ((runtime_data, 0o755), (policy_data, 0o644))
         for snapshot, (expected_data, expected_mode) in zip(
             runtime_states, expected_runtime, strict=True
         ):
@@ -469,7 +466,6 @@ def install(
         raise InstallError("Codex and Claude user configuration must already exist")
     rendered = {
         runtime_executable: (runtime_data, 0o755),
-        installed_git_read: (git_read_data, 0o644),
         installed_policy: (policy_data, 0o644),
         codex_hooks: (render_hooks_config(codex_hooks_before, command, platform="codex"), 0o600),
         claude_settings: (
@@ -577,7 +573,6 @@ def main(argv: list[str] | None = None) -> int:
     try:
         policy = _regular_bytes(Path(args.policy_source), label="root policy source")
         runtime = _regular_bytes(Path(args.runtime_source), label="root policy runtime source")
-        git_read = _regular_bytes(Path(args.runtime_source).with_name("_git_read.py"), label="Git read helper source")
         if args.mode == "check":
             print(
                 json.dumps(
@@ -586,7 +581,6 @@ def main(argv: list[str] | None = None) -> int:
                         "ok": True,
                         "policy_sha256": _sha256(policy),
                         "runtime_sha256": _sha256(runtime),
-                        "git_read_sha256": _sha256(git_read),
                     },
                     sort_keys=True,
                 )

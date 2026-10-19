@@ -160,6 +160,87 @@ def _proc_process(
     return process
 
 
+@pytest.mark.parametrize("detail", ["fatal: detected dubious ownership", "fatal: bad config", "error: permission denied"])
+@pytest.mark.parametrize("code", [1, 128])
+def test_optional_git_observation_refuses_errors(tmp_path, monkeypatch, detail, code):
+    capture = _load("continuity_capture")
+    monkeypatch.setattr(capture, "run_git_read", lambda argv, **kwargs:
+                        subprocess.CompletedProcess(argv, code, "", detail))
+    with pytest.raises(capture.ContinuityError, match=detail):
+        capture._optional_git_value(capture.ReadOnlyRunner(), tmp_path,
+                                    "symbolic-ref", "--quiet", "--short", "HEAD")
+
+
+def test_optional_git_ref_absence_is_distinct_from_bad_config(tmp_path):
+    capture = _load("continuity_capture")
+    subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
+    runner = capture.ReadOnlyRunner()
+    assert capture._optional_git_value(runner, tmp_path, "rev-parse", "--verify", "--quiet",
+                                       "refs/remotes/origin/main^{commit}") is None
+    assert capture._optional_git_value(runner, tmp_path, "symbolic-ref", "--quiet",
+                                       "refs/remotes/origin/HEAD") is None
+    with (tmp_path / ".git/config").open("a") as config:
+        config.write("\n[invalid config\n")
+    with pytest.raises(capture.ContinuityError, match="bad config"):
+        capture._optional_git_value(runner, tmp_path, "symbolic-ref", "--quiet",
+                                    "refs/remotes/origin/HEAD")
+
+
+def test_continuity_context_uses_only_its_own_git_path(tmp_path, monkeypatch):
+    capture = _load("continuity_capture")
+    import continuity_context
+    import project_context
+    import root_policy
+
+    def forbidden(*args, **kwargs):
+        raise AssertionError("workflow gate Git path reached")
+
+    monkeypatch.setattr(project_context, "_git", forbidden)
+    monkeypatch.setattr(project_context, "build_context", forbidden)
+    monkeypatch.setattr(root_policy, "_git_common_root", forbidden)
+    root = tmp_path / "project"
+    subprocess.run(["git", "init", "-q", str(root)], check=True)
+    registry = tmp_path / "registry.json"
+    project = {"id": "fixture", "root": str(root), "repository": "fixture/project",
+               "rig": "fixture", "workflow_authority": "beads",
+               "workflow_profile": "beads-with-aegis-evidence"}
+    registry.write_text(json.dumps({"schema": "gas-city-workflow.project-registry.v1",
+                                    "projects": [project]}))
+    calls = []
+    original = continuity_context.run_git_read
+
+    def observe(argv, **kwargs):
+        calls.append(argv[3:])
+        return original(argv, **kwargs)
+
+    monkeypatch.setattr(continuity_context, "run_git_read", observe)
+    result = capture.build_context(root, registry)
+    assert result["project"]["id"] == "fixture"
+    assert result["workspace"]["canonical_root"] == str(root)
+    assert calls == [["rev-parse", "--show-toplevel"],
+                     ["rev-parse", "--path-format=absolute", "--git-common-dir"],
+                     ["remote", "get-url", "origin"]]
+    subprocess.run(["git", "-C", str(root), "-c", "user.name=Fixture",
+                    "-c", "user.email=fixture@example.test", "-c", "commit.gpgsign=false",
+                    "commit", "--allow-empty", "-qm", "fixture"], check=True)
+    linked = tmp_path / "project-worktrees" / "linked"
+    subprocess.run(["git", "-C", str(root), "worktree", "add", "-q", "-b", "linked",
+                    str(linked)], check=True)
+    policy = tmp_path / "root-policy.json"
+    policy.write_text(json.dumps({"schema": "gas-city-workflow.root-policy.v1",
+                                 "canonical": {"root": str(tmp_path / "active"),
+                                               "repository": "fixture/project"},
+                                 "retired": [{"root": str(root), "repository": "fixture/project",
+                                              "reason": "retired fixture"}]}))
+    monkeypatch.setattr(project_context, "DEFAULT_ROOT_POLICY", policy)
+    with pytest.raises(project_context.ContextError, match="preserved historical checkout"):
+        capture.build_context(linked, registry)
+    monkeypatch.setattr(continuity_context, "run_git_read", lambda argv, **kwargs:
+                        subprocess.CompletedProcess(argv, 128, "", "fatal: detected dubious ownership"))
+    with pytest.raises(project_context.ContextError, match="dubious ownership"):
+        capture.build_context(root, registry)
+
+
 def test_report_classifies_all_work_states_and_uses_one_next_action_source() -> None:
     model = _load("continuity_model")
     project = _project(

@@ -6,18 +6,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
-if str(SCRIPT_DIR) not in sys.path:
-    sys.path.insert(0, str(SCRIPT_DIR))
-# The installed hook is a read-only observer, including its imported helper.
-sys.dont_write_bytecode = True
-
-from _git_read import run_git_read  # noqa: E402
-
 DEFAULT_POLICY = SCRIPT_DIR.parent / "config" / "root-policy.json"
 SCHEMA = "gas-city-workflow.root-policy.v1"
 DECISION_SCHEMA = "gas-city-workflow.root-policy-decision.v1"
@@ -77,7 +71,7 @@ def _git_common_root(path: Path) -> Path | None:
     candidate = path.expanduser().resolve(strict=False)
     if not candidate.is_dir():
         return None
-    result = run_git_read(
+    result = subprocess.run(
         ["git", "-C", str(candidate), "rev-parse", "--path-format=absolute", "--git-common-dir"],
         check=False,
         capture_output=True,

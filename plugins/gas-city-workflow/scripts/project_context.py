@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
 import sys
 from pathlib import Path
 from typing import Any
@@ -14,7 +15,6 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from _git_read import run_git_read  # noqa: E402
 from root_policy import RootPolicyError, require_active_root  # noqa: E402
 from _repo_structure import load_repo_structure  # noqa: E402
 
@@ -148,7 +148,7 @@ def _load_registry(path: Path) -> list[dict[str, Any]]:
 
 
 def _git(root: Path, *args: str) -> tuple[int, str]:
-    result = run_git_read(
+    result = subprocess.run(
         ["git", "-C", str(root), *args],
         check=False,
         capture_output=True,

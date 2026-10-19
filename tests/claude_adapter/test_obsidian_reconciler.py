@@ -169,6 +169,39 @@ def _registry(
     return path
 
 
+def test_ledger_git_failure_refuses_only_affected_project_and_preserves_output(tmp_path, monkeypatch):
+    root = _repo(tmp_path)
+    registry_path = _registry(tmp_path, root, tmp_path / "vault")
+    payload = json.loads(registry_path.read_text())
+    payload["projects"].append({**payload["projects"][0], "id": "second-project",
+                                "output_dir": str(tmp_path / "second-vault")})
+    registry_path.write_text(json.dumps(payload))
+    registry = load_registry(registry_path)
+    state = tmp_path / "reconcile-state"
+    arguments = dict(state_dir=state, bead_exporter=lambda *a, **kw: _beads(), force=True)
+    result = obsidian_reconciler.reconcile_registry(registry, event_reader=lambda _: [], **arguments)
+    assert result["ok"]
+    before = {p.relative_to(tmp_path / "vault"): p.read_bytes()
+              for p in (tmp_path / "vault").rglob("*") if p.is_file()}
+    original = obsidian_ledger_reader.run_git_read
+    calls = []
+
+    def fail_first(argv, **kwargs):
+        calls.append(argv)
+        if len(calls) == 1:
+            return subprocess.CompletedProcess(argv, 128, "", "fatal: detected dubious ownership")
+        return original(argv, **kwargs)
+
+    monkeypatch.setattr(obsidian_ledger_reader, "run_git_read", fail_first)
+    result = obsidian_reconciler.reconcile_registry(registry, **arguments)
+    assert not result["ok"]
+    assert not result["projects"][0]["ok"]
+    assert "dubious ownership" in result["projects"][0]["error"]
+    assert result["projects"][1]["ok"]
+    assert before == {p.relative_to(tmp_path / "vault"): p.read_bytes()
+                      for p in (tmp_path / "vault").rglob("*") if p.is_file()}
+
+
 def test_registry_is_explicit_bounded_and_rejects_ambiguous_paths(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     registry_path = _registry(tmp_path, root, tmp_path / "vault")

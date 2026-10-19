@@ -11,6 +11,7 @@ from pathlib import Path
 import shutil
 import sqlite3
 import stat
+import subprocess
 import tempfile
 from typing import Any, Mapping
 
@@ -48,16 +49,22 @@ class LedgerReadError(RuntimeError):
 
 
 def _git_common_dir(target: Path) -> Path:
-    result = run_git_read(
-        ["git", "rev-parse", "--git-common-dir"],
-        cwd=target,
-        capture_output=True,
-        text=True,
-        timeout=10,
-        check=False,
-    )
+    try:
+        result = run_git_read(
+            ["git", "rev-parse", "--git-common-dir"],
+            cwd=target,
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
+        raise LedgerReadError(f"cannot inspect Git common directory: {exc}") from exc
     if result.returncode != 0 or not result.stdout.strip():
-        raise LedgerReadError(f"target is not a Git repository: {target}")
+        raise LedgerReadError(
+            f"cannot inspect Git common directory for {target}: "
+            f"{result.stderr.strip() or 'empty Git response'}"
+        )
     common = Path(result.stdout.strip())
     if not common.is_absolute():
         common = target / common

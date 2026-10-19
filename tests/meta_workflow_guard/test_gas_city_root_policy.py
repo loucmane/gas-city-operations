@@ -354,7 +354,6 @@ def test_transaction_is_successful_and_idempotent_with_exact_fixture_roots(
         evidence_root=tmp_path / "evidence-1",
         hook_truster=trust,
     )
-    assert (runtime / "_git_read.py").read_bytes() == (PLUGIN / "scripts/_git_read.py").read_bytes()
     after_first = {
         path: path.read_bytes()
         for path in (

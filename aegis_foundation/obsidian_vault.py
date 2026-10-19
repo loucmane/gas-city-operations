@@ -168,7 +168,7 @@ def _git(target: Path, *args: str) -> str:
             timeout=10,
             check=False,
         )
-    except (OSError, subprocess.TimeoutExpired) as exc:
+    except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
         raise VaultError(f"unable to inspect git repository at {target}: {exc}") from exc
     if result.returncode != 0:
         detail = _redact(result.stderr or result.stdout, limit=300)

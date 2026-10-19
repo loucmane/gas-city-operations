@@ -15,7 +15,7 @@ import time
 from typing import Any, Protocol
 
 from aegis_foundation import obsidian_continuity, obsidian_live_index, obsidian_vault
-from aegis_foundation.obsidian_ledger_reader import read_events
+from aegis_foundation.obsidian_ledger_reader import LedgerReadError, read_events
 from aegis_foundation.obsidian_registry import (
     ContinuityDashboardConfig,
     LiveIndexConfig,
@@ -141,7 +141,7 @@ def _snapshot(
             bead_snapshot=temporary,
             include_bead_content=project.include_bead_content,
         )
-    except (obsidian_vault.VaultError, OSError, ValueError) as exc:
+    except (obsidian_vault.VaultError, LedgerReadError, OSError, ValueError) as exc:
         raise ReconcileError(_redact_error(exc)) from exc
     finally:
         temporary.unlink(missing_ok=True)

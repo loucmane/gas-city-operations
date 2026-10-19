@@ -14,8 +14,8 @@ from typing import Any, Sequence
 def run_git_read(argv: Sequence[str], **kwargs: Any) -> subprocess.CompletedProcess:
     """Run only the local read forms used by Obsidian and Continuity.
 
-    Global/system configuration and inherited Git overrides are excluded. Local
-    config is retained for repository/worktree identity, but named filter drivers
+    Global/system configuration is retained, including safe.directory trust.
+    Inherited Git overrides are excluded. Named filter drivers from every scope
     are neutralized before status reads (status can run clean/process filters).
     Config enumeration reads names only and cannot launch a driver itself.
     """
@@ -49,9 +49,6 @@ def run_git_read(argv: Sequence[str], **kwargs: Any) -> subprocess.CompletedProc
         if not key.startswith("GIT_")
     }
     environment.update({
-        "GIT_CONFIG_NOSYSTEM": "1",
-        "GIT_CONFIG_SYSTEM": "/dev/null",
-        "GIT_CONFIG_GLOBAL": "/dev/null",
         "GIT_OPTIONAL_LOCKS": "0",
         "GIT_TERMINAL_PROMPT": "0",
         "GIT_NO_LAZY_FETCH": "1",

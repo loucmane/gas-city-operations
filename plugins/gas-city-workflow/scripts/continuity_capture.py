@@ -23,7 +23,8 @@ from continuity_model import (  # noqa: E402
     SNAPSHOT_SCHEMA,
     ContinuityError,
 )
-from project_context import CITY, GC, build_context  # noqa: E402
+from project_context import CITY, GC  # noqa: E402
+from continuity_context import build_context  # noqa: E402
 from obsidian_sources import SOURCE_NAME, load_sources  # noqa: E402
 from project_context import ContextError  # noqa: E402
 
@@ -49,6 +50,12 @@ GIT_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}(?:[0-9a-f]{24})?$")
 DIGEST_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
+class GitObservationError(ContinuityError):
+    def __init__(self, message: str, result: subprocess.CompletedProcess[str]):
+        super().__init__(message)
+        self.result = result
+
+
 class ReadOnlyRunner:
     """Small injectable runner; every live command is a read-only query."""
 
@@ -59,20 +66,26 @@ class ReadOnlyRunner:
         cwd: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         run = run_git_read if argv[0] == "git" else subprocess.run
-        result = run(
-            list(argv),
-            cwd=str(cwd) if cwd is not None else None,
-            env={**os.environ, "PATH": OPERATOR_PATH},
-            check=False,
-            capture_output=True,
-            text=True,
-        )
+        try:
+            result = run(
+                list(argv),
+                cwd=str(cwd) if cwd is not None else None,
+                env={**os.environ, "PATH": OPERATOR_PATH},
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except (OSError, subprocess.TimeoutExpired, RuntimeError) as exc:
+            raise ContinuityError(f"read-only command failed: {exc}") from exc
         if result.returncode != 0:
             detail = (result.stderr or result.stdout).strip()
-            raise ContinuityError(
+            message = (
                 f"read-only command failed ({result.returncode}): {' '.join(argv)}"
                 + (f": {detail}" if detail else "")
             )
+            if argv[0] == "git":
+                raise GitObservationError(message, result)
+            raise ContinuityError(message)
         return result
 
 
@@ -243,8 +256,14 @@ def _optional_git_value(
 ) -> str | None:
     try:
         value = runner.run(["git", "-C", str(root), *args]).stdout.strip()
-    except ContinuityError:
-        return None
+    except GitObservationError as exc:
+        # Only quiet ref queries have a documented, diagnostic-free absence.
+        quiet_ref = args[:2] == ("symbolic-ref", "--quiet") or args[:3] == (
+            "rev-parse", "--verify", "--quiet"
+        )
+        if quiet_ref and exc.result.returncode == 1 and not (exc.result.stdout or exc.result.stderr):
+            return None
+        raise
     return value or None
 
 
@@ -274,6 +293,7 @@ def _capture_canonical_git(
         root,
         "rev-parse",
         "--verify",
+        "--quiet",
         f"{target_ref}^{{commit}}",
     )
     if target_head is not None and not GIT_COMMIT_PATTERN.fullmatch(target_head):
@@ -351,11 +371,8 @@ def _active_trackers(root: Path) -> list[dict[str, Any]]:
 
 
 def _transactions(root: Path) -> list[dict[str, Any]]:
-    result = run_git_read(
+    result = ReadOnlyRunner().run(
         ["git", "-C", str(root), "rev-parse", "--path-format=absolute", "--git-common-dir"],
-        check=False,
-        capture_output=True,
-        text=True,
     )
     if result.returncode != 0 or not result.stdout.strip():
         raise ContinuityError(f"cannot resolve Git common directory for {root}")
