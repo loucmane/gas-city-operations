@@ -1,0 +1,44 @@
+{
+  "schema": "gas-city-obsidian.sources.v1",
+  "physical_roots": {
+    "gascity": "/home/loucmane/gascity/city/.beads/dolt",
+    "hpfetcher": "/home/loucmane/gascity/city/.beads/dolt",
+    "blog": "/home/loucmane/gascity/city/.beads/dolt",
+    "gas-city-template": "/home/loucmane/gascity/city/.beads/dolt",
+    "bounty": "/home/loucmane/gascity/city/.beads/dolt",
+    "vernissage": "/home/loucmane/dev/vernissage/.beads/dolt",
+    "harpoon": "/home/loucmane/gascity/city/.beads/dolt"
+  },
+  "projects": [
+    {
+      "id": "bounty",
+      "root": "/home/loucmane/dev/bounty",
+      "rig_root": "/home/loucmane/dev/bounty",
+      "repository": "loucmane/bounty",
+      "rig": "bounty",
+      "base_ref": "refs/remotes/origin/main",
+      "workflow_authority": "beads",
+      "workflow_profile": "beads-with-frozen-legacy-evidence"
+    },
+    {
+      "id": "vernissage",
+      "root": "/home/loucmane/dev/vernissage",
+      "rig_root": "/home/loucmane/dev/vernissage",
+      "repository": "loucmane/vernissage",
+      "rig": "vernissage",
+      "base_ref": "refs/remotes/origin/main",
+      "workflow_authority": "beads",
+      "workflow_profile": "beads-with-frozen-legacy-evidence"
+    },
+    {
+      "id": "harpoon",
+      "root": "/home/loucmane/dev/harpoon",
+      "rig_root": "/home/loucmane/dev/harpoon",
+      "repository": "loucmane/harpoon",
+      "rig": "harpoon",
+      "base_ref": "refs/remotes/origin/main",
+      "workflow_authority": "beads",
+      "workflow_profile": "beads-with-frozen-legacy-evidence"
+    }
+  ]
+}

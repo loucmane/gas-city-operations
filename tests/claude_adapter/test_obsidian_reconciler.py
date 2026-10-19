@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import sqlite3
 import subprocess
+import sys
 import threading
 import time
 
@@ -85,8 +86,7 @@ def _wal_ledger(root: Path, state_home: Path) -> tuple[sqlite3.Connection, Path]
     connection = sqlite3.connect(database)
     connection.execute("PRAGMA journal_mode=WAL")
     connection.execute("PRAGMA wal_autocheckpoint=0")
-    connection.execute(
-        """
+    connection.execute("""
         CREATE TABLE events (
             seq INTEGER PRIMARY KEY AUTOINCREMENT,
             schema_version TEXT NOT NULL, event_id TEXT NOT NULL UNIQUE,
@@ -98,8 +98,7 @@ def _wal_ledger(root: Path, state_home: Path) -> tuple[sqlite3.Connection, Path]
             parent_agent_id TEXT, payload_digest TEXT,
             extra TEXT NOT NULL DEFAULT '{}'
         )
-        """
-    )
+        """)
     placeholders = ",".join("?" for _ in range(21))
     columns = ",".join(obsidian_ledger_reader._FIELDS)
     connection.execute(
@@ -277,7 +276,7 @@ def test_reconcile_publishes_changed_snapshot_and_noops_when_current(tmp_path: P
     state_dir = tmp_path / "state"
     exports = [_beads(), _beads()]
 
-    def export(_argv: tuple[str, ...], _timeout: int) -> bytes:
+    def export(_argv: tuple[str, ...], _timeout: int, **_kwargs) -> bytes:
         return exports.pop(0)
 
     def clock() -> datetime:
@@ -360,9 +359,7 @@ def test_reconcile_publishes_and_checks_continuity_dashboard(tmp_path: Path) -> 
             assert argv[argv.index("--obsidian-cycle-status") + 1] == "idle"
             output.write_text("{}\n", encoding="utf-8")
             return subprocess.CompletedProcess(argv, 0, b"", b"")
-        project_state = json.loads(
-            (state_dir / "gas-city.json").read_text(encoding="utf-8")
-        )
+        project_state = json.loads((state_dir / "gas-city.json").read_text(encoding="utf-8"))
         assert project_state["last_success"]["live_index"]["status"] == "confirmed"
         report = {
             "schema": "gas-city-workflow.continuity-report.v1",
@@ -392,7 +389,7 @@ def test_reconcile_publishes_and_checks_continuity_dashboard(tmp_path: Path) -> 
     first = obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=live_index_runner,
         dashboard_runner=dashboard_runner,
@@ -414,7 +411,7 @@ def test_reconcile_publishes_and_checks_continuity_dashboard(tmp_path: Path) -> 
     second = obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=live_index_runner,
         dashboard_runner=dashboard_runner,
@@ -432,7 +429,7 @@ def test_reconcile_publishes_and_checks_continuity_dashboard(tmp_path: Path) -> 
     checked = obsidian_reconciler.check_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=live_index_runner,
         dashboard_runner=dashboard_runner,
@@ -462,7 +459,7 @@ def test_changed_publication_refreshes_and_probes_live_index_once(tmp_path: Path
     first = obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=run,
         force=True,
@@ -488,7 +485,7 @@ def test_changed_publication_refreshes_and_probes_live_index_once(tmp_path: Path
     second = obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=run,
         force=True,
@@ -542,7 +539,7 @@ def test_registry_cycle_preserves_last_complete_success_until_live_observation(
     first = obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=run,
         clock=clock,
@@ -554,7 +551,7 @@ def test_registry_cycle_preserves_last_complete_success_until_live_observation(
     second = obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=run,
         clock=clock,
@@ -594,7 +591,7 @@ def test_registry_cycle_lock_makes_concurrent_invocation_a_noop(tmp_path: Path) 
         result = obsidian_reconciler.reconcile_registry(
             registry,
             state_dir=state_dir,
-            bead_exporter=lambda _argv, _timeout: pytest.fail("export must not run"),
+            bead_exporter=lambda _argv, _timeout, **_kwargs: pytest.fail("export must not run"),
             event_reader=lambda _target: pytest.fail("ledger read must not run"),
         )
 
@@ -615,7 +612,7 @@ def test_registry_check_waits_for_reconciliation_then_checks_stable_snapshot(
     obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         clock=lambda: now,
         force=True,
@@ -636,7 +633,7 @@ def test_registry_check_waits_for_reconciliation_then_checks_stable_snapshot(
             result = obsidian_reconciler.check_registry(
                 registry,
                 state_dir=state_dir,
-                bead_exporter=lambda _argv, _timeout: _beads(),
+                bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
                 event_reader=lambda _target: [],
                 clock=lambda: now,
                 lock_timeout_seconds=1.0,
@@ -663,7 +660,7 @@ def test_registry_check_times_out_fail_closed_while_cycle_lock_is_held(
         result = obsidian_reconciler.check_registry(
             registry,
             state_dir=state_dir,
-            bead_exporter=lambda _argv, _timeout: pytest.fail("export must not run"),
+            bead_exporter=lambda _argv, _timeout, **_kwargs: pytest.fail("export must not run"),
             event_reader=lambda _target: pytest.fail("ledger read must not run"),
             lock_timeout_seconds=0.01,
         )
@@ -727,7 +724,7 @@ def test_changed_multi_project_cycle_reloads_shared_obsidian_endpoint_once(
     result = obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=tmp_path / "state",
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=run,
         force=True,
@@ -778,7 +775,7 @@ def test_unobservable_obsidian_is_observer_limited_not_publication_failure(
     result = obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=tmp_path / "state",
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=unavailable,
         force=True,
@@ -816,7 +813,7 @@ def test_live_index_is_optional_for_filesystem_check_and_explicitly_gateable(
     obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=ok_runner,
         force=True,
@@ -828,7 +825,7 @@ def test_live_index_is_optional_for_filesystem_check_and_explicitly_gateable(
     filesystem = obsidian_reconciler.check_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=failed_probe,
     )
@@ -837,7 +834,7 @@ def test_live_index_is_optional_for_filesystem_check_and_explicitly_gateable(
     live = obsidian_reconciler.check_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         live_index_runner=failed_probe,
         require_live_index=True,
@@ -929,7 +926,7 @@ def test_export_failure_retains_last_good_vault_and_records_error(tmp_path: Path
     obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
         force=True,
     )
@@ -937,7 +934,7 @@ def test_export_failure_retains_last_good_vault_and_records_error(tmp_path: Path
         path.relative_to(output): path.read_bytes() for path in output.rglob("*") if path.is_file()
     }
 
-    def fail(_argv: tuple[str, ...], _timeout: int) -> bytes:
+    def fail(_argv: tuple[str, ...], _timeout: int, **_kwargs) -> bytes:
         raise obsidian_reconciler.ReconcileError("Dolt unavailable")
 
     result = obsidian_reconciler.reconcile_registry(
@@ -958,6 +955,80 @@ def test_export_failure_retains_last_good_vault_and_records_error(tmp_path: Path
     assert state["last_error"]["message"] == "Dolt unavailable"
 
 
+def test_built_zipapp_reads_explicit_rig_and_preserves_vault_on_unexpected_stderr(
+    tmp_path: Path,
+) -> None:
+    from aegis_foundation.obsidian_install import build_runtime_bytes
+
+    root = _repo(tmp_path)
+    output = tmp_path / "vault"
+    state_dir = tmp_path / "state"
+    registry_path = _registry(tmp_path, root, output)
+    fake_gc = tmp_path / "gc"
+    notice = tmp_path / "notice"
+    gate = tmp_path / "hpfetcher" / ".beads.gate.lock"
+    # cmd/gc/cmd_bd.go:577 discloses the scope before cmd.Run at :731.
+    notice.write_text(
+        'gc bd: answering from the rig "hpfetcher" store\n'
+        "warning: workspace gate acquisition failed, continuing ungated: "
+        f"workspacegate: open gate {gate}: open {gate}: read-only file system\n"
+    )
+    arguments = [
+        "--city",
+        str(tmp_path / "city"),
+        "--rig",
+        "hpfetcher",
+        "bd",
+        "list",
+        "--all",
+        "--limit",
+        "0",
+        "--json",
+    ]
+    fake_gc.write_text(
+        f"#!{sys.executable}\n"
+        "import sys\nfrom pathlib import Path\n"
+        f"assert sys.argv[1:] == {arguments!r}\n"
+        f"sys.stdout.buffer.write({_beads().replace(b'ga-eiyt', b'hpf-123')!r})\n"
+        f"sys.stderr.write(Path({str(notice)!r}).read_text())\n"
+    )
+    fake_gc.chmod(0o755)
+    payload = json.loads(registry_path.read_text())
+    payload["projects"][0]["id"] = "hpfetcher"
+    payload["projects"][0]["bead_export_argv"] = [str(fake_gc), *arguments]
+    payload["projects"][0]["bead_gate_paths"] = [str(gate)]
+    registry_path.write_text(json.dumps(payload))
+    runtime = tmp_path / "aegis-obsidian-reconcile"
+    runtime.write_bytes(build_runtime_bytes(Path(__file__).parents[2]))
+    command = [
+        sys.executable,
+        str(runtime),
+        "run",
+        "--registry",
+        str(registry_path),
+        "--state-dir",
+        str(state_dir),
+        "--force",
+    ]
+    first = subprocess.run(command, cwd=tmp_path, capture_output=True, check=False)
+    assert first.returncode == 0, first.stdout + first.stderr
+    assert json.loads(first.stdout)["ok"] is True
+    assert (output / "Beads" / "hpf-123.md").is_file()
+    before = {p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()}
+    source_before = (state_dir / "hpfetcher-beads.json").read_bytes()
+    notice.write_text('gc bd: answering from the rig "blog" store\n')
+    failed = subprocess.run(command, cwd=tmp_path, capture_output=True, check=False)
+    assert failed.returncode == 1
+    assert "unexpected stderr" in json.loads(failed.stdout)["projects"][0]["error"]
+    assert {
+        p.relative_to(output): p.read_bytes() for p in output.rglob("*") if p.is_file()
+    } == before
+    assert (state_dir / "hpfetcher-beads.json").read_bytes() == source_before
+    state = json.loads((state_dir / "hpfetcher.json").read_text())
+    assert state["last_success"] is not None
+    assert "unexpected stderr" in state["last_error"]["message"]
+
+
 def test_health_check_detects_source_staleness_not_just_old_timestamps(tmp_path: Path) -> None:
     root = _repo(tmp_path)
     output = tmp_path / "vault"
@@ -967,7 +1038,7 @@ def test_health_check_detects_source_staleness_not_just_old_timestamps(tmp_path:
     obsidian_reconciler.reconcile_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: current[0],
+        bead_exporter=lambda _argv, _timeout, **_kwargs: current[0],
         event_reader=lambda _target: [],
         force=True,
     )
@@ -975,7 +1046,7 @@ def test_health_check_detects_source_staleness_not_just_old_timestamps(tmp_path:
     healthy = obsidian_reconciler.check_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads(),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads(),
         event_reader=lambda _target: [],
     )
     assert healthy["ok"] is True
@@ -983,7 +1054,7 @@ def test_health_check_detects_source_staleness_not_just_old_timestamps(tmp_path:
     stale = obsidian_reconciler.check_registry(
         registry,
         state_dir=state_dir,
-        bead_exporter=lambda _argv, _timeout: _beads("closed"),
+        bead_exporter=lambda _argv, _timeout, **_kwargs: _beads("closed"),
         event_reader=lambda _target: [],
     )
     assert stale["ok"] is False

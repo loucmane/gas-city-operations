@@ -23,6 +23,8 @@ from continuity_model import (  # noqa: E402
     ContinuityError,
 )
 from project_context import CITY, GC, build_context  # noqa: E402
+from obsidian_sources import SOURCE_NAME, load_sources  # noqa: E402
+from project_context import ContextError  # noqa: E402
 
 OBSIDIAN_REGISTRY = Path.home() / ".config" / "aegis" / "obsidian-projects.json"
 OBSIDIAN_STATE = Path.home() / ".local" / "state" / "aegis" / "obsidian-reconciler"
@@ -954,13 +956,19 @@ def capture_snapshot(
     proc_root: Path = PROC_ROOT,
 ) -> dict[str, Any]:
     if obsidian_cycle_status not in {None, "idle"}:
-        raise ContinuityError(
-            "Obsidian cycle projection must be idle when explicitly provided"
-        )
+        raise ContinuityError("Obsidian cycle projection must be idle when explicitly provided")
     runner = runner or ReadOnlyRunner()
     runtime = _capture_city_runtime(runner, proc_root=proc_root, uid=os.getuid())
     registry_bytes = registry_path.read_bytes()
     projects = _load_registry(registry_path)
+    sources_path = registry_path.parent / SOURCE_NAME
+    extra_projects = []
+    if sources_path.exists() or sources_path.is_symlink():
+        try:
+            extra_projects, _ = load_sources(sources_path, projects)
+        except ContextError as exc:
+            raise ContinuityError(str(exc)) from exc
+        projects.extend(extra_projects)
     registered_ids = {str(project.get("id")) for project in projects}
     registered_roots = {Path(str(project.get("root"))).resolve() for project in projects}
     for requested in extra_roots:
@@ -974,11 +982,7 @@ def capture_snapshot(
             raise ContinuityError("descriptor-only project collides with a registered identity")
         projects.append(
             {
-                **{
-                    key: value
-                    for key, value in project.items()
-                    if key != "identity_source"
-                },
+                **{key: value for key, value in project.items() if key != "identity_source"},
                 "root": canonical_root.as_posix(),
                 "worktree_root": context["workspace"]["worktree_root"],
             }
@@ -1004,7 +1008,17 @@ def capture_snapshot(
     beads_by_rig: dict[str, list[dict[str, Any]]] = {}
     for registered in sorted(projects, key=lambda item: str(item.get("id"))):
         root = Path(str(registered.get("root"))).resolve()
-        context = build_context(root, registry_path)
+        if registered in extra_projects:
+            # A display registration is not workflow authority. Observe its Git
+            # root directly; do not feed it into build_context or policy loaders.
+            observed_root = runner.run(
+                ["git", "-C", str(root), "rev-parse", "--show-toplevel"]
+            ).stdout.strip()
+            if Path(observed_root).resolve() != root:
+                raise ContinuityError(f"Obsidian project root mismatch: {root}")
+            context = {"project": registered, "workspace": {"canonical_root": str(root)}}
+        else:
+            context = build_context(root, registry_path)
         project = context["project"]
         project_id = str(project["id"])
         rig = str(project["rig"])
@@ -1039,9 +1053,7 @@ def capture_snapshot(
         }
         worktrees = _capture_worktree_cleanliness(
             _parse_worktrees(
-                runner.run(
-                    ["git", "-C", str(root), "worktree", "list", "--porcelain"]
-                ).stdout,
+                runner.run(["git", "-C", str(root), "worktree", "list", "--porcelain"]).stdout,
                 bead_ids,
             ),
             runner,
@@ -1159,9 +1171,6 @@ def capture_snapshot(
         "schema": SNAPSHOT_SCHEMA,
         "registry_sha256": hashlib.sha256(registry_bytes).hexdigest(),
         "runtime": runtime,
-        "ledgers": [
-            {"rig": rig, "beads": beads_by_rig[rig]}
-            for rig in sorted(beads_by_rig)
-        ],
+        "ledgers": [{"rig": rig, "beads": beads_by_rig[rig]} for rig in sorted(beads_by_rig)],
         "projects": captured,
     }

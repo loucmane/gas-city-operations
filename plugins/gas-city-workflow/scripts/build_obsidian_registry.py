@@ -15,14 +15,21 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
-from project_context import ContextError, _load_registry, build_context  # noqa: E402
+from project_context import (  # noqa: E402
+    ContextError,
+    _canonical_git_root,
+    _load_registry,
+    _resolve_git_root,
+    build_context,
+)
+from obsidian_sources import SOURCE_NAME, load_sources  # noqa: E402
 
 PLUGIN_ROOT = SCRIPT_DIR.parent
 DEFAULT_WORKFLOW_REGISTRY = PLUGIN_ROOT / "config" / "projects.json"
 DEFAULT_OUTPUT = PLUGIN_ROOT / "config" / "obsidian-projects.json"
 DEFAULT_HOME = Path("/home/loucmane")
 DEFAULT_CITY = DEFAULT_HOME / "gascity" / "city"
-DEFAULT_BD = DEFAULT_HOME / "gascity" / "bin" / "bd"
+DEFAULT_GC = DEFAULT_HOME / "gascity" / "bin" / "gc"
 DEFAULT_VAULT_ROOT = DEFAULT_HOME / "vaults" / "main" / "GasCity"
 DEFAULT_OBSIDIAN = DEFAULT_HOME / ".local" / "bin" / "obsidian"
 DEFAULT_SIGNING_POLICIES = Path("/etc/gas-city-signing/signing-policies.json")
@@ -37,20 +44,32 @@ def build_payload(
     *,
     canonical_source_root: Path,
     city: Path,
-    bd: Path,
+    gc: Path,
     vault_root: Path,
     obsidian_cli: Path,
     signing_policies: Path,
     validate_roots: bool = False,
+    obsidian_sources: Path | None = None,
 ) -> dict[str, Any]:
     try:
         projects = _load_registry(workflow_registry)
+        extra, physical_roots = (
+            load_sources(obsidian_sources, projects) if obsidian_sources else ([], {})
+        )
     except ContextError as exc:
         raise BuildError(str(exc)) from exc
     rendered: list[dict[str, Any]] = []
-    for project in projects:
+    for project in projects + extra:
         root = Path(project["root"]).resolve()
-        if validate_roots:
+        if validate_roots and project in extra:
+            try:
+                if _resolve_git_root(root) != root or _canonical_git_root(root) != root:
+                    raise ContextError("display root must be the canonical Git checkout")
+            except ContextError as exc:
+                raise BuildError(
+                    f"Obsidian project {project['id']} root is invalid: {exc}"
+                ) from exc
+        if validate_roots and project not in extra:
             try:
                 context = build_context(root, workflow_registry)
             except ContextError as exc:
@@ -63,37 +82,42 @@ def build_payload(
         raw_rig_root = project.get("rig_root")
         if not isinstance(raw_rig_root, str) or not Path(raw_rig_root).is_absolute():
             raise BuildError(f"project {project_id} must declare an absolute rig_root")
-        rig_store = Path(raw_rig_root).resolve()
         output = vault_root / project_id / "Aegis"
-        rendered.append(
-            {
-                "id": project_id,
-                "enabled": True,
-                "target_dir": root.as_posix(),
-                "output_dir": output.as_posix(),
-                "bead_export_argv": [
-                    bd.resolve().as_posix(),
-                    "-C",
-                    rig_store.resolve().as_posix(),
-                    "--readonly",
-                    "list",
-                    "--all",
-                    "--limit",
-                    "0",
-                    "--json",
-                ],
-                "include_bead_content": False,
-                "freshness_sla_seconds": 180,
-                "min_interval_seconds": 10,
-                "export_timeout_seconds": 30,
-                "live_index": {
-                    "obsidian_cli": obsidian_cli.resolve().as_posix(),
-                    "vault": "main",
-                    "probe_path": f"GasCity/{project_id}/Aegis/Home.md",
-                    "timeout_seconds": 30,
-                },
-            }
-        )
+        rendered_project = {
+            "id": project_id,
+            "enabled": True,
+            "target_dir": root.as_posix(),
+            "output_dir": output.as_posix(),
+            "bead_export_argv": [
+                gc.absolute().as_posix(),
+                "--city",
+                city.resolve().as_posix(),
+                "--rig",
+                project["rig"],
+                "bd",
+                "list",
+                "--all",
+                "--limit",
+                "0",
+                "--json",
+            ],
+            "include_bead_content": False,
+            "freshness_sla_seconds": 180,
+            "min_interval_seconds": 10,
+            "export_timeout_seconds": 30,
+            "live_index": {
+                "obsidian_cli": obsidian_cli.resolve().as_posix(),
+                "vault": "main",
+                "probe_path": f"GasCity/{project_id}/Aegis/Home.md",
+                "timeout_seconds": 30,
+            },
+        }
+        if project["rig"] in physical_roots:
+            rendered_project["bead_gate_paths"] = [
+                str(Path(raw_rig_root).resolve() / ".beads.gate.lock"),
+                physical_roots[project["rig"]] + ".gate.lock",
+            ]
+        rendered.append(rendered_project)
     if not rendered:
         raise BuildError("workflow registry contains no projects")
     source_root = canonical_source_root.resolve()
@@ -148,10 +172,13 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     mode.add_argument("--write", action="store_true")
     mode.add_argument("--check", action="store_true")
     parser.add_argument("--workflow-registry", type=Path, default=DEFAULT_WORKFLOW_REGISTRY)
+    parser.add_argument(
+        "--obsidian-sources", type=Path, default=PLUGIN_ROOT / "config" / SOURCE_NAME
+    )
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--canonical-source-root", type=Path, default=DEFAULT_HOME / "gas-city-ops")
     parser.add_argument("--city", type=Path, default=DEFAULT_CITY)
-    parser.add_argument("--bd", type=Path, default=DEFAULT_BD)
+    parser.add_argument("--gc", type=Path, default=DEFAULT_GC)
     parser.add_argument("--vault-root", type=Path, default=DEFAULT_VAULT_ROOT)
     parser.add_argument("--obsidian-cli", type=Path, default=DEFAULT_OBSIDIAN)
     parser.add_argument("--signing-policies", type=Path, default=DEFAULT_SIGNING_POLICIES)
@@ -167,11 +194,12 @@ def main(argv: list[str] | None = None) -> int:
                 args.workflow_registry.resolve(),
                 canonical_source_root=args.canonical_source_root,
                 city=args.city,
-                bd=args.bd,
+                gc=args.gc,
                 vault_root=args.vault_root,
                 obsidian_cli=args.obsidian_cli,
                 signing_policies=args.signing_policies,
                 validate_roots=args.validate_roots,
+                obsidian_sources=args.obsidian_sources,
             )
         )
     except (BuildError, OSError) as exc:

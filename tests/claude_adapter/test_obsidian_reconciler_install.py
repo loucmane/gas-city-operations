@@ -49,6 +49,9 @@ def test_rendered_user_units_are_reboot_persistent_and_output_scoped(tmp_path: P
     assert f'ReadWritePaths="{home}/.local/state/aegis/obsidian-reconciler"' in service
     assert "NoNewPrivileges=true" in service
     assert "ProtectSystem=strict" in service
+    assert "ProtectHome=read-only" in service
+    assert f'Environment="GC_HOME={home}/gascity/home"' in service
+    assert 'Environment="GIT_OPTIONAL_LOCKS=0"' in service
     assert "OnBootSec=45s" in timer
     assert "OnActiveSec=60s" in timer
     assert "OnUnitInactiveSec=60s" in timer

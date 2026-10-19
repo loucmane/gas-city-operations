@@ -103,6 +103,8 @@ After=default.target
 Type=oneshot
 ExecStart={_unit_quote(runtime)} run --registry {_unit_quote(stable_registry_path)} --state-dir {_unit_quote(state)}
 Environment={_unit_quote(f"PATH={resolved_home}/gascity/bin:/usr/local/bin:/usr/bin:/bin")}
+Environment={_unit_quote(f"GC_HOME={resolved_home}/gascity/home")}
+Environment="GIT_OPTIONAL_LOCKS=0"
 UMask=0077
 NoNewPrivileges=true
 PrivateTmp=true

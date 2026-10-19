@@ -18,15 +18,21 @@
   "projects": [
     {
       "bead_export_argv": [
-        "/home/loucmane/gascity/bin/bd",
-        "-C",
-        "/home/loucmane/gascity/city/rigs/gascity",
-        "--readonly",
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gascity",
+        "bd",
         "list",
         "--all",
         "--limit",
         "0",
         "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/gascity/city/rigs/gascity/.beads.gate.lock",
+        "/home/loucmane/gascity/city/.beads/dolt.gate.lock"
       ],
       "enabled": true,
       "export_timeout_seconds": 30,
@@ -45,15 +51,21 @@
     },
     {
       "bead_export_argv": [
-        "/home/loucmane/gascity/bin/bd",
-        "-C",
-        "/home/loucmane/gascity/city/rigs/gascity",
-        "--readonly",
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gascity",
+        "bd",
         "list",
         "--all",
         "--limit",
         "0",
         "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/gascity/city/rigs/gascity/.beads.gate.lock",
+        "/home/loucmane/gascity/city/.beads/dolt.gate.lock"
       ],
       "enabled": true,
       "export_timeout_seconds": 30,
@@ -72,15 +84,21 @@
     },
     {
       "bead_export_argv": [
-        "/home/loucmane/gascity/bin/bd",
-        "-C",
-        "/home/loucmane/dev/hpfetcher-gc-main",
-        "--readonly",
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "hpfetcher",
+        "bd",
         "list",
         "--all",
         "--limit",
         "0",
         "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/dev/hpfetcher-gc-main/.beads.gate.lock",
+        "/home/loucmane/gascity/city/.beads/dolt.gate.lock"
       ],
       "enabled": true,
       "export_timeout_seconds": 30,
@@ -99,15 +117,21 @@
     },
     {
       "bead_export_argv": [
-        "/home/loucmane/gascity/bin/bd",
-        "-C",
-        "/home/loucmane/dev/blog",
-        "--readonly",
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "blog",
+        "bd",
         "list",
         "--all",
         "--limit",
         "0",
         "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/dev/blog/.beads.gate.lock",
+        "/home/loucmane/gascity/city/.beads/dolt.gate.lock"
       ],
       "enabled": true,
       "export_timeout_seconds": 30,
@@ -126,15 +150,21 @@
     },
     {
       "bead_export_argv": [
-        "/home/loucmane/gascity/bin/bd",
-        "-C",
-        "/home/loucmane/gas-city-native",
-        "--readonly",
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gas-city-template",
+        "bd",
         "list",
         "--all",
         "--limit",
         "0",
         "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/gas-city-native/.beads.gate.lock",
+        "/home/loucmane/gascity/city/.beads/dolt.gate.lock"
       ],
       "enabled": true,
       "export_timeout_seconds": 30,
@@ -150,6 +180,105 @@
       "min_interval_seconds": 10,
       "output_dir": "/home/loucmane/vaults/main/GasCity/gas-city-template/Aegis",
       "target_dir": "/home/loucmane/gas-city-template"
+    },
+    {
+      "bead_export_argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "bounty",
+        "bd",
+        "list",
+        "--all",
+        "--limit",
+        "0",
+        "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/dev/bounty/.beads.gate.lock",
+        "/home/loucmane/gascity/city/.beads/dolt.gate.lock"
+      ],
+      "enabled": true,
+      "export_timeout_seconds": 30,
+      "freshness_sla_seconds": 180,
+      "id": "bounty",
+      "include_bead_content": false,
+      "live_index": {
+        "obsidian_cli": "/home/loucmane/.local/bin/obsidian",
+        "probe_path": "GasCity/bounty/Aegis/Home.md",
+        "timeout_seconds": 30,
+        "vault": "main"
+      },
+      "min_interval_seconds": 10,
+      "output_dir": "/home/loucmane/vaults/main/GasCity/bounty/Aegis",
+      "target_dir": "/home/loucmane/dev/bounty"
+    },
+    {
+      "bead_export_argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "vernissage",
+        "bd",
+        "list",
+        "--all",
+        "--limit",
+        "0",
+        "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/dev/vernissage/.beads.gate.lock",
+        "/home/loucmane/dev/vernissage/.beads/dolt.gate.lock"
+      ],
+      "enabled": true,
+      "export_timeout_seconds": 30,
+      "freshness_sla_seconds": 180,
+      "id": "vernissage",
+      "include_bead_content": false,
+      "live_index": {
+        "obsidian_cli": "/home/loucmane/.local/bin/obsidian",
+        "probe_path": "GasCity/vernissage/Aegis/Home.md",
+        "timeout_seconds": 30,
+        "vault": "main"
+      },
+      "min_interval_seconds": 10,
+      "output_dir": "/home/loucmane/vaults/main/GasCity/vernissage/Aegis",
+      "target_dir": "/home/loucmane/dev/vernissage"
+    },
+    {
+      "bead_export_argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "harpoon",
+        "bd",
+        "list",
+        "--all",
+        "--limit",
+        "0",
+        "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/dev/harpoon/.beads.gate.lock",
+        "/home/loucmane/gascity/city/.beads/dolt.gate.lock"
+      ],
+      "enabled": true,
+      "export_timeout_seconds": 30,
+      "freshness_sla_seconds": 180,
+      "id": "harpoon",
+      "include_bead_content": false,
+      "live_index": {
+        "obsidian_cli": "/home/loucmane/.local/bin/obsidian",
+        "probe_path": "GasCity/harpoon/Aegis/Home.md",
+        "timeout_seconds": 30,
+        "vault": "main"
+      },
+      "min_interval_seconds": 10,
+      "output_dir": "/home/loucmane/vaults/main/GasCity/harpoon/Aegis",
+      "target_dir": "/home/loucmane/dev/harpoon"
     }
   ],
   "schema_version": "1"
