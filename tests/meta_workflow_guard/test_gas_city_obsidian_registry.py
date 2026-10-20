@@ -158,7 +158,53 @@ def test_descriptor_onboarding_changes_one_generated_project_entry(tmp_path: Pat
     assert project["live_index"]["probe_path"] == "GasCity/future-project/Aegis/Home.md"
 
 
-def test_registry_covers_all_eight_projects_with_explicit_rig_stores() -> None:
+def test_gas_city_hq_is_an_obsidian_only_source() -> None:
+    module = _module()
+    workflow = module._load_registry(WORKFLOW_REGISTRY)
+    sources, physical_roots = module.load_sources(OBSIDIAN_SOURCES, workflow)
+
+    assert "gas-city-hq" not in {project["id"] for project in workflow}
+    assert {project["id"] for project in sources} == {
+        "bounty", "vernissage", "harpoon", "gas-city-hq",
+    }
+    assert next(project for project in sources if project["id"] == "gas-city-hq") == {
+        "id": "gas-city-hq",
+        "root": "/home/loucmane/dev/gas-city-hq",
+        "rig_root": "/home/loucmane/dev/gas-city-hq",
+        "repository": "loucmane/gas-city-hq",
+        "rig": "gas-city-hq",
+        "base_ref": "refs/remotes/origin/main",
+        "workflow_authority": "beads",
+        "workflow_profile": "beads-with-frozen-legacy-evidence",
+    }
+    assert physical_roots["gas-city-hq"] == "/home/loucmane/dev/gas-city-hq/.beads/dolt"
+
+
+def test_adding_gas_city_hq_preserves_the_other_eight_generated_projects(tmp_path: Path) -> None:
+    module = _module()
+    sources = json.loads(OBSIDIAN_SOURCES.read_text(encoding="utf-8"))
+    sources["projects"] = [
+        project for project in sources["projects"] if project["id"] != "gas-city-hq"
+    ]
+    del sources["physical_roots"]["gas-city-hq"]
+    previous_sources = tmp_path / "obsidian-sources.json"
+    previous_sources.write_text(json.dumps(sources), encoding="utf-8")
+    previous_registry = tmp_path / "obsidian-projects.json"
+
+    assert module.main([
+        "--write", "--obsidian-sources", str(previous_sources),
+        "--output", str(previous_registry),
+    ]) == 0
+    previous = json.loads(previous_registry.read_text(encoding="utf-8"))
+    current = json.loads(OBSIDIAN_REGISTRY.read_text(encoding="utf-8"))
+    assert len(previous["projects"]) == 8
+    assert len(current["projects"]) == 9
+    assert current["projects"][-1]["id"] == "gas-city-hq"
+    current["projects"].pop()
+    assert current == previous
+
+
+def test_registry_covers_all_nine_projects_with_explicit_rig_stores() -> None:
     registry = load_registry(OBSIDIAN_REGISTRY)
     expected = {
         "gas-city-operations": "gascity",
@@ -169,8 +215,9 @@ def test_registry_covers_all_eight_projects_with_explicit_rig_stores() -> None:
         "bounty": "bounty",
         "vernissage": "vernissage",
         "harpoon": "harpoon",
+        "gas-city-hq": "gas-city-hq",
     }
     assert {project.id: project.bead_export_argv[4] for project in registry.projects} == expected
     for project in registry.projects:
-        if project.id in {"bounty", "vernissage", "harpoon"}:
+        if project.id in {"bounty", "vernissage", "harpoon", "gas-city-hq"}:
             assert project.target_dir == Path(f"/home/loucmane/dev/{project.id}")
