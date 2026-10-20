@@ -7,7 +7,8 @@
     "gas-city-template": "/home/loucmane/gascity/city/.beads/dolt",
     "bounty": "/home/loucmane/gascity/city/.beads/dolt",
     "vernissage": "/home/loucmane/dev/vernissage/.beads/dolt",
-    "harpoon": "/home/loucmane/gascity/city/.beads/dolt"
+    "harpoon": "/home/loucmane/gascity/city/.beads/dolt",
+    "gas-city-hq": "/home/loucmane/dev/gas-city-hq/.beads/dolt"
   },
   "projects": [
     {
@@ -36,6 +37,16 @@
       "rig_root": "/home/loucmane/dev/harpoon",
       "repository": "loucmane/harpoon",
       "rig": "harpoon",
+      "base_ref": "refs/remotes/origin/main",
+      "workflow_authority": "beads",
+      "workflow_profile": "beads-with-frozen-legacy-evidence"
+    },
+    {
+      "id": "gas-city-hq",
+      "root": "/home/loucmane/dev/gas-city-hq",
+      "rig_root": "/home/loucmane/dev/gas-city-hq",
+      "repository": "loucmane/gas-city-hq",
+      "rig": "gas-city-hq",
       "base_ref": "refs/remotes/origin/main",
       "workflow_authority": "beads",
       "workflow_profile": "beads-with-frozen-legacy-evidence"
