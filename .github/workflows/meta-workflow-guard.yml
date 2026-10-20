@@ -9,6 +9,9 @@ on:
       - 'templates/**'
       - 'plans/**'
       - 'sessions/**'
+      # Required by aegis.delivery-policy.json: dependency-only PRs must run it too.
+      - 'uv.lock'
+      - 'pyproject.toml'
   push:
     branches: [main]
   repository_dispatch:

@@ -266,6 +266,17 @@ def test_guard_workflows_publish_unique_required_check_contexts() -> None:
     assert meta["jobs"]["guard"]["name"] == "meta-workflow-guard"
 
 
+def test_meta_guard_runs_on_dependency_only_pull_requests() -> None:
+    """The delivery policy requires Meta Workflow Guard, so its path filter must
+    include the dependency files; otherwise a lockfile-only PR never gets the
+    check and the policy-authorized merge is skipped (ga-kdbh)."""
+    meta = _load_workflow_path(META_GUARD_WORKFLOW)
+    paths = meta[True]["pull_request"]["paths"]
+
+    assert "uv.lock" in paths
+    assert "pyproject.toml" in paths
+
+
 def test_dependabot_and_dependency_review_cover_actions_and_uv() -> None:
     dependabot = yaml.safe_load(DEPENDABOT_CONFIG.read_text(encoding="utf-8"))
     updates = dependabot["updates"]
