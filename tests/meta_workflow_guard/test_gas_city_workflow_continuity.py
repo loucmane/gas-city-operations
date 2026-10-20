@@ -1238,13 +1238,15 @@ def test_snapshot_cli_accepts_only_the_post_cycle_idle_projection() -> None:
 
 
 @pytest.mark.parametrize("offline", [False, True])
-def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_path, monkeypatch, offline):
+def test_continuity_captures_all_nine_without_expanding_workflow_policy(tmp_path, monkeypatch, offline):
     capture = _load("continuity_capture")
     config = SCRIPTS.parent / "config"
     workflow = json.loads((config / "projects.json").read_text())
     sources = json.loads((config / "obsidian-sources.json").read_text())
     assert len(workflow["projects"]) == 5
-    assert len(sources["projects"]) == 3
+    assert len(sources["projects"]) == 4
+    assert "gas-city-hq" not in {project["id"] for project in workflow["projects"]}
+    assert "gas-city-hq" in {project["id"] for project in sources["projects"]}
     template = tmp_path / "template"
     template.mkdir()
     (template / "tracked.txt").write_text("before\n")
@@ -1342,7 +1344,7 @@ def test_continuity_captures_all_eight_without_expanding_workflow_policy(tmp_pat
     assert not [marker.name for marker in markers if marker.exists()]
     assert {p["id"] for p in snapshot["projects"]} == {p["id"] for p in projects}
     assert all(p["obsidian"]["registered"] for p in snapshot["projects"])
-    assert len(snapshot["ledgers"]) == 7  # Operations and Core share gascity.
+    assert len(snapshot["ledgers"]) == 8  # Operations and Core share gascity.
     assert registry.read_bytes() == before
     if offline:
         assert snapshot["runtime"]["city"]["session_ledger"]["status"] == "unknown"

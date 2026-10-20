@@ -281,6 +281,39 @@
       "min_interval_seconds": 10,
       "output_dir": "/home/loucmane/vaults/main/GasCity/harpoon/Aegis",
       "target_dir": "/home/loucmane/dev/harpoon"
+    },
+    {
+      "bead_export_argv": [
+        "/home/loucmane/gascity/bin/gc",
+        "--city",
+        "/home/loucmane/gascity/city",
+        "--rig",
+        "gas-city-hq",
+        "bd",
+        "list",
+        "--all",
+        "--limit",
+        "0",
+        "--json"
+      ],
+      "bead_gate_paths": [
+        "/home/loucmane/dev/gas-city-hq/.beads.gate.lock",
+        "/home/loucmane/dev/gas-city-hq/.beads/dolt.gate.lock"
+      ],
+      "enabled": true,
+      "export_timeout_seconds": 30,
+      "freshness_sla_seconds": 180,
+      "id": "gas-city-hq",
+      "include_bead_content": false,
+      "live_index": {
+        "obsidian_cli": "/home/loucmane/.local/bin/obsidian",
+        "probe_path": "GasCity/gas-city-hq/Aegis/Home.md",
+        "timeout_seconds": 30,
+        "vault": "main"
+      },
+      "min_interval_seconds": 10,
+      "output_dir": "/home/loucmane/vaults/main/GasCity/gas-city-hq/Aegis",
+      "target_dir": "/home/loucmane/dev/gas-city-hq"
     }
   ],
   "schema_version": "1"

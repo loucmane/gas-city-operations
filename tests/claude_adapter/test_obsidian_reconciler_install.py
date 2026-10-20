@@ -60,6 +60,27 @@ def test_rendered_user_units_are_reboot_persistent_and_output_scoped(tmp_path: P
     assert "Persistent=true" in timer
 
 
+def test_tracked_registry_grants_write_access_to_all_nine_project_folders(tmp_path: Path) -> None:
+    assets = obsidian_install.render_assets(
+        home=tmp_path / "home",
+        registry_path=REPO_ROOT / "plugins/gas-city-workflow/config/obsidian-projects.json",
+    )
+    service = assets["aegis-obsidian-reconcile.service"].decode()
+    write_lines = {line for line in service.splitlines() if line.startswith("ReadWritePaths=")}
+    vault_root = Path("/home/loucmane/vaults/main/GasCity")
+    expected_projects = {
+        "gas-city-operations", "gas-city", "hpfetcher", "blog", "gas-city-template",
+        "bounty", "vernissage", "harpoon", "gas-city-hq",
+    }
+    assert write_lines == {
+        *(f'ReadWritePaths="{vault_root / project}"' for project in expected_projects),
+        f'ReadWritePaths="{vault_root}"',
+        f'ReadWritePaths="{tmp_path}/home/.local/state/aegis/obsidian-reconciler"',
+    }
+    assert "ProtectSystem=strict" in service
+    assert "ProtectHome=read-only" in service
+
+
 def test_runtime_archive_is_byte_deterministic(tmp_path: Path) -> None:
     first = obsidian_install.build_runtime_bytes(Path(__file__).parents[2])
     second = obsidian_install.build_runtime_bytes(Path(__file__).parents[2])
