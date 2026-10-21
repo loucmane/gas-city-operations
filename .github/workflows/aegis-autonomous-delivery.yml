@@ -19,7 +19,7 @@ jobs:
     if: >-
       github.event_name == 'pull_request_target' ||
       github.event.workflow_run.event == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     outputs:
       candidate_eligible: ${{ steps.candidate.outputs.eligible }}
@@ -234,7 +234,7 @@ jobs:
       needs.delivery.outputs.candidate_eligible == 'true' &&
       (needs.delivery.outputs.decision == 'allow' ||
        needs.delivery.outputs.decision == 'provisional')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       actions: read

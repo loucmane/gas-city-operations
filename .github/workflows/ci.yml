@@ -17,7 +17,7 @@ concurrency:
 jobs:
   classify-compatibility:
     name: Classify legacy compatibility scope
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     permissions:
       contents: read
@@ -63,7 +63,7 @@ jobs:
 
   python-tests:
     name: Python tests (${{ matrix.python-version }})
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     permissions:
       contents: read
@@ -134,7 +134,7 @@ jobs:
     name: Legacy Taskmaster compatibility
     needs: classify-compatibility
     if: needs.classify-compatibility.outputs.taskmaster == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 30
     permissions:
       contents: read

@@ -258,6 +258,16 @@ def test_workflows_are_least_privilege_bounded_and_cancel_stale_pr_runs() -> Non
     assert codex[True]["push"] == {"branches": ["main"]}
 
 
+def test_workflow_jobs_pin_the_ubuntu_runner_image() -> None:
+    """`ubuntu-latest` moved to Ubuntu 26.04, where the Obsidian smoke exec-audit
+    test fails, so required checks passed or failed by runner image (ga-q6kf).
+    Remove this pin together with the test fix (ga-3afd)."""
+    for path in WORKFLOW_PATHS:
+        workflow = _load_workflow_path(path)
+        for name, job in workflow["jobs"].items():
+            assert job["runs-on"] == "ubuntu-24.04", (path.name, name, job["runs-on"])
+
+
 def test_guard_workflows_publish_unique_required_check_contexts() -> None:
     codex = _load_workflow_path(CODEX_GUARD_WORKFLOW)
     meta = _load_workflow_path(META_GUARD_WORKFLOW)
